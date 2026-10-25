@@ -1,10 +1,9 @@
 
-"""Discord RP 角色檔案、草稿、審核、啟用與感情設定。"""
+"""Discord RP：角色資料、感情設定、審核及正式啟用。"""
 
 from __future__ import annotations
 
 import json
-import logging
 import re
 from decimal import Decimal, InvalidOperation
 
@@ -26,11 +25,12 @@ from core.permissions import (
     review_character,
     submit_character,
 )
+from core.attribute_validation import (
+    validate_initial_attributes,
+)
 
-LOG = logging.getLogger(__name__)
 
-
-# 可透過 /角色填寫 修改的欄位
+# 角色欄位
 FIELDS = {
     "姓名": "name",
     "年齡": "age",
@@ -55,8 +55,20 @@ FIELDS = {
     "其他備註": "notes",
 }
 
+REQUIRED = {
+    "gender",
+    "nationality",
+    "height_cm",
+    "weight_kg",
+    "main_track",
+    "portrait_url",
+    "portrait_source",
+    "education",
+    "languages",
+    "experience_years",
+    "biography",
+}
 
-# 官方提供的情感狀態清單
 RELATIONSHIP_STATUSES = (
     "單身",
     "有好感對象",
@@ -82,143 +94,96 @@ NO_PARTNER_STATUSES = {
 }
 
 
-# 角色送審必填欄位
-REQUIRED = (
-    "gender",
-    "nationality",
-    "height_cm",
-    "weight_kg",
-    "main_track",
-    "portrait_url",
-    "portrait_source",
-    "education",
-    "languages",
-    "experience_years",
-    "biography",
-)
-
-
-def _data(character):
-    """讀取角色的擴充資料。"""
+def read_settings(character):
     try:
-        payload = json.loads(
+        data = json.loads(
             character["settings_json"] or "{}"
         )
-    except (ValueError, TypeError):
-        payload = {}
+    except (TypeError, ValueError):
+        data = {}
 
-    if isinstance(payload, dict):
-        return payload
-
-    return {}
+    return data if isinstance(data, dict) else {}
 
 
-def _relationship_display(info: dict) -> str:
-    """將感情資料轉換為角色檔案顯示文字。"""
-
+def relationship_display(settings):
     status = str(
-        info.get("relationship_status") or ""
+        settings.get("relationship_status") or ""
     ).strip()
 
     partner = str(
-        info.get("partner_name") or ""
+        settings.get("partner_name") or ""
     ).strip()
 
     if not status and not partner:
         return "未填寫"
 
     if not partner:
-        return status
+        return status or "未填寫"
 
-    # 自由填寫伴侶姓名不代表雙方已建立正式關係
     return (
-        f"{partner}（{status or '未設定狀態'}）"
+        f"{partner}（{status or '未設定'}）"
         "〔伴侶身分待確認〕"
     )
 
 
-def _validate_value(
-    field: str,
-    raw: str,
-    age: int | None,
-):
-    """驗證角色填寫內容。"""
-
+def validate_field(field, raw, age):
     value = raw.strip()
 
     if not value:
         raise ValueError("欄位內容不可空白。")
 
-    if field == "age":
+    if field in {"age", "experience_years"}:
         try:
-            result = int(value)
+            number = int(value)
         except ValueError as exc:
             raise ValueError(
-                "年齡必須是整數。"
+                "年齡與資歷必須是整數。"
             ) from exc
 
-        if not 0 <= result <= 200:
-            raise ValueError(
-                "年齡須介於 0～200 歲。"
-            )
+        if field == "age":
+            if not 0 <= number <= 200:
+                raise ValueError(
+                    "年齡必須介於 0 至 200 歲。"
+                )
+        else:
+            if number < 0:
+                raise ValueError(
+                    "資歷不能是負數。"
+                )
+            if age is not None:
+                if number > max(0, age - 5):
+                    raise ValueError(
+                        "資歷不能超過年齡減五年。"
+                    )
 
-        return result
+        return number
 
-    if field == "experience_years":
+    if field in {"height_cm", "weight_kg"}:
         try:
-            result = int(value)
-        except ValueError as exc:
-            raise ValueError(
-                "資歷年數必須是整數。"
-            ) from exc
-
-        if result < 0:
-            raise ValueError(
-                "資歷年數不可小於零。"
-            )
-
-        if (
-            age is not None
-            and result > max(0, age - 5)
-        ):
-            raise ValueError(
-                "資歷不得超過角色年齡減五年。"
-            )
-
-        return result
-
-    if field in ("height_cm", "weight_kg"):
-        try:
-            result = Decimal(value)
+            number = Decimal(value)
         except InvalidOperation as exc:
             raise ValueError(
-                "身高或體重必須是數字。"
+                "身高與體重必須是數字。"
             ) from exc
 
         if (
-            not result.is_finite()
-            or result <= 0
-            or result > 500
+            not number.is_finite()
+            or number <= 0
+            or number > 500
         ):
             raise ValueError(
-                "身高或體重必須是合理的正數。"
+                "身高或體重數值不合法。"
             )
 
-        return str(result)
-
-    if field == "name":
-        if len(value) > 100:
-            raise ValueError(
-                "角色姓名不得超過 100 字。"
-            )
+        return str(number)
 
     if field == "color_hex":
         if not re.fullmatch(
-            r"#[0-9A-Fa-f]{6}",
-            value
+            r"#[0-9a-fA-F]{6}",
+            value,
         ):
             raise ValueError(
-                "代表色碼格式應為 #FFEBC5。"
+                "代表色碼請使用 #FFEBC5 格式。"
             )
 
     if field == "portrait_url":
@@ -226,82 +191,64 @@ def _validate_value(
             ("https://", "http://")
         ):
             raise ValueError(
-                "立繪網址必須以 http:// "
-                "或 https:// 開頭。"
+                "立繪必須提供有效網址格式。"
             )
 
-    large_fields = {
-        "biography",
-        "special_notes",
-        "notes",
-    }
-
-    limit = (
-        2000 if field in large_fields else 500
+    max_length = (
+        2000
+        if field in {
+            "biography",
+            "special_notes",
+            "notes",
+        }
+        else 500
     )
 
-    if len(value) > limit:
+    if field in {"name", "occupation"}:
+        max_length = 100
+
+    if len(value) > max_length:
         raise ValueError(
-            f"欄位內容不可超過 {limit} 字。"
+            f"這個欄位最多 {max_length} 字。"
         )
 
     return value
 
 
-def _submission_missing(character):
-    """檢查角色送審前缺少的資料。"""
-
-    data = _data(character)
+def missing_fields(character):
+    settings = read_settings(character)
     missing = []
 
-    for label, key in FIELDS.items():
-        if key not in REQUIRED:
-            continue
+    if not character["name"]:
+        missing.append("姓名")
 
-        if data.get(key) in (None, ""):
-            missing.append(label)
+    if character["age"] is None:
+        missing.append("年齡")
+
+    if not character["occupation"]:
+        missing.append("職業")
+
+    for label, field in FIELDS.items():
+        if field in REQUIRED:
+            if settings.get(field) in ("", None):
+                missing.append(label)
+
+    experience = settings.get("experience_years")
 
     if (
-        not character["name"]
-        or character["age"] is None
-        or not character["occupation"]
+        type(experience) is int
+        and character["age"] is not None
+        and experience > max(
+            0,
+            character["age"] - 5,
+        )
     ):
-        missing.append("姓名／年齡／職業")
+        missing.append("資歷與年齡不符")
 
     return missing
 
 
-def _actor(interaction: discord.Interaction):
-    return Actor.from_interaction(interaction)
-
-
-async def _reply(
-    interaction: discord.Interaction,
-    message: str,
-):
-    """所有角色資料預設私人回覆。"""
-
-    if interaction.response.is_done():
-        await interaction.followup.send(
-            message[:1900],
-            ephemeral=True,
-        )
-    else:
-        await interaction.response.send_message(
-            message[:1900],
-            ephemeral=True,
-        )
-
-
-def _audit(
-    conn,
-    actor: Actor,
-    action: str,
-    target_id: int,
-    payload: dict,
-):
-    """記錄角色資料變更。"""
-
+def audit(conn, actor, action, character_id, details):
     conn.execute(
         """
         INSERT INTO audit_events (
@@ -317,9 +264,9 @@ def _audit(
             actor.guild_id,
             actor.user_id,
             action,
-            f"character:{target_id}",
+            f"character:{character_id}",
             json.dumps(
-                payload,
+                details,
                 ensure_ascii=False,
                 sort_keys=True,
             ),
@@ -327,21 +274,28 @@ def _audit(
     )
 
 
+async def reply(interaction, message):
+    text = str(message)[:1900]
+
+    if interaction.response.is_done():
+        await interaction.followup.send(
+            text,
+            ephemeral=True,
+        )
+    else:
+        await interaction.response.send_message(
+            text,
+            ephemeral=True,
+        )
+
+
 class Profile(commands.Cog):
-
-    def __init__(
-        self,
-        bot: commands.Bot,
-    ):
+    def __init__(self, bot):
         self.bot = bot
-
-    # ==========================
-    # 建立角色
-    # ==========================
 
     @app_commands.command(
         name="建立角色",
-        description="建立新的角色草稿",
+        description="建立角色草稿",
     )
     @app_commands.describe(
         name="角色姓名",
@@ -356,46 +310,39 @@ class Profile(commands.Cog):
         occupation: str,
     ):
         try:
-            _actor(interaction)
-
-            if not name.strip():
-                raise ValueError(
-                    "角色姓名不可空白。"
-                )
-
-            if len(name.strip()) > 100:
-                raise ValueError(
-                    "角色姓名過長。"
-                )
-
-            if not occupation.strip():
-                raise ValueError(
-                    "角色職業不可空白。"
-                )
-
-            if len(occupation.strip()) > 100:
-                raise ValueError(
-                    "職業名稱過長。"
-                )
-
-            character_id = create_character(
-                interaction.guild_id,
-                interaction.user.id,
-                name.strip(),
-                age,
-                occupation.strip(),
+            actor = Actor.from_interaction(
+                interaction
             )
 
-            await _reply(
+            name = validate_field(
+                "name",
+                name,
+                age,
+            )
+
+            occupation = validate_field(
+                "occupation",
+                occupation,
+                age,
+            )
+
+            character_id = create_character(
+                actor.guild_id,
+                actor.user_id,
+                name,
+                age,
+                occupation,
+            )
+
+            await reply(
                 interaction,
                 (
-                    f"✅ 角色草稿 #{character_id} "
-                    f"已建立：{name}\n"
-                    "請使用 /角色填寫 "
-                    "補齊角色資料。\n"
-                    "情感狀態可使用 /感情設定。\n"
-                    "草稿必須經過雙重審核，"
-                    "再由玩家確認啟用。"
+                    f"✅ 已建立角色草稿 #{character_id}\n"
+                    f"姓名：{name}\n"
+                    f"年齡：{age}\n"
+                    f"職業：{occupation}\n\n"
+                    "接下來請填寫完整檔案，"
+                    "並完成初始配點。"
                 ),
             )
 
@@ -404,76 +351,63 @@ class Profile(commands.Cog):
             PermissionDenied,
             InvalidState,
         ) as exc:
-            await _reply(
-                interaction,
-                f"⚠️ {exc}",
-            )
-
-    # ==========================
-    # 我的角色
-    # ==========================
+            await reply(interaction, f"⚠️ {exc}")
 
     @app_commands.command(
         name="角色",
-        description="查看自己持有的角色",
+        description="查看自己擁有的角色",
     )
     async def list_profiles(
         self,
         interaction: discord.Interaction,
     ):
         try:
-            actor = _actor(interaction)
+            actor = Actor.from_interaction(
+                interaction
+            )
 
-            rows = get_characters(
+            characters = get_characters(
                 actor.guild_id,
                 actor.user_id,
             )
 
-            rows = [
-                row
-                for row in rows
-                if row["status"] != "deleted"
+            characters = [
+                character
+                for character in characters
+                if character["status"] != "deleted"
             ]
 
-            if not rows:
-                await _reply(
+            if not characters:
+                await reply(
                     interaction,
-                    "你目前沒有角色，"
-                    "請使用 /建立角色。",
+                    "尚未建立角色。",
                 )
                 return
 
             lines = []
 
-            for row in rows[:25]:
+            for character in characters[:25]:
                 lines.append(
-                    f"#{row['id']}｜"
-                    f"{row['name']}｜"
-                    f"{row['occupation']}｜"
-                    f"{row['status']}｜"
-                    f"體力：{row['stamina']}/"
-                    f"{row['max_stamina']}"
+                    f"#{character['id']} "
+                    f"{character['name']}\n"
+                    f"職業：{character['occupation']}\n"
+                    f"狀態：{character['status']}\n"
+                    f"體力：{character['stamina']}/"
+                    f"{character['max_stamina']}"
                 )
 
-            await _reply(
+            await reply(
                 interaction,
-                "📋 **我的角色**\n"
-                + "\n".join(lines),
+                "📋 **我的角色**\n\n"
+                + "\n\n".join(lines),
             )
 
         except PermissionDenied as exc:
-            await _reply(
-                interaction,
-                f"⚠️ {exc}",
-            )
-
-    # ==========================
-    # 填寫角色
-    # ==========================
+            await reply(interaction, f"⚠️ {exc}")
 
     @app_commands.command(
         name="角色填寫",
-        description="修改角色草稿的一項資料",
+        description="修改角色草稿資料",
     )
     @app_commands.describe(
         character_id="角色編號",
@@ -497,19 +431,30 @@ class Profile(commands.Cog):
         value: str,
     ):
         try:
-            actor = _actor(interaction)
-
-            key = FIELDS.get(
-                field.value
+            actor = Actor.from_interaction(
+                interaction
             )
+
+            key = FIELDS.get(field.value)
 
             if key is None:
                 raise ValueError(
-                    "不支援的角色欄位。"
+                    "不支援的欄位。"
+                )
+
+            # 主、副賽道必須由初始配點指令設定，
+            # 避免與配點紀錄不一致。
+            if key in {
+                "main_track",
+                "secondary_track",
+            }:
+                raise InvalidState(
+                    "主、副賽道請使用 /初始配點 "
+                    "一起設定，不能單獨修改。"
                 )
 
             with transaction() as conn:
-                row = conn.execute(
+                character = conn.execute(
                     """
                     SELECT *
                     FROM characters
@@ -523,25 +468,25 @@ class Profile(commands.Cog):
                 ).fetchone()
 
                 if (
-                    row is None
-                    or row["owner_id"] != actor.user_id
-                    or row["character_type"] != "player"
+                    character is None
+                    or character["owner_id"]
+                    != actor.user_id
+                    or character["character_type"]
+                    != "player"
                 ):
                     raise PermissionDenied(
-                        "只能修改自己的玩家角色。"
+                        "只能修改自己擁有的角色。"
                     )
 
-                if row["status"] != "draft":
+                if character["status"] != "draft":
                     raise InvalidState(
-                        "目前只能直接修改草稿。"
-                        "送審後的重大修改"
-                        "須遵循審核流程。"
+                        "只有草稿可以直接編輯。"
                     )
 
-                parsed = _validate_value(
+                parsed = validate_field(
                     key,
                     value,
-                    row["age"],
+                    character["age"],
                 )
 
                 if key in {
@@ -549,6 +494,24 @@ class Profile(commands.Cog):
                     "age",
                     "occupation",
                 }:
+                    if key == "age":
+                        settings = read_settings(
+                            character
+                        )
+                        experience = settings.get(
+                            "experience_years"
+                        )
+
+                        if (
+                            type(experience) is int
+                            and experience
+                            > max(0, parsed - 5)
+                        ):
+                            raise InvalidState(
+                                "新年齡與已有資歷不符，"
+                                "請先調整資歷。"
+                            )
+
                     conn.execute(
                         f"""
                         UPDATE characters
@@ -565,9 +528,10 @@ class Profile(commands.Cog):
                     )
 
                 else:
-                    info = _data(row)
-
-                    info[key] = parsed
+                    settings = read_settings(
+                        character
+                    )
+                    settings[key] = parsed
 
                     conn.execute(
                         """
@@ -579,7 +543,7 @@ class Profile(commands.Cog):
                         """,
                         (
                             json.dumps(
-                                info,
+                                settings,
                                 ensure_ascii=False,
                             ),
                             actor.guild_id,
@@ -587,7 +551,7 @@ class Profile(commands.Cog):
                         ),
                     )
 
-                _audit(
+                audit(
                     conn,
                     actor,
                     "character.edit",
@@ -595,37 +559,26 @@ class Profile(commands.Cog):
                     {"field": key},
                 )
 
-            await _reply(
+            await reply(
                 interaction,
-                (
-                    f"✅ 角色 #{character_id} "
-                    f"的「{field.value}」"
-                    "已儲存。"
-                ),
+                f"✅ 已更新「{field.value}」。",
             )
 
         except (
+            ValueError,
             PermissionDenied,
             InvalidState,
-            ValueError,
         ) as exc:
-            await _reply(
-                interaction,
-                f"⚠️ {exc}",
-            )
-
-    # ==========================
-    # 感情設定
-    # ==========================
+            await reply(interaction, f"⚠️ {exc}")
 
     @app_commands.command(
         name="感情設定",
-        description="設定角色的情感狀態與伴侶姓名",
+        description="選擇情感狀態及伴侶姓名",
     )
     @app_commands.describe(
         character_id="自己的角色編號",
-        status="選擇官方情感狀態",
-        partner="伴侶姓名，沒有可以留空",
+        status="官方情感狀態",
+        partner="伴侶姓名，可留空",
     )
     @app_commands.choices(
         status=[
@@ -650,34 +603,31 @@ class Profile(commands.Cog):
         partner: str | None = None,
     ):
         try:
-            actor = _actor(interaction)
+            actor = Actor.from_interaction(
+                interaction
+            )
 
             selected = status.value
+            partner_name = (partner or "").strip()
 
             if (
                 selected != "__clear__"
                 and selected not in RELATIONSHIP_STATUSES
             ):
                 raise ValueError(
-                    "請從官方選單選擇情感狀態。"
+                    "請選擇官方情感狀態。"
                 )
-
-            partner_name = (
-                partner or ""
-            ).strip()
 
             if len(partner_name) > 100:
                 raise ValueError(
-                    "伴侶姓名不得超過100字。"
+                    "伴侶姓名不能超過100字。"
                 )
 
             if selected == "__clear__":
                 if partner_name:
                     raise ValueError(
-                        "清空狀態時，"
-                        "請不要同時輸入伴侶姓名。"
+                        "清空狀態時請勿填寫伴侶。"
                     )
-
                 partner_name = ""
 
             if (
@@ -685,12 +635,11 @@ class Profile(commands.Cog):
                 and selected in NO_PARTNER_STATUSES
             ):
                 raise ValueError(
-                    "目前的情感狀態"
-                    "不適合填寫現任伴侶姓名。"
+                    "此狀態不適合填寫現任伴侶。"
                 )
 
             with transaction() as conn:
-                row = conn.execute(
+                character = conn.execute(
                     """
                     SELECT *
                     FROM characters
@@ -704,30 +653,30 @@ class Profile(commands.Cog):
                 ).fetchone()
 
                 if (
-                    row is None
-                    or row["owner_id"] != actor.user_id
-                    or row["character_type"] != "player"
+                    character is None
+                    or character["owner_id"]
+                    != actor.user_id
+                    or character["character_type"]
+                    != "player"
                 ):
                     raise PermissionDenied(
-                        "只能設定自己的玩家角色。"
+                        "只能設定自己的角色。"
                     )
 
-                if row["status"] != "draft":
+                if character["status"] != "draft":
                     raise InvalidState(
-                        "目前只能編輯草稿感情資料。"
                         "正式角色的公開關係變更"
-                        "需要遵循審核流程。"
+                        "必須另外審核。"
                     )
 
-                info = _data(row)
+                settings = read_settings(character)
 
-                info["relationship_status"] = (
+                settings["relationship_status"] = (
                     ""
                     if selected == "__clear__"
                     else selected
                 )
-
-                info["partner_name"] = partner_name
+                settings["partner_name"] = partner_name
 
                 conn.execute(
                     """
@@ -739,7 +688,7 @@ class Profile(commands.Cog):
                     """,
                     (
                         json.dumps(
-                            info,
+                            settings,
                             ensure_ascii=False,
                         ),
                         actor.guild_id,
@@ -747,13 +696,13 @@ class Profile(commands.Cog):
                     ),
                 )
 
-                _audit(
+                audit(
                     conn,
                     actor,
                     "character.relationship.edit",
                     character_id,
                     {
-                        "status": info[
+                        "status": settings[
                             "relationship_status"
                         ],
                         "partner_proposed": bool(
@@ -762,36 +711,26 @@ class Profile(commands.Cog):
                     },
                 )
 
-            await _reply(
+            await reply(
                 interaction,
-                (
-                    f"✅ 角色 #{character_id} "
-                    "感情資料已儲存。\n"
-                    "情感狀態："
-                    f"{_relationship_display(info)}"
-                ),
+                "✅ 感情資料已儲存。\n"
+                "情感狀態："
+                + relationship_display(settings),
             )
 
         except (
+            ValueError,
             PermissionDenied,
             InvalidState,
-            ValueError,
         ) as exc:
-            await _reply(
-                interaction,
-                f"⚠️ {exc}",
-            )
-
-    # ==========================
-    # 完整角色檔案
-    # ==========================
+            await reply(interaction, f"⚠️ {exc}")
 
     @app_commands.command(
         name="角色檔案",
-        description="查看角色詳細資料",
+        description="查看有權檢視的角色詳細資料",
     )
     @app_commands.describe(
-        character_id="角色編號"
+        character_id="角色編號",
     )
     async def profile_detail(
         self,
@@ -799,49 +738,48 @@ class Profile(commands.Cog):
         character_id: int,
     ):
         try:
-            actor = _actor(interaction)
+            actor = Actor.from_interaction(
+                interaction
+            )
 
-            row = require_character_visible(
+            character = require_character_visible(
                 actor,
                 character_id,
             )
 
-            data = _data(row)
+            settings = read_settings(character)
 
             lines = [
-                f"📄 **#{row['id']} "
-                f"{row['name']}**",
-                (
-                    f"狀態：{row['status']}\n"
-                    f"年齡：{row['age']}\n"
-                    f"職業：{row['occupation']}"
-                ),
+                f"📄 **角色 #{character['id']}**",
+                f"姓名：{character['name']}",
+                f"年齡：{character['age']}",
+                f"職業：{character['occupation']}",
+                f"狀態：{character['status']}",
             ]
 
-            for label, key in FIELDS.items():
-                if key in {
+            for label, field in FIELDS.items():
+                if field in {
                     "name",
                     "age",
                     "occupation",
                 }:
                     continue
 
-                value = data.get(
-                    key,
-                    "未填",
-                )
+                value = settings.get(field)
+
+                if value in ("", None):
+                    value = "未填寫"
 
                 lines.append(
-                    f"{label}："
-                    f"{str(value)[:120]}"
+                    f"{label}：{str(value)[:100]}"
                 )
 
             lines.append(
                 "情感狀態："
-                + _relationship_display(data)
+                + relationship_display(settings)
             )
 
-            missing = _submission_missing(row)
+            missing = missing_fields(character)
 
             if missing:
                 lines.append(
@@ -849,7 +787,7 @@ class Profile(commands.Cog):
                     + "、".join(missing)
                 )
 
-            await _reply(
+            await reply(
                 interaction,
                 "\n".join(lines),
             )
@@ -858,18 +796,11 @@ class Profile(commands.Cog):
             PermissionDenied,
             InvalidState,
         ) as exc:
-            await _reply(
-                interaction,
-                f"⚠️ {exc}",
-            )
-
-    # ==========================
-    # 角色送審
-    # ==========================
+            await reply(interaction, f"⚠️ {exc}")
 
     @app_commands.command(
         name="角色送審",
-        description="將完整角色草稿送交第一審",
+        description="提交角色進入第一階段審核",
     )
     @app_commands.describe(
         character_id="角色編號",
@@ -880,51 +811,53 @@ class Profile(commands.Cog):
         character_id: int,
     ):
         try:
-            actor = _actor(interaction)
+            actor = Actor.from_interaction(
+                interaction
+            )
 
-            row = require_character_owner(
+            character = require_character_owner(
                 actor,
                 character_id,
             )
 
-            missing = _submission_missing(row)
+            missing = missing_fields(character)
 
             if missing:
                 raise InvalidState(
-                    "以下必填資料尚未完成："
+                    "必填資料尚未完成："
                     + "、".join(missing)
                 )
 
-            new_status = submit_character(
+            # 送審前先驗證配點；啟用時還會
+            # 在同一資料庫交易中再次驗證。
+            with transaction() as conn:
+                validate_initial_attributes(
+                    conn,
+                    actor.guild_id,
+                    character_id,
+                )
+
+            status = submit_character(
                 actor,
                 character_id,
             )
 
-            await _reply(
+            await reply(
                 interaction,
-                (
-                    f"✅ 角色 #{character_id} "
-                    f"已送審。\n"
-                    f"目前狀態：{new_status}"
-                ),
+                f"✅ 角色 #{character_id} "
+                f"已送審。\n狀態：{status}",
             )
 
         except (
             PermissionDenied,
             InvalidState,
+            ValueError,
         ) as exc:
-            await _reply(
-                interaction,
-                f"⚠️ {exc}",
-            )
-
-    # ==========================
-    # 雙重審核
-    # ==========================
+            await reply(interaction, f"⚠️ {exc}")
 
     @app_commands.command(
         name="角色審核",
-        description="管理員審核角色",
+        description="管理員執行第一審、第二審或退件",
     )
     @app_commands.describe(
         character_id="角色編號",
@@ -939,7 +872,9 @@ class Profile(commands.Cog):
         reason: str = "",
     ):
         try:
-            actor = _actor(interaction)
+            actor = Actor.from_interaction(
+                interaction
+            )
 
             status = review_character(
                 actor,
@@ -948,13 +883,10 @@ class Profile(commands.Cog):
                 reason=reason,
             )
 
-            await _reply(
+            await reply(
                 interaction,
-                (
-                    f"✅ 角色 #{character_id} "
-                    "審核處理完成。\n"
-                    f"目前狀態：{status}"
-                ),
+                f"✅ 角色 #{character_id} "
+                f"審核完成。\n目前狀態：{status}",
             )
 
         except (
@@ -962,18 +894,11 @@ class Profile(commands.Cog):
             InvalidState,
             ValueError,
         ) as exc:
-            await _reply(
-                interaction,
-                f"⚠️ {exc}",
-            )
-
-    # ==========================
-    # 確認正式啟用
-    # ==========================
+            await reply(interaction, f"⚠️ {exc}")
 
     @app_commands.command(
         name="角色啟用",
-        description="二審通過後確認啟用角色",
+        description="二審通過後由玩家確認正式啟用",
     )
     @app_commands.describe(
         character_id="角色編號",
@@ -984,10 +909,12 @@ class Profile(commands.Cog):
         character_id: int,
     ):
         try:
-            actor = _actor(interaction)
+            actor = Actor.from_interaction(
+                interaction
+            )
 
             with transaction() as conn:
-                row = conn.execute(
+                character = conn.execute(
                     """
                     SELECT *
                     FROM characters
@@ -1000,44 +927,41 @@ class Profile(commands.Cog):
                     ),
                 ).fetchone()
 
+                if character is None:
+                    raise InvalidState(
+                        "角色不存在。"
+                    )
+
                 if (
-                    row is None
-                    or row["owner_id"] != actor.user_id
-                    or row["character_type"] != "player"
+                    character["owner_id"]
+                    != actor.user_id
+                    or character["character_type"]
+                    != "player"
                 ):
                     raise PermissionDenied(
-                        "只有角色擁有者"
-                        "可以確認啟用。"
+                        "只有角色擁有者可以啟用。"
                     )
 
-                if row["status"] != "approved":
+                if character["status"] != "approved":
                     raise InvalidState(
-                        "只有通過二審的角色"
-                        "可以正式啟用。"
+                        "角色必須先通過兩階段審核。"
                     )
 
-                count = conn.execute(
-                    """
-                    SELECT COUNT(*) AS n
-                    FROM attributes
-                    WHERE guild_id = ?
-                      AND character_id = ?
-                    """,
-                    (
-                        actor.guild_id,
-                        character_id,
-                    ),
-                ).fetchone()["n"]
+                missing = missing_fields(character)
 
-                if count < 13:
+                if missing:
                     raise InvalidState(
-                        "角色尚未完成十三項"
-                        "初始屬性建檔，"
-                        "目前不能正式啟用。"
+                        "角色必填資料不完整："
+                        + "、".join(missing)
                     )
 
-                # 正式配點池與賽道加成合法性，
-                # 仍須由獨立 attributes 模組驗證。
+                # 關鍵：在同一筆交易中驗證屬性、
+                # 更新狀態，避免檢查後被插隊修改。
+                validation = validate_initial_attributes(
+                    conn,
+                    actor.guild_id,
+                    character_id,
+                )
 
                 result = conn.execute(
                     """
@@ -1056,11 +980,10 @@ class Profile(commands.Cog):
 
                 if result.rowcount != 1:
                     raise InvalidState(
-                        "角色狀態已變更，"
-                        "請重新確認。"
+                        "角色狀態已變更，請重試。"
                     )
 
-                _audit(
+                audit(
                     conn,
                     actor,
                     "character.activate",
@@ -1068,25 +991,34 @@ class Profile(commands.Cog):
                     {
                         "from": "approved",
                         "to": "active",
+                        "schema_version": validation[
+                            "schema_version"
+                        ],
+                        "main_track": validation[
+                            "main_track"
+                        ],
+                        "secondary_track": validation[
+                            "secondary_track"
+                        ],
                     },
                 )
 
-            await _reply(
+            await reply(
                 interaction,
                 (
                     f"🎉 角色 #{character_id} "
-                    "已正式啟用！"
+                    "已正式啟用！\n"
+                    "初始屬性驗證：通過\n"
+                    "雙重審核：通過"
                 ),
             )
 
         except (
             PermissionDenied,
             InvalidState,
+            ValueError,
         ) as exc:
-            await _reply(
-                interaction,
-                f"⚠️ {exc}",
-            )
+            await reply(interaction, f"⚠️ {exc}")
 
 
 async def setup(bot: commands.Bot):
