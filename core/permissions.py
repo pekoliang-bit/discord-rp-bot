@@ -277,7 +277,7 @@ def submit_character(
         changed = conn.execute(
             """
             UPDATE characters
-            SET status = 'pending_review_1',
+            SET status = 'review_1',
                 version = version + 1
             WHERE guild_id = ?
               AND id = ?
@@ -322,7 +322,7 @@ def submit_character(
             "character.submit",
             character_id,
             {
-                "status": "pending_review_1",
+                "status": "review_1",
             },
         )
 
@@ -374,8 +374,8 @@ def review_character(
         old_status = character["status"]
 
         if old_status not in (
-            "pending_review_1",
-            "pending_review_2",
+            "review_1",
+            "review_2",
         ):
             raise InvalidState(
                 "這名角色目前不在待審核狀態。"
@@ -402,8 +402,8 @@ def review_character(
         if not approve:
             new_status = "draft"
 
-        elif old_status == "pending_review_1":
-            new_status = "pending_review_2"
+        elif old_status == "review_1":
+            new_status = "review_2"
 
         else:
             if not progress["first_reviewer"]:
@@ -440,7 +440,7 @@ def review_character(
                 "角色狀態已變更，請重新審核。"
             )
 
-        if approve and old_status == "pending_review_1":
+        if approve and old_status == "review_1":
             conn.execute(
                 """
                 UPDATE character_review_progress
@@ -487,7 +487,7 @@ def review_character(
 
         descriptions = {
             "draft": "審核未通過，已退回草稿",
-            "pending_review_2": "第一審通過，等待第二審",
+            "review_2": "第一審通過，等待第二審",
             "approved": "雙重審核通過，等待玩家確認啟用",
         }
 
