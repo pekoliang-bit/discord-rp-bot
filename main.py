@@ -22,20 +22,49 @@ BASE_DIR = Path(__file__).resolve().parent
 MODULES_DIR = BASE_DIR / "modules"
 
 
+
 def discover_extensions():
-    """自動尋找 modules 資料夾內的 Discord Cog 模組。"""
+    """自動尋找模組，並依照依賴關係載入。"""
+
     if not MODULES_DIR.is_dir():
-        raise RuntimeError("找不到 modules 資料夾")
+        raise RuntimeError(
+            "找不到 modules 資料夾"
+        )
 
     extensions = []
 
-    for path in sorted(MODULES_DIR.glob("*.py")):
+    for path in sorted(
+        MODULES_DIR.glob("*.py")
+    ):
         if path.name.startswith("_"):
             continue
 
-        extensions.append(f"modules.{path.stem}")
+        extensions.append(
+            f"modules.{path.stem}"
+        )
 
-    return extensions
+    # 這些模組需要依照指定順序載入。
+    # shop 必須先建立 /管理 指令群組。
+    priority = [
+        "modules.shop",
+        "modules.player_shops",
+        "modules.storefront",
+        "modules.shop_integration",
+    ]
+
+    # 先載入沒有特殊順序要求的模組。
+    ordered = [
+        name
+        for name in extensions
+        if name not in priority
+    ]
+
+    # 再依正確順序載入商城相關模組。
+    for name in priority:
+        if name in extensions:
+            ordered.append(name)
+
+    return ordered
 
 
 class RPBot(commands.Bot):
