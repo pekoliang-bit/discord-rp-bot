@@ -1,5 +1,15 @@
 
-"""Discord RP 角色初始屬性及雙配點池系統。"""
+"""Discord RP：十三項屬性及雙配點池系統。
+
+一般屬性池：500點
+藝能屬性池：500點
+初始配點上限：150（額外賽道加成可突破）
+
+自動提供官方預設十三項屬性。
+既有伺服器設定不會被覆蓋。
+"""
+
+from __future__ import annotations
 
 import json
 import logging
@@ -28,24 +38,108 @@ CREATE_CAP = 150
 TOTAL_ATTRIBUTES = 13
 
 
+# ===== 官方預設十三項屬性 =====
+
+DEFAULT_GENERAL_ATTRIBUTES = [
+    "流量熱度",
+    "商業價值",
+    "路人緣",
+    "公關",
+    "影響指數",
+]
+
+DEFAULT_TALENT_ATTRIBUTES = [
+    "容貌",
+    "才智",
+    "歌唱",
+    "舞蹈",
+    "演繹",
+    "主持",
+    "綜藝",
+    "個人才藝",
+]
+
+
+def default_schema() -> dict:
+    return {
+        "general": list(DEFAULT_GENERAL_ATTRIBUTES),
+        "talent": list(DEFAULT_TALENT_ATTRIBUTES),
+        "version": 1,
+    }
+
+
 def parse_names(raw: str) -> list[str]:
     names = [
         name.strip()
         for name in raw.replace("，", ",").split(",")
     ]
 
-    if any(not name or len(name) > 30 for name in names):
+    if any(
+        not name or len(name) > 30
+        for name in names
+    ):
         raise ValueError(
-            "屬性名稱不得空白，每項最多 30 字。"
+            "屬性名稱不得空白，每項最多30字。"
         )
 
     if len(names) != len(set(names)):
-        raise ValueError("屬性名稱不得重複。")
+        raise ValueError(
+            "屬性名稱不得重複。"
+        )
 
     return names
 
 
-def load_schema(conn, guild_id: str) -> dict:
+def validate_schema(schema: dict) -> dict:
+    if not isinstance(schema, dict):
+        raise InvalidState(
+            "官方屬性資料格式不正確。"
+        )
+
+    general = schema.get("general")
+    talent = schema.get("talent")
+
+    if (
+        not isinstance(general, list)
+        or not isinstance(talent, list)
+        or not general
+        or not talent
+    ):
+        raise InvalidState(
+            "一般池或藝能池的設定不正確。"
+        )
+
+    names = general + talent
+
+    if len(names) != TOTAL_ATTRIBUTES:
+        raise InvalidState(
+            "兩個配點池必須合計十三項屬性。"
+        )
+
+    if any(
+        not isinstance(name, str)
+        or not name.strip()
+        or len(name) > 30
+        for name in names
+    ):
+        raise InvalidState(
+            "存在無效的屬性名稱。"
+        )
+
+    if len(set(names)) != TOTAL_ATTRIBUTES:
+        raise InvalidState(
+            "屬性名稱不能重複。"
+        )
+
+    return schema
+
+
+def load_schema(
+    conn,
+    guild_id: str,
+) -> dict:
+    """讀取官方設定；若尚未設定，提供預設值。"""
+
     row = conn.execute(
         """
         SELECT data_json
@@ -56,33 +150,85 @@ def load_schema(conn, guild_id: str) -> dict:
         ORDER BY id DESC
         LIMIT 1
         """,
-        (guild_id,),
+        (str(guild_id),),
     ).fetchone()
 
     if row is None:
+        return default_schema()
+
+    try:
+        schema = json.loads(row["data_json"])
+    except (TypeError, ValueError) as exc:
         raise InvalidState(
-            "管理員尚未設定官方十三項屬性。"
+            "官方屬性資料損壞，請聯絡管理員。"
+        ) from exc
+
+    return validate_schema(schema)
+
+
+def ensure_default_schema(
+    conn,
+    guild_id: str,
+):
+    """在可寫入的資料庫交易中保存預設屬性。"""
+
+    row = conn.execute(
+        """
+        SELECT id
+        FROM module_records
+        WHERE guild_id = ?
+          AND module = 'attributes'
+          AND record_type = 'official_schema'
+        LIMIT 1
+        """,
+        (str(guild_id),),
+    ).fetchone()
+
+    if row is not None:
+        return
+
+    schema = default_schema()
+
+    conn.execute(
+        """
+        INSERT OR IGNORE INTO guilds (guild_id)
+        VALUES (?)
+        """,
+        (str(guild_id),),
+    )
+
+    conn.execute(
+        """
+        INSERT INTO module_records (
+            guild_id,
+            module,
+            owner_id,
+            record_type,
+            data_json
         )
+        VALUES (?, 'attributes', 'system',
+                'official_schema', ?)
+        """,
+        (
+            str(guild_id),
+            json.dumps(
+                schema,
+                ensure_ascii=False,
+            ),
+        ),
+    )
 
-    schema = json.loads(row["data_json"])
-
-    if (
-        len(schema["general"])
-        + len(schema["talent"])
-        != TOTAL_ATTRIBUTES
-    ):
-        raise InvalidState(
-            "官方屬性清單不完整。"
-        )
-
-    return schema
+    LOG.info(
+        "伺服器 %s 已建立預設十三項屬性",
+        guild_id,
+    )
 
 
 def parse_allocation(
     raw: str,
     expected_names: list[str],
 ) -> dict:
-    """依官方清單順序讀取各項配點。"""
+    """支援 JSON 或依順序輸入的配點。"""
 
     raw = raw.strip()
 
@@ -96,7 +242,7 @@ def parse_allocation(
 
         if not isinstance(values, dict):
             raise ValueError(
-                "JSON 配點必須是屬性名稱與數值的對應表。"
+                "JSON 配點必須使用名稱與數值對應。"
             )
 
         return values
@@ -108,18 +254,23 @@ def parse_allocation(
 
     if len(pieces) != len(expected_names):
         raise ValueError(
-            f"這個配點池需要輸入 "
-            f"{len(expected_names)} 個整數。"
+            f"此配點池需要輸入"
+            f"{len(expected_names)}個整數。"
         )
 
     try:
-        numbers = [int(item) for item in pieces]
+        numbers = [
+            int(item)
+            for item in pieces
+        ]
     except ValueError as exc:
         raise ValueError(
             "每項配點都必須是整數。"
         ) from exc
 
-    return dict(zip(expected_names, numbers))
+    return dict(
+        zip(expected_names, numbers)
+    )
 
 
 def calculate_initial(
@@ -129,10 +280,13 @@ def calculate_initial(
     general: dict,
     talent: dict,
 ) -> dict:
-    """核對兩個配點池並產生初始屬性。"""
+    """計算並驗證角色初始十三項屬性。"""
+
+    schema = validate_schema(schema)
 
     all_names = (
-        schema["general"] + schema["talent"]
+        schema["general"]
+        + schema["talent"]
     )
 
     if main not in all_names:
@@ -147,7 +301,7 @@ def calculate_initial(
 
     if main == secondary:
         raise ValueError(
-            "主副賽道不得使用相同屬性。"
+            "主、副賽道不得相同。"
         )
 
     if set(general) != set(schema["general"]):
@@ -160,12 +314,14 @@ def calculate_initial(
             "藝能池配點項目不符合官方清單。"
         )
 
-    values = list(general.values()) + list(
-        talent.values()
+    values = (
+        list(general.values())
+        + list(talent.values())
     )
 
     if any(
-        type(value) is not int or value < 0
+        type(value) is not int
+        or value < 0
         for value in values
     ):
         raise ValueError(
@@ -174,12 +330,12 @@ def calculate_initial(
 
     if sum(general.values()) > POOL_POINTS:
         raise ValueError(
-            "一般配點池最多使用 500 點。"
+            "一般配點池不可超過500點。"
         )
 
     if sum(talent.values()) > POOL_POINTS:
         raise ValueError(
-            "藝能配點池最多使用 500 點。"
+            "藝能配點池不可超過500點。"
         )
 
     allocations = {
@@ -190,12 +346,15 @@ def calculate_initial(
     results = {}
 
     for name in all_names:
+
         if name == main:
             base = BASE_MAIN
             bonus = BONUS_MAIN
+
         elif name == secondary:
             base = BASE_SECONDARY
             bonus = BONUS_SECONDARY
+
         else:
             base = BASE_NORMAL
             bonus = 0
@@ -204,7 +363,8 @@ def calculate_initial(
 
         if base + allocated > CREATE_CAP:
             raise ValueError(
-                f"「{name}」超過創角配點上限 150。"
+                f"「{name}」超過"
+                "創角配點上限150。"
             )
 
         results[name] = (
@@ -219,37 +379,21 @@ def save_official_schema(
     general_raw: str,
     talent_raw: str,
 ):
-    """管理員設定伺服器官方屬性清單。"""
+    """管理員設定官方屬性清單。"""
 
     require_admin(actor)
 
     general = parse_names(general_raw)
     talent = parse_names(talent_raw)
 
-    if not general or not talent:
-        raise ValueError(
-            "一般池與藝能池都不能是空的。"
-        )
-
-    all_names = general + talent
-
-    if len(all_names) != TOTAL_ATTRIBUTES:
-        raise ValueError(
-            "兩個配點池必須合計十三項屬性。"
-        )
-
-    if len(set(all_names)) != TOTAL_ATTRIBUTES:
-        raise ValueError(
-            "兩個配點池不得有重複名稱。"
-        )
-
-    schema = {
+    schema = validate_schema({
         "general": general,
         "talent": talent,
         "version": 1,
-    }
+    })
 
     with transaction() as conn:
+
         existing = conn.execute(
             """
             SELECT COUNT(*) AS total
@@ -261,8 +405,8 @@ def save_official_schema(
 
         if existing["total"] > 0:
             raise InvalidState(
-                "已有角色配點，不能直接變更"
-                "官方清單，必須使用版本遷移。"
+                "已有角色配點，不能直接改動"
+                "官方屬性清單，需先進行版本遷移。"
             )
 
         conn.execute(
@@ -282,7 +426,10 @@ def save_official_schema(
                 record_type,
                 data_json
             )
-            VALUES (?, 'attributes', ?, 'official_schema', ?)
+            VALUES (
+                ?, 'attributes', ?,
+                'official_schema', ?
+            )
             """,
             (
                 actor.guild_id,
@@ -331,10 +478,11 @@ def allocate_initial(
     general_raw: str,
     talent_raw: str,
 ):
-    """建立或更新草稿配點，正式角色不可重配。"""
+    """草稿配點。正式角色不能重新配點。"""
 
     with transaction() as conn:
-        row = conn.execute(
+
+        character = conn.execute(
             """
             SELECT *
             FROM characters
@@ -348,18 +496,25 @@ def allocate_initial(
         ).fetchone()
 
         if (
-            row is None
-            or row["owner_id"] != actor.user_id
-            or row["character_type"] != "player"
+            character is None
+            or str(character["owner_id"])
+            != actor.user_id
+            or character["character_type"]
+            != "player"
         ):
             raise PermissionDenied(
                 "只能替自己的玩家角色配點。"
             )
 
-        if row["status"] != "draft":
+        if character["status"] != "draft":
             raise InvalidState(
                 "只有草稿可以調整初始配點。"
             )
+
+        ensure_default_schema(
+            conn,
+            actor.guild_id,
+        )
 
         schema = load_schema(
             conn,
@@ -385,21 +540,21 @@ def allocate_initial(
         )
 
         settings = json.loads(
-            row["settings_json"] or "{}"
+            character["settings_json"] or "{}"
         )
 
         settings["main_track"] = main
         settings["secondary_track"] = secondary
-        settings["attribute_schema_version"] = (
-            schema["version"]
-        )
+
+        settings[
+            "attribute_schema_version"
+        ] = schema["version"]
+
         settings["initial_allocation"] = {
             "general": general,
             "talent": talent,
         }
 
-        # 草稿允許重新調整。
-        # 先清除本角色舊的初始配點，再寫入完整結果。
         conn.execute(
             """
             DELETE FROM attributes
@@ -501,7 +656,7 @@ class Attributes(commands.Cog):
 
     @app_commands.command(
         name="屬性清單",
-        description="查看官方十三項屬性及配點池",
+        description="查看官方十三項屬性與配點池",
     )
     async def show_schema(
         self,
@@ -512,20 +667,28 @@ class Attributes(commands.Cog):
                 interaction
             )
 
-            with get_connection() as conn:
+            with transaction() as conn:
+                ensure_default_schema(
+                    conn,
+                    actor.guild_id,
+                )
+
                 schema = load_schema(
                     conn,
                     actor.guild_id,
                 )
 
             message = (
-                "📊 **官方初始屬性**\n\n"
-                "一般池（500 點）：\n"
+                "📊 **官方十三項屬性**\n\n"
+                "一般池（500點）：\n"
                 + "、".join(schema["general"])
-                + "\n\n藝能池（500 點）：\n"
+                + "\n\n藝能池（500點）：\n"
                 + "、".join(schema["talent"])
-                + "\n\n創角配點上限：150。\n"
-                "主副賽道額外加成可突破上限。"
+                + "\n\n創角單項上限：150\n"
+                "主、副賽道額外加成"
+                "不受此上限限制。\n\n"
+                "系統追蹤數值另行計算，"
+                "不占用配點。"
             )
 
             await interaction.response.send_message(
@@ -536,6 +699,7 @@ class Attributes(commands.Cog):
         except (
             PermissionDenied,
             InvalidState,
+            ValueError,
         ) as exc:
             await interaction.response.send_message(
                 f"⚠️ {exc}",
@@ -544,17 +708,17 @@ class Attributes(commands.Cog):
 
     @app_commands.command(
         name="設定官方屬性",
-        description="管理員設定十三項屬性及配點池",
+        description="管理員設定十三項屬性名稱",
     )
     @app_commands.describe(
-        general="一般池屬性名稱，用逗號分隔",
-        talent="藝能池屬性名稱，用逗號分隔",
+        一般屬性="一般池名稱，以逗號分隔",
+        藝能屬性="藝能池名稱，以逗號分隔",
     )
     async def set_schema(
         self,
         interaction: discord.Interaction,
-        general: str,
-        talent: str,
+        一般屬性: str,
+        藝能屬性: str,
     ):
         try:
             actor = Actor.from_interaction(
@@ -563,12 +727,12 @@ class Attributes(commands.Cog):
 
             schema = save_official_schema(
                 actor,
-                general,
-                talent,
+                一般屬性,
+                藝能屬性,
             )
 
             message = (
-                "✅ 官方屬性設定成功！\n"
+                "✅ 官方屬性設定成功！\n\n"
                 "一般池："
                 + "、".join(schema["general"])
                 + "\n藝能池："
@@ -592,26 +756,26 @@ class Attributes(commands.Cog):
 
     @app_commands.command(
         name="初始配點",
-        description="設定角色主副賽道及初始配點",
+        description="設定角色主副賽道及初始屬性",
     )
     @app_commands.describe(
-        character_id="自己的角色編號",
-        main="主賽道對應屬性名稱",
-        secondary="副賽道對應屬性名稱",
-        general="一般池依官方順序輸入點數",
-        talent="藝能池依官方順序輸入點數",
+        角色編號="草稿角色編號，測試期間使用",
+        主賽道="主賽道對應的屬性名稱",
+        副賽道="副賽道對應的屬性名稱",
+        一般配點="依官方清單順序輸入整數",
+        藝能配點="依官方清單順序輸入整數",
     )
     async def initial(
         self,
         interaction: discord.Interaction,
-        character_id: int,
-        main: str,
-        secondary: str,
-        general: str,
-        talent: str,
+        角色編號: int,
+        主賽道: str,
+        副賽道: str,
+        一般配點: str,
+        藝能配點: str,
     ):
         await interaction.response.defer(
-            ephemeral=True
+            ephemeral=True,
         )
 
         try:
@@ -621,11 +785,11 @@ class Attributes(commands.Cog):
 
             result = allocate_initial(
                 actor,
-                character_id,
-                main.strip(),
-                secondary.strip(),
-                general,
-                talent,
+                角色編號,
+                主賽道.strip(),
+                副賽道.strip(),
+                一般配點,
+                藝能配點,
             )
 
             lines = [
@@ -635,7 +799,7 @@ class Attributes(commands.Cog):
             ]
 
             message = (
-                f"✅ 角色 #{character_id} "
+                f"✅ 角色 #{角色編號}"
                 "初始配點已儲存！\n\n"
                 f"一般池：{result['general_spent']}"
                 "/500\n"
@@ -661,15 +825,15 @@ class Attributes(commands.Cog):
 
     @app_commands.command(
         name="屬性",
-        description="查看角色目前的屬性數值",
+        description="查看角色的十三項屬性",
     )
     @app_commands.describe(
-        character_id="角色編號",
+        角色編號="角色編號",
     )
     async def show_attributes(
         self,
         interaction: discord.Interaction,
-        character_id: int,
+        角色編號: int,
     ):
         try:
             actor = Actor.from_interaction(
@@ -686,14 +850,14 @@ class Attributes(commands.Cog):
                     """,
                     (
                         actor.guild_id,
-                        character_id,
+                        角色編號,
                     ),
                 ).fetchone()
 
                 if (
                     character is None
                     or (
-                        character["owner_id"]
+                        str(character["owner_id"])
                         != actor.user_id
                         and not actor.is_admin
                     )
@@ -712,7 +876,7 @@ class Attributes(commands.Cog):
                     """,
                     (
                         actor.guild_id,
-                        character_id,
+                        角色編號,
                     ),
                 ).fetchall()
 
