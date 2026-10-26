@@ -76,12 +76,37 @@ def initialize():
         db.execute("CREATE INDEX IF NOT EXISTS idx_career_review ON career_registrations(guild_id,status,id)")
 
 
+
 def ensure_types(guild_id):
+    """先建立伺服器紀錄，再初始化登記分類。"""
+
     with transaction() as db:
+        # 先確保伺服器存在，避免外鍵錯誤
+        db.execute(
+            """
+            INSERT OR IGNORE INTO guilds (guild_id)
+            VALUES (?)
+            """,
+            (str(guild_id),),
+        )
+
+        # 建立預設登記類型
         for name, fields in DEFAULT_TYPES:
-            db.execute("""INSERT OR IGNORE INTO registration_types
-                (guild_id,name,fields_json) VALUES (?,?,?)""",
-                (str(guild_id),name,json.dumps(fields,ensure_ascii=False)))
+            db.execute(
+                """
+                INSERT OR IGNORE INTO registration_types
+                    (guild_id, name, fields_json)
+                VALUES (?, ?, ?)
+                """,
+                (
+                    str(guild_id),
+                    name,
+                    json.dumps(
+                        fields,
+                        ensure_ascii=False,
+                    ),
+                ),
+            )
 
 
 def audit(db, actor, action, key, details):
