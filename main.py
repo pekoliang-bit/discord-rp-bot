@@ -1,22 +1,31 @@
 
-"""Discord RP 機器人主程式。
+"""Discord RP 主程式｜正式指令管理版。
 
-負責：
-1. 初始化資料庫
-2. 依照依賴順序載入模組
-3. 檢查斜線指令名稱衝突
-4. 檢查正式指令入口的整合進度
-5. 同步 Discord 斜線指令
-6. 記錄啟動及錯誤日誌
-7. 提供機器人測試與系統狀態查詢
+功能：
+- 初始化資料庫
+- 自動載入所有 modules 模組
+- 維持商城模組的特殊載入順序
+- 盤點正式指令及舊指令
+- 偵測指令重複
+- 選擇性隱藏已整合的舊入口
+- 同步 Discord 指令
+- 顯示系統狀態
 
-此檔案不直接刪除任何既有功能指令。
+Railway 設定：
+RP_HIDE_LEGACY_COMMANDS=0  預設保留所有舊指令
+RP_HIDE_LEGACY_COMMANDS=1  隱藏已列入安全清單的舊指令
+
+重要：
+啟用隱藏設定之前，必須先完成新入口實測。
+此功能只移除 Discord 指令註冊，
+不刪除資料庫、不刪除 Python 模組及核心函式。
 """
 
 from __future__ import annotations
 
 import asyncio
 import logging
+import os
 from collections import Counter
 from pathlib import Path
 
@@ -46,72 +55,78 @@ BASE_DIR = Path(__file__).resolve().parent
 MODULES_DIR = BASE_DIR / "modules"
 
 
-# 正式規劃的統一玩家入口。
-# 這份清單用來檢查整合進度，
-# 不會自動建立尚未實作的指令。
-
+# 已規劃的正式玩家／管理入口。
+# 這只是檢查清單，不會建立空指令。
 OFFICIAL_COMMANDS = {
-    "創角": "角色建立與資料填寫",
-    "查看": "公開與私人角色檔案",
-    "角色切換": "選擇目前使用角色",
-    "玩家申請": "統一玩家申請中心",
-    "審核": "統一官方審核中心",
-    "官方": "官方管理與權限中心",
-    "銀行": "銀行與金融服務",
-    "商城": "官方商城與玩家商店",
-    "登記": "作品與活動登記",
-    "轉帳": "角色轉帳",
-    "提款": "銀行提款",
+    "創角": "完整角色建立",
+    "查看": "角色資訊查詢",
+    "角色切換": "目前使用角色",
+    "玩家申請": "玩家申請中心",
+    "審核": "官方審核中心",
+    "官方": "官方管理中心",
+    "銀行": "銀行服務",
+    "商城": "商城服務",
+    "登記": "演藝作品登記",
     "存錢": "銀行存款",
+    "提款": "銀行提款",
+    "轉帳": "角色轉帳",
 }
 
 
-# 尚待整合的舊版指令。
-# 只記錄，不會刪除或隱藏。
-
+# 可能可以由新入口取代的舊指令。
+# 這個集合僅用於報表。
 LEGACY_COMMANDS = {
     "建立角色",
     "角色",
     "角色填寫",
+    "感情設定",
     "角色檔案",
     "角色送審",
     "角色審核",
-    "角色啟用",
     "初始配點",
-    "屬性",
     "屬性清單",
     "設定官方屬性",
-    "感情設定",
-    "追蹤數值",
-    "測試角建立",
+    "屬性",
+    "店鋪申請",
     "貸款申請",
     "貸款審核",
-    "貸款還款",
-    "貸款紀錄",
     "貸款待審",
     "信用卡申請",
     "信用卡待審",
     "信用卡審核",
-    "信用卡繳款",
-    "信用卡銷戶",
     "黑卡申請",
     "黑卡待審",
     "黑卡審核",
-    "黑卡通知",
-    "店鋪申請",
-    "商城新增",
-    "商城修改",
-    "商城下架",
     "銀行利率",
-    "定存解約",
-    "角色轉帳",
     "存款",
+    "角色轉帳",
 }
 
 
-# 這些模組有彼此依賴，
-# 必須依序載入。
+# 經新入口確實可用後，才允許隱藏的舊指令。
+# 若仍需要舊指令操作，保持關閉即可。
+#
+# 特意不包含：
+# 角色啟用、貸款還款、信用卡繳款、定存、
+# 定存解約、信用卡銷戶等獨立必要功能。
+#
+# 也不隱藏 /管理 群組中的商城管理子指令。
+OPTIONAL_HIDE_COMMANDS = {
+    "建立角色",
+    "角色填寫",
+    "角色送審",
+    "初始配點",
+    "店鋪申請",
+    "貸款申請",
+    "信用卡申請",
+    "黑卡申請",
+    "存款",
+    "角色轉帳",
+}
 
+
+# 原始專案存在商城指令群組的依賴順序。
+# 保持不變，避免 /管理 指令群組損壞。
 PRIORITY_MODULES = (
     "modules.shop",
     "modules.player_shops",
@@ -120,145 +135,213 @@ PRIORITY_MODULES = (
 )
 
 
+def hide_legacy_enabled() -> bool:
+    raw = os.getenv(
+        "RP_HIDE_LEGACY_COMMANDS",
+        "0",
+    ).strip().lower()
+
+    return raw in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
+
+
 def discover_extensions() -> list[str]:
-    """探索所有正式模組並安排載入順序。"""
+    """從 modules 目錄找出所有正式功能模組。"""
 
     if not MODULES_DIR.is_dir():
         raise RuntimeError(
             "找不到 modules 資料夾。"
         )
 
-    discovered = []
+    extensions = []
 
     for path in sorted(
         MODULES_DIR.glob("*.py")
     ):
-        if path.stem.startswith("_"):
+        if path.name.startswith("_"):
             continue
 
-        discovered.append(
+        extensions.append(
             f"modules.{path.stem}"
         )
 
     normal = [
         name
-        for name in discovered
+        for name in extensions
         if name not in PRIORITY_MODULES
     ]
 
     priority = [
         name
         for name in PRIORITY_MODULES
-        if name in discovered
+        if name in extensions
     ]
 
     ordered = normal + priority
 
     if len(ordered) != len(set(ordered)):
         raise RuntimeError(
-            "發現重複載入的功能模組。"
+            "模組載入清單有重複項目。"
         )
 
     return ordered
 
 
-def command_names(tree) -> list[str]:
-    """取得目前註冊的全域頂層指令。"""
+def collect_top_level_commands(tree):
+    return list(
+        tree.get_commands()
+    )
 
-    return [
+
+def audit_commands(tree):
+    """取得目前已註冊的實際指令狀態。"""
+
+    names = [
         command.name
-        for command in tree.get_commands()
+        for command in collect_top_level_commands(
+            tree
+        )
     ]
 
-
-def inspect_commands(tree) -> dict:
-    """檢查正式入口、舊入口與名稱衝突。"""
-
-    names = command_names(tree)
     counts = Counter(names)
 
-    duplicates = sorted(
-        name
-        for name, count in counts.items()
-        if count > 1
-    )
-
-    available = set(names)
-
-    official_ready = sorted(
-        available.intersection(
-            OFFICIAL_COMMANDS
-        )
-    )
-
-    official_missing = sorted(
-        set(OFFICIAL_COMMANDS)
-        - available
-    )
-
-    legacy_active = sorted(
-        available.intersection(
-            LEGACY_COMMANDS
-        )
-    )
+    actual = set(names)
 
     return {
         "total": len(names),
-        "duplicates": duplicates,
-        "official_ready": official_ready,
-        "official_missing": official_missing,
-        "legacy_active": legacy_active,
+        "duplicates": sorted(
+            name
+            for name, count in counts.items()
+            if count > 1
+        ),
+        "official": sorted(
+            actual.intersection(
+                OFFICIAL_COMMANDS
+            )
+        ),
+        "missing": sorted(
+            set(OFFICIAL_COMMANDS)
+            - actual
+        ),
+        "legacy": sorted(
+            actual.intersection(
+                LEGACY_COMMANDS
+            )
+        ),
     }
 
 
-def log_command_report(report: dict):
-    """在 Railway 日誌列出檢查結果。"""
+def log_report(report):
+    LOG.info(
+        "已註冊頂層指令數：%s",
+        report["total"],
+    )
 
     LOG.info(
-        "目前註冊 %s 條頂層斜線指令",
-        report["total"],
+        "正式指令：%s",
+        "、".join(
+            report["official"]
+        ) or "無",
+    )
+
+    LOG.info(
+        "尚未建立的正式指令：%s",
+        "、".join(
+            report["missing"]
+        ) or "無",
+    )
+
+    LOG.info(
+        "仍顯示的舊指令：%s",
+        "、".join(
+            report["legacy"]
+        ) or "無",
     )
 
     if report["duplicates"]:
         LOG.error(
-            "指令名稱重複：%s",
-            "、".join(report["duplicates"]),
+            "發現重複的頂層指令：%s",
+            "、".join(
+                report["duplicates"]
+            ),
         )
 
-    LOG.info(
-        "已存在正式入口：%s",
-        (
-            "、".join(
-                report["official_ready"]
-            )
-            or "尚無"
-        ),
+
+def remove_legacy_commands(tree):
+    """只移除明確允許隱藏的全域頂層指令。
+
+    使用者仍可重新關閉環境變數並重新同步，
+    恢復這些舊指令。
+    """
+
+    if not hide_legacy_enabled():
+        LOG.info(
+            "舊指令隱藏功能未啟用，"
+            "目前保留所有既有指令。"
+        )
+        return []
+
+    # 確認必要的新入口均存在後才隱藏舊入口。
+    names = {
+        command.name
+        for command in tree.get_commands()
+    }
+
+    dependencies = {
+        "創角",
+        "玩家申請",
+        "存錢",
+        "轉帳",
+    }
+
+    missing = dependencies - names
+
+    if missing:
+        raise RuntimeError(
+            "無法隱藏舊指令；"
+            "新入口尚未完整註冊："
+            + "、".join(sorted(missing))
+        )
+
+    removed = []
+
+    for name in sorted(
+        OPTIONAL_HIDE_COMMANDS
+    ):
+        command = tree.get_command(name)
+
+        if command is None:
+            continue
+
+        if not isinstance(
+            command,
+            app_commands.Command,
+        ):
+            # 不移除指令群組。
+            continue
+
+        old = tree.remove_command(
+            name,
+            type=discord.AppCommandType.chat_input,
+        )
+
+        if old is not None:
+            removed.append(name)
+
+    LOG.warning(
+        "已隱藏 %s 條舊指令：%s",
+        len(removed),
+        "、".join(removed) or "無",
     )
 
-    LOG.info(
-        "尚未實作的正式入口：%s",
-        (
-            "、".join(
-                report["official_missing"]
-            )
-            or "無"
-        ),
-    )
-
-    LOG.info(
-        "仍在使用的舊指令：%s",
-        (
-            "、".join(
-                report["legacy_active"]
-            )
-            or "無"
-        ),
-    )
+    return removed
 
 
 class RPBot(commands.Bot):
-    """Discord RP 主機器人。"""
-
     def __init__(self):
         intents = discord.Intents.default()
 
@@ -269,12 +352,13 @@ class RPBot(commands.Bot):
         )
 
         self.loaded_modules = []
+        self.hidden_legacy = []
         self.command_report = {}
 
     async def setup_hook(self):
-        """啟動初始化與指令同步。"""
-
-        LOG.info("開始初始化資料庫")
+        LOG.info(
+            "開始初始化 Discord RP 資料庫"
+        )
 
         await asyncio.to_thread(
             init_db
@@ -284,7 +368,7 @@ class RPBot(commands.Bot):
 
         for extension in extensions:
             LOG.info(
-                "載入功能模組：%s",
+                "正在載入：%s",
                 extension,
             )
 
@@ -298,9 +382,6 @@ class RPBot(commands.Bot):
                     "模組載入失敗：%s",
                     extension,
                 )
-
-                # 核心功能載入失敗時停止啟動，
-                # 避免部分指令運作而產生錯帳。
                 raise
 
             self.loaded_modules.append(
@@ -308,60 +389,67 @@ class RPBot(commands.Bot):
             )
 
         LOG.info(
-            "成功載入 %s 個功能模組",
+            "成功載入 %s 個模組",
             len(self.loaded_modules),
         )
 
-        report = inspect_commands(
-            self.tree
+        self.hidden_legacy = (
+            remove_legacy_commands(
+                self.tree
+            )
         )
 
-        self.command_report = report
-
-        log_command_report(
-            report
+        self.command_report = (
+            audit_commands(
+                self.tree
+            )
         )
 
-        if report["duplicates"]:
+        log_report(
+            self.command_report
+        )
+
+        if self.command_report["duplicates"]:
             raise RuntimeError(
-                "斜線指令存在名稱衝突："
-                + "、".join(
-                    report["duplicates"]
-                )
+                "頂層斜線指令名稱重複。"
             )
 
-        test_guild_id = get_test_guild_id()
+        test_guild_id = (
+            get_test_guild_id()
+        )
 
         if test_guild_id is not None:
             guild = discord.Object(
                 id=test_guild_id
             )
 
-            # 將全域指令複製到測試伺服器。
             self.tree.copy_global_to(
                 guild=guild
             )
 
-            commands_synced = (
-                await self.tree.sync(
-                    guild=guild
-                )
+            synced = await self.tree.sync(
+                guild=guild
             )
 
             LOG.info(
-                "測試伺服器 %s 已同步 %s 條指令",
+                "已同步測試伺服器 %s："
+                "%s 條頂層指令",
                 test_guild_id,
-                len(commands_synced),
+                len(synced),
+            )
+
+            LOG.warning(
+                "目前採測試伺服器同步模式；"
+                "既有全域指令不會自動清除。"
             )
 
         else:
-            commands_synced = (
-                await self.tree.sync()
-            )
+            synced = await self.tree.sync()
 
             LOG.info(
-                "已全域同步 %s 條指令",
-                len(commands_synced),
+                "已完成全域同步："
+                "%s 條頂層指令",
+                len(synced),
             )
 
     async def on_ready(self):
@@ -369,13 +457,13 @@ class RPBot(commands.Bot):
             return
 
         LOG.info(
-            "機器人已登入：%s｜%s",
+            "機器人已登入：%s（%s）",
             self.user,
             self.user.id,
         )
 
         LOG.info(
-            "目前連接 %s 個 Discord 伺服器",
+            "目前連接 %s 個伺服器",
             len(self.guilds),
         )
 
@@ -385,113 +473,97 @@ bot = RPBot()
 
 @bot.tree.command(
     name="測試",
-    description="確認 Discord RP 機器人是否運作",
+    description="確認 Discord RP 機器人運作",
 )
 async def test_command(
     interaction: discord.Interaction,
 ):
     await interaction.response.send_message(
-        "✅ Discord RP 機器人已成功回應！",
+        "✅ Discord RP 機器人正常運作。",
         ephemeral=True,
     )
 
 
 @bot.tree.command(
     name="系統狀態",
-    description="查看機器人載入狀態",
+    description="查看機器人的模組及指令狀態",
 )
 @app_commands.guild_only()
 async def system_status(
     interaction: discord.Interaction,
 ):
-    modules = bot.loaded_modules
-    report = bot.command_report
+    is_manager = (
+        interaction.user.id
+        == interaction.guild.owner_id
+        or interaction.permissions.manage_guild
+        or interaction.permissions.administrator
+    )
 
     embed = discord.Embed(
         title="🤖 Discord RP｜系統狀態",
+        description="機器人目前已正常連線。",
         color=discord.Color.blue(),
     )
 
     embed.add_field(
-        name="連線狀態",
-        value="✅ 已連線",
-        inline=False,
-    )
-
-    embed.add_field(
         name="已載入模組",
-        value=str(len(modules)),
+        value=str(len(bot.loaded_modules)),
         inline=True,
     )
 
     embed.add_field(
-        name="頂層指令數量",
+        name="頂層指令",
         value=str(
-            report.get("total", 0)
+            bot.command_report.get(
+                "total",
+                0,
+            )
         ),
         inline=True,
     )
 
-    loaded_text = "\n".join(
-        "• "
-        + name.removeprefix("modules.")
-        for name in modules
-    )
-
-    embed.add_field(
-        name="模組清單",
-        value=(
-            loaded_text[:1024]
-            or "尚未載入"
-        ),
-        inline=False,
-    )
-
-    # 一般玩家不需要看到開發中的
-    # 指令清單及內部整合資訊。
-    is_admin = bool(
-        interaction.permissions.administrator
-        or interaction.permissions.manage_guild
-    )
-
-    if is_admin:
-        ready = report.get(
-            "official_ready",
-            [],
-        )
-
-        missing = report.get(
-            "official_missing",
-            [],
-        )
-
-        legacy = report.get(
-            "legacy_active",
-            [],
-        )
+    if is_manager:
+        report = bot.command_report
 
         embed.add_field(
             name="已存在的正式入口",
             value=(
-                "、".join(ready)[:1024]
+                "、".join(
+                    report.get("official", [])
+                )[:1024]
                 or "無"
             ),
             inline=False,
         )
 
         embed.add_field(
-            name="待完成的正式入口",
+            name="待建立的正式入口",
             value=(
-                "、".join(missing)[:1024]
+                "、".join(
+                    report.get("missing", [])
+                )[:1024]
                 or "無"
             ),
             inline=False,
         )
 
         embed.add_field(
-            name="尚待整合的舊指令",
+            name="仍在使用的舊指令",
             value=(
-                "、".join(legacy)[:1024]
+                "、".join(
+                    report.get("legacy", [])
+                )[:1024]
+                or "無"
+            ),
+            inline=False,
+        )
+
+        embed.add_field(
+            name="本次隱藏的舊指令",
+            value=(
+                "、".join(
+                    bot.hidden_legacy
+                )[:1024]
                 or "無"
             ),
             inline=False,
@@ -519,9 +591,9 @@ async def on_app_command_error(
     )
 
     message = (
-        "⚠️ 操作未能完成。"
-        "請稍後重試；若持續發生，"
-        "請通知管理員。"
+        "⚠️ 操作未能完成，"
+        "請檢查輸入內容，"
+        "若持續發生請通知管理員。"
     )
 
     try:
@@ -543,10 +615,8 @@ async def on_app_command_error(
 
 
 def main():
-    token = get_token()
-
     bot.run(
-        token,
+        get_token(),
         log_handler=None,
     )
 
