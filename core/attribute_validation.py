@@ -1,46 +1,51 @@
 
-"""角色初始屬性完整性驗證。
+"""Discord RP：唯一主攻技能的初始屬性驗證。
 
-本檔只讀取、檢查，不會修改任何角色屬性。
+十三項屬性，雙500點配點池。
+主攻五選一：演繹、舞蹈、歌唱、綜藝、主持。
+沒有副賽道。
 
-適用於目前已建立的 attributes.py 資料格式。
-正式主副賽道與對應屬性映射需要後續擴充。
+此檔僅驗證，不修改資料庫。
 """
+
+from __future__ import annotations
 
 import json
 
 from core.permissions import InvalidState
 
-
 POOL_LIMIT = 500
 CREATE_CAP = 150
-TOTAL_ATTRIBUTES = 13
-
 BASE_NORMAL = 20
 BASE_MAIN = 35
-BASE_SECONDARY = 25
-
 BONUS_MAIN = 30
-BONUS_SECONDARY = 15
+
+MAIN_SKILLS = (
+    "演繹",
+    "舞蹈",
+    "歌唱",
+    "綜藝",
+    "主持",
+)
 
 
-def _read_json(raw, label):
+def read_object(raw, label):
     try:
-        value = json.loads(raw or "{}")
-    except (TypeError, json.JSONDecodeError) as exc:
+        obj = json.loads(raw or "{}")
+    except (ValueError, TypeError) as exc:
         raise InvalidState(
-            f"{label}資料格式損壞。"
+            f"{label}的 JSON 格式不正確。"
         ) from exc
 
-    if not isinstance(value, dict):
+    if not isinstance(obj, dict):
         raise InvalidState(
             f"{label}必須是物件格式。"
         )
 
-    return value
+    return obj
 
 
-def _get_schema(conn, guild_id):
+def read_schema(conn, guild_id):
     row = conn.execute(
         """
         SELECT data_json
@@ -54,91 +59,114 @@ def _get_schema(conn, guild_id):
         (str(guild_id),),
     ).fetchone()
 
-    if row is None:
+    if not row:
         raise InvalidState(
-            "伺服器尚未建立官方屬性清單。"
+            "尚未建立官方十三項屬性清單。"
         )
 
-    schema = _read_json(
+    schema = read_object(
         row["data_json"],
-        "官方屬性清單",
+        "官方屬性",
     )
 
     general = schema.get("general")
     talent = schema.get("talent")
 
-    if not isinstance(general, list):
+    if (
+        not isinstance(general, list)
+        or not isinstance(talent, list)
+        or len(general) != 5
+        or len(talent) != 8
+    ):
         raise InvalidState(
-            "一般屬性池設定錯誤。"
-        )
-
-    if not isinstance(talent, list):
-        raise InvalidState(
-            "藝能屬性池設定錯誤。"
+            "必須設定一般池5項、藝能池8項。"
         )
 
     names = general + talent
 
-    if len(names) != TOTAL_ATTRIBUTES:
-        raise InvalidState(
-            "官方屬性必須恰好有十三項。"
+    if (
+        len(set(names)) != 13
+        or not all(
+            isinstance(x, str) and x.strip()
+            for x in names
         )
-
-    if not all(
-        isinstance(name, str) and name.strip()
-        for name in names
     ):
         raise InvalidState(
-            "官方屬性名稱不可空白。"
+            "官方屬性名稱有重複或空白。"
         )
 
-    if len(set(names)) != TOTAL_ATTRIBUTES:
+    if not set(MAIN_SKILLS).issubset(set(talent)):
         raise InvalidState(
-            "官方屬性名稱不得重複。"
-        )
-
-    if not general or not talent:
-        raise InvalidState(
-            "兩個配點池都必須有屬性。"
+            "藝能池缺少五項正式主攻技能。"
         )
 
     return schema
 
 
-def _validate_pool(
-    allocation,
-    expected_names,
-    pool_label,
-):
-    if not isinstance(allocation, dict):
+def calculate_values(schema, main, general, talent):
+    if main not in MAIN_SKILLS:
         raise InvalidState(
-            f"{pool_label}配點紀錄不完整。"
+            "主攻只能選擇演繹、舞蹈、"
+            "歌唱、綜藝或主持。"
         )
 
-    if set(allocation) != set(expected_names):
+    if set(general) != set(schema["general"]):
         raise InvalidState(
-            f"{pool_label}屬性名稱與官方清單不同。"
+            "一般池配點與官方屬性不符。"
         )
 
-    for name, points in allocation.items():
-        if type(points) is not int:
+    if set(talent) != set(schema["talent"]):
+        raise InvalidState(
+            "藝能池配點與官方屬性不符。"
+        )
+
+    all_points = {
+        **general,
+        **talent,
+    }
+
+    for name, value in all_points.items():
+        if type(value) is not int or value < 0:
             raise InvalidState(
-                f"{name}的配點必須是整數。"
+                f"「{name}」必須是非負整數。"
             )
 
-        if points < 0:
-            raise InvalidState(
-                f"{name}的配點不可小於零。"
-            )
-
-    total = sum(allocation.values())
-
-    if total > POOL_LIMIT:
+    if sum(general.values()) > POOL_LIMIT:
         raise InvalidState(
-            f"{pool_label}超過500點。"
+            "一般池不能超過500點。"
         )
 
-    return total
+    if sum(talent.values()) > POOL_LIMIT:
+        raise InvalidState(
+            "藝能池不能超過500點。"
+        )
+
+    results = {}
+
+    for name, points in all_points.items():
+        base = (
+            BASE_MAIN
+            if name == main
+            else BASE_NORMAL
+        )
+
+        if base + points > CREATE_CAP:
+            raise InvalidState(
+                f"「{name}」基礎值加配點"
+                "不能超過150。"
+            )
+
+        results[name] = (
+            base
+            + points
+            + (
+                BONUS_MAIN
+                if name == main
+                else 0
+            )
+        )
+
+    return results
 
 
 def validate_initial_attributes(
@@ -146,20 +174,17 @@ def validate_initial_attributes(
     guild_id,
     character_id,
 ):
-    """驗證一名角色的初始配點是否合法。
+    """驗證已寫入資料庫的十三項屬性。
 
-    呼叫端應在同一資料庫交易內進行驗證及啟用，
-    避免檢查通過後又被其他操作改動。
-
-    成功：回傳包含屬性及配點資訊的字典。
-    失敗：拋出 InvalidState。
+    適用於角色送審與正式啟用。
+    不會修改已啟用角色的數值。
     """
 
     guild_id = str(guild_id)
 
-    character = conn.execute(
+    row = conn.execute(
         """
-        SELECT id, settings_json
+        SELECT settings_json
         FROM characters
         WHERE guild_id = ?
           AND id = ?
@@ -167,18 +192,18 @@ def validate_initial_attributes(
         (guild_id, character_id),
     ).fetchone()
 
-    if character is None:
+    if row is None:
         raise InvalidState(
-            "找不到指定角色。"
+            "找不到角色。"
         )
 
-    schema = _get_schema(
+    schema = read_schema(
         conn,
         guild_id,
     )
 
-    settings = _read_json(
-        character["settings_json"],
+    settings = read_object(
+        row["settings_json"],
         "角色設定",
     )
 
@@ -187,87 +212,53 @@ def validate_initial_attributes(
         != schema.get("version")
     ):
         raise InvalidState(
-            "角色配點使用的官方屬性版本不符。"
+            "角色屬性版本與官方設定不符。"
         )
 
     main = settings.get("main_track")
-    secondary = settings.get("secondary_track")
 
-    names = (
-        schema["general"]
-        + schema["talent"]
-    )
-
-    # 目前沿用上一份 attributes.py 的格式：
-    # main_track / secondary_track 暫存為對應屬性。
-    # 未來正式賽道映射須另行加入。
-    if main not in names:
+    if main not in MAIN_SKILLS:
         raise InvalidState(
-            "主賽道對應屬性不合法。"
+            "角色尚未選擇有效的主攻技能。"
         )
 
-    if secondary not in names:
+    if settings.get("secondary_track") not in (
+        None,
+        "",
+    ):
         raise InvalidState(
-            "副賽道對應屬性不合法。"
+            "此角色保留了舊版副賽道配點，"
+            "請在草稿中重新確認主攻與配點。"
         )
 
-    if main == secondary:
-        raise InvalidState(
-            "主副賽道不能對應相同屬性。"
-        )
-
-    allocation = settings.get(
+    allocations = settings.get(
         "initial_allocation"
     )
 
-    if not isinstance(allocation, dict):
+    if not isinstance(allocations, dict):
         raise InvalidState(
-            "尚未儲存完整初始配點。"
+            "尚未完成初始配點。"
         )
 
-    general = allocation.get("general")
-    talent = allocation.get("talent")
+    general = allocations.get("general")
+    talent = allocations.get("talent")
 
-    spent_general = _validate_pool(
+    if not isinstance(general, dict):
+        raise InvalidState(
+            "一般池配點資料不完整。"
+        )
+
+    if not isinstance(talent, dict):
+        raise InvalidState(
+            "藝能池配點資料不完整。"
+        )
+
+    expected = calculate_values(
+        schema,
+        main,
         general,
-        schema["general"],
-        "一般池",
-    )
-
-    spent_talent = _validate_pool(
         talent,
-        schema["talent"],
-        "藝能池",
     )
-
-    all_points = {
-        **general,
-        **talent,
-    }
-
-    expected_values = {}
-
-    for name in names:
-        if name == main:
-            base = BASE_MAIN
-            bonus = BONUS_MAIN
-        elif name == secondary:
-            base = BASE_SECONDARY
-            bonus = BONUS_SECONDARY
-        else:
-            base = BASE_NORMAL
-            bonus = 0
-
-        points = all_points[name]
-
-        if base + points > CREATE_CAP:
-            raise InvalidState(
-                f"{name}超過創角配點上限。"
-            )
-
-        expected_values[name] = (
-            base + points + bonus
-        )
 
     rows = conn.execute(
         """
@@ -279,27 +270,24 @@ def validate_initial_attributes(
         (guild_id, character_id),
     ).fetchall()
 
-    actual_values = {
-        row["name"]: row["value"]
-        for row in rows
+    actual = {
+        item["name"]: item["value"]
+        for item in rows
     }
 
-    if len(actual_values) != TOTAL_ATTRIBUTES:
+    if len(rows) != 13 or actual != expected:
         raise InvalidState(
-            "角色尚未建立完整十三項屬性。"
+            "目前的十三項屬性與配點紀錄"
+            "不一致，請重新完成草稿配點。"
         )
 
-    if actual_values != expected_values:
-        raise InvalidState(
-            "角色目前數值與初始配點紀錄不一致。"
-            "請由管理員檢查。"
-        )
-
+    # 保留舊角色啟用流程使用的回傳欄位。
+    # 但副賽道不再有任何技能或數值效果。
     return {
         "schema_version": schema["version"],
         "main_track": main,
-        "secondary_track": secondary,
-        "general_spent": spent_general,
-        "talent_spent": spent_talent,
-        "attributes": expected_values,
+        "secondary_track": None,
+        "general_spent": sum(general.values()),
+        "talent_spent": sum(talent.values()),
+        "attributes": expected,
     }
