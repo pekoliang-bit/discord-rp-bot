@@ -1,19 +1,28 @@
 
-"""Discord RP：統一審核中心——角色審核。
+"""Discord RP：統一審核中心——角色雙階段審核。
 
 正式指令：/審核
 
-目前負責完整的角色雙階段審核：
-- 待審角色清單
-- 第一審及第二審
-- 查看角色送審資料
-- 通過、退件及退件原因
-- 禁止審核自己的角色
-- 禁止同一人連續完成雙審
-- 使用現有審核核心及審核日誌
+權限：
+- 伺服器擁有者
+- 經 /官方 核准的審核員
 
-其他申請類型後續接入同一入口，
-不另建重複的審核指令。
+功能：
+- 待審角色分頁
+- 查看完整送審資料
+- 第一階段審核
+- 第二階段審核
+- 退件與理由
+- 防止自行審核
+- 防止同一人完成兩審
+- 狀態更新及稽核紀錄
+- 操作時重新驗證身分及角色狀態
+
+依賴：
+modules.official_center
+core.database
+core.permissions
+modules.profile
 """
 
 from __future__ import annotations
@@ -27,81 +36,105 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-from core.database import get_connection
+from core.database import get_connection, transaction
 from core.permissions import (
     Actor,
     InvalidState,
     PermissionDenied,
-    require_admin,
-    review_character,
+)
+from modules.official_center import (
+    has_staff_permission,
 )
 from modules.profile import (
     FIELDS,
-    read_settings,
     missing_fields,
 )
 
 LOG = logging.getLogger(__name__)
 
 PAGE_SIZE = 25
-VIEW_TIMEOUT = 600
+TIMEOUT = 600
 
-REVIEW_STATES = {
-    "review_1": "第一階段審核",
-    "review_2": "第二階段審核",
+STAGES = {
+    "review_1": "第一階段",
+    "review_2": "第二階段",
 }
 
 
-def get_actor(interaction):
+def ensure_reviewer(interaction):
+    """驗證操作者具有正式審核權限。"""
+
     actor = Actor.from_interaction(interaction)
-    require_admin(actor)
+
+    if not has_staff_permission(
+        interaction,
+        "reviewer",
+    ):
+        raise PermissionDenied(
+            "只有正式審核員或伺服器擁有者"
+            "可以使用此功能。"
+        )
+
     return actor
 
 
-def verify_user(interaction, original_actor):
+def check_interaction(interaction, original):
+    actor = ensure_reviewer(interaction)
+
     if (
-        interaction.guild_id is None
-        or str(interaction.guild_id)
-        != original_actor.guild_id
-        or str(interaction.user.id)
-        != original_actor.user_id
+        actor.guild_id != original.guild_id
+        or actor.user_id != original.user_id
     ):
         raise PermissionDenied(
-            "這不是你的審核操作介面。"
+            "這不是你的審核介面。"
         )
 
-    return get_actor(interaction)
+    return actor
+
+
+def ensure_review_table(conn):
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS
+        character_review_progress (
+            guild_id TEXT NOT NULL,
+            character_id INTEGER NOT NULL,
+            round_number INTEGER NOT NULL DEFAULT 0,
+            first_reviewer TEXT,
+            first_reviewed_at TEXT,
+            second_reviewer TEXT,
+            second_reviewed_at TEXT,
+            PRIMARY KEY (guild_id, character_id)
+        )
+        """
+    )
 
 
 def get_pending(actor, page=0):
-    """查詢待審角色，使用資料庫分頁。"""
-
-    require_admin(actor)
-
     page = max(0, int(page))
 
     with get_connection() as conn:
-        count = conn.execute(
+        total = conn.execute(
             """
-            SELECT COUNT(*) AS total
+            SELECT COUNT(*) AS n
             FROM characters
             WHERE guild_id = ?
               AND character_type = 'player'
               AND status IN ('review_1','review_2')
             """,
             (actor.guild_id,),
-        ).fetchone()["total"]
+        ).fetchone()["n"]
 
         max_page = max(
             0,
-            (count - 1) // PAGE_SIZE,
+            (total - 1) // PAGE_SIZE,
         )
 
         page = min(page, max_page)
 
         rows = conn.execute(
             """
-            SELECT id, name, age, occupation,
+            SELECT id, name, occupation,
                    owner_id, status
             FROM characters
             WHERE guild_id = ?
@@ -123,18 +156,14 @@ def get_pending(actor, page=0):
         ).fetchall()
 
     return {
-        "items": [dict(row) for row in rows],
-        "total": count,
+        "items": [dict(r) for r in rows],
+        "total": total,
         "page": page,
         "max_page": max_page,
     }
 
 
-def get_review_character(actor, character_id):
-    """每次操作重新讀取角色當前狀態。"""
-
-    require_admin(actor)
-
+def get_character(actor, character_id):
     with get_connection() as conn:
         row = conn.execute(
             """
@@ -146,16 +175,14 @@ def get_review_character(actor, character_id):
             """,
             (
                 actor.guild_id,
-                int(character_id),
+                character_id,
             ),
         ).fetchone()
 
     if row is None:
-        raise InvalidState(
-            "找不到這名角色。"
-        )
+        raise InvalidState("角色不存在。")
 
-    if row["status"] not in REVIEW_STATES:
+    if row["status"] not in STAGES:
         raise InvalidState(
             "角色已不在待審狀態，請重新整理。"
         )
@@ -163,7 +190,7 @@ def get_review_character(actor, character_id):
     return dict(row)
 
 
-def get_review_progress(actor, character_id):
+def get_progress(actor, character_id):
     with get_connection() as conn:
         try:
             row = conn.execute(
@@ -175,7 +202,7 @@ def get_review_progress(actor, character_id):
                 """,
                 (
                     actor.guild_id,
-                    int(character_id),
+                    character_id,
                 ),
             ).fetchone()
 
@@ -187,53 +214,251 @@ def get_review_progress(actor, character_id):
     return dict(row) if row else None
 
 
-def list_text(result):
+def review_character_as_staff(
+    actor,
+    character_id,
+    approve,
+    reason="",
+    *,
+    authorized=False,
+):
+    """由已驗證授權的審核員進行原子化雙審。
+
+    僅限本模組的互動處理器呼叫。
+    不能直接對玩家開放此函式。
+    """
+
+    if not authorized:
+        raise PermissionDenied(
+            "缺少審核授權驗證。"
+        )
+
+    reason = (reason or "").strip()
+
+    if len(reason) > 500:
+        raise ValueError(
+            "審核理由最多500字。"
+        )
+
+    if not approve and not reason:
+        raise ValueError(
+            "退件必須填寫理由。"
+        )
+
+    with transaction() as conn:
+        ensure_review_table(conn)
+
+        character = conn.execute(
+            """
+            SELECT id, name, owner_id,
+                   character_type, status
+            FROM characters
+            WHERE guild_id = ?
+              AND id = ?
+            """,
+            (
+                actor.guild_id,
+                character_id,
+            ),
+        ).fetchone()
+
+        if character is None:
+            raise InvalidState(
+                "找不到角色。"
+            )
+
+        if character["character_type"] != "player":
+            raise InvalidState(
+                "此流程只審核玩家原創角色。"
+            )
+
+        if str(character["owner_id"]) == actor.user_id:
+            raise PermissionDenied(
+                "不能審核自己的角色。"
+            )
+
+        old = character["status"]
+
+        if old not in STAGES:
+            raise InvalidState(
+                "角色不在待審狀態。"
+            )
+
+        progress = conn.execute(
+            """
+            SELECT *
+            FROM character_review_progress
+            WHERE guild_id = ?
+              AND character_id = ?
+            """,
+            (
+                actor.guild_id,
+                character_id,
+            ),
+        ).fetchone()
+
+        if progress is None:
+            raise InvalidState(
+                "缺少送審紀錄，請檢查角色送審流程。"
+            )
+
+        if not approve:
+            new = "draft"
+
+        elif old == "review_1":
+            new = "review_2"
+
+        else:
+            first = progress["first_reviewer"]
+
+            if not first:
+                raise InvalidState(
+                    "缺少第一審通過紀錄。"
+                )
+
+            if str(first) == actor.user_id:
+                raise PermissionDenied(
+                    "第一審與第二審必須由不同人執行。"
+                )
+
+            new = "approved"
+
+        changed = conn.execute(
+            """
+            UPDATE characters
+            SET status = ?,
+                version = version + 1
+            WHERE guild_id = ?
+              AND id = ?
+              AND status = ?
+            """,
+            (
+                new,
+                actor.guild_id,
+                character_id,
+                old,
+            ),
+        )
+
+        if changed.rowcount != 1:
+            raise InvalidState(
+                "角色審核狀態已變更。"
+            )
+
+        if approve and old == "review_1":
+            conn.execute(
+                """
+                UPDATE character_review_progress
+                SET first_reviewer = ?,
+                    first_reviewed_at = CURRENT_TIMESTAMP
+                WHERE guild_id = ?
+                  AND character_id = ?
+                """,
+                (
+                    actor.user_id,
+                    actor.guild_id,
+                    character_id,
+                ),
+            )
+
+        elif approve:
+            conn.execute(
+                """
+                UPDATE character_review_progress
+                SET second_reviewer = ?,
+                    second_reviewed_at = CURRENT_TIMESTAMP
+                WHERE guild_id = ?
+                  AND character_id = ?
+                """,
+                (
+                    actor.user_id,
+                    actor.guild_id,
+                    character_id,
+                ),
+            )
+
+        conn.execute(
+            """
+            INSERT INTO audit_events (
+                guild_id,
+                actor_id,
+                action,
+                target_key,
+                details_json
+            )
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (
+                actor.guild_id,
+                actor.user_id,
+                "character.review",
+                f"character:{character_id}",
+                json.dumps(
+                    {
+                        "from": old,
+                        "to": new,
+                        "approve": approve,
+                        "reason": reason,
+                    },
+                    ensure_ascii=False,
+                ),
+            ),
+        )
+
+    return {
+        "draft": "退回草稿",
+        "review_2": "第一審通過，等待第二審",
+        "approved": "雙審通過，等待玩家確認啟用",
+    }[new]
+
+
+def format_list(result):
     return (
-        "🛡️ **官方審核中心｜角色申請**\n\n"
-        f"目前待審：{result['total']} 名\n"
-        f"第 {result['page'] + 1}/"
-        f"{result['max_page'] + 1} 頁\n\n"
-        "請選擇要審核的角色。\n"
-        "角色審核分為兩階段，"
-        "必須由不同審核者完成。"
+        "🛡️ **官方審核中心｜角色審核**\n\n"
+        f"待審角色：{result['total']}名\n"
+        f"第{result['page'] + 1}/"
+        f"{result['max_page'] + 1}頁\n\n"
+        "請從下方選擇角色。\n"
+        "每次審核都會檢查正式授權。"
     )
 
 
-def safe_display(value, maximum=500):
-    if value in ("", None):
+def display(value, limit=300):
+    if value is None or value == "":
         return "未填寫"
 
-    if isinstance(value, (list, dict)):
+    if isinstance(value, (dict, list)):
         value = json.dumps(
             value,
             ensure_ascii=False,
         )
 
-    value = str(value)
-    return value[:maximum]
+    return str(value)[:limit]
 
 
-def make_review_embed(actor, character_id):
-    character = get_review_character(
+def review_embed(actor, character_id):
+    character = get_character(
         actor,
         character_id,
     )
 
-    settings = read_settings(character)
-    progress = get_review_progress(
+    try:
+        settings = json.loads(
+            character["settings_json"] or "{}"
+        )
+    except (ValueError, TypeError):
+        settings = {}
+
+    progress = get_progress(
         actor,
         character_id,
     )
-
-    state = REVIEW_STATES[
-        character["status"]
-    ]
 
     embed = discord.Embed(
-        title=f"📋 角色審核 #{character_id}",
+        title=f"角色審核｜#{character_id}",
         description=(
-            f"**{safe_display(character['name'], 100)}**\n"
-            f"目前階段：{state}\n"
+            f"**{display(character['name'], 100)}**\n"
+            f"審核階段：{STAGES[character['status']]}\n"
             f"申請人：<@{character['owner_id']}>"
         ),
         color=discord.Color.blue(),
@@ -243,29 +468,21 @@ def make_review_embed(actor, character_id):
         name="基本資料",
         value=(
             f"年齡：{character['age']}\n"
-            f"職業：{safe_display(character['occupation'], 150)}\n"
-            f"角色類型：原創角色"
+            f"職業：{display(character['occupation'])}"
         ),
         inline=False,
     )
 
-    # Discord Embed 每個欄位最多 1024 字；
-    # 將資料拆分，避免背景文字太長無法傳送。
     lines = []
-    chunks = []
 
     for label, key in FIELDS.items():
         if key in ("name", "age", "occupation"):
             continue
 
-        value = settings.get(key)
-
-        line = (
+        lines.append(
             f"**{label}**："
-            f"{safe_display(value, 260)}"
+            f"{display(settings.get(key), 240)}"
         )
-
-        lines.append(line)
 
     for label, key in (
         ("生日", "birthday"),
@@ -274,9 +491,10 @@ def make_review_embed(actor, character_id):
     ):
         lines.append(
             f"**{label}**："
-            f"{safe_display(settings.get(key), 150)}"
+            f"{display(settings.get(key), 200)}"
         )
 
+    chunks = []
     chunk = ""
 
     for line in lines:
@@ -289,13 +507,12 @@ def make_review_embed(actor, character_id):
     if chunk:
         chunks.append(chunk)
 
-    # 最多保留 15 個檔案欄位，避免超過 Embed 限制。
     for index, content in enumerate(chunks[:15]):
         embed.add_field(
             name=(
                 "角色設定"
                 if index == 0
-                else f"角色設定（續 {index + 1}）"
+                else f"角色設定（{index + 1}）"
             ),
             value=content,
             inline=False,
@@ -305,15 +522,13 @@ def make_review_embed(actor, character_id):
         first = progress.get("first_reviewer")
 
         embed.add_field(
-            name="審核進度",
+            name="審核紀錄",
             value=(
-                f"第一審："
-                f"{'<@' + str(first) + '>' if first else '未完成'}\n"
-                "第二審："
+                "第一審："
                 + (
-                    "待進行"
-                    if character["status"] == "review_2"
-                    else "尚未開始"
+                    f"<@{first}>"
+                    if first
+                    else "未完成"
                 )
             ),
             inline=False,
@@ -323,19 +538,15 @@ def make_review_embed(actor, character_id):
 
     if missing:
         embed.add_field(
-            name="⚠️ 尚缺必填資料",
+            name="⚠️ 必填資料",
             value="、".join(missing)[:1000],
             inline=False,
         )
 
-    embed.set_footer(
-        text="審核操作將寫入官方審核紀錄"
-    )
-
     return embed
 
 
-async def send_error(interaction, exc):
+async def respond_error(interaction, exc):
     message = f"⚠️ {str(exc)[:1700]}"
 
     if interaction.response.is_done():
@@ -352,47 +563,44 @@ async def send_error(interaction, exc):
 
 class AuthorizedView(discord.ui.View):
     def __init__(self, actor):
-        super().__init__(timeout=VIEW_TIMEOUT)
+        super().__init__(timeout=TIMEOUT)
         self.actor = actor
 
     async def interaction_check(self, interaction):
         try:
-            verify_user(interaction, self.actor)
+            check_interaction(
+                interaction,
+                self.actor,
+            )
             return True
 
         except (
             PermissionDenied,
             InvalidState,
         ) as exc:
-            await send_error(interaction, exc)
+            await respond_error(interaction, exc)
             return False
 
 
-class ReviewSelect(discord.ui.Select):
+class PendingSelect(discord.ui.Select):
     def __init__(self, actor, result):
         self.actor = actor
 
-        options = []
+        items = result["items"]
 
-        for character in result["items"]:
-            stage = REVIEW_STATES.get(
-                character["status"],
-                "未知狀態",
+        options = [
+            discord.SelectOption(
+                label=(
+                    f"#{row['id']} {row['name']}"
+                )[:100],
+                description=(
+                    f"{STAGES[row['status']]}｜"
+                    f"{row['occupation'] or '未設定職業'}"
+                )[:100],
+                value=str(row["id"]),
             )
-
-            options.append(
-                discord.SelectOption(
-                    label=(
-                        f"#{character['id']} "
-                        f"{character['name']}"
-                    )[:100],
-                    description=(
-                        f"{stage}｜"
-                        f"{character['occupation'] or '未設定職業'}"
-                    )[:100],
-                    value=str(character["id"]),
-                )
-            )
+            for row in items
+        ]
 
         if not options:
             options = [
@@ -404,10 +612,8 @@ class ReviewSelect(discord.ui.Select):
 
         super().__init__(
             placeholder="選擇待審角色",
-            min_values=1,
-            max_values=1,
             options=options,
-            disabled=not bool(result["items"]),
+            disabled=not bool(items),
             row=0,
         )
 
@@ -418,73 +624,53 @@ class ReviewSelect(discord.ui.Select):
             return
 
         try:
-            character_id = int(self.values[0])
-
-            embed = make_review_embed(
-                self.actor,
-                character_id,
-            )
+            cid = int(self.values[0])
 
             await interaction.response.edit_message(
                 content=None,
-                embed=embed,
-                view=ReviewDetailView(
-                    self.actor,
-                    character_id,
-                ),
+                embed=review_embed(self.actor, cid),
+                view=DetailView(self.actor, cid),
             )
 
         except (
-            ValueError,
-            InvalidState,
             PermissionDenied,
+            InvalidState,
+            ValueError,
         ) as exc:
-            await send_error(interaction, exc)
+            await respond_error(interaction, exc)
 
 
-class ReviewListView(AuthorizedView):
+class PendingView(AuthorizedView):
     def __init__(self, actor, page=0):
         super().__init__(actor)
 
-        result = get_pending(
-            actor,
-            page,
-        )
+        result = get_pending(actor, page)
 
         self.page = result["page"]
         self.max_page = result["max_page"]
 
         self.add_item(
-            ReviewSelect(
-                actor,
-                result,
-            )
+            PendingSelect(actor, result)
         )
 
-        self.previous.disabled = self.page <= 0
-        self.next.disabled = (
-            self.page >= self.max_page
-        )
+        self.previous.disabled = self.page == 0
+        self.next.disabled = self.page >= self.max_page
 
     @discord.ui.button(
         label="⬅️ 上一頁",
         style=discord.ButtonStyle.secondary,
         row=1,
     )
-    async def previous(
-        self,
-        interaction,
-        button,
-    ):
+    async def previous(self, interaction, button):
         result = get_pending(
             self.actor,
             self.page - 1,
         )
 
         await interaction.response.edit_message(
-            content=list_text(result),
+            content=format_list(result),
             embed=None,
-            view=ReviewListView(
+            view=PendingView(
                 self.actor,
                 result["page"],
             ),
@@ -495,20 +681,16 @@ class ReviewListView(AuthorizedView):
         style=discord.ButtonStyle.secondary,
         row=1,
     )
-    async def next(
-        self,
-        interaction,
-        button,
-    ):
+    async def next(self, interaction, button):
         result = get_pending(
             self.actor,
             self.page + 1,
         )
 
         await interaction.response.edit_message(
-            content=list_text(result),
+            content=format_list(result),
             embed=None,
-            view=ReviewListView(
+            view=PendingView(
                 self.actor,
                 result["page"],
             ),
@@ -519,20 +701,16 @@ class ReviewListView(AuthorizedView):
         style=discord.ButtonStyle.primary,
         row=1,
     )
-    async def refresh(
-        self,
-        interaction,
-        button,
-    ):
+    async def refresh(self, interaction, button):
         result = get_pending(
             self.actor,
             self.page,
         )
 
         await interaction.response.edit_message(
-            content=list_text(result),
+            content=format_list(result),
             embed=None,
-            view=ReviewListView(
+            view=PendingView(
                 self.actor,
                 result["page"],
             ),
@@ -541,58 +719,56 @@ class ReviewListView(AuthorizedView):
 
 class RejectModal(discord.ui.Modal):
     def __init__(self, actor, character_id):
-        super().__init__(
-            title="角色審核｜退件"
-        )
+        super().__init__(title="角色審核｜退件理由")
 
         self.actor = actor
         self.character_id = character_id
 
         self.reason = discord.ui.TextInput(
-            label="退件原因（必填）",
+            label="退件原因",
             style=discord.TextStyle.paragraph,
             min_length=1,
             max_length=500,
             required=True,
-            placeholder="請具體說明需要修改的內容",
         )
 
         self.add_item(self.reason)
 
     async def on_submit(self, interaction):
         try:
-            actor = verify_user(
+            actor = check_interaction(
                 interaction,
                 self.actor,
             )
 
+            # 在資料庫寫入前檢查當前授權。
             result = await asyncio.to_thread(
-                review_character,
+                review_character_as_staff,
                 actor,
                 self.character_id,
-                approve=False,
-                reason=str(self.reason.value),
+                False,
+                str(self.reason.value),
+                authorized=True,
             )
 
             await interaction.response.send_message(
                 (
-                    "✅ **角色已退回草稿**\n\n"
-                    f"角色編號：#{self.character_id}\n"
-                    f"結果：{result}\n"
+                    f"✅ 角色 #{self.character_id}"
+                    f" 已處理：{result}\n\n"
                     f"原因：{self.reason.value}"
                 ),
                 ephemeral=True,
             )
 
         except (
-            InvalidState,
             PermissionDenied,
+            InvalidState,
             ValueError,
         ) as exc:
-            await send_error(interaction, exc)
+            await respond_error(interaction, exc)
 
 
-class ReviewDetailView(AuthorizedView):
+class DetailView(AuthorizedView):
     def __init__(self, actor, character_id):
         super().__init__(actor)
         self.character_id = character_id
@@ -600,40 +776,36 @@ class ReviewDetailView(AuthorizedView):
     @discord.ui.button(
         label="✅ 通過本階段",
         style=discord.ButtonStyle.success,
-        row=0,
     )
-    async def approve(
-        self,
-        interaction,
-        button,
-    ):
+    async def approve(self, interaction, button):
         try:
-            actor = verify_user(
+            actor = check_interaction(
                 interaction,
                 self.actor,
             )
 
-            # 在執行前重新確認狀態，
-            # 防止兩名審核員操作過期面板。
-            get_review_character(
+            # 先確認最新狀態。
+            get_character(
                 actor,
                 self.character_id,
+            )
+
+            await interaction.response.defer(
+                ephemeral=True,
             )
 
             result = await asyncio.to_thread(
-                review_character,
+                review_character_as_staff,
                 actor,
                 self.character_id,
-                approve=True,
-                reason="",
+                True,
+                authorized=True,
             )
 
-            await interaction.response.edit_message(
+            await interaction.edit_original_response(
                 content=(
-                    "✅ **審核已完成**\n\n"
-                    f"角色：#{self.character_id}\n"
-                    f"結果：{result}\n\n"
-                    "此審核操作已記錄。"
+                    f"✅ 角色 #{self.character_id}\n"
+                    f"{result}"
                 ),
                 embed=None,
                 view=None,
@@ -644,32 +816,22 @@ class ReviewDetailView(AuthorizedView):
             InvalidState,
             ValueError,
         ) as exc:
-            await send_error(interaction, exc)
+            await respond_error(interaction, exc)
 
     @discord.ui.button(
         label="❌ 退件",
         style=discord.ButtonStyle.danger,
-        row=0,
     )
-    async def reject(
-        self,
-        interaction,
-        button,
-    ):
+    async def reject(self, interaction, button):
         try:
-            actor = verify_user(
+            check_interaction(
                 interaction,
                 self.actor,
             )
 
-            get_review_character(
-                actor,
-                self.character_id,
-            )
-
             await interaction.response.send_modal(
                 RejectModal(
-                    actor,
+                    self.actor,
                     self.character_id,
                 )
             )
@@ -678,28 +840,20 @@ class ReviewDetailView(AuthorizedView):
             PermissionDenied,
             InvalidState,
         ) as exc:
-            await send_error(interaction, exc)
+            await respond_error(interaction, exc)
 
     @discord.ui.button(
-        label="⬅️ 返回待審清單",
+        label="⬅️ 返回清單",
         style=discord.ButtonStyle.secondary,
         row=1,
     )
-    async def back(
-        self,
-        interaction,
-        button,
-    ):
-        result = get_pending(
-            self.actor
-        )
+    async def back(self, interaction, button):
+        result = get_pending(self.actor)
 
         await interaction.response.edit_message(
-            content=list_text(result),
+            content=format_list(result),
             embed=None,
-            view=ReviewListView(
-                self.actor,
-            ),
+            view=PendingView(self.actor),
         )
 
 
@@ -709,7 +863,7 @@ class ReviewCenter(commands.Cog):
 
     @app_commands.command(
         name="審核",
-        description="開啟官方統一審核中心",
+        description="官方角色雙階段審核中心",
     )
     @app_commands.guild_only()
     async def review(
@@ -717,31 +871,31 @@ class ReviewCenter(commands.Cog):
         interaction: discord.Interaction,
     ):
         try:
-            actor = get_actor(interaction)
-
-            result = await asyncio.to_thread(
-                get_pending,
-                actor,
+            actor = ensure_reviewer(
+                interaction
             )
 
+            result = get_pending(actor)
+
             await interaction.response.send_message(
-                list_text(result),
-                view=ReviewListView(actor),
+                format_list(result),
+                view=PendingView(actor),
                 ephemeral=True,
             )
 
         except (
-            InvalidState,
             PermissionDenied,
+            InvalidState,
             ValueError,
         ) as exc:
-            await send_error(interaction, exc)
+            await respond_error(interaction, exc)
 
         except sqlite3.Error:
-            LOG.exception("審核中心資料庫錯誤")
-            await send_error(
+            LOG.exception("審核中心讀取失敗")
+
+            await respond_error(
                 interaction,
-                "無法讀取審核資料，請聯絡管理員。",
+                "審核資料庫發生錯誤。",
             )
 
 
