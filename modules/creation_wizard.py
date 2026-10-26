@@ -1,22 +1,14 @@
 
-"""Discord RP：完整互動式創角中心。
+"""Discord RP：正式創角中心。
 
-指令：/創角
-
-功能：
-- 先顯示角色建立中心
-- 建立不限數量的原創角色
-- 繼續已保存的角色草稿
-- 草稿清單分頁
-- 基本資料可重新修改
+/創角
+- 多角色與永久草稿
 - 個人資料分組填寫
-- 十三項屬性雙配點池
-- 主副賽道設定
-- 生日與感情狀態
-- 每頁確認及返回修改
-- 完整預覽
-- 雙重審核送件
-- 嚴格驗證 Discord 使用者及角色擁有權
+- 五選一主攻，沒有副賽道
+- 十三項屬性、雙500點配點池
+- 生日、感情、完整預覽
+- 雙階段審核送件
+- 完整錯誤日誌
 """
 
 from __future__ import annotations
@@ -44,75 +36,102 @@ from core.attribute_validation import (
     validate_initial_attributes,
 )
 from modules.attributes import (
-    load_schema,
     ensure_default_schema,
+    load_schema,
     calculate_initial,
     allocate_initial,
 )
-from modules.profile import (
-    FIELDS,
-    REQUIRED,
-    RELATIONSHIP_STATUSES,
-    validate_field,
-    missing_fields,
-)
+from modules import profile as profile_module
 
 LOG = logging.getLogger(__name__)
 
-PAGE_SIZE = 25
 TIMEOUT = 900
+PAGE_SIZE = 25
 
-STEPS = [
+MAIN_SKILLS = (
+    "演繹",
+    "舞蹈",
+    "歌唱",
+    "綜藝",
+    "主持",
+)
+
+STEPS = (
     "個人資料",
-    "屬性配點",
-    "生日與感情設定",
-    "預覽及送審",
-]
+    "主攻與十三項配點",
+    "生日與感情",
+    "預覽與送審",
+)
 
-PERSONAL_GROUPS = [
+FIELDS = dict(profile_module.FIELDS)
+
+REQUIRED = set(
+    profile_module.REQUIRED
+) - {
+    "secondary_track",
+    "main_track",
+}
+
+RELATIONSHIP_STATUSES = tuple(
+    profile_module.RELATIONSHIP_STATUSES
+)
+
+VALIDATE_FIELD = (
+    getattr(
+        profile_module,
+        "validate_field",
+        None,
+    )
+    or getattr(
+        profile_module,
+        "_validate_value",
+    )
+)
+
+GROUPS = (
     (
         "基本資訊",
-        [
+        (
             "性別",
             "國籍或出身",
             "身高cm",
             "體重kg",
             "學歷",
-        ],
+        ),
     ),
     (
         "經歷與立繪",
-        [
+        (
             "立繪網址",
             "立繪來源",
             "語言",
             "資歷年數",
             "生平簡述",
-        ],
+        ),
     ),
     (
         "人物介紹",
-        [
+        (
             "藝名或稱號",
             "代表色碼",
             "公開人設",
             "私下性格",
             "特殊設定",
-        ],
+        ),
     ),
     (
         "其他設定",
-        ["其他備註"],
+        ("其他備註",),
     ),
-]
+)
 
-EXTRA_FIELDS = {
+EXTRA = {
     "生日（月／日）": "birthday",
     "感情狀態": "relationship_status",
     "伴侶姓名": "partner_name",
 }
 
-LONG_FIELDS = {
+LONG = {
     "biography",
     "notes",
     "special_notes",
@@ -120,32 +139,43 @@ LONG_FIELDS = {
     "private_personality",
 }
 
-GENERAL_MAIN_SKILLS = (
-    "歌唱",
-    "舞蹈",
-    "演繹",
-    "主持",
-    "綜藝",
-)
 
-
-def safe_json(raw):
+def unpack(raw):
     try:
-        result = json.loads(raw or "{}")
-        return (
-            result
-            if isinstance(result, dict)
-            else {}
-        )
-    except (ValueError, TypeError):
+        obj = json.loads(raw or "{}")
+    except (TypeError, ValueError):
         return {}
 
+    return (
+        obj
+        if isinstance(obj, dict)
+        else {}
+    )
 
-def get_character(actor, character_id):
-    """讀取本人草稿，禁止跨伺服器及跨玩家操作。"""
 
-    with get_connection() as conn:
-        row = conn.execute(
+def actor_from(interaction):
+    return Actor.from_interaction(
+        interaction
+    )
+
+
+def check_owner(interaction, actor):
+    actual = actor_from(interaction)
+
+    if (
+        actual.guild_id != actor.guild_id
+        or actual.user_id != actor.user_id
+    ):
+        raise PermissionDenied(
+            "這不是你的創角表單。"
+        )
+
+    return actual
+
+
+def draft(actor, character_id):
+    with get_connection() as db:
+        row = db.execute(
             """
             SELECT *
             FROM characters
@@ -159,33 +189,37 @@ def get_character(actor, character_id):
         ).fetchone()
 
     if row is None:
-        raise InvalidState("找不到角色。")
-
-    if str(row["owner_id"]) != actor.user_id:
-        raise PermissionDenied(
-            "你不能操作其他玩家的角色。"
+        raise InvalidState(
+            "找不到角色草稿。"
         )
 
-    if row["character_type"] != "player":
+    row = dict(row)
+
+    if (
+        str(row["owner_id"])
+        != actor.user_id
+        or row["character_type"]
+        != "player"
+    ):
         raise PermissionDenied(
-            "這個創角入口僅限原創角色。"
+            "不能操作其他玩家的角色。"
         )
 
     if row["status"] != "draft":
         raise InvalidState(
-            "只有草稿可以修改，"
-            "已送審或啟用的角色不可直接修改。"
+            "角色已送審或啟用，"
+            "不能修改草稿。"
         )
 
-    return dict(row)
+    return row
 
 
-def list_drafts(actor):
-    with get_connection() as conn:
-        rows = conn.execute(
+def drafts(actor):
+    with get_connection() as db:
+        rows = db.execute(
             """
-            SELECT id, name, age, occupation,
-                   settings_json
+            SELECT id, name, age,
+                   occupation, settings_json
             FROM characters
             WHERE guild_id = ?
               AND owner_id = ?
@@ -199,14 +233,15 @@ def list_drafts(actor):
             ),
         ).fetchall()
 
-    return [dict(row) for row in rows]
+    return [
+        dict(row)
+        for row in rows
+    ]
 
 
-def save_fields(actor, character_id, values):
-    """以交易保存資料，並再次檢查角色擁有權。"""
-
-    with transaction() as conn:
-        row = conn.execute(
+def save(actor, character_id, values):
+    with transaction() as db:
+        row = db.execute(
             """
             SELECT *
             FROM characters
@@ -215,14 +250,16 @@ def save_fields(actor, character_id, values):
             """,
             (
                 actor.guild_id,
-                character_id,
+                int(character_id),
             ),
         ).fetchone()
 
         if (
             row is None
-            or str(row["owner_id"]) != actor.user_id
-            or row["character_type"] != "player"
+            or str(row["owner_id"])
+            != actor.user_id
+            or row["character_type"]
+            != "player"
         ):
             raise PermissionDenied(
                 "無權修改這名角色。"
@@ -233,19 +270,22 @@ def save_fields(actor, character_id, values):
                 "角色已不在草稿狀態。"
             )
 
-        settings = safe_json(
+        settings = unpack(
             row["settings_json"]
         )
 
-        basic = {
-            "name": row["name"],
-            "age": row["age"],
-            "occupation": row["occupation"],
+        basics = {
+            key: row[key]
+            for key in (
+                "name",
+                "age",
+                "occupation",
+            )
         }
 
         for key, value in values.items():
-            if key in basic:
-                basic[key] = value
+            if key in basics:
+                basics[key] = value
             else:
                 settings[key] = value
 
@@ -255,17 +295,17 @@ def save_fields(actor, character_id, values):
 
         if (
             type(years) is int
-            and type(basic["age"]) is int
+            and type(basics["age"]) is int
             and years > max(
                 0,
-                basic["age"] - 5,
+                basics["age"] - 5,
             )
         ):
             raise ValueError(
-                "現有資歷超過角色年齡允許的上限。"
+                "資歷不得超過年齡減五年。"
             )
 
-        changed = conn.execute(
+        changed = db.execute(
             """
             UPDATE characters
             SET name = ?,
@@ -278,61 +318,39 @@ def save_fields(actor, character_id, values):
               AND status = 'draft'
             """,
             (
-                basic["name"],
-                basic["age"],
-                basic["occupation"],
+                basics["name"],
+                basics["age"],
+                basics["occupation"],
                 json.dumps(
                     settings,
                     ensure_ascii=False,
                 ),
                 actor.guild_id,
-                character_id,
+                int(character_id),
             ),
         )
 
         if changed.rowcount != 1:
             raise InvalidState(
-                "角色資料狀態已變更。"
+                "草稿狀態已變更。"
             )
 
 
-def get_schema(actor):
-    """確保官方十三項屬性存在。"""
-
-    with transaction() as conn:
+def schema_for(actor):
+    with transaction() as db:
         ensure_default_schema(
-            conn,
+            db,
             actor.guild_id,
         )
+
         return load_schema(
-            conn,
+            db,
             actor.guild_id,
         )
-
-
-def stage_of(actor, character_id):
-    row = get_character(
-        actor,
-        character_id,
-    )
-
-    settings = safe_json(
-        row["settings_json"]
-    )
-
-    stage = settings.get(
-        "wizard_step",
-        0,
-    )
-
-    if type(stage) is not int:
-        return 0
-
-    return max(0, min(stage, 3))
 
 
 def missing_personal(row):
-    settings = safe_json(
+    settings = unpack(
         row["settings_json"]
     )
 
@@ -341,115 +359,75 @@ def missing_personal(row):
         for label, key in FIELDS.items()
         if (
             key in REQUIRED
-            and key not in (
-                "main_track",
-                "secondary_track",
-            )
-            and settings.get(key) in (
-                None,
-                "",
-            )
+            and settings.get(key)
+            in (None, "")
         )
     ]
 
 
-def save_points(actor, character_id, values):
-    row = get_character(
-        actor,
-        character_id,
-    )
-
-    settings = safe_json(
-        row["settings_json"]
-    )
-
+def points_of(settings):
     points = settings.get(
-        "wizard_points",
-        {},
+        "wizard_points"
     )
 
-    if not isinstance(points, dict):
-        points = {}
-
-    points.update(values)
-
-    save_fields(
-        actor,
-        character_id,
-        {"wizard_points": points},
+    return (
+        points
+        if isinstance(points, dict)
+        else {}
     )
 
 
-def finalize_points(actor, character_id):
-    """完成十三項配點並寫入正式屬性表。"""
-
-    row = get_character(
+def finish_points(actor, character_id):
+    row = draft(
         actor,
         character_id,
     )
 
-    settings = safe_json(
+    settings = unpack(
         row["settings_json"]
     )
-
-    schema = get_schema(actor)
 
     main = settings.get(
         "wizard_main"
     )
 
-    secondary = settings.get(
-        "wizard_secondary"
-    )
-
-    if not main or not secondary:
+    if main not in MAIN_SKILLS:
         raise InvalidState(
-            "請先設定主賽道及副賽道。"
+            "請先選擇演繹、舞蹈、"
+            "歌唱、綜藝、主持"
+            "其中一項主攻。"
         )
 
-    if main == secondary:
-        raise InvalidState(
-            "主副賽道不可相同。"
-        )
+    schema = schema_for(actor)
+    points = points_of(settings)
 
-    raw_points = settings.get(
-        "wizard_points",
-        {},
+    names = (
+        schema["general"]
+        + schema["talent"]
     )
 
-    if not isinstance(raw_points, dict):
+    if any(
+        type(points.get(name)) is not int
+        for name in names
+    ):
         raise InvalidState(
-            "配點資料格式不正確。"
+            "十三項都必須填寫，"
+            "未分配的請填 0。"
         )
 
     general = {
-        name: raw_points.get(name)
+        name: points[name]
         for name in schema["general"]
     }
 
     talent = {
-        name: raw_points.get(name)
+        name: points[name]
         for name in schema["talent"]
     }
-
-    all_points = (
-        list(general.values())
-        + list(talent.values())
-    )
-
-    if any(
-        type(value) is not int
-        for value in all_points
-    ):
-        raise InvalidState(
-            "十三項屬性均須填寫點數，"
-            "沒有分配的請填0。"
-        )
 
     calculate_initial(
         schema,
         main,
-        secondary,
         general,
         talent,
     )
@@ -458,7 +436,6 @@ def finalize_points(actor, character_id):
         actor,
         character_id,
         main,
-        secondary,
         json.dumps(
             general,
             ensure_ascii=False,
@@ -469,9 +446,9 @@ def finalize_points(actor, character_id):
         ),
     )
 
-    with transaction() as conn:
+    with transaction() as db:
         validate_initial_attributes(
-            conn,
+            db,
             actor.guild_id,
             character_id,
         )
@@ -479,13 +456,13 @@ def finalize_points(actor, character_id):
     return result
 
 
-def progress_text(actor, character_id, stage):
-    row = get_character(
+def screen(actor, character_id, stage):
+    row = draft(
         actor,
         character_id,
     )
 
-    settings = safe_json(
+    settings = unpack(
         row["settings_json"]
     )
 
@@ -494,129 +471,66 @@ def progress_text(actor, character_id, stage):
         f"角色：{row['name']}",
         f"年齡：{row['age']}",
         f"職業：{row['occupation']}",
-        "",
-        "📁 已填寫的資料會自動保存。",
+        "📁 所有填寫資料自動保存。",
         "",
     ]
 
     if stage == 0:
         missing = missing_personal(row)
 
-        lines.extend([
+        lines += [
             "**第一階段：個人資料**",
-            (
-                "尚未填寫："
-                + (
-                    "、".join(missing)
-                    if missing
-                    else "必填項目已完成"
-                )
+            "必填尚缺："
+            + (
+                "、".join(missing)
+                if missing
+                else "已完成"
             ),
-            "",
-            "可使用下方選單分組填寫。",
-            "需要修改姓名、年齡或職業時，"
-            "點擊「修改基本資料」。",
-        ])
+            "從選單選擇一組資料填寫。",
+        ]
 
     elif stage == 1:
-        schema = get_schema(actor)
-        points = settings.get(
-            "wizard_points",
-            {},
-        )
+        schema = schema_for(actor)
+        points = points_of(settings)
 
-        if not isinstance(points, dict):
-            points = {}
+        lines += [
+            "**第二階段：主攻與十三項配點**",
+            "🎯 主攻："
+            + str(
+                settings.get("wizard_main")
+                or "尚未選擇"
+            ),
+        ]
 
-        lines.append(
-            "**第二階段：十三項屬性**"
-        )
-
-        for key, label in (
+        for pool, title in (
             ("general", "一般池"),
             ("talent", "藝能池"),
         ):
             spent = sum(
                 points.get(name, 0)
-                for name in schema[key]
+                for name in schema[pool]
                 if type(
                     points.get(name, 0)
                 ) is int
             )
 
             lines.append(
-                f"{label}：{spent}/500點"
+                f"{title}：{spent}/500點"
             )
 
-        lines.extend([
-            (
-                "主賽道："
-                + str(
-                    settings.get("wizard_main")
-                    or "未選擇"
-                )
-            ),
-            (
-                "副賽道："
-                + str(
-                    settings.get("wizard_secondary")
-                    or "未選擇"
-                )
-            ),
-            "",
-            "請先選擇主、副賽道，"
-            "再逐組填寫十三項配點。",
-        ])
+        lines += [
+            "主攻五選一：演繹、舞蹈、"
+            "歌唱、綜藝、主持。",
+            "主攻基礎35、額外加成30；"
+            "其餘基礎20。",
+            "沒有副賽道。",
+            "每項都要填寫數字，"
+            "沒有配點請填0。",
+        ]
 
     elif stage == 2:
-        lines.extend([
-            "**第三階段：生日與感情設定**",
-            (
-                "生日："
-                + str(
-                    settings.get("birthday")
-                    or "未填寫"
-                )
-            ),
-            (
-                "感情狀態："
-                + str(
-                    settings.get(
-                        "relationship_status"
-                    )
-                    or "未填寫"
-                )
-            ),
-            (
-                "伴侶："
-                + str(
-                    settings.get("partner_name")
-                    or "未填寫"
-                )
-            ),
-        ])
-
-    else:
-        lines.append(
-            "**第四階段：角色完整預覽**"
-        )
-
-        for label, key in FIELDS.items():
-            if key in (
-                "name",
-                "age",
-                "occupation",
-            ):
-                continue
-
-            value = settings.get(key)
-
-            lines.append(
-                f"{label}："
-                f"{str(value)[:45] if value not in (None, '') else '未填寫'}"
-            )
-
-        lines.extend([
+        lines += [
+            "**第三階段：生日與感情設定（選填）**",
             "生日："
             + str(
                 settings.get("birthday")
@@ -629,56 +543,183 @@ def progress_text(actor, character_id, stage):
                 )
                 or "未填寫"
             ),
-            "",
-            "請確認完整資料後送審。",
-        ])
+            "伴侶："
+            + str(
+                settings.get("partner_name")
+                or "未填寫"
+            ),
+        ]
+
+    else:
+        lines += [
+            "**第四階段：完整預覽**",
+            "姓名：" + row["name"],
+            "年齡：" + str(row["age"]),
+            "職業：" + str(
+                row["occupation"]
+            ),
+        ]
+
+        for label, key in FIELDS.items():
+            if key in (
+                "name",
+                "age",
+                "occupation",
+                "secondary_track",
+            ):
+                continue
+
+            value = (
+                settings.get("main_track")
+                if key == "main_track"
+                else settings.get(key)
+            )
+
+            shown = (
+                str(value)[:48]
+                if value not in (None, "")
+                else "未填寫"
+            )
+
+            lines.append(
+                (
+                    "主攻技能"
+                    if key == "main_track"
+                    else label
+                )
+                + "："
+                + shown
+            )
+
+        lines += [
+            "生日："
+            + str(
+                settings.get("birthday")
+                or "未填寫"
+            ),
+            "感情狀態："
+            + str(
+                settings.get(
+                    "relationship_status"
+                )
+                or "未填寫"
+            ),
+            "確認所有資料後再送審。",
+        ]
 
     return "\n".join(lines)[:1900]
 
 
-async def show_error(interaction, exc):
-    message = f"⚠️ {str(exc)[:1500]}"
+async def report(
+    interaction,
+    exc,
+    place="創角",
+):
+    LOG.error(
+        "%s 操作失敗",
+        place,
+        exc_info=(
+            type(exc),
+            exc,
+            exc.__traceback__,
+        ),
+    )
 
-    if interaction.response.is_done():
-        await interaction.followup.send(
-            message,
-            ephemeral=True,
+    if isinstance(
+        exc,
+        (
+            InvalidState,
+            PermissionDenied,
+            ValueError,
+        ),
+    ):
+        message = (
+            f"⚠️ {str(exc)[:1400]}"
         )
     else:
-        await interaction.response.send_message(
-            message,
-            ephemeral=True,
+        message = (
+            "⚠️ 系統發生 "
+            f"{type(exc).__name__}，"
+            "詳細原因已記錄在 "
+            "Railway Deploy Logs。"
+        )
+
+    try:
+        if interaction.response.is_done():
+            await interaction.followup.send(
+                message,
+                ephemeral=True,
+            )
+        else:
+            await interaction.response.send_message(
+                message,
+                ephemeral=True,
+            )
+
+    except discord.HTTPException:
+        LOG.exception(
+            "創角錯誤回覆失敗"
+        )
+
+
+class SafeModal(discord.ui.Modal):
+    async def on_error(
+        self,
+        interaction,
+        error,
+    ):
+        await report(
+            interaction,
+            error,
+            self.title,
         )
 
 
 class OwnedView(discord.ui.View):
-    """所有創角按鈕共用權限驗證。"""
-
-    def __init__(self, actor, *, timeout=TIMEOUT):
-        super().__init__(timeout=timeout)
+    def __init__(self, actor):
+        super().__init__(
+            timeout=TIMEOUT
+        )
         self.actor = actor
 
-    async def interaction_check(self, interaction):
-        valid = (
-            str(interaction.user.id)
-            == self.actor.user_id
-            and str(interaction.guild_id)
-            == self.actor.guild_id
+    async def interaction_check(
+        self,
+        interaction,
+    ):
+        try:
+            check_owner(
+                interaction,
+                self.actor,
+            )
+            return True
+
+        except Exception as exc:
+            await report(
+                interaction,
+                exc,
+                "權限驗證",
+            )
+            return False
+
+    async def on_error(
+        self,
+        interaction,
+        error,
+        item,
+    ):
+        await report(
+            interaction,
+            error,
+            "創角互動",
         )
 
-        if not valid:
-            await interaction.response.send_message(
-                "⛔ 這不是你的創角介面。",
-                ephemeral=True,
-            )
 
-        return valid
-
-
-class BasicModal(discord.ui.Modal):
-    """建立角色或修改已有草稿的基本資料。"""
-
-    def __init__(self, actor, character_id=None):
+class BasicModal(SafeModal):
+    def __init__(
+        self,
+        actor,
+        character_id=None,
+    ):
         super().__init__(
             title=(
                 "創角｜建立新角色"
@@ -691,75 +732,81 @@ class BasicModal(discord.ui.Modal):
         self.character_id = character_id
 
         old = (
-            get_character(actor, character_id)
+            draft(actor, character_id)
             if character_id is not None
             else None
         )
 
-        self.name_field = discord.ui.TextInput(
+        self.name = discord.ui.TextInput(
             label="角色姓名",
             default=(
                 str(old["name"])
-                if old else None
+                if old
+                else None
             ),
             max_length=100,
         )
 
-        self.age_field = discord.ui.TextInput(
+        self.age = discord.ui.TextInput(
             label="角色年齡",
             default=(
                 str(old["age"])
-                if old else None
+                if old
+                else None
             ),
-            placeholder="18",
             max_length=3,
         )
 
-        self.job_field = discord.ui.TextInput(
+        self.job = discord.ui.TextInput(
             label="角色職業",
             default=(
                 str(old["occupation"])
-                if old else None
+                if old
+                else None
             ),
             max_length=100,
         )
 
-        self.add_item(self.name_field)
-        self.add_item(self.age_field)
-        self.add_item(self.job_field)
+        for item in (
+            self.name,
+            self.age,
+            self.job,
+        ):
+            self.add_item(item)
 
-    async def on_submit(self, interaction):
+    async def on_submit(
+        self,
+        interaction,
+    ):
         try:
-            actor = Actor.from_interaction(
-                interaction
+            actor = check_owner(
+                interaction,
+                self.actor,
             )
 
-            if (
-                actor.guild_id
-                != self.actor.guild_id
-                or actor.user_id
-                != self.actor.user_id
-            ):
-                raise PermissionDenied(
-                    "無權使用這份表單。"
-                )
-
-            age = validate_field(
+            age = VALIDATE_FIELD(
                 "age",
-                str(self.age_field.value),
+                str(self.age.value),
                 None,
             )
 
-            name = validate_field(
+            name = VALIDATE_FIELD(
                 "name",
-                str(self.name_field.value),
+                str(self.name.value),
                 age,
             )
 
-            occupation = validate_field(
+            occupation = VALIDATE_FIELD(
                 "occupation",
-                str(self.job_field.value),
+                str(self.job.value),
                 age,
+            )
+
+            # 優先回應 Discord，
+            # 避免資料庫操作造成 3 秒逾時。
+            await interaction.response.defer(
+                ephemeral=True,
+                thinking=True,
             )
 
             if self.character_id is None:
@@ -771,9 +818,11 @@ class BasicModal(discord.ui.Modal):
                     occupation,
                 )
             else:
-                character_id = self.character_id
+                character_id = (
+                    self.character_id
+                )
 
-                save_fields(
+                save(
                     actor,
                     character_id,
                     {
@@ -783,8 +832,8 @@ class BasicModal(discord.ui.Modal):
                     },
                 )
 
-            await interaction.response.send_message(
-                progress_text(
+            await interaction.followup.send(
+                screen(
                     actor,
                     character_id,
                     0,
@@ -797,17 +846,15 @@ class BasicModal(discord.ui.Modal):
                 ephemeral=True,
             )
 
-        except (
-            PermissionDenied,
-            InvalidState,
-            ValueError,
-        ) as exc:
-            await show_error(interaction, exc)
+        except Exception as exc:
+            await report(
+                interaction,
+                exc,
+                "建立角色基本資料",
+            )
 
 
-class DataModal(discord.ui.Modal):
-    """每次最多五個個人資料欄位。"""
-
+class DataModal(SafeModal):
     def __init__(
         self,
         actor,
@@ -816,102 +863,93 @@ class DataModal(discord.ui.Modal):
         stage,
     ):
         super().__init__(
-            title="創角｜資料填寫"
+            title="創角｜填寫資料"
         )
 
         self.actor = actor
         self.character_id = character_id
         self.stage = stage
 
-        row = get_character(
-            actor,
-            character_id,
+        settings = unpack(
+            draft(
+                actor,
+                character_id,
+            )["settings_json"]
         )
 
-        settings = safe_json(
-            row["settings_json"]
-        )
-
-        self.fields = []
+        self.entries = []
 
         for label in labels:
             key = (
                 FIELDS.get(label)
-                or EXTRA_FIELDS.get(label)
+                or EXTRA.get(label)
             )
 
             if not key:
                 raise ValueError(
-                    f"未知的欄位：{label}"
+                    f"未知欄位：{label}"
                 )
 
-            maximum = (
-                2000
-                if key in LONG_FIELDS
+            limit = (
+                5
+                if key == "birthday"
+                else 100
+                if key == "partner_name"
+                else 2000
+                if key in LONG
                 else 500
             )
 
-            if key == "partner_name":
-                maximum = 100
-
-            if key == "birthday":
-                maximum = 5
-
-            field = discord.ui.TextInput(
+            item = discord.ui.TextInput(
                 label=label[:45],
                 default=str(
-                    settings.get(key)
-                    or ""
-                )[:maximum],
+                    settings.get(key) or ""
+                )[:limit],
                 required=key in REQUIRED,
-                max_length=maximum,
+                max_length=limit,
                 style=(
                     discord.TextStyle.paragraph
-                    if key in LONG_FIELDS
+                    if key in LONG
                     else discord.TextStyle.short
                 ),
             )
 
-            self.add_item(field)
-
-            self.fields.append(
-                (key, field)
+            self.add_item(item)
+            self.entries.append(
+                (key, item)
             )
 
-    async def on_submit(self, interaction):
+    async def on_submit(
+        self,
+        interaction,
+    ):
         try:
-            actor = Actor.from_interaction(
-                interaction
+            actor = check_owner(
+                interaction,
+                self.actor,
             )
 
-            if (
-                actor.user_id != self.actor.user_id
-                or actor.guild_id != self.actor.guild_id
-            ):
-                raise PermissionDenied(
-                    "無權使用這份表單。"
-                )
-
-            row = get_character(
+            row = draft(
                 actor,
                 self.character_id,
             )
 
             values = {}
 
-            for key, field in self.fields:
-                raw = str(field.value).strip()
+            for key, item in self.entries:
+                raw = str(
+                    item.value
+                ).strip()
 
                 if not raw:
                     if key in REQUIRED:
                         raise ValueError(
-                            "必填欄位不能空白。"
+                            "必填欄位不可留空。"
                         )
 
                     values[key] = ""
-                    continue
 
-                if key == "birthday":
+                elif key == "birthday":
                     try:
                         month, day = map(
                             int,
@@ -921,7 +959,11 @@ class DataModal(discord.ui.Modal):
                             ).split("/"),
                         )
 
-                        date(2000, month, day)
+                        date(
+                            2000,
+                            month,
+                            day,
+                        )
 
                     except ValueError as exc:
                         raise ValueError(
@@ -935,9 +977,12 @@ class DataModal(discord.ui.Modal):
                     )
 
                 elif key == "relationship_status":
-                    if raw not in RELATIONSHIP_STATUSES:
+                    if (
+                        raw
+                        not in RELATIONSHIP_STATUSES
+                    ):
                         raise ValueError(
-                            "感情狀態不符合官方清單："
+                            "感情狀態請填："
                             + "、".join(
                                 RELATIONSHIP_STATUSES
                             )
@@ -946,20 +991,25 @@ class DataModal(discord.ui.Modal):
                     values[key] = raw
 
                 else:
-                    values[key] = validate_field(
+                    values[key] = VALIDATE_FIELD(
                         key,
                         raw,
                         row["age"],
                     )
 
-            save_fields(
+            await interaction.response.defer(
+                ephemeral=True,
+                thinking=True,
+            )
+
+            save(
                 actor,
                 self.character_id,
                 values,
             )
 
-            await interaction.response.send_message(
-                progress_text(
+            await interaction.followup.send(
+                screen(
                     actor,
                     self.character_id,
                     self.stage,
@@ -972,15 +1022,15 @@ class DataModal(discord.ui.Modal):
                 ephemeral=True,
             )
 
-        except (
-            PermissionDenied,
-            InvalidState,
-            ValueError,
-        ) as exc:
-            await show_error(interaction, exc)
+        except Exception as exc:
+            await report(
+                interaction,
+                exc,
+                "個人資料保存",
+            )
 
 
-class PointsModal(discord.ui.Modal):
+class PointsModal(SafeModal):
     def __init__(
         self,
         actor,
@@ -995,27 +1045,18 @@ class PointsModal(discord.ui.Modal):
         self.character_id = character_id
         self.names = names
 
-        row = get_character(
-            actor,
-            character_id,
+        settings = unpack(
+            draft(
+                actor,
+                character_id,
+            )["settings_json"]
         )
 
-        settings = safe_json(
-            row["settings_json"]
-        )
-
-        points = settings.get(
-            "wizard_points",
-            {},
-        )
-
-        if not isinstance(points, dict):
-            points = {}
-
-        self.inputs = []
+        points = points_of(settings)
+        self.entries = []
 
         for name in names:
-            field = discord.ui.TextInput(
+            item = discord.ui.TextInput(
                 label=name,
                 default=str(
                     points.get(name, 0)
@@ -1023,104 +1064,99 @@ class PointsModal(discord.ui.Modal):
                 max_length=3,
             )
 
-            self.add_item(field)
-            self.inputs.append(field)
+            self.add_item(item)
+            self.entries.append(item)
 
-    async def on_submit(self, interaction):
+    async def on_submit(
+        self,
+        interaction,
+    ):
         try:
-            actor = Actor.from_interaction(
-                interaction
+            actor = check_owner(
+                interaction,
+                self.actor,
             )
 
-            if (
-                actor.user_id != self.actor.user_id
-                or actor.guild_id != self.actor.guild_id
-            ):
-                raise PermissionDenied(
-                    "無權修改這份配點。"
-                )
-
-            schema = get_schema(actor)
-
-            row = get_character(
-                actor,
-                self.character_id,
-            )
-
-            settings = safe_json(
-                row["settings_json"]
+            settings = unpack(
+                draft(
+                    actor,
+                    self.character_id,
+                )["settings_json"]
             )
 
             main = settings.get(
                 "wizard_main"
             )
 
-            secondary = settings.get(
-                "wizard_secondary"
-            )
+            if main not in MAIN_SKILLS:
+                raise InvalidState(
+                    "請先選擇主攻技能。"
+                )
 
-            values = {}
+            new = {}
 
-            for name, field in zip(
+            for name, item in zip(
                 self.names,
-                self.inputs,
+                self.entries,
             ):
                 value = int(
-                    str(field.value).strip()
+                    str(item.value).strip()
                 )
 
-                base = (
-                    35 if name == main
-                    else 25 if name == secondary
-                    else 20
+                limit = (
+                    115
+                    if name == main
+                    else 130
                 )
 
-                limit = 150 - base
-
-                if not 0 <= value <= limit:
+                if (
+                    value < 0
+                    or value > limit
+                ):
                     raise ValueError(
-                        f"{name}最多可分配"
-                        f"{limit}點。"
+                        f"「{name}」最多"
+                        f"可配 {limit} 點。"
                     )
 
-                values[name] = value
-
-            saved = settings.get(
-                "wizard_points",
-                {},
-            )
-
-            if not isinstance(saved, dict):
-                saved = {}
+                new[name] = value
 
             combined = {
-                **saved,
-                **values,
+                **points_of(settings),
+                **new,
             }
+
+            schema = schema_for(actor)
 
             for pool, label in (
                 ("general", "一般"),
                 ("talent", "藝能"),
             ):
-                spent = sum(
+                total = sum(
                     combined.get(name, 0)
                     for name in schema[pool]
                 )
 
-                if spent > 500:
+                if total > 500:
                     raise ValueError(
-                        f"{label}池合計"
-                        f"{spent}點，超過500點。"
+                        f"{label}池"
+                        "超過 500 點。"
                     )
 
-            save_points(
-                actor,
-                self.character_id,
-                values,
+            await interaction.response.defer(
+                ephemeral=True,
+                thinking=True,
             )
 
-            await interaction.response.send_message(
-                progress_text(
+            save(
+                actor,
+                self.character_id,
+                {
+                    "wizard_points": combined
+                },
+            )
+
+            await interaction.followup.send(
+                screen(
                     actor,
                     self.character_id,
                     1,
@@ -1133,17 +1169,15 @@ class PointsModal(discord.ui.Modal):
                 ephemeral=True,
             )
 
-        except (
-            PermissionDenied,
-            InvalidState,
-            ValueError,
-        ) as exc:
-            await show_error(interaction, exc)
+        except Exception as exc:
+            await report(
+                interaction,
+                exc,
+                "屬性配點保存",
+            )
 
 
 class DataSelect(discord.ui.Select):
-    """個人資料與生日資料選擇。"""
-
     def __init__(
         self,
         actor,
@@ -1158,7 +1192,7 @@ class DataSelect(discord.ui.Select):
             groups = {
                 str(i): labels
                 for i, (_, labels)
-                in enumerate(PERSONAL_GROUPS)
+                in enumerate(GROUPS)
             }
 
             options = [
@@ -1167,19 +1201,17 @@ class DataSelect(discord.ui.Select):
                     value=str(i),
                 )
                 for i, (title, _)
-                in enumerate(PERSONAL_GROUPS)
+                in enumerate(GROUPS)
             ]
 
         else:
             groups = {
-                "extra": list(
-                    EXTRA_FIELDS.keys()
-                )
+                "extra": tuple(EXTRA)
             }
 
             options = [
                 discord.SelectOption(
-                    label="生日與感情狀態",
+                    label="生日與感情資料",
                     value="extra",
                 )
             ]
@@ -1192,24 +1224,100 @@ class DataSelect(discord.ui.Select):
             row=0,
         )
 
-    async def callback(self, interaction):
-        if not await self.view.interaction_check(
-            interaction
-        ):
-            return
-
-        names = self.groups[
-            self.values[0]
-        ]
-
+    async def callback(
+        self,
+        interaction,
+    ):
         await interaction.response.send_modal(
             DataModal(
                 self.actor,
                 self.character_id,
-                names,
+                self.groups[
+                    self.values[0]
+                ],
                 self.stage,
             )
         )
+
+
+class MainSelect(discord.ui.Select):
+    def __init__(
+        self,
+        actor,
+        character_id,
+    ):
+        self.actor = actor
+        self.character_id = character_id
+
+        super().__init__(
+            placeholder=(
+                "🎯 選擇唯一主攻技能"
+                "（五選一）"
+            ),
+            options=[
+                discord.SelectOption(
+                    label=name,
+                    value=name,
+                )
+                for name in MAIN_SKILLS
+            ],
+            row=1,
+        )
+
+    async def callback(
+        self,
+        interaction,
+    ):
+        try:
+            row = draft(
+                self.actor,
+                self.character_id,
+            )
+
+            settings = unpack(
+                row["settings_json"]
+            )
+
+            main = self.values[0]
+
+            values = {
+                "wizard_main": main,
+                "wizard_secondary": "",
+            }
+
+            # 改選主攻時，舊配點可能
+            # 超出新主攻的 115 點上限。
+            if (
+                settings.get("wizard_main")
+                != main
+            ):
+                values["wizard_points"] = {}
+
+            save(
+                self.actor,
+                self.character_id,
+                values,
+            )
+
+            await interaction.response.edit_message(
+                content=screen(
+                    self.actor,
+                    self.character_id,
+                    1,
+                ),
+                view=WizardView(
+                    self.actor,
+                    self.character_id,
+                    1,
+                ),
+            )
+
+        except Exception as exc:
+            await report(
+                interaction,
+                exc,
+                "選擇主攻",
+            )
 
 
 class PointSelect(discord.ui.Select):
@@ -1221,12 +1329,11 @@ class PointSelect(discord.ui.Select):
         self.actor = actor
         self.character_id = character_id
 
-        schema = get_schema(actor)
-
+        schema = schema_for(actor)
         self.groups = {}
         options = []
 
-        for pool, label in (
+        for pool, title in (
             ("general", "一般池"),
             ("talent", "藝能池"),
         ):
@@ -1235,7 +1342,9 @@ class PointSelect(discord.ui.Select):
                 len(schema[pool]),
                 5,
             ):
-                key = f"{pool}:{index}"
+                key = (
+                    f"{pool}:{index}"
+                )
 
                 self.groups[key] = (
                     schema[pool][
@@ -1246,7 +1355,7 @@ class PointSelect(discord.ui.Select):
                 options.append(
                     discord.SelectOption(
                         label=(
-                            f"{label}｜"
+                            f"{title}｜"
                             f"第{index // 5 + 1}組"
                         ),
                         value=key,
@@ -1259,11 +1368,24 @@ class PointSelect(discord.ui.Select):
             row=0,
         )
 
-    async def callback(self, interaction):
-        if not await self.view.interaction_check(
-            interaction
+    async def callback(
+        self,
+        interaction,
+    ):
+        settings = unpack(
+            draft(
+                self.actor,
+                self.character_id,
+            )["settings_json"]
+        )
+
+        if (
+            settings.get("wizard_main")
+            not in MAIN_SKILLS
         ):
-            return
+            raise InvalidState(
+                "請先選擇主攻技能。"
+            )
 
         await interaction.response.send_modal(
             PointsModal(
@@ -1276,102 +1398,7 @@ class PointSelect(discord.ui.Select):
         )
 
 
-class TrackSelect(discord.ui.Select):
-    def __init__(
-        self,
-        actor,
-        character_id,
-        target,
-        row_number,
-    ):
-        self.actor = actor
-        self.character_id = character_id
-        self.target = target
-
-        schema = get_schema(actor)
-
-        names = (
-            schema["general"]
-            + schema["talent"]
-        )
-
-        super().__init__(
-            placeholder=(
-                "選擇主賽道對應屬性"
-                if target == "wizard_main"
-                else "選擇副賽道對應屬性"
-            ),
-            options=[
-                discord.SelectOption(
-                    label=name,
-                    value=name,
-                )
-                for name in names
-            ],
-            row=row_number,
-        )
-
-    async def callback(self, interaction):
-        if not await self.view.interaction_check(
-            interaction
-        ):
-            return
-
-        try:
-            choice = self.values[0]
-
-            character = get_character(
-                self.actor,
-                self.character_id,
-            )
-
-            settings = safe_json(
-                character["settings_json"]
-            )
-
-            other = (
-                "wizard_secondary"
-                if self.target == "wizard_main"
-                else "wizard_main"
-            )
-
-            if settings.get(other) == choice:
-                raise ValueError(
-                    "主、副賽道不可選相同屬性。"
-                )
-
-            save_fields(
-                self.actor,
-                self.character_id,
-                {
-                    self.target: choice
-                },
-            )
-
-            await interaction.response.edit_message(
-                content=progress_text(
-                    self.actor,
-                    self.character_id,
-                    1,
-                ),
-                view=WizardView(
-                    self.actor,
-                    self.character_id,
-                    1,
-                ),
-            )
-
-        except (
-            ValueError,
-            InvalidState,
-            PermissionDenied,
-        ) as exc:
-            await show_error(interaction, exc)
-
-
-class ConfirmationView(OwnedView):
-    """切換階段前確認，避免誤觸。"""
-
+class ConfirmView(OwnedView):
     def __init__(
         self,
         actor,
@@ -1379,11 +1406,12 @@ class ConfirmationView(OwnedView):
         stage,
     ):
         super().__init__(actor)
+
         self.character_id = character_id
         self.stage = stage
 
     @discord.ui.button(
-        label="✅ 確認，進入下一頁",
+        label="✅ 確認進入下一頁",
         style=discord.ButtonStyle.success,
     )
     async def confirm(
@@ -1392,7 +1420,7 @@ class ConfirmationView(OwnedView):
         button,
     ):
         try:
-            row = get_character(
+            row = draft(
                 self.actor,
                 self.character_id,
             )
@@ -1404,45 +1432,76 @@ class ConfirmationView(OwnedView):
 
                 if missing:
                     raise InvalidState(
-                        "還缺少："
+                        "必填尚缺："
                         + "、".join(missing)
                     )
 
-            elif self.stage == 1:
-                finalize_points(
+            if self.stage == 1:
+                await interaction.response.defer(
+                    ephemeral=True,
+                    thinking=True,
+                )
+
+                finish_points(
                     self.actor,
                     self.character_id,
                 )
 
-            next_stage = self.stage + 1
+                stage = 2
 
-            save_fields(
+                save(
+                    self.actor,
+                    self.character_id,
+                    {
+                        "wizard_step": stage
+                    },
+                )
+
+                await interaction.followup.send(
+                    screen(
+                        self.actor,
+                        self.character_id,
+                        stage,
+                    ),
+                    view=WizardView(
+                        self.actor,
+                        self.character_id,
+                        stage,
+                    ),
+                    ephemeral=True,
+                )
+
+                return
+
+            stage = self.stage + 1
+
+            save(
                 self.actor,
                 self.character_id,
                 {
-                    "wizard_step": next_stage
+                    "wizard_step": stage
                 },
             )
 
             await interaction.response.edit_message(
-                content=progress_text(
+                content=screen(
                     self.actor,
                     self.character_id,
-                    next_stage,
+                    stage,
                 ),
                 view=WizardView(
                     self.actor,
                     self.character_id,
-                    next_stage,
+                    stage,
                 ),
             )
 
-        except (
-            InvalidState,
-            PermissionDenied,
-            ValueError,
-        ) as exc:
-            await show_error(interaction, exc)
+        except Exception as exc:
+            await report(
+                interaction,
+                exc,
+                "確認頁面",
+            )
 
     @discord.ui.button(
         label="✏️ 返回修改",
@@ -1454,7 +1513,7 @@ class ConfirmationView(OwnedView):
         button,
     ):
         await interaction.response.edit_message(
-            content=progress_text(
+            content=screen(
                 self.actor,
                 self.character_id,
                 self.stage,
@@ -1468,8 +1527,6 @@ class ConfirmationView(OwnedView):
 
 
 class WizardView(OwnedView):
-    """創角主畫面，四階段共用。"""
-
     def __init__(
         self,
         actor,
@@ -1481,12 +1538,12 @@ class WizardView(OwnedView):
         self.character_id = character_id
         self.stage = stage
 
-        if stage == 0:
+        if stage in (0, 2):
             self.add_item(
                 DataSelect(
                     actor,
                     character_id,
-                    0,
+                    stage,
                 )
             )
 
@@ -1499,41 +1556,24 @@ class WizardView(OwnedView):
             )
 
             self.add_item(
-                TrackSelect(
+                MainSelect(
                     actor,
                     character_id,
-                    "wizard_main",
-                    1,
                 )
             )
 
-            self.add_item(
-                TrackSelect(
-                    actor,
-                    character_id,
-                    "wizard_secondary",
-                    2,
-                )
-            )
-
-        elif stage == 2:
-            self.add_item(
-                DataSelect(
-                    actor,
-                    character_id,
-                    2,
-                )
-            )
-
-        self.previous.disabled = stage == 0
-
-        self.edit_basic.disabled = stage != 0
-
-        self.next.label = (
-            "📨 提交雙重審核"
-            if stage == 3
-            else "➡️ 下一頁"
+        self.previous.disabled = (
+            stage == 0
         )
+
+        self.edit_basic.disabled = (
+            stage != 0
+        )
+
+        if stage == 3:
+            self.next.label = (
+                "📨 提交雙重審核"
+            )
 
     @discord.ui.button(
         label="✏️ 修改基本資料",
@@ -1563,37 +1603,38 @@ class WizardView(OwnedView):
         button,
     ):
         try:
-            next_stage = max(
+            stage = max(
                 0,
                 self.stage - 1,
             )
 
-            save_fields(
+            save(
                 self.actor,
                 self.character_id,
                 {
-                    "wizard_step": next_stage
+                    "wizard_step": stage
                 },
             )
 
             await interaction.response.edit_message(
-                content=progress_text(
+                content=screen(
                     self.actor,
                     self.character_id,
-                    next_stage,
+                    stage,
                 ),
                 view=WizardView(
                     self.actor,
                     self.character_id,
-                    next_stage,
+                    stage,
                 ),
             )
 
-        except (
-            PermissionDenied,
-            InvalidState,
-        ) as exc:
-            await show_error(interaction, exc)
+        except Exception as exc:
+            await report(
+                interaction,
+                exc,
+                "返回上一頁",
+            )
 
     @discord.ui.button(
         label="➡️ 下一頁",
@@ -1606,23 +1647,42 @@ class WizardView(OwnedView):
         button,
     ):
         try:
-            row = get_character(
+            row = draft(
                 self.actor,
                 self.character_id,
             )
 
             if self.stage == 3:
-                missing = missing_fields(row)
+                missing = missing_personal(
+                    row
+                )
 
                 if missing:
                     raise InvalidState(
-                        "尚缺必填資料："
+                        "仍缺少必填欄位："
                         + "、".join(missing)
                     )
 
-                with transaction() as conn:
+                settings = unpack(
+                    row["settings_json"]
+                )
+
+                if (
+                    settings.get("main_track")
+                    not in MAIN_SKILLS
+                ):
+                    raise InvalidState(
+                        "請完成唯一主攻配點。"
+                    )
+
+                await interaction.response.defer(
+                    ephemeral=True,
+                    thinking=True,
+                )
+
+                with transaction() as db:
                     validate_initial_attributes(
-                        conn,
+                        db,
                         self.actor.guild_id,
                         self.character_id,
                     )
@@ -1632,58 +1692,57 @@ class WizardView(OwnedView):
                     self.character_id,
                 )
 
-                await interaction.response.edit_message(
-                    content=(
-                        "✅ **角色已送審成功！**\n\n"
-                        f"角色：{row['name']}\n"
-                        f"目前狀態：{status}\n\n"
-                        "請等待兩階段審核。\n"
-                        "審核完成後再由玩家確認啟用。"
+                await interaction.followup.send(
+                    (
+                        f"✅ 角色「{row['name']}」"
+                        "已送審！\n"
+                        f"目前狀態：{status}\n"
+                        "請等待雙階段審核。"
                     ),
-                    view=None,
+                    ephemeral=True,
                 )
 
                 return
 
             await interaction.response.edit_message(
                 content=(
-                    f"❓ **確定完成"
-                    f"「{STEPS[self.stage]}」嗎？**\n\n"
-                    "確認後將進入下一頁。\n"
-                    "正式送審前仍然可以返回修改。"
+                    "❓ 確定完成"
+                    f"「{STEPS[self.stage]}」嗎？\n"
+                    "確認後進入下一頁，"
+                    "送審前仍可修改。"
                 ),
-                view=ConfirmationView(
+                view=ConfirmView(
                     self.actor,
                     self.character_id,
                     self.stage,
                 ),
             )
 
-        except (
-            PermissionDenied,
-            InvalidState,
-            ValueError,
-        ) as exc:
-            await show_error(interaction, exc)
+        except Exception as exc:
+            await report(
+                interaction,
+                exc,
+                "送審或換頁",
+            )
 
 
 class DraftSelect(discord.ui.Select):
     def __init__(
         self,
         actor,
-        drafts,
+        rows,
         page,
     ):
         self.actor = actor
 
-        start = page * PAGE_SIZE
-
-        items = drafts[
-            start:start + PAGE_SIZE
+        subset = rows[
+            page * PAGE_SIZE:
+            (page + 1) * PAGE_SIZE
         ]
 
         super().__init__(
-            placeholder="選擇要繼續填寫的草稿",
+            placeholder="選擇要繼續的草稿",
+            row=0,
             options=[
                 discord.SelectOption(
                     label=str(
@@ -1691,83 +1750,81 @@ class DraftSelect(discord.ui.Select):
                     )[:100],
                     value=str(row["id"]),
                     description=(
-                        f"草稿 #{row['id']}｜"
-                        f"{row['occupation'] or '未設定職業'}"
-                    )[:100],
+                        f"草稿 #{row['id']}"
+                    ),
                 )
-                for row in items
+                for row in subset
             ],
-            row=0,
         )
 
-    async def callback(self, interaction):
-        if not await self.view.interaction_check(
-            interaction
-        ):
-            return
+    async def callback(
+        self,
+        interaction,
+    ):
+        character_id = int(
+            self.values[0]
+        )
 
-        try:
-            character_id = int(
-                self.values[0]
-            )
+        row = draft(
+            self.actor,
+            character_id,
+        )
 
-            get_character(
+        stage = unpack(
+            row["settings_json"]
+        ).get(
+            "wizard_step",
+            0,
+        )
+
+        stage = (
+            max(0, min(3, stage))
+            if type(stage) is int
+            else 0
+        )
+
+        await interaction.response.edit_message(
+            content=screen(
                 self.actor,
                 character_id,
-            )
-
-            stage = stage_of(
+                stage,
+            ),
+            view=WizardView(
                 self.actor,
                 character_id,
-            )
-
-            await interaction.response.edit_message(
-                content=progress_text(
-                    self.actor,
-                    character_id,
-                    stage,
-                ),
-                view=WizardView(
-                    self.actor,
-                    character_id,
-                    stage,
-                ),
-            )
-
-        except (
-            PermissionDenied,
-            InvalidState,
-            ValueError,
-        ) as exc:
-            await show_error(interaction, exc)
+                stage,
+            ),
+        )
 
 
-class DraftListView(OwnedView):
+class DraftView(OwnedView):
     def __init__(
         self,
         actor,
-        drafts,
         page=0,
     ):
         super().__init__(actor)
 
-        self.drafts = drafts
+        rows = drafts(actor)
 
         self.max_page = max(
             0,
-            (len(drafts) - 1) // PAGE_SIZE,
+            (len(rows) - 1) // PAGE_SIZE,
         )
 
         self.page = max(
             0,
-            min(page, self.max_page),
+            min(
+                page,
+                self.max_page,
+            ),
         )
 
-        if drafts:
+        if rows:
             self.add_item(
                 DraftSelect(
                     actor,
-                    drafts,
+                    rows,
                     self.page,
                 )
             )
@@ -1777,7 +1834,7 @@ class DraftListView(OwnedView):
         )
 
         self.next.disabled = (
-            self.page == self.max_page
+            self.page >= self.max_page
         )
 
     @discord.ui.button(
@@ -1790,19 +1847,18 @@ class DraftListView(OwnedView):
         interaction,
         button,
     ):
-        page = self.page - 1
+        view = DraftView(
+            self.actor,
+            self.page - 1,
+        )
 
         await interaction.response.edit_message(
             content=(
-                "📁 **角色草稿清單**\n"
-                f"第 {page + 1}/"
-                f"{self.max_page + 1} 頁"
+                "📁 草稿清單｜"
+                f"第{view.page + 1}/"
+                f"{view.max_page + 1}頁"
             ),
-            view=DraftListView(
-                self.actor,
-                self.drafts,
-                page,
-            ),
+            view=view,
         )
 
     @discord.ui.button(
@@ -1815,19 +1871,18 @@ class DraftListView(OwnedView):
         interaction,
         button,
     ):
-        page = self.page + 1
+        view = DraftView(
+            self.actor,
+            self.page + 1,
+        )
 
         await interaction.response.edit_message(
             content=(
-                "📁 **角色草稿清單**\n"
-                f"第 {page + 1}/"
-                f"{self.max_page + 1} 頁"
+                "📁 草稿清單｜"
+                f"第{view.page + 1}/"
+                f"{view.max_page + 1}頁"
             ),
-            view=DraftListView(
-                self.actor,
-                self.drafts,
-                page,
-            ),
+            view=view,
         )
 
     @discord.ui.button(
@@ -1840,34 +1895,31 @@ class DraftListView(OwnedView):
         interaction,
         button,
     ):
-        drafts = list_drafts(self.actor)
-
         await interaction.response.edit_message(
-            content=home_text(len(drafts)),
+            content=home_text(
+                len(drafts(self.actor))
+            ),
             view=HomeView(self.actor),
         )
 
 
-def home_text(draft_count):
+def home_text(count):
     return (
         "🎭 **角色建立中心**\n\n"
-        "歡迎來到演藝圈角色建立系統！\n\n"
-        "**建立流程**\n"
-        "① 建立角色基本資料\n"
-        "② 填寫完整個人檔案\n"
-        "③ 選擇主副賽道與十三項屬性\n"
-        "④ 設定生日、感情資料\n"
-        "⑤ 預覽並提交雙重審核\n\n"
-        f"📁 尚未送審的草稿：{draft_count}份\n\n"
-        "資料會自動保存，"
-        "可以隨時繼續填寫。\n\n"
-        "請選擇下方操作。"
+        "① 建立基本資料\n"
+        "② 填寫個人檔案\n"
+        "③ 選擇唯一主攻及十三項配點\n"
+        "④ 生日與感情設定\n"
+        "⑤ 預覽及雙審送件\n\n"
+        "主攻五選一：演繹、舞蹈、"
+        "歌唱、綜藝、主持。\n"
+        "**沒有副賽道。**\n"
+        f"📁 未送審草稿：{count}份\n"
+        "所有草稿自動保存。"
     )
 
 
 class HomeView(OwnedView):
-    """執行 /創角 後的第一個畫面。"""
-
     @discord.ui.button(
         label="➕ 建立新角色",
         style=discord.ButtonStyle.success,
@@ -1892,27 +1944,27 @@ class HomeView(OwnedView):
         interaction,
         button,
     ):
-        drafts = list_drafts(
+        rows = drafts(
             self.actor
         )
 
-        if not drafts:
+        if not rows:
             await interaction.response.send_message(
-                "目前沒有未完成的角色草稿。",
+                "目前沒有尚未送審的草稿。",
                 ephemeral=True,
             )
             return
 
+        view = DraftView(
+            self.actor
+        )
+
         await interaction.response.edit_message(
             content=(
-                "📁 **角色草稿清單**\n\n"
-                f"共有 {len(drafts)} 份草稿。\n"
-                "請選擇要繼續填寫的角色。"
+                "📁 草稿清單｜"
+                f"共{len(rows)}份"
             ),
-            view=DraftListView(
-                self.actor,
-                drafts,
-            ),
+            view=view,
         )
 
     @discord.ui.button(
@@ -1927,20 +1979,18 @@ class HomeView(OwnedView):
     ):
         await interaction.response.send_message(
             (
-                "📖 **角色建立規則**\n\n"
-                "• 每名玩家可建立多名角色。\n"
-                "• 所有草稿自動保存。\n"
-                "• 一般配點池500點。\n"
-                "• 藝能配點池500點。\n"
-                "• 共十三項初始屬性。\n"
-                "• 一般屬性基礎值20。\n"
-                "• 主賽道基礎值35、額外+30。\n"
-                "• 副賽道基礎值25、額外+15。\n"
-                "• 配點後單項基礎加配點"
-                "不可超過150。\n"
-                "• 正式角色不能重配初始點數。\n"
-                "• 送審需經過兩階段審核。\n"
-                "• 審核通過後由玩家確認啟用。"
+                "📖 **創角規則**\n"
+                "13項屬性，一般池500點、"
+                "藝能池500點。\n"
+                "主攻技能五選一，"
+                "基礎35、額外+30；"
+                "其他基礎20。\n"
+                "單項基礎加配點上限150，"
+                "額外加成可突破。\n"
+                "未分配點數作廢；"
+                "啟用後不得重新分配"
+                "初始點數。\n"
+                "送審需要兩階段審核。"
             ),
             ephemeral=True,
         )
@@ -1952,7 +2002,9 @@ class CreationWizard(commands.Cog):
 
     @app_commands.command(
         name="創角",
-        description="開啟完整角色建立中心",
+        description=(
+            "建立角色或繼續已保存的草稿"
+        ),
     )
     @app_commands.guild_only()
     async def create(
@@ -1960,26 +2012,24 @@ class CreationWizard(commands.Cog):
         interaction: discord.Interaction,
     ):
         try:
-            actor = Actor.from_interaction(
+            actor = actor_from(
                 interaction
             )
 
-            drafts = list_drafts(
-                actor
-            )
-
             await interaction.response.send_message(
-                home_text(len(drafts)),
+                home_text(
+                    len(drafts(actor))
+                ),
                 view=HomeView(actor),
                 ephemeral=True,
             )
 
-        except (
-            PermissionDenied,
-            InvalidState,
-            ValueError,
-        ) as exc:
-            await show_error(interaction, exc)
+        except Exception as exc:
+            await report(
+                interaction,
+                exc,
+                "開啟創角中心",
+            )
 
 
 async def setup(bot: commands.Bot):
