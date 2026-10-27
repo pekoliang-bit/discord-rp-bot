@@ -1,4 +1,3 @@
-
 """Discord RP｜角色查看及背包整合系統。
 
 正式指令：/查看
@@ -491,6 +490,9 @@ def make_asset_detail_embed(actor, character_id):
             "只有本人及授權管理員可以查看詳細帳目。"
         )
 
+    relationship_summary, _ = _panel_relationships(actor, character_id, 0)
+    embed.add_field(name="💕 關係（好感度與自訂關係）", value=shorten(relationship_summary, 1000), inline=False)
+
     money = read_money_assets(
         actor,
         character_id,
@@ -733,8 +735,8 @@ def make_character_embed(
             f"{int(tracking['active_antis']):,}\n"
             "🌍 大眾認知度："
             f"{int(tracking['public_awareness']):,}\n"
-            "💕 CP 好感度："
-            "由正式關係系統記錄"
+            "💕 正式 CP："
+            f"{_panel_cp(actor, character_id)}"
         ),
         inline=False,
     )
@@ -1353,336 +1355,270 @@ class BatchUseModal(discord.ui.Modal):
         )
 
 
+# ==================================================
+# 統一角色面板：主頁固定兩排七個按鈕
+# ==================================================
+
+def _panel_table(conn, name):
+    return conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (name,)).fetchone() is not None
+
+
+def _panel_embed(title, text):
+    return discord.Embed(title=title, description=str(text)[:3900] or "尚無紀錄。", color=discord.Color.blurple())
+
+
+def _panel_cp(actor, cid):
+    with get_connection() as db:
+        if not _panel_table(db, 'rp_cp_pairs'):
+            return "尚未建立正式 CP。"
+        rows=db.execute("""SELECT c.id,c.name FROM rp_cp_pairs p JOIN characters c
+          ON c.guild_id=p.guild_id AND c.id=(CASE WHEN p.a=? THEN p.b ELSE p.a END)
+          WHERE p.guild_id=? AND (p.a=? OR p.b=?)""",
+          (cid,str(actor.guild_id),cid,cid)).fetchall()
+    return "、".join(f"{r['name']}（#{r['id']}）" for r in rows) or "尚未建立正式 CP。"
+
+
+def _panel_relationships(actor,cid,page=0):
+    with get_connection() as db:
+        if not _panel_table(db,'rp_relationship_scores'):
+            return '尚無好感度紀錄。',0
+        rows=db.execute("""SELECT r.a,r.b,r.kind,r.points,c.name,
+         COALESCE(t.name,'') AS relation_name
+         FROM rp_relationship_scores r JOIN characters c
+         ON c.guild_id=r.guild_id AND c.id=CASE WHEN r.a=? THEN r.b ELSE r.a END
+         LEFT JOIN rp_relation_labels t ON t.guild_id=r.guild_id AND t.a=r.a AND t.b=r.b
+         WHERE r.guild_id=? AND (r.a=? OR r.b=?)
+         ORDER BY c.name,r.kind""", (cid,str(actor.guild_id),cid,cid)).fetchall() if _panel_table(db,'rp_relation_labels') else db.execute("""SELECT r.a,r.b,r.kind,r.points,c.name,'' AS relation_name
+         FROM rp_relationship_scores r JOIN characters c
+         ON c.guild_id=r.guild_id AND c.id=CASE WHEN r.a=? THEN r.b ELSE r.a END
+         WHERE r.guild_id=? AND (r.a=? OR r.b=?) ORDER BY c.name,r.kind""",
+         (cid,str(actor.guild_id),cid,cid)).fetchall()
+        cp=db.execute('SELECT a,b FROM rp_cp_pairs WHERE guild_id=? AND (a=? OR b=?)',(str(actor.guild_id),cid,cid)).fetchall() if _panel_table(db,'rp_cp_pairs') else []
+        labels=db.execute("SELECT a,b,name FROM rp_relation_labels WHERE guild_id=? AND (a=? OR b=?)",(str(actor.guild_id),cid,cid)).fetchall() if _panel_table(db,'rp_relation_labels') else []
+        names={}
+        for r in rows:
+            other=r['b'] if r['a']==cid else r['a']
+            x=names.setdefault(other,{'name':r['name'],'labels':'','scores':[]})
+            x['labels']=r['relation_name'] or x['labels']
+            x['scores'].append(f"{'CP' if r['kind']=='cp' else '贈禮' if r['kind']=='gift' else r['kind']} {r['points']:,}")
+        for r in labels:
+            other=r['b'] if r['a']==cid else r['a']
+            if other not in names:
+                name=db.execute('SELECT name FROM characters WHERE guild_id=? AND id=?',(str(actor.guild_id),other)).fetchone()
+                names[other]={'name':name['name'] if name else f'#{other}','labels':'','scores':[]}
+            names[other]['labels']=r['name']
+        for r in cp:
+            other=r['b'] if r['a']==cid else r['a']
+            if other not in names:
+                name=db.execute('SELECT name FROM characters WHERE guild_id=? AND id=?',(str(actor.guild_id),other)).fetchone()
+                names[other]={'name':name['name'] if name else f'#{other}','labels':'','scores':[]}
+            names[other]['scores'].append('💕 正式 CP')
+    entries=[f"**{v['name']}（#{k}）**｜關係：{v['labels'] or '未設定'}\n好感度：{'／'.join(v['scores']) or '尚無分數'}" for k,v in sorted(names.items())]
+    last=max(0,(len(entries)-1)//10);page=max(0,min(page,last))
+    return ('\n\n'.join(entries[page*10:page*10+10]) or '目前尚無角色關係紀錄。')+f'\n\n第 {page+1}/{last+1} 頁',last
+
+
+def _panel_inventory(actor,cid,page=0):
+    with get_connection() as db:
+        rows=db.execute("""SELECT i.product_id,i.quantity,p.name,p.effect_kind,p.effect_stat,p.effect_value,
+             p.effect_context FROM shop_inventory i JOIN shop_products p
+             ON p.guild_id=i.guild_id AND p.id=i.product_id
+             WHERE i.guild_id=? AND i.character_id=? AND i.quantity>0 ORDER BY p.id""",
+             (str(actor.guild_id),cid)).fetchall()
+        rules={}
+        if _panel_table(db,'item_use_settings'):
+            rules={int(r['product_id']):int(r['max_uses']) for r in db.execute('SELECT product_id,max_uses FROM item_use_settings WHERE guild_id=?',(str(actor.guild_id),))}
+        remains={}
+        if _panel_table(db,'item_instances'):
+            for r in db.execute('SELECT product_id,remaining_uses FROM item_instances WHERE guild_id=? AND character_id=? ORDER BY remaining_uses,id',(str(actor.guild_id),cid)):
+                remains.setdefault(int(r['product_id']),[]).append(int(r['remaining_uses']))
+        catalog={}
+        for table in ('b02_catalog','b04_catalog'):
+            if _panel_table(db,table):
+                for r in db.execute(f"SELECT product_id,bonus_stat,bonus_value,item_type FROM {table} WHERE guild_id=?",(str(actor.guild_id),)):
+                    if r['item_type']=='持有': catalog[int(r['product_id'])]=(r['bonus_stat'],int(r['bonus_value']))
+    lines=[]
+    for r in rows:
+        pid=int(r['product_id']);qty=int(r['quantity']);stat=r['effect_stat'];value=int(r['effect_value'] or 0)
+        if pid in rules:
+            effect=f"每次：{stat or '未設定'} +{value}｜每件 {rules[pid]} 次"
+            if pid in remains:effect+=f"｜剩餘次數：{'、'.join(map(str,remains[pid][:12]))}"+("…" if len(remains[pid])>12 else '')
+        elif pid in catalog:
+            st,v=catalog[pid];effect=f'預定持有：{st} +{v}（尚未接入生效）'
+        elif stat and value:
+            effect=f"{'使用後永久' if r['effect_kind']=='instant' else '條件加成' if r['effect_kind']=='context' else '效果'}：{stat} +{value}"
+            if r['effect_kind']=='context':effect+=f"｜{r['effect_context'] or '條件觸發'}"
+        else:effect='無直接屬性加成'
+        lines.append(f"**#{pid} {r['name']} ×{qty}**\n✨ {effect}")
+    # 玩家商店物品同樣列入背包；目前該類商品尚無統一的加成欄位。
+    with get_connection() as db:
+        if _panel_table(db,'personal_store_inventory') and _panel_table(db,'personal_store_products'):
+            for r in db.execute('''SELECT p.id,p.name,i.quantity FROM personal_store_inventory i
+                 JOIN personal_store_products p ON p.guild_id=i.guild_id AND p.id=i.product_id
+                 WHERE i.guild_id=? AND i.character_id=? AND i.quantity>0 ORDER BY p.id''',
+                 (str(actor.guild_id),cid)).fetchall():
+                lines.append(f"**玩家商店 #{r['id']} {r['name']} ×{r['quantity']}**\n✨ 尚未設定統一的數值／次數資料")
+    last=max(0,(len(lines)-1)//7);page=max(0,min(page,last))
+    return ('\n\n'.join(lines[page*7:page*7+7]) or '目前背包沒有官方商城物品。')+f'\n\n第 {page+1}/{last+1} 頁',last
+
+
+def _panel_awards(actor,cid):
+    with get_connection() as db:
+        if not _panel_table(db,'rp_award_grants'):
+            return '目前尚無稱號與獎項。'
+        rows=db.execute("""SELECT d.kind,d.name,d.rewards_json FROM rp_award_grants g
+           JOIN rp_award_definitions d ON d.guild_id=g.guild_id AND d.id=g.definition_id
+           WHERE g.guild_id=? AND g.character_id=? AND g.revoked=0 ORDER BY g.granted_at DESC LIMIT 30""",
+           (str(actor.guild_id),cid)).fetchall()
+    titles=[];honors=[]
+    for r in rows:
+        data=safe_json(r['rewards_json']);title=data.get('title') or (r['name'] if r['kind']=='title' else '')
+        if title:titles.append(str(title))
+        if r['kind']=='honor':honors.append(r['name'])
+    return f"🌟 **獲得稱號**\n{', '.join(titles) or '尚無'}\n\n🏆 **獲得獎項**\n"+('\n'.join(honors[:20]) or '尚無')
+
+
+def _panel_career(actor,cid,mode,page=0):
+    with get_connection() as db:
+        if not _panel_table(db,'career_registrations'):
+            return '尚無登記作品與代言。',0
+        types=('代言',) if mode=='endorsement' else ('電影','電視劇','網路劇','音樂作品','MV','綜藝','舞台劇','其他','商業活動')
+        placeholders=','.join('?' for _ in types)
+        rows=db.execute(f"""SELECT r.title,r.status,t.name AS category FROM career_registrations r
+          JOIN registration_types t ON t.id=r.type_id AND t.guild_id=r.guild_id
+          WHERE r.guild_id=? AND r.character_id=? AND t.name IN ({placeholders})
+            AND r.status='approved' ORDER BY r.id DESC""",
+          [str(actor.guild_id),cid,*types]).fetchall()
+    last=max(0,(len(rows)-1)//10);page=max(0,min(page,last))
+    lines=[f"{page*10+i+1}. **{r['title']}**｜{r['category']}｜已核准" for i,r in enumerate(rows[page*10:page*10+10])]
+    return ('\n'.join(lines) or '目前尚無已核准的'+('代言' if mode=='endorsement' else '作品')+'紀錄。')+f'\n\n第 {page+1}/{last+1} 頁',last
+
+
+def _panel_routes(actor,cid):
+    # 劇情需由未來「內容建立」功能正式建立；此處只讀取，不建立故事。
+    return '目前尚未建立官方角色攻略劇情。\n\n未觸發的劇情將只顯示前置任務；完成前置任務後才公開劇情名稱、順序及未完成條件。'
+
+
+class PanelRelationModal(discord.ui.Modal, title='設定角色關係'):
+    def __init__(self,actor,cid):
+        super().__init__();self.actor=actor;self.cid=cid
+        self.other=discord.ui.TextInput(label='對方角色編號',required=True,max_length=12)
+        self.relation=discord.ui.TextInput(label='自訂關係（例如：曖昧、好奇、水火不容）',required=True,max_length=40)
+        self.add_item(self.other);self.add_item(self.relation)
+    async def on_submit(self,interaction):
+        try:
+            actor=Actor.from_interaction(interaction);require_inventory_owner(actor,self.cid)
+            other=int(str(self.other.value));name=str(self.relation.value).strip()
+            if other==self.cid or other<=0 or not name:raise ValueError('請填寫有效角色及關係。')
+            a,b=sorted((self.cid,other))
+            with get_connection() as db:
+                exists=db.execute("SELECT 1 FROM characters WHERE guild_id=? AND id=? AND status!='deleted'",(str(actor.guild_id),other)).fetchone()
+                if not exists:raise ValueError('找不到對方角色。')
+            from core.database import transaction
+            with transaction() as db:
+                db.execute('CREATE TABLE IF NOT EXISTS rp_relation_labels(guild_id TEXT NOT NULL,a INTEGER NOT NULL,b INTEGER NOT NULL,name TEXT NOT NULL,PRIMARY KEY(guild_id,a,b))')
+                db.execute('INSERT INTO rp_relation_labels(guild_id,a,b,name) VALUES(?,?,?,?) ON CONFLICT(guild_id,a,b) DO UPDATE SET name=excluded.name',(str(actor.guild_id),a,b,name))
+            await interaction.response.send_message('✅ 關係已設定；返回「關係」面板可查看。',ephemeral=True)
+        except (ValueError,PermissionDenied,InvalidState,sqlite3.Error) as exc:
+            await interaction.response.send_message(f'⚠️ {exc}',ephemeral=True)
+
+
+class PanelSubView(discord.ui.View):
+    def __init__(self,parent,mode,page=0):
+        super().__init__(timeout=900);self.parent=parent;self.mode=mode;self.page=page
+        if mode=='bag':
+            for label,kind in [('使用','use'),('批量使用','batch'),('贈送','gift')]:
+                btn=discord.ui.Button(label=label,style=discord.ButtonStyle.primary if kind=='use' else discord.ButtonStyle.secondary,row=0)
+                async def action(interaction,k=kind):
+                    await self.parent.open_item_action(interaction,k) if k!='batch' else await interaction.response.send_modal(BatchUseModal(Actor.from_interaction(interaction),self.parent.character_id))
+                btn.callback=action;self.add_item(btn)
+        if mode=='awards':
+            for label,kind in [('成就','works'),('榮譽','endorsement')]:
+                btn=discord.ui.Button(label=label,style=discord.ButtonStyle.secondary,row=0)
+                async def action(interaction,k=kind):await self.show(interaction,k,0)
+                btn.callback=action;self.add_item(btn)
+        if mode=='relations' and self.parent.is_own_character:
+            btn=discord.ui.Button(label='自訂關係',style=discord.ButtonStyle.secondary,row=0)
+            async def relation(interaction):await interaction.response.send_modal(PanelRelationModal(Actor.from_interaction(interaction),self.parent.character_id))
+            btn.callback=relation;self.add_item(btn)
+        if mode in ('bag','relations','works','endorsement'):
+            previous=discord.ui.Button(label='上一頁',style=discord.ButtonStyle.secondary,row=1)
+            next_button=discord.ui.Button(label='下一頁',style=discord.ButtonStyle.secondary,row=1)
+            async def prev(interaction):await self.show(interaction,self.mode,max(0,self.page-1))
+            async def nxt(interaction):await self.show(interaction,self.mode,self.page+1)
+            previous.callback=prev;next_button.callback=nxt;self.add_item(previous);self.add_item(next_button)
+        back=discord.ui.Button(label='返回原畫面',style=discord.ButtonStyle.secondary,row=2)
+        async def go_back(interaction):
+            await interaction.response.edit_message(content=None,embed=make_character_embed(Actor.from_interaction(interaction),self.parent.character_id),view=self.parent)
+        back.callback=go_back;self.add_item(back)
+    async def interaction_check(self,interaction):return await self.parent.interaction_check(interaction)
+    async def show(self,interaction,mode,page=0):
+        actor=Actor.from_interaction(interaction);cid=self.parent.character_id
+        if mode=='bag':text,last=_panel_inventory(actor,cid,page);title='🎒 背包'
+        elif mode=='relations':text,last=_panel_relationships(actor,cid,page);title='💕 關係'
+        elif mode=='awards':text=_panel_awards(actor,cid);last=0;title='🏆 成就與榮譽'
+        elif mode in ('works','endorsement'):text,last=_panel_career(actor,cid,mode,page);title='🎬 已完成作品' if mode=='works' else '📣 代言紀錄'
+        else:text=_panel_routes(actor,cid);last=0;title='📖 官方角色攻略'
+        page=max(0,min(page,last));view=PanelSubView(self.parent,mode,page)
+        await interaction.response.edit_message(content=None,embed=_panel_embed(title,text),view=view)
+
+
+class PublicPanelView(discord.ui.View):
+    """公開資料的次級頁面，關係獨立入口不佔主頁七鍵。"""
+    def __init__(self,parent):
+        super().__init__(timeout=900);self.parent=parent
+    async def interaction_check(self,interaction):
+        return await self.parent.interaction_check(interaction)
+    @discord.ui.button(label='💕 關係',style=discord.ButtonStyle.primary,row=0)
+    async def relationships(self,interaction,button):
+        await PanelSubView(self.parent,'relations').show(interaction,'relations')
+    @discord.ui.button(label='⬅️ 返回原畫面',style=discord.ButtonStyle.secondary,row=0)
+    async def back(self,interaction,button):
+        await interaction.response.edit_message(content=None,embed=make_character_embed(Actor.from_interaction(interaction),self.parent.character_id),view=self.parent)
+
+
 class CharacterDetailView(discord.ui.View):
-    def __init__(
-        self,
-        actor,
-        character_id,
-        category,
-        keyword,
-        page,
-    ):
+    def __init__(self,actor,character_id,category,keyword,page):
         super().__init__(timeout=900)
-
-        self.actor = actor
-        self.character_id = character_id
-        self.category = category
-        self.keyword = keyword
-        self.page = page
-
-        character = get_character(
-            actor,
-            character_id,
-        )
-
-        self.is_own_character = is_owner(
-            actor,
-            character,
-        ) and character["status"] == "active"
-
-        self.private_button.disabled = (
-            not can_see_private(actor, character)
-        )
-
-        self.asset_detail_button.disabled = (
-            not can_see_private(actor, character)
-        )
-
-        if not self.is_own_character:
-            for control in (
-                self.inventory_button,
-                self.gift_item_button,
-                self.use_item_button,
-                self.bulk_use_button,
-                self.stop_effect_button,
-            ):
-                self.remove_item(control)
-
-    async def interaction_check(self, interaction):
-        actor = Actor.from_interaction(
-            interaction
-        )
-
-        if (
-            actor.user_id != self.actor.user_id
-            or actor.guild_id != self.actor.guild_id
-        ):
-            await interaction.response.send_message(
-                "⛔ 這不是你的角色面板。",
-                ephemeral=True,
-            )
-            return False
-
-        self.actor = actor
-        return True
-
-    @discord.ui.button(
-        label="🌐 公開面板",
-        style=discord.ButtonStyle.secondary,
-        row=0,
-    )
-    async def public_button(self, interaction, button):
-        try:
-            embed = make_character_embed(
-                self.actor,
-                self.character_id,
-            )
-
-            await interaction.response.edit_message(
-                content=None,
-                embed=embed,
-                view=self,
-            )
-
-        except (
-            PermissionDenied,
-            InvalidState,
-        ) as exc:
-            await interaction.response.send_message(
-                f"⚠️ {exc}",
-                ephemeral=True,
-            )
-
-    @discord.ui.button(
-        label="🔒 私人資料",
-        style=discord.ButtonStyle.primary,
-        row=0,
-    )
-    async def private_button(self, interaction, button):
-        try:
-            embed = make_character_embed(
-                self.actor,
-                self.character_id,
-                private=True,
-            )
-
-            await interaction.response.edit_message(
-                content=None,
-                embed=embed,
-                view=self,
-            )
-
-        except (
-            PermissionDenied,
-            InvalidState,
-        ) as exc:
-            await interaction.response.send_message(
-                f"⚠️ {exc}",
-                ephemeral=True,
-            )
-
-    @discord.ui.button(
-        label="💰 資產明細",
-        style=discord.ButtonStyle.secondary,
-        row=1,
-    )
-    async def asset_detail_button(self, interaction, button):
-        try:
-            embed = make_asset_detail_embed(
-                self.actor,
-                self.character_id,
-            )
-
-            await interaction.response.send_message(
-                embed=embed,
-                ephemeral=True,
-            )
-
-        except (
-            PermissionDenied,
-            InvalidState,
-        ) as exc:
-            await interaction.response.send_message(
-                f"⚠️ {exc}",
-                ephemeral=True,
-            )
-
-    @discord.ui.button(
-        label="🎒 我的背包",
-        style=discord.ButtonStyle.primary,
-        row=2,
-    )
-    async def inventory_button(self, interaction, button):
-        actor = Actor.from_interaction(
-            interaction
-        )
-
-        try:
-            require_inventory_owner(
-                actor,
-                self.character_id,
-            )
-
-            from modules.shop_integration import (
-                combined_inventory,
-            )
-
-            await interaction.response.defer(
-                ephemeral=True
-            )
-
-            result = await asyncio.to_thread(
-                combined_inventory,
-                actor,
-                self.character_id,
-            )
-
-            await interaction.followup.send(
-                str(result)[:1900],
-                ephemeral=True,
-            )
-
-        except (
-            ValueError,
-            PermissionDenied,
-            InvalidState,
-            sqlite3.Error,
-        ) as exc:
-            if interaction.response.is_done():
-                await interaction.followup.send(
-                    f"⚠️ {exc}",
-                    ephemeral=True,
-                )
-            else:
-                await interaction.response.send_message(
-                    f"⚠️ {exc}",
-                    ephemeral=True,
-                )
-
-    async def open_item_action(
-        self,
-        interaction,
-        kind,
-    ):
-        actor = Actor.from_interaction(
-            interaction
-        )
-
-        try:
-            require_inventory_owner(
-                actor,
-                self.character_id,
-            )
-
-        except (
-            PermissionDenied,
-            InvalidState,
-        ) as exc:
-            await interaction.response.send_message(
-                f"⚠️ {exc}",
-                ephemeral=True,
-            )
-            return
-
+        self.actor=actor;self.character_id=int(character_id);self.category=category;self.keyword=keyword;self.page=page
+        character=get_character(actor,character_id)
+        self.is_own_character=is_owner(actor,character) and character['status']=='active'
+        self.private_button.disabled=not can_see_private(actor,character)
+        self.asset_detail_button.disabled=not can_see_private(actor,character)
+        if not self.is_own_character:self.inventory_button.disabled=True
+    async def interaction_check(self,interaction):
+        actor=Actor.from_interaction(interaction)
+        if actor.user_id!=self.actor.user_id or actor.guild_id!=self.actor.guild_id:
+            await interaction.response.send_message('⛔ 這不是你的角色面板。',ephemeral=True);return False
+        self.actor=actor;return True
+    @discord.ui.button(label='🌐 公開',style=discord.ButtonStyle.secondary,row=0)
+    async def public_button(self,interaction,button):
+        await interaction.response.edit_message(content=None,embed=make_character_embed(self.actor,self.character_id),view=PublicPanelView(self))
+    @discord.ui.button(label='🔒 私人',style=discord.ButtonStyle.primary,row=0)
+    async def private_button(self,interaction,button):
+        await interaction.response.edit_message(content=None,embed=make_character_embed(self.actor,self.character_id,private=True),view=self)
+    @discord.ui.button(label='💰 資產',style=discord.ButtonStyle.secondary,row=0)
+    async def asset_detail_button(self,interaction,button):
+        await interaction.response.edit_message(content=None,embed=make_asset_detail_embed(self.actor,self.character_id),view=self)
+    @discord.ui.button(label='🎒 背包',style=discord.ButtonStyle.primary,row=0)
+    async def inventory_button(self,interaction,button):
+        require_inventory_owner(self.actor,self.character_id)
+        await PanelSubView(self,'bag').show(interaction,'bag')
+    @discord.ui.button(label='📖 攻略',style=discord.ButtonStyle.secondary,row=1)
+    async def guides_button(self,interaction,button):
+        await PanelSubView(self,'routes').show(interaction,'routes')
+    @discord.ui.button(label='🏆 成就榮譽',style=discord.ButtonStyle.secondary,row=1)
+    async def awards_button(self,interaction,button):
+        await PanelSubView(self,'awards').show(interaction,'awards')
+    @discord.ui.button(label='⬅️ 返回',style=discord.ButtonStyle.secondary,row=1)
+    async def back(self,interaction,button):
+        result=find_characters(self.actor,self.category,self.keyword,self.page)
+        await interaction.response.edit_message(content=category_text(self.category,result,self.keyword),embed=None,view=CharacterListView(self.actor,self.category,self.keyword,result['page']))
+    async def open_item_action(self,interaction,kind):
         from modules.shop import ShopActionModal
-
-        menu = SimpleNamespace(
-            owner_id=int(actor.user_id),
-            character_id=self.character_id,
-            guild_id=interaction.guild_id,
-        )
-
-        await interaction.response.send_modal(
-            ShopActionModal(
-                menu,
-                kind,
-            )
-        )
-
-    @discord.ui.button(
-        label="🎁 贈送物品",
-        style=discord.ButtonStyle.secondary,
-        row=2,
-    )
-    async def gift_item_button(self, interaction, button):
-        await self.open_item_action(
-            interaction,
-            "gift",
-        )
-
-    @discord.ui.button(
-        label="✨ 使用物品",
-        style=discord.ButtonStyle.secondary,
-        row=3,
-    )
-    async def use_item_button(self, interaction, button):
-        await self.open_item_action(
-            interaction,
-            "use",
-        )
-
-    @discord.ui.button(
-        label="📦 批量使用",
-        style=discord.ButtonStyle.secondary,
-        row=3,
-    )
-    async def bulk_use_button(self, interaction, button):
-        actor = Actor.from_interaction(
-            interaction
-        )
-
-        try:
-            require_inventory_owner(
-                actor,
-                self.character_id,
-            )
-
-        except (
-            PermissionDenied,
-            InvalidState,
-        ) as exc:
-            await interaction.response.send_message(
-                f"⚠️ {exc}",
-                ephemeral=True,
-            )
-            return
-
-        await interaction.response.send_modal(
-            BatchUseModal(
-                actor,
-                self.character_id,
-            )
-        )
-
-    @discord.ui.button(
-        label="⏹️ 停用效果",
-        style=discord.ButtonStyle.secondary,
-        row=3,
-    )
-    async def stop_effect_button(self, interaction, button):
-        await self.open_item_action(
-            interaction,
-            "stop",
-        )
-
-    @discord.ui.button(
-        label="⬅️ 返回角色清單",
-        style=discord.ButtonStyle.secondary,
-        row=1,
-    )
-    async def back(self, interaction, button):
-        result = find_characters(
-            self.actor,
-            self.category,
-            self.keyword,
-            self.page,
-        )
-
-        await interaction.response.edit_message(
-            content=category_text(
-                self.category,
-                result,
-                self.keyword,
-            ),
-            embed=None,
-            view=CharacterListView(
-                self.actor,
-                self.category,
-                self.keyword,
-                result["page"],
-            ),
-        )
-
+        actor=Actor.from_interaction(interaction);require_inventory_owner(actor,self.character_id)
+        menu=SimpleNamespace(owner_id=int(actor.user_id),character_id=self.character_id,guild_id=interaction.guild_id)
+        await interaction.response.send_modal(ShopActionModal(menu,kind))
 
 class CharacterView(commands.Cog):
     """角色與 NPC 資料查看中心。"""
