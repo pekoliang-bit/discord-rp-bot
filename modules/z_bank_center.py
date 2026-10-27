@@ -806,6 +806,276 @@ class BankCenter(commands.Cog):
                 exc,
             )
 
+# ==================================================
+# 銀行第二階段：
+# 貸款申請、信用卡申請、黑卡申請、交易紀錄
+# ==================================================
+
+from core.economy import get_transaction_history
+
+from modules.player_applications import (
+    LoanTypeView,
+    CreditModal,
+    BlackConfirmView,
+)
+
+
+class BankViewV2(BankView):
+    """在原有銀行面板上增加第二階段入口。"""
+
+    def __init__(
+        self,
+        actor,
+        character_id,
+        page=0,
+    ):
+        super().__init__(
+            actor,
+            character_id,
+            page,
+        )
+
+        self.add_extra_button(
+            "🏦 申請貸款",
+            self.open_loan_application,
+            row=3,
+        )
+
+        self.add_extra_button(
+            "💳 申請信用卡",
+            self.open_credit_application,
+            row=3,
+        )
+
+        self.add_extra_button(
+            "🖤 申請黑卡",
+            self.open_black_application,
+            row=3,
+        )
+
+        self.add_extra_button(
+            "📜 個人交易紀錄",
+            self.open_history,
+            row=4,
+            style=discord.ButtonStyle.secondary,
+        )
+
+    def add_extra_button(
+        self,
+        label,
+        handler,
+        *,
+        row,
+        style=discord.ButtonStyle.primary,
+    ):
+        button = discord.ui.Button(
+            label=label,
+            style=style,
+            row=row,
+        )
+
+        button.callback = handler
+        self.add_item(button)
+
+    async def open_loan_application(
+        self,
+        interaction: discord.Interaction,
+    ):
+        try:
+            actor, character = verify(
+                interaction,
+                self.actor,
+                self.character_id,
+            )
+
+            await interaction.response.send_message(
+                (
+                    "🏦 **貸款申請中心**\n\n"
+                    f"申請角色：{character['name']}\n"
+                    "請選擇貸款類型。\n\n"
+                    "申請會沿用原有貸款規則，"
+                    "不會直接核准或發放款項。"
+                ),
+                view=LoanTypeView(
+                    actor,
+                    self.character_id,
+                ),
+                ephemeral=True,
+            )
+
+        except Exception as exc:
+            await show_error(
+                interaction,
+                exc,
+            )
+
+    async def open_credit_application(
+        self,
+        interaction: discord.Interaction,
+    ):
+        try:
+            actor, _ = verify(
+                interaction,
+                self.actor,
+                self.character_id,
+            )
+
+            await interaction.response.send_modal(
+                CreditModal(
+                    actor,
+                    self.character_id,
+                )
+            )
+
+        except Exception as exc:
+            await show_error(
+                interaction,
+                exc,
+            )
+
+    async def open_black_application(
+        self,
+        interaction: discord.Interaction,
+    ):
+        try:
+            actor, character = verify(
+                interaction,
+                self.actor,
+                self.character_id,
+            )
+
+            await interaction.response.send_message(
+                (
+                    "🖤 **黑卡 VIP 申請**\n\n"
+                    f"申請角色：{character['name']}\n\n"
+                    "原有申請條件：\n"
+                    "• 年滿 20 歲\n"
+                    "• 個人銀行存款至少"
+                    " 100,000,000 金幣\n"
+                    "• 持有有效的一般信用卡\n\n"
+                    "送出後仍需管理員審核。"
+                ),
+                view=BlackConfirmView(
+                    actor,
+                    self.character_id,
+                ),
+                ephemeral=True,
+            )
+
+        except Exception as exc:
+            await show_error(
+                interaction,
+                exc,
+            )
+
+    async def open_history(
+        self,
+        interaction: discord.Interaction,
+    ):
+        try:
+            actor, character = verify(
+                interaction,
+                self.actor,
+                self.character_id,
+            )
+
+            await interaction.response.defer(
+                ephemeral=True,
+                thinking=True,
+            )
+
+            def fetch_history():
+                wallet = get_transaction_history(
+                    actor.guild_id,
+                    "character",
+                    self.character_id,
+                    "wallet",
+                    limit=10,
+                )
+
+                savings = get_transaction_history(
+                    actor.guild_id,
+                    "character",
+                    self.character_id,
+                    "bank",
+                    limit=10,
+                )
+
+                return wallet, savings
+
+            wallet, savings = await asyncio.to_thread(
+                fetch_history
+            )
+
+            lines = [
+                "📜 **個人交易紀錄**",
+                f"角色：{character['name']}",
+                "",
+                "💵 **現金帳戶**",
+            ]
+
+            if wallet:
+                for record in wallet:
+                    amount = record["amount"]
+
+                    sign = (
+                        "+"
+                        if amount >= 0
+                        else ""
+                    )
+
+                    lines.append(
+                        f"#{record['transaction_id']} "
+                        f"{sign}{amount:,}\n"
+                        f"  {str(record['description'])[:50]}"
+                    )
+            else:
+                lines.append(
+                    "目前沒有交易。"
+                )
+
+            lines += [
+                "",
+                "🏛️ **銀行活期帳戶**",
+            ]
+
+            if savings:
+                for record in savings:
+                    amount = record["amount"]
+
+                    sign = (
+                        "+"
+                        if amount >= 0
+                        else ""
+                    )
+
+                    lines.append(
+                        f"#{record['transaction_id']} "
+                        f"{sign}{amount:,}\n"
+                        f"  {str(record['description'])[:50]}"
+                    )
+            else:
+                lines.append(
+                    "目前沒有交易。"
+                )
+
+            await interaction.followup.send(
+                "\n".join(lines)[:1900],
+                ephemeral=True,
+            )
+
+        except Exception as exc:
+            await show_error(
+                interaction,
+                exc,
+            )
+
+
+# 保留原本所有 BankView 呼叫方式。
+# 從這裡開始，新建立的銀行面板
+# 會自動使用擴充後的版本。
+BankView = BankViewV2
+
 
 async def setup(bot: commands.Bot):
     # 原 /銀行 由 modules.economy 註冊。
