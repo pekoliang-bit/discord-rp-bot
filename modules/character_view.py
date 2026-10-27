@@ -367,7 +367,115 @@ def read_tracking(actor, character_id):
         }
 
     return dict(row)
+def read_money_assets(actor, character_id):
+    """讀取角色錢包與銀行餘額。"""
 
+    get_character(actor, character_id)
+
+    with get_connection() as conn:
+        rows = conn.execute(
+            """
+            SELECT
+                a.account_type,
+                COALESCE(SUM(e.amount), 0) AS balance
+            FROM accounts AS a
+            LEFT JOIN ledger_entries AS e
+              ON e.guild_id = a.guild_id
+             AND e.account_id = a.id
+            WHERE a.guild_id = ?
+              AND a.owner_type = 'character'
+              AND a.owner_id = ?
+              AND a.account_type IN ('wallet', 'bank')
+            GROUP BY a.id, a.account_type
+            """,
+            (actor.guild_id, str(character_id)),
+        ).fetchall()
+
+    amounts = {
+        "wallet": 0,
+        "bank": 0,
+    }
+
+    for row in rows:
+        amounts[row["account_type"]] += int(
+            row["balance"]
+        )
+
+    amounts["total"] = (
+        amounts["wallet"] + amounts["bank"]
+    )
+
+    return amounts
+
+
+def make_asset_detail_embed(actor, character_id):
+    character = get_character(actor, character_id)
+
+    if not can_see_private(actor, character):
+        raise PermissionDenied(
+            "只有本人及授權管理員可查看詳細帳目。"
+        )
+
+    money = read_money_assets(actor, character_id)
+
+    embed = discord.Embed(
+        title=f"💰 {character['name']} 的資產明細",
+        description=(
+            f"錢包：{money['wallet']:,} 金幣\n"
+            f"銀行：{money['bank']:,} 金幣\n"
+            f"貨幣資產合計：{money['total']:,} 金幣"
+        ),
+        color=discord.Color.gold(),
+    )
+
+    with get_connection() as conn:
+        rows = conn.execute(
+            """
+            SELECT
+                t.id,
+                t.created_at,
+                a.account_type,
+                e.amount
+            FROM ledger_entries AS e
+            JOIN accounts AS a
+              ON a.id = e.account_id
+             AND a.guild_id = e.guild_id
+            JOIN ledger_transactions AS t
+              ON t.id = e.transaction_id
+             AND t.guild_id = e.guild_id
+            WHERE a.guild_id = ?
+              AND a.owner_type = 'character'
+              AND a.owner_id = ?
+              AND a.account_type IN ('wallet', 'bank')
+            ORDER BY t.id DESC, e.account_id DESC
+            LIMIT 10
+            """,
+            (actor.guild_id, str(character_id)),
+        ).fetchall()
+
+    lines = [
+        (
+            f"#{row['id']}｜{row['created_at']}｜"
+            f"{'錢包' if row['account_type'] == 'wallet' else '銀行'}｜"
+            f"{int(row['amount']):+,} 金幣"
+        )
+        for row in rows
+    ]
+
+    embed.add_field(
+        name="最近 10 筆帳戶分錄",
+        value=(
+            "\n".join(lines)[:1024]
+            if lines else "尚無紀錄"
+        ),
+        inline=False,
+    )
+
+    embed.set_footer(
+        text="商品、房產及其他未估值資產暫不計入貨幣合計。"
+    )
+
+    return embed
 
 def display_value(value, default="未公開"):
     if value is None or value == "":
