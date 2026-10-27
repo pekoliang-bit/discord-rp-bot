@@ -1292,6 +1292,14 @@ def _panel_inventory(actor,cid,page=0):
         if _panel_table(db,'item_instances'):
             for r in db.execute('SELECT product_id,remaining_uses FROM item_instances WHERE guild_id=? AND character_id=? ORDER BY remaining_uses,id',(str(actor.guild_id),cid)):
                 remains.setdefault(int(r['product_id']),[]).append(int(r['remaining_uses']))
+        equipped = set()
+        if _panel_table(db, 'shop_context_equipment'):
+            equipped = {
+                int(r['product_id']) for r in db.execute(
+                    'SELECT product_id FROM shop_context_equipment WHERE guild_id=? AND character_id=?',
+                    (str(actor.guild_id), cid),
+                )
+            }
         catalog={}
         for table in ('b02_catalog','b04_catalog'):
             if _panel_table(db,table):
@@ -1304,12 +1312,13 @@ def _panel_inventory(actor,cid,page=0):
             effect=f"每次：{stat or '未設定'} +{value}｜每件 {rules[pid]} 次"
             if pid in remains:effect+=f"｜剩餘次數：{'、'.join(map(str,remains[pid][:12]))}"+("…" if len(remains[pid])>12 else '')
         elif pid in catalog:
-            st,v=catalog[pid];effect=f'預定持有：{st} +{v}（尚未接入生效）'
+            st,v=catalog[pid];effect=f'持有加成：{st} +{v}（同款僅計一次）'
         elif stat and value:
             effect=f"{'使用後永久' if r['effect_kind']=='instant' else '條件加成' if r['effect_kind']=='context' else '效果'}：{stat} +{value}"
             if r['effect_kind']=='context':effect+=f"｜{r['effect_context'] or '條件觸發'}"
         else:effect='無直接屬性加成'
-        lines.append(f"**#{pid} {r['name']} ×{qty}**\n✨ {effect}")
+        equipment_status = '｜✅ 已穿戴' if pid in equipped else ''
+        lines.append(f"**#{pid} {r['name']} ×{qty}{equipment_status}**\n✨ {effect}")
     # 玩家商店物品同樣列入背包；目前該類商品尚無統一的加成欄位。
     with get_connection() as db:
         if _panel_table(db,'personal_store_inventory') and _panel_table(db,'personal_store_products'):
@@ -1471,15 +1480,122 @@ class PanelRelationModal(discord.ui.Modal, title="設定角色關係"):
             await interaction.response.send_message(f"⚠️ {exc}", ephemeral=True)
 
 
+class PanelGearModal(discord.ui.Modal):
+    """在背包內穿戴或卸下；完成後直接更新原訊息。"""
+
+    def __init__(self, parent, action, page=0):
+        super().__init__(title="👗 穿戴裝備" if action == "equip" else "🧥 卸下裝備")
+        self.parent = parent
+        self.action = action
+        self.page = page
+        self.product = discord.ui.TextInput(
+            label="商品編號", placeholder="例如：12", required=True, max_length=12
+        )
+        self.add_item(self.product)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        actor = Actor.from_interaction(interaction)
+        if (str(actor.user_id) != str(self.parent.actor.user_id)
+                or str(actor.guild_id) != str(self.parent.actor.guild_id)):
+            await interaction.response.send_message("⛔ 這不是你的背包。", ephemeral=True)
+            return
+        try:
+            require_inventory_owner(actor, self.parent.character_id)
+            product_id = int(str(self.product.value).strip())
+            if product_id <= 0:
+                raise ValueError("商品編號必須大於零。")
+            from modules import gear
+            func = gear.equip if self.action == "equip" else gear.remove
+            result = await asyncio.to_thread(
+                func, actor, self.parent.character_id, product_id
+            )
+            info, last = _panel_inventory(actor, self.parent.character_id, self.page)
+            await interaction.response.edit_message(
+                content=None,
+                embed=_panel_embed("🎒 背包", f"{result}\n\n{info}"),
+                view=PanelSubView(self.parent, "bag", min(self.page, last)),
+            )
+        except (ValueError, InvalidState, PermissionDenied, sqlite3.Error) as exc:
+            await interaction.response.send_message(f"⚠️ {exc}", ephemeral=True)
+        except ImportError:
+            await interaction.response.send_message(
+                "⚠️ 找不到 modules/gear.py，請先安裝裝備模組。", ephemeral=True
+            )
+        except Exception:
+            LOG.exception("背包裝備操作失敗")
+            await interaction.response.send_message(
+                "⚠️ 裝備操作失敗，請查看 Railway 日誌。", ephemeral=True
+            )
+
+
+class PanelGearStatusView(discord.ui.View):
+    """只切換原訊息：裝備總覽與回背包。"""
+
+    def __init__(self, parent, page=0):
+        super().__init__(timeout=900)
+        self.parent = parent
+        self.page = page
+
+    async def interaction_check(self, interaction):
+        return await self.parent.interaction_check(interaction)
+
+    @discord.ui.button(label="🎒 返回背包", style=discord.ButtonStyle.secondary)
+    async def back_to_bag(self, interaction, button):
+        await PanelSubView(self.parent, "bag", self.page).show(
+            interaction, "bag", self.page
+        )
+
+
 class PanelSubView(discord.ui.View):
     def __init__(self,parent,mode,page=0):
         super().__init__(timeout=900);self.parent=parent;self.mode=mode;self.page=page
-        if mode=='bag':
-            for label,kind in [('使用','use'),('批量使用','batch'),('贈送','gift')]:
-                btn=discord.ui.Button(label=label,style=discord.ButtonStyle.primary if kind=='use' else discord.ButtonStyle.secondary,row=0)
-                async def action(interaction,k=kind):
-                    await interaction.response.send_modal(PanelItemModal(self.parent,k,self.page))
-                btn.callback=action;self.add_item(btn)
+        if mode == 'bag':
+            # 5 個操作按鈕同一排，符合 Discord 每排最多 5 個元件。
+            for label, kind in [
+                ('使用', 'use'), ('批量使用', 'batch'), ('贈送', 'gift'),
+                ('穿戴', 'equip'), ('卸下', 'remove'),
+            ]:
+                btn = discord.ui.Button(
+                    label=label,
+                    style=discord.ButtonStyle.primary if kind in ('use', 'equip')
+                    else discord.ButtonStyle.secondary,
+                    row=0,
+                )
+                async def action(interaction, k=kind):
+                    if k in ('equip', 'remove'):
+                        await interaction.response.send_modal(
+                            PanelGearModal(self.parent, k, self.page)
+                        )
+                    else:
+                        await interaction.response.send_modal(
+                            PanelItemModal(self.parent, k, self.page)
+                        )
+                btn.callback = action
+                self.add_item(btn)
+            status_btn = discord.ui.Button(
+                label='裝備狀態', style=discord.ButtonStyle.secondary, row=1
+            )
+            async def show_gear(interaction):
+                try:
+                    from modules import gear
+                    text = await asyncio.to_thread(
+                        gear.current_equipment,
+                        Actor.from_interaction(interaction),
+                        self.parent.character_id,
+                    )
+                    await interaction.response.edit_message(
+                        content=None,
+                        embed=_panel_embed('👗 目前裝備與被動加成', text),
+                        view=PanelGearStatusView(self.parent, self.page),
+                    )
+                except (ValueError, InvalidState, PermissionDenied, sqlite3.Error) as exc:
+                    await interaction.response.send_message(f'⚠️ {exc}', ephemeral=True)
+                except ImportError:
+                    await interaction.response.send_message(
+                        '⚠️ 找不到 modules/gear.py。', ephemeral=True
+                    )
+            status_btn.callback = show_gear
+            self.add_item(status_btn)
         if mode=='awards':
             for label,kind in [('成就','works'),('榮譽','endorsement')]:
                 btn=discord.ui.Button(label=label,style=discord.ButtonStyle.secondary,row=0)
