@@ -613,7 +613,7 @@ def patch_interfaces():
 
         def init_detail(self, actor, character_id, *args, **kwargs):
             original_detail(self, actor, character_id, *args, **kwargs)
-            self.add_item(AwardsPublicButton(character_id))
+            # 成就榮譽由 character_view 的七鍵主選單處理。
 
         CharacterDetailView.__init__ = init_detail
         CharacterDetailView._rp_awards_patched = True
