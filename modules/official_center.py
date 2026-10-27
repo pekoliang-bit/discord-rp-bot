@@ -1624,6 +1624,20 @@ class OfficialHome(PrivateView):
     def __init__(self, interaction):
         super().__init__(interaction)
 
+        # ===== 新增：官方商城管理入口 =====
+        from modules.official_shop import ShopManageButton
+        from core.permissions import Actor
+
+        actor = Actor.from_interaction(interaction)
+
+        # 群主或授權管理員可以使用
+        if (
+            is_owner(interaction)
+            or actor.is_admin
+        ):
+            self.add_item(ShopManageButton())
+        # ===== 官方商城管理入口結束 =====
+
         from core.permissions import Actor
 
         actor = Actor.from_interaction(interaction)
