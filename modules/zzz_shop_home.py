@@ -1,27 +1,55 @@
 
-"""Discord RP｜十間商店分類面板。
+"""Discord RP｜十間商店首頁與付費行動值系統。
 
-沿用 modules.shop 唯一的 /商城 指令。
-不重複註冊指令，不修改 Command.callback。
+檔案：modules/zzz_shop_home.py
+
+功能：
+- B01～B10 官方商店分類
+- 每頁 10 件商品
+- 商品批量購買入口
+- 黑卡隱藏商店權限
+- 行動值快捷購買
+- 每點行動值 500 金幣
+- 行動值購買不設累計上限
+- 每筆購買有效 30 天，逾期不保留
+- 獨立付費行動值帳本
+- 防止重複交易與重複扣款
+
+注意：
+本模組不建立第二個 /商城 指令。
+唯一 /商城 指令仍由 modules.shop 註冊。
 """
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import sqlite3
+from datetime import datetime, timedelta, timezone
 
 import discord
 from discord.ext import commands
 
-from core.database import get_connection
+from core.database import (
+    get_connection,
+    transaction,
+    get_or_create_account,
+)
+from core.economy import _payment
 from core.permissions import (
     Actor,
     InvalidState,
     PermissionDenied,
 )
+
 from modules import shop
 
+
 LOG = logging.getLogger(__name__)
+
+ACTION_PRICE = 500
+PERIOD_DAYS = 30
+PAGE_SIZE = 10
 
 STORES = (
     ("B01", "👗 服飾精品店"),
@@ -37,59 +65,449 @@ STORES = (
 )
 
 
-def ensure_access(actor, character_id, store=None):
-    with get_connection() as conn:
-        shop.require_character(
-            conn, actor, character_id
+# ==========================================
+# 付費行動值資料庫
+# ==========================================
+
+def init_action_db():
+    with transaction() as conn:
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS paid_action_packs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                guild_id TEXT NOT NULL,
+                character_id INTEGER NOT NULL,
+                quantity INTEGER NOT NULL,
+                remaining INTEGER NOT NULL,
+                purchased_at TEXT NOT NULL,
+                expires_at TEXT NOT NULL,
+                request_key TEXT NOT NULL,
+                UNIQUE(guild_id, request_key)
+            )
+            """
         )
 
-        if store == "B10":
-            if not shop.has_black_access(
-                conn, actor.guild_id, character_id
-            ):
+        conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS paid_action_expiry
+            ON paid_action_packs(
+                guild_id,
+                character_id,
+                expires_at
+            )
+            """
+        )
+
+
+# ==========================================
+# 購買行動值
+# ==========================================
+
+def buy_actions(
+    actor,
+    character_id,
+    quantity,
+    request_key,
+):
+    """購買付費行動值。
+
+    每點 500 金幣。
+    每筆購買獨立計算 30 天期限。
+    沒有累計購買上限。
+
+    使用交易唯一鍵防止重複扣款。
+    """
+
+    if not isinstance(quantity, int):
+        raise ValueError(
+            "購買數量必須是整數。"
+        )
+
+    if not 1 <= quantity <= 1_000_000:
+        raise ValueError(
+            "單次最多購買 1,000,000 點，"
+            "可以分次購買，沒有累計上限。"
+        )
+
+    with transaction() as conn:
+        shop.require_character(
+            conn,
+            actor,
+            character_id,
+        )
+
+        now = datetime.now(timezone.utc)
+
+        # 將已過期的點數歸零。
+        conn.execute(
+            """
+            UPDATE paid_action_packs
+            SET remaining=0
+            WHERE guild_id=?
+              AND character_id=?
+              AND expires_at<=?
+              AND remaining>0
+            """,
+            (
+                actor.guild_id,
+                character_id,
+                now.isoformat(),
+            ),
+        )
+
+        # 相同請求只執行一次。
+        existing = conn.execute(
+            """
+            SELECT id
+            FROM paid_action_packs
+            WHERE guild_id=?
+              AND request_key=?
+            """,
+            (
+                actor.guild_id,
+                request_key,
+            ),
+        ).fetchone()
+
+        if existing:
+            return (
+                "這筆行動值購買已經處理，"
+                "不會再次扣款。"
+            )
+
+        cost = quantity * ACTION_PRICE
+
+        wallet = get_or_create_account(
+            conn,
+            actor.guild_id,
+            "character",
+            str(character_id),
+            "wallet",
+        )
+
+        treasury = get_or_create_account(
+            conn,
+            actor.guild_id,
+            "system",
+            "action_store",
+            "treasury",
+        )
+
+        # 扣款沿用銀行交易核心。
+        _payment(
+            conn,
+            actor.guild_id,
+            "action:" + request_key,
+            wallet,
+            treasury,
+            cost,
+            f"購買行動值 ×{quantity}",
+        )
+
+        expires = now + timedelta(
+            days=PERIOD_DAYS
+        )
+
+        conn.execute(
+            """
+            INSERT INTO paid_action_packs (
+                guild_id,
+                character_id,
+                quantity,
+                remaining,
+                purchased_at,
+                expires_at,
+                request_key
+            )
+            VALUES (?,?,?,?,?,?,?)
+            """,
+            (
+                actor.guild_id,
+                character_id,
+                quantity,
+                quantity,
+                now.isoformat(),
+                expires.isoformat(),
+                request_key,
+            ),
+        )
+
+        return (
+            f"⚡ 行動值購買成功！\n\n"
+            f"購買數量：{quantity:,} 點\n"
+            f"支付金額：{cost:,} 金幣\n"
+            f"有效期限：{expires:%Y-%m-%d %H:%M} UTC\n\n"
+            "30 天後未使用的行動值不保留。\n"
+            "正式 /行動 消耗功能尚待接入。"
+        )
+
+
+# ==========================================
+# 查詢付費行動值
+# ==========================================
+
+def action_balance(
+    actor,
+    character_id,
+):
+    with get_connection() as conn:
+        shop.require_character(
+            conn,
+            actor,
+            character_id,
+        )
+
+        now = datetime.now(
+            timezone.utc
+        ).isoformat()
+
+        row = conn.execute(
+            """
+            SELECT
+                COALESCE(SUM(remaining),0) AS total
+            FROM paid_action_packs
+            WHERE guild_id=?
+              AND character_id=?
+              AND expires_at>?
+            """,
+            (
+                actor.guild_id,
+                character_id,
+                now,
+            ),
+        ).fetchone()
+
+    return int(row["total"])
+
+
+# ==========================================
+# 行動值消耗接口
+# ==========================================
+
+def spend_paid_actions(
+    conn,
+    guild_id,
+    character_id,
+    quantity,
+):
+    """預留給正式 /行動 系統使用。
+
+    優先扣除最早到期的點數。
+    必須在呼叫端的資料庫交易中執行。
+    """
+
+    if quantity < 0:
+        raise ValueError(
+            "扣除數量不合法。"
+        )
+
+    rows = conn.execute(
+        """
+        SELECT id, remaining
+        FROM paid_action_packs
+        WHERE guild_id=?
+          AND character_id=?
+          AND expires_at>?
+          AND remaining>0
+        ORDER BY expires_at ASC, id ASC
+        """,
+        (
+            guild_id,
+            character_id,
+            datetime.now(
+                timezone.utc
+            ).isoformat(),
+        ),
+    ).fetchall()
+
+    available = sum(
+        int(row["remaining"])
+        for row in rows
+    )
+
+    if available < quantity:
+        raise InvalidState(
+            "付費行動值不足。"
+        )
+
+    left = quantity
+
+    for row in rows:
+        used = min(
+            int(row["remaining"]),
+            left,
+        )
+
+        if used > 0:
+            conn.execute(
+                """
+                UPDATE paid_action_packs
+                SET remaining=remaining-?
+                WHERE id=?
+                """,
+                (
+                    used,
+                    row["id"],
+                ),
+            )
+
+            left -= used
+
+        if left == 0:
+            break
+
+
+# ==========================================
+# 商城首頁文字
+# ==========================================
+
+def home_text(character_id):
+    return (
+        f"🛍️ **官方商城｜角色 #{character_id}**\n\n"
+        "歡迎來到 Discord RP 官方商城！\n"
+        "請從下方選單選擇商店。\n\n"
+        "👗 B01｜服飾精品店\n"
+        "💄 B02｜美妝保養店\n"
+        "💎 B03｜珠寶鐘錶店\n"
+        "📱 B04｜數位科技店\n"
+        "🎭 B05｜演藝用品店\n"
+        "📚 B06｜書籍文具店\n"
+        "🏠 B07｜家居生活店\n"
+        "🎮 B08｜娛樂收藏店\n"
+        "🎁 B09｜特殊道具店\n"
+        "🖤 B10｜黑卡隱藏商店\n\n"
+        "⚡ **行動值補給**\n"
+        "每點 500 金幣，30 天後失效。\n\n"
+        "🎒 背包、物品使用及贈送："
+        "請前往 `/查看`。"
+    )
+
+
+# ==========================================
+# 商店權限
+# ==========================================
+
+def require_access(
+    actor,
+    character_id,
+    code="",
+):
+    with get_connection() as conn:
+        shop.require_character(
+            conn,
+            actor,
+            character_id,
+        )
+
+        if code == "B10":
+            allowed = shop.has_black_access(
+                conn,
+                actor.guild_id,
+                character_id,
+            )
+
+            if not allowed:
                 raise PermissionDenied(
-                    "只有有效黑卡會員可以查看此商店。"
+                    "只有有效黑卡會員可以進入此商店。"
                 )
 
 
-def list_store(actor, character_id, store, page=0):
-    if store not in dict(STORES):
-        raise InvalidState("商店不存在。")
+# ==========================================
+# 商店商品查詢
+# ==========================================
 
-    ensure_access(actor, character_id, store)
-
-    scope = "black" if store == "B10" else "public"
-
-    query = "guild_id=? AND scope=? AND active=1"
-
-    params = [actor.guild_id, scope]
-
-    if store != "B10":
-        query += (
-            " AND (category LIKE ? OR category LIKE ?)"
+def make_store_screen(
+    actor,
+    character_id,
+    code,
+    page=0,
+):
+    if code not in dict(STORES):
+        raise ValueError(
+            "商店編號錯誤。"
         )
 
-        params.extend([
-            f"%{store}%",
-            f"%{dict(STORES)[store].split(' ', 1)[-1]}%",
+    require_access(
+        actor,
+        character_id,
+        code,
+    )
+
+    scope = (
+        "black"
+        if code == "B10"
+        else "public"
+    )
+
+    where = (
+        "guild_id=? "
+        "AND scope=? "
+        "AND active=1"
+    )
+
+    args = [
+        actor.guild_id,
+        scope,
+    ]
+
+    if code != "B10":
+        store_name = dict(STORES)[code].split(
+            " ",
+            1,
+        )[-1]
+
+        where += (
+            " AND ("
+            "category LIKE ? "
+            "OR category LIKE ?"
+            ")"
+        )
+
+        args.extend([
+            f"%{code}%",
+            f"%{store_name}%",
         ])
 
     with get_connection() as conn:
         total = conn.execute(
-            "SELECT COUNT(*) FROM shop_products WHERE "
-            + query,
-            params,
+            """
+            SELECT COUNT(*)
+            FROM shop_products
+            WHERE
+            """
+            + where,
+            args,
         ).fetchone()[0]
 
-        last = max(0, (total - 1) // 10)
-        page = max(0, min(int(page), last))
+        last = max(
+            0,
+            (total - 1) // PAGE_SIZE,
+        )
+
+        page = max(
+            0,
+            min(int(page), last),
+        )
 
         rows = conn.execute(
-            "SELECT id,name,price,stock "
-            "FROM shop_products WHERE "
-            + query
-            + " ORDER BY id LIMIT 10 OFFSET ?",
-            params + [page * 10],
+            """
+            SELECT
+                id,
+                name,
+                price,
+                stock
+            FROM shop_products
+            WHERE
+            """
+            + where
+            + """
+            ORDER BY id
+            LIMIT ? OFFSET ?
+            """,
+            args + [
+                PAGE_SIZE,
+                page * PAGE_SIZE,
+            ],
         ).fetchall()
 
     lines = []
@@ -98,32 +516,134 @@ def list_store(actor, character_id, store, page=0):
         stock = (
             "不限"
             if row["stock"] is None
-            else row["stock"]
+            else str(row["stock"])
         )
 
         lines.append(
-            f"#{row['id']}｜{row['name']}｜"
+            f"#{row['id']}｜"
+            f"{row['name']}｜"
             f"{int(row['price']):,} 金幣｜"
             f"庫存：{stock}"
         )
 
     content = (
-        f"**{dict(STORES)[store]}**\n"
-        f"商品：{total} 件｜"
+        f"**{dict(STORES)[code]}**\n"
+        f"已上架商品：{total} 件\n"
         f"第 {page + 1}/{last + 1} 頁\n\n"
         + (
             "\n".join(lines)
             if lines
             else "目前尚未上架商品。"
         )
-        + "\n\n購買請輸入清單中的 #數字商品編號。"
+        + "\n\n"
+        "🛒 購買時請輸入清單中的 #商品編號。\n"
+        "可以一次購買多件商品。"
     )
 
-    return content[:1900], page, last
+    view = ShopHome(
+        int(actor.user_id),
+        character_id,
+        code == "B10",
+        code,
+        int(actor.guild_id),
+        page=page,
+        last=last,
+    )
 
+    return content[:1900], view
+
+
+# ==========================================
+# 行動值購買表單
+# ==========================================
+
+class ActionBuyModal(
+    discord.ui.Modal,
+    title="⚡ 購買行動值",
+):
+    quantity = discord.ui.TextInput(
+        label="購買點數（每點 500 金幣）",
+        placeholder="例如：10",
+        required=True,
+        max_length=7,
+    )
+
+    def __init__(self, menu):
+        super().__init__()
+        self.menu = menu
+
+    async def on_submit(
+        self,
+        interaction: discord.Interaction,
+    ):
+        if (
+            interaction.user.id != self.menu.owner_id
+            or interaction.guild_id != self.menu.guild_id
+        ):
+            await interaction.response.send_message(
+                "⛔ 這不是你的商城。",
+                ephemeral=True,
+            )
+            return
+
+        try:
+            quantity = int(
+                str(self.quantity.value)
+            )
+
+            if not 1 <= quantity <= 1_000_000:
+                raise ValueError(
+                    "購買數量必須介於 1～1,000,000。"
+                )
+
+        except ValueError:
+            await interaction.response.send_message(
+                "⚠️ 請輸入有效的行動值數量。",
+                ephemeral=True,
+            )
+            return
+
+        actor = Actor.from_interaction(
+            interaction
+        )
+
+        await interaction.response.defer(
+            ephemeral=True
+        )
+
+        try:
+            result = await asyncio.to_thread(
+                buy_actions,
+                actor,
+                self.menu.character_id,
+                quantity,
+                str(interaction.id),
+            )
+
+        except (
+            ValueError,
+            InvalidState,
+            PermissionDenied,
+            sqlite3.Error,
+        ) as exc:
+            result = f"⚠️ {exc}"
+
+        await interaction.followup.send(
+            str(result)[:1900],
+            ephemeral=True,
+        )
+
+
+# ==========================================
+# 商店選擇器
+# ==========================================
 
 class StorePicker(discord.ui.Select):
-    def __init__(self, menu, black_allowed):
+    def __init__(
+        self,
+        menu,
+        black_allowed,
+    ):
         self.menu = menu
 
         options = [
@@ -136,39 +656,38 @@ class StorePicker(discord.ui.Select):
         ]
 
         super().__init__(
-            placeholder="選擇官方商店",
+            placeholder="選擇要進入的商店",
+            min_values=1,
+            max_values=1,
             options=options,
             row=0,
         )
 
-    async def callback(self, interaction):
-        actor = Actor.from_interaction(interaction)
+    async def callback(
+        self,
+        interaction: discord.Interaction,
+    ):
+        actor = Actor.from_interaction(
+            interaction
+        )
 
         try:
-            code = self.values[0]
-
-            content, page, last = list_store(
+            content, view = make_store_screen(
                 actor,
                 self.menu.character_id,
-                code,
+                self.values[0],
+                0,
             )
 
             await interaction.response.edit_message(
                 content=content,
-                view=ShopHome(
-                    self.menu.owner_id,
-                    self.menu.character_id,
-                    code == "B10",
-                    code,
-                    self.menu.guild_id,
-                    page=page,
-                    last=last,
-                ),
+                view=view,
             )
 
         except (
-            InvalidState,
+            ValueError,
             PermissionDenied,
+            InvalidState,
             sqlite3.Error,
         ) as exc:
             await interaction.response.send_message(
@@ -177,9 +696,11 @@ class StorePicker(discord.ui.Select):
             )
 
 
-class ShopHome(discord.ui.View):
-    """沿用舊商城選單建構介面。"""
+# ==========================================
+# 商城互動面板
+# ==========================================
 
+class ShopHome(discord.ui.View):
     def __init__(
         self,
         owner_id,
@@ -197,7 +718,13 @@ class ShopHome(discord.ui.View):
         self.character_id = int(character_id)
         self.black = bool(black)
         self.category = str(category or "")
-        self.guild_id = guild_id
+
+        self.guild_id = (
+            int(guild_id)
+            if guild_id is not None
+            else 0
+        )
+
         self.page = page
         self.last = last
 
@@ -205,93 +732,120 @@ class ShopHome(discord.ui.View):
             self.category = ""
             self.black = False
 
+        # 商城首頁
         if not self.category:
             with get_connection() as conn:
-                black_allowed = shop.has_black_access(
-                    conn,
-                    str(guild_id),
-                    self.character_id,
+                black_allowed = (
+                    shop.has_black_access(
+                        conn,
+                        str(self.guild_id),
+                        self.character_id,
+                    )
                 )
 
             self.add_item(
-                StorePicker(self, black_allowed)
+                StorePicker(
+                    self,
+                    black_allowed,
+                )
             )
 
             self.buy_button.disabled = True
             self.previous.disabled = True
             self.next.disabled = True
 
+        # 已進入指定商店
         else:
             self.previous.disabled = page <= 0
             self.next.disabled = page >= last
 
-    async def interaction_check(self, interaction):
+    async def interaction_check(
+        self,
+        interaction: discord.Interaction,
+    ):
         if (
             interaction.user.id != self.owner_id
             or interaction.guild_id != self.guild_id
         ):
             await interaction.response.send_message(
-                "⛔ 這不是你的商城選單。",
+                "⛔ 這不是你的商城面板。",
                 ephemeral=True,
             )
             return False
 
         return True
 
+    # ======================================
+    # 批量購買
+    # ======================================
+
     @discord.ui.button(
-        label="🛒 購買商品",
+        label="🛒 批量購買商品",
         style=discord.ButtonStyle.success,
         row=1,
     )
-    async def buy_button(self, interaction, button):
-        actor = Actor.from_interaction(interaction)
+    async def buy_button(
+        self,
+        interaction: discord.Interaction,
+        button: discord.ui.Button,
+    ):
+        actor = Actor.from_interaction(
+            interaction
+        )
 
         try:
-            ensure_access(
+            require_access(
                 actor,
                 self.character_id,
                 self.category,
             )
 
+            await interaction.response.send_modal(
+                shop.ShopActionModal(
+                    self,
+                    "buy",
+                )
+            )
+
         except (
+            ValueError,
             InvalidState,
             PermissionDenied,
+            sqlite3.Error,
         ) as exc:
             await interaction.response.send_message(
                 f"⚠️ {exc}",
                 ephemeral=True,
             )
-            return
 
-        await interaction.response.send_modal(
-            shop.ShopActionModal(self, "buy")
+    # ======================================
+    # 商品分頁
+    # ======================================
+
+    async def move(
+        self,
+        interaction,
+        page,
+    ):
+        actor = Actor.from_interaction(
+            interaction
         )
 
-    async def move(self, interaction, requested):
-        actor = Actor.from_interaction(interaction)
-
         try:
-            content, page, last = list_store(
+            content, view = make_store_screen(
                 actor,
                 self.character_id,
                 self.category,
-                requested,
+                page,
             )
 
             await interaction.response.edit_message(
                 content=content,
-                view=ShopHome(
-                    self.owner_id,
-                    self.character_id,
-                    self.black,
-                    self.category,
-                    self.guild_id,
-                    page=page,
-                    last=last,
-                ),
+                view=view,
             )
 
         except (
+            ValueError,
             InvalidState,
             PermissionDenied,
             sqlite3.Error,
@@ -306,7 +860,11 @@ class ShopHome(discord.ui.View):
         style=discord.ButtonStyle.secondary,
         row=2,
     )
-    async def previous(self, interaction, button):
+    async def previous(
+        self,
+        interaction,
+        button,
+    ):
         await self.move(
             interaction,
             self.page - 1,
@@ -317,55 +875,94 @@ class ShopHome(discord.ui.View):
         style=discord.ButtonStyle.secondary,
         row=2,
     )
-    async def next(self, interaction, button):
+    async def next(
+        self,
+        interaction,
+        button,
+    ):
         await self.move(
             interaction,
             self.page + 1,
         )
 
+    # ======================================
+    # 返回商店首頁
+    # ======================================
+
     @discord.ui.button(
-        label="🏠 商城分類",
+        label="🏠 商城首頁",
         style=discord.ButtonStyle.primary,
         row=3,
     )
-    async def back(self, interaction, button):
-        await interaction.response.edit_message(
-            content=(
-                "🛍️ **官方商城**\n"
-                "請從下方選擇商店。\n"
-                "背包、贈送與使用請前往 /查看。"
-            ),
-            view=ShopHome(
-                self.owner_id,
-                self.character_id,
-                False,
-                "",
-                self.guild_id,
-            ),
+    async def back(
+        self,
+        interaction,
+        button,
+    ):
+        actor = Actor.from_interaction(
+            interaction
         )
+
+        try:
+            require_access(
+                actor,
+                self.character_id,
+            )
+
+            await interaction.response.edit_message(
+                content=home_text(
+                    self.character_id
+                ),
+                view=ShopHome(
+                    self.owner_id,
+                    self.character_id,
+                    False,
+                    "",
+                    self.guild_id,
+                ),
+            )
+
+        except (
+            ValueError,
+            PermissionDenied,
+            InvalidState,
+            sqlite3.Error,
+        ) as exc:
+            await interaction.response.send_message(
+                f"⚠️ {exc}",
+                ephemeral=True,
+            )
+
+    # ======================================
+    # 行動值快捷購買
+    # ======================================
 
     @discord.ui.button(
-        label="⚡ 行動值補給",
-        style=discord.ButtonStyle.secondary,
+        label="⚡ 購買行動值",
+        style=discord.ButtonStyle.primary,
         row=3,
     )
-    async def action_info(self, interaction, button):
-        await interaction.response.send_message(
-            (
-                "⚡ 行動值購買尚未連接"
-                "已驗證的扣款與計價功能，"
-                "暫不開放付款。"
-            ),
-            ephemeral=True,
+    async def action_info(
+        self,
+        interaction,
+        button,
+    ):
+        await interaction.response.send_modal(
+            ActionBuyModal(self)
         )
 
 
-async def setup(bot: commands.Bot):
-    # 只替換舊商城介面類別。
-    # 不建立第二個 /商城 指令。
-    shop.ShopMenu = ShopHome
+# ==========================================
+# 模組初始化
+# ==========================================
 
+async def setup(bot: commands.Bot):
+    # 初始化行動值資料庫。
+    await asyncio.to_thread(init_action_db)
+
+    # 不註冊第二個 /商城。
+    # 正式指令由 modules.shop 負責。
     LOG.info(
-        "已啟用十間商店分類面板，"
-        "沿用原有 /商城 指令。"
+        "十間商店首頁與付費行動值系統已載入；"
+        "/商城 唯一入口由 modules.shop 提供。"
     )
