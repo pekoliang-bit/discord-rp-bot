@@ -194,3 +194,4 @@ async def setup(bot):
                 await interaction.response.send_message(f"⚠️ {exc}", ephemeral=True)
     original.callback = new_callback
     await bot.add_cog(ShopHomeAddon(bot))
+
