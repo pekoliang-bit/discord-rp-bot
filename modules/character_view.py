@@ -1,19 +1,30 @@
 
-"""Discord RP：正式角色查看系統。
+"""Discord RP｜角色查看及背包整合系統。
 
 正式指令：/查看
 
 功能：
 - 原創角色、玩家 NPC、官方角色、路人角色
-- 分類選擇、搜尋、分頁
-- 角色公開資料與私人資料
-- 十三項屬性與動態追蹤
+- 分類搜尋與無總數上限分頁
+- 公開、私人角色資料
+- 十三項屬性
+- 系統動態追蹤
+- 公開貨幣資產、私人帳戶明細
 - 角色立繪
-- 公開貨幣資產總額
-- 私人錢包、銀行及帳戶分錄
-- 個人背包、贈送物品、使用物品、停用效果
+- 背包查看
+- 物品贈送
+- 單次使用
+- 批量使用
+- 停用物品效果
 
-沿用既有資料庫，不重建或刪除角色資料。
+批量使用：
+- 每次最多 100 次
+- 只允許角色擁有者操作
+- 每次呼叫原商城使用函式
+- 每次有獨立交易識別碼
+- 數量不足時停止，不產生額外加成
+
+不重建或清空角色及銀行資料。
 """
 
 from __future__ import annotations
@@ -36,6 +47,7 @@ from core.permissions import (
 )
 
 LOG = logging.getLogger(__name__)
+
 PAGE_SIZE = 25
 
 CATEGORIES = {
@@ -90,16 +102,13 @@ ATTRIBUTE_TALENT = (
 )
 
 
-# ==================================================
-# 通用工具
-# ==================================================
-
 def safe_json(raw):
     try:
-        value = json.loads(raw or "{}")
-        return value if isinstance(value, dict) else {}
-    except (TypeError, ValueError):
+        data = json.loads(raw or "{}")
+    except (ValueError, TypeError):
         return {}
+
+    return data if isinstance(data, dict) else {}
 
 
 def display_value(value, default="未公開"):
@@ -107,27 +116,38 @@ def display_value(value, default="未公開"):
         return default
 
     if isinstance(value, (dict, list)):
-        return json.dumps(value, ensure_ascii=False)
+        return json.dumps(
+            value,
+            ensure_ascii=False,
+        )
 
     return str(value)
 
 
-def shorten(value, length=1000):
+def shorten(value, limit=1000):
     value = str(value)
-    return value[:length - 1] + "…" if len(value) > length else value
+
+    if len(value) > limit:
+        return value[:limit - 1] + "…"
+
+    return value
 
 
 def is_extra(settings):
     return (
-        settings.get("character_category") in ("extra", "路人")
-        or settings.get("public_category") in ("extra", "路人")
+        settings.get("character_category")
+        in ("extra", "路人")
+        or settings.get("public_category")
+        in ("extra", "路人")
         or settings.get("is_extra") is True
         or settings.get("is_bystander") is True
     )
 
 
 def get_category(character):
-    settings = safe_json(character["settings_json"])
+    settings = safe_json(
+        character["settings_json"]
+    )
 
     if is_extra(settings):
         return "extra"
@@ -143,9 +163,16 @@ def get_category(character):
     return "original"
 
 
+def is_owner(actor, character):
+    return (
+        str(character["owner_id"])
+        == str(actor.user_id)
+    )
+
+
 def can_see_private(actor, character):
     return (
-        str(character["owner_id"]) == str(actor.user_id)
+        is_owner(actor, character)
         or actor.is_admin
     )
 
@@ -157,7 +184,10 @@ def can_see_character(actor, character):
     if can_see_private(actor, character):
         return True
 
-    return character["status"] in ("active", "retired")
+    return character["status"] in (
+        "active",
+        "retired",
+    )
 
 
 def get_character(actor, character_id):
@@ -166,17 +196,26 @@ def get_character(actor, character_id):
             """
             SELECT *
             FROM characters
-            WHERE guild_id = ? AND id = ?
+            WHERE guild_id = ?
+              AND id = ?
             """,
-            (actor.guild_id, int(character_id)),
+            (
+                actor.guild_id,
+                int(character_id),
+            ),
         ).fetchone()
 
     if row is None:
-        raise InvalidState("找不到這名角色。")
+        raise InvalidState(
+            "找不到這名角色。"
+        )
 
     character = dict(row)
 
-    if not can_see_character(actor, character):
+    if not can_see_character(
+        actor,
+        character,
+    ):
         raise PermissionDenied(
             "角色不存在或目前不可公開查看。"
         )
@@ -184,40 +223,35 @@ def get_character(actor, character_id):
     return character
 
 
-def add_field_chunks(embed, name, lines):
-    chunk = ""
-    index = 1
+def require_inventory_owner(actor, character_id):
+    character = get_character(
+        actor,
+        character_id,
+    )
 
-    for line in lines:
-        line = shorten(line, 1000)
-
-        if len(chunk) + len(line) + 1 > 1024:
-            if chunk:
-                embed.add_field(
-                    name=name if index == 1 else f"{name}（續{index}）",
-                    value=chunk,
-                    inline=False,
-                )
-                index += 1
-                chunk = ""
-
-        chunk += line + "\n"
-
-    if chunk.strip():
-        embed.add_field(
-            name=name if index == 1 else f"{name}（續{index}）",
-            value=chunk,
-            inline=False,
+    if not is_owner(actor, character):
+        raise PermissionDenied(
+            "只能操作自己擁有的角色背包。"
         )
 
+    if character["status"] != "active":
+        raise InvalidState(
+            "角色尚未啟用，無法操作背包。"
+        )
 
-# ==================================================
-# 角色搜尋與分頁
-# ==================================================
+    return character
 
-def find_characters(actor, category, keyword="", page=0):
+
+def find_characters(
+    actor,
+    category,
+    keyword="",
+    page=0,
+):
     if category not in CATEGORIES:
-        raise ValueError("角色分類不正確。")
+        raise ValueError(
+            "角色分類不正確。"
+        )
 
     keyword = str(keyword).strip()[:100]
     page = max(0, int(page))
@@ -228,11 +262,13 @@ def find_characters(actor, category, keyword="", page=0):
                 """
                 SELECT *
                 FROM characters
-                WHERE guild_id = ? AND status != 'deleted'
-                ORDER BY id ASC
+                WHERE guild_id = ?
+                  AND status != 'deleted'
+                ORDER BY id
                 """,
                 (actor.guild_id,),
             ).fetchall()
+
         else:
             rows = conn.execute(
                 """
@@ -246,9 +282,12 @@ def find_characters(actor, category, keyword="", page=0):
                         AND status != 'deleted'
                     )
                   )
-                ORDER BY id ASC
+                ORDER BY id
                 """,
-                (actor.guild_id, actor.user_id),
+                (
+                    actor.guild_id,
+                    actor.user_id,
+                ),
             ).fetchall()
 
     matches = []
@@ -259,10 +298,15 @@ def find_characters(actor, category, keyword="", page=0):
         if get_category(character) != category:
             continue
 
-        if not can_see_character(actor, character):
+        if not can_see_character(
+            actor,
+            character,
+        ):
             continue
 
-        settings = safe_json(character["settings_json"])
+        settings = safe_json(
+            character["settings_json"]
+        )
 
         searchable = " ".join([
             str(character["name"]),
@@ -270,7 +314,10 @@ def find_characters(actor, category, keyword="", page=0):
             str(character.get("public_code") or ""),
         ]).casefold()
 
-        if keyword and keyword.casefold() not in searchable:
+        if (
+            keyword
+            and keyword.casefold() not in searchable
+        ):
             continue
 
         matches.append({
@@ -281,33 +328,57 @@ def find_characters(actor, category, keyword="", page=0):
         })
 
     total = len(matches)
-    max_page = max(0, (total - 1) // PAGE_SIZE)
-    page = min(page, max_page)
+    maximum = max(
+        0,
+        (total - 1) // PAGE_SIZE,
+    )
 
+    page = min(page, maximum)
     start = page * PAGE_SIZE
 
     return {
-        "items": matches[start:start + PAGE_SIZE],
+        "items": matches[
+            start:start + PAGE_SIZE
+        ],
         "total": total,
         "page": page,
-        "max_page": max_page,
+        "max_page": maximum,
     }
 
 
-def category_text(category, result, keyword=""):
-    return (
-        f"🎭 **{CATEGORIES[category]}**\n"
-        f"搜尋關鍵字：{keyword or '全部'}\n"
-        f"符合角色：{result['total']} 名\n"
-        f"第 {result['page'] + 1}/"
-        f"{result['max_page'] + 1} 頁\n\n"
-        "請選擇角色，或使用搜尋功能。"
-    )
+def add_field_chunks(embed, name, lines):
+    chunk = ""
+    index = 1
 
+    for line in lines:
+        line = shorten(line, 1000)
 
-# ==================================================
-# 屬性與追蹤
-# ==================================================
+        if len(chunk) + len(line) + 1 > 1024:
+            if chunk:
+                embed.add_field(
+                    name=(
+                        name if index == 1
+                        else f"{name}（續{index}）"
+                    ),
+                    value=chunk,
+                    inline=False,
+                )
+
+                index += 1
+                chunk = ""
+
+        chunk += line + "\n"
+
+    if chunk.strip():
+        embed.add_field(
+            name=(
+                name if index == 1
+                else f"{name}（續{index}）"
+            ),
+            value=chunk,
+            inline=False,
+        )
+
 
 def read_attributes(actor, character_id):
     get_character(actor, character_id)
@@ -317,13 +388,17 @@ def read_attributes(actor, character_id):
             """
             SELECT name, value
             FROM attributes
-            WHERE guild_id = ? AND character_id = ?
+            WHERE guild_id = ?
+              AND character_id = ?
             """,
-            (actor.guild_id, character_id),
+            (
+                actor.guild_id,
+                character_id,
+            ),
         ).fetchall()
 
     return {
-        row["name"]: int(row["value"])
+        row["name"]: row["value"]
         for row in rows
     }
 
@@ -341,32 +416,30 @@ def read_tracking(actor, character_id):
         with get_connection() as conn:
             row = conn.execute(
                 """
-                SELECT loyal_fans, active_antis, public_awareness
+                SELECT
+                    loyal_fans,
+                    active_antis,
+                    public_awareness
                 FROM character_system_tracking
-                WHERE guild_id = ? AND character_id = ?
+                WHERE guild_id = ?
+                  AND character_id = ?
                 """,
-                (actor.guild_id, character_id),
+                (
+                    actor.guild_id,
+                    character_id,
+                ),
             ).fetchone()
 
     except sqlite3.OperationalError as exc:
         if "no such table" not in str(exc):
             raise
+
         return empty
 
     return dict(row) if row else empty
 
 
-# ==================================================
-# 資產系統
-# ==================================================
-
 def read_money_assets(actor, character_id):
-    """公開貨幣資產總額的資料來源。
-
-    只計算角色名下 wallet + bank。
-    不包含商品、房產、股權等未估值資產。
-    """
-
     get_character(actor, character_id)
 
     with get_connection() as conn:
@@ -385,42 +458,53 @@ def read_money_assets(actor, character_id):
               AND a.account_type IN ('wallet', 'bank')
             GROUP BY a.id, a.account_type
             """,
-            (actor.guild_id, str(character_id)),
+            (
+                actor.guild_id,
+                str(character_id),
+            ),
         ).fetchall()
 
-    amounts = {
+    money = {
         "wallet": 0,
         "bank": 0,
     }
 
     for row in rows:
-        amounts[row["account_type"]] += int(row["balance"])
+        kind = row["account_type"]
+        money[kind] += int(row["balance"])
 
-    amounts["total"] = (
-        amounts["wallet"] + amounts["bank"]
+    money["total"] = (
+        money["wallet"] + money["bank"]
     )
 
-    return amounts
+    return money
 
 
 def make_asset_detail_embed(actor, character_id):
-    """私人資產明細，必須重新驗證權限。"""
-
-    character = get_character(actor, character_id)
+    character = get_character(
+        actor,
+        character_id,
+    )
 
     if not can_see_private(actor, character):
         raise PermissionDenied(
             "只有本人及授權管理員可以查看詳細帳目。"
         )
 
-    money = read_money_assets(actor, character_id)
+    money = read_money_assets(
+        actor,
+        character_id,
+    )
 
     embed = discord.Embed(
-        title=f"💰 {shorten(character['name'], 180)}｜資產明細",
+        title=(
+            f"💰 {shorten(character['name'], 180)}"
+            "｜資產明細"
+        ),
         description=(
-            f"💵 錢包：{money['wallet']:,} 金幣\n"
-            f"🏦 銀行：{money['bank']:,} 金幣\n"
-            f"💰 合計：{money['total']:,} 金幣"
+            f"錢包：{money['wallet']:,} 金幣\n"
+            f"銀行：{money['bank']:,} 金幣\n"
+            f"貨幣合計：{money['total']:,} 金幣"
         ),
         color=discord.Color.gold(),
     )
@@ -435,11 +519,11 @@ def make_asset_detail_embed(actor, character_id):
                 e.amount
             FROM ledger_entries AS e
             JOIN accounts AS a
-              ON a.guild_id = e.guild_id
-             AND a.id = e.account_id
+              ON a.id = e.account_id
+             AND a.guild_id = e.guild_id
             JOIN ledger_transactions AS t
-              ON t.guild_id = e.guild_id
-             AND t.id = e.transaction_id
+              ON t.id = e.transaction_id
+             AND t.guild_id = e.guild_id
             WHERE a.guild_id = ?
               AND a.owner_type = 'character'
               AND a.owner_id = ?
@@ -447,13 +531,16 @@ def make_asset_detail_embed(actor, character_id):
             ORDER BY t.id DESC, e.account_id DESC
             LIMIT 10
             """,
-            (actor.guild_id, str(character_id)),
+            (
+                actor.guild_id,
+                str(character_id),
+            ),
         ).fetchall()
 
     lines = []
 
     for row in rows:
-        account_name = (
+        account = (
             "錢包"
             if row["account_type"] == "wallet"
             else "銀行"
@@ -461,35 +548,49 @@ def make_asset_detail_embed(actor, character_id):
 
         lines.append(
             f"#{row['id']}｜{row['created_at']}｜"
-            f"{account_name}｜{int(row['amount']):+,} 金幣"
+            f"{account}｜"
+            f"{int(row['amount']):+,} 金幣"
         )
 
     embed.add_field(
-        name="📒 最近 10 筆帳戶分錄",
-        value=shorten("\n".join(lines), 1024) if lines else "尚無紀錄",
+        name="最近 10 筆帳戶分錄",
+        value=(
+            shorten("\n".join(lines), 1024)
+            if lines else "尚無紀錄"
+        ),
         inline=False,
     )
 
     embed.set_footer(
-        text="商品、房產及未估值資產暫不計入貨幣資產。"
+        text="不包含商品、房產及其他未估值資產。"
     )
 
     return embed
 
 
-# ==================================================
-# 角色面板
-# ==================================================
+def make_character_embed(
+    actor,
+    character_id,
+    *,
+    private=False,
+):
+    character = get_character(
+        actor,
+        character_id,
+    )
 
-def make_character_embed(actor, character_id, *, private=False):
-    character = get_character(actor, character_id)
-
-    if private and not can_see_private(actor, character):
+    if (
+        private
+        and not can_see_private(actor, character)
+    ):
         raise PermissionDenied(
-            "你沒有查看私人角色資料的權限。"
+            "你沒有查看私人資料的權限。"
         )
 
-    settings = safe_json(character["settings_json"])
+    settings = safe_json(
+        character["settings_json"]
+    )
+
     category = get_category(character)
 
     embed = discord.Embed(
@@ -497,7 +598,8 @@ def make_character_embed(actor, character_id, *, private=False):
         description=(
             f"🎭 {CATEGORIES[category]}\n"
             f"角色編號：#{character['id']}\n"
-            f"公開代碼：{character.get('public_code') or '未設定'}\n"
+            f"公開代碼："
+            f"{character.get('public_code') or '未設定'}\n"
             f"狀態：{character['status']}"
         ),
         color=discord.Color.blurple(),
@@ -511,7 +613,9 @@ def make_character_embed(actor, character_id, *, private=False):
         and color_code.startswith("#")
     ):
         try:
-            embed.color = discord.Color(int(color_code[1:], 16))
+            embed.color = discord.Color(
+                int(color_code[1:], 16)
+            )
         except ValueError:
             pass
 
@@ -536,13 +640,16 @@ def make_character_embed(actor, character_id, *, private=False):
 
         if key == "height_cm":
             suffix = " cm"
+
         elif key == "weight_kg":
             suffix = " kg"
+
         elif key == "experience_years":
             suffix = " 年"
 
         public_lines.append(
-            f"**{label}**：{display_value(value)}{suffix}"
+            f"**{label}**："
+            f"{display_value(value)}{suffix}"
         )
 
     if public_lines:
@@ -552,7 +659,9 @@ def make_character_embed(actor, character_id, *, private=False):
             public_lines,
         )
 
-    public_bio = settings.get("public_biography")
+    public_bio = settings.get(
+        "public_biography"
+    )
 
     if public_bio:
         add_field_chunks(
@@ -561,71 +670,86 @@ def make_character_embed(actor, character_id, *, private=False):
             [str(public_bio)],
         )
 
-    attributes = read_attributes(actor, character_id)
+    attributes = read_attributes(
+        actor,
+        character_id,
+    )
 
     if attributes:
-        general_lines = [
+        general = [
             f"{name}：{attributes[name]}"
             for name in ATTRIBUTE_GENERAL
             if name in attributes
         ]
 
-        talent_lines = [
+        talents = [
             f"{name}：{attributes[name]}"
             for name in ATTRIBUTE_TALENT
             if name in attributes
         ]
 
-        known = set(ATTRIBUTE_GENERAL + ATTRIBUTE_TALENT)
+        known = set(
+            ATTRIBUTE_GENERAL + ATTRIBUTE_TALENT
+        )
 
-        other_lines = [
+        others = [
             f"{name}：{value}"
             for name, value in attributes.items()
             if name not in known
         ]
 
-        if general_lines:
+        if general:
             add_field_chunks(
                 embed,
                 "📈 商業與名氣",
-                general_lines,
+                general,
             )
 
-        if talent_lines:
+        if talents:
             add_field_chunks(
                 embed,
                 "🎤 藝能與實力",
-                talent_lines,
+                talents,
             )
 
-        if other_lines:
+        if others:
             add_field_chunks(
                 embed,
                 "其他屬性",
-                other_lines,
+                others,
             )
 
-    tracking = read_tracking(actor, character_id)
+    tracking = read_tracking(
+        actor,
+        character_id,
+    )
 
     embed.add_field(
         name="📊 系統動態追蹤",
         value=(
-            f"❤️ 死忠粉絲數：{int(tracking['loyal_fans']):,}\n"
-            f"🌪️ 活躍黑粉數：{int(tracking['active_antis']):,}\n"
-            f"🌍 大眾認知度：{int(tracking['public_awareness']):,}\n"
-            "💕 CP 好感度：由人物關係系統另行記錄"
+            "❤️ 死忠粉絲數："
+            f"{int(tracking['loyal_fans']):,}\n"
+            "🌪️ 活躍黑粉數："
+            f"{int(tracking['active_antis']):,}\n"
+            "🌍 大眾認知度："
+            f"{int(tracking['public_awareness']):,}\n"
+            "💕 CP 好感度："
+            "由正式關係系統記錄"
         ),
         inline=False,
     )
 
-    money = read_money_assets(actor, character_id)
+    money = read_money_assets(
+        actor,
+        character_id,
+    )
 
     embed.add_field(
         name="💰 公開貨幣資產",
         value=(
             f"**{money['total']:,} 金幣**\n"
             "包含錢包與銀行存款。\n"
-            "各帳戶餘額及交易紀錄不公開。"
+            "不公開帳戶餘額與交易明細。"
         ),
         inline=False,
     )
@@ -643,31 +767,53 @@ def make_character_embed(actor, character_id, *, private=False):
             private_lines,
         )
 
-    portrait = settings.get("portrait_url")
+    portrait = settings.get(
+        "portrait_url"
+    )
 
     if (
         isinstance(portrait, str)
-        and portrait.startswith(("https://", "http://"))
+        and portrait.startswith(
+            ("https://", "http://")
+        )
     ):
-        embed.set_image(url=portrait)
+        embed.set_image(
+            url=portrait
+        )
 
-    source = settings.get("portrait_source")
+    source = settings.get(
+        "portrait_source"
+    )
 
     if source:
         embed.set_footer(
-            text=f"立繪來源：{shorten(source, 180)}"
+            text=(
+                "立繪來源："
+                f"{shorten(source, 180)}"
+            )
         )
 
     return embed
 
 
-# ==================================================
-# 搜尋介面
-# ==================================================
+def category_text(category, result, keyword=""):
+    return (
+        f"🎭 **{CATEGORIES[category]}**\n"
+        f"搜尋關鍵字：{keyword or '全部'}\n"
+        f"符合角色：{result['total']} 名\n"
+        f"第 {result['page'] + 1}/"
+        f"{result['max_page'] + 1} 頁\n\n"
+        "請從下拉選單選擇角色，"
+        "或使用搜尋功能。"
+    )
+
 
 class SearchModal(discord.ui.Modal):
     def __init__(self, actor, category):
-        super().__init__(title="搜尋角色")
+        super().__init__(
+            title="搜尋角色"
+        )
+
         self.actor = actor
         self.category = category
 
@@ -681,7 +827,9 @@ class SearchModal(discord.ui.Modal):
         self.add_item(self.keyword)
 
     async def on_submit(self, interaction):
-        actor = Actor.from_interaction(interaction)
+        actor = Actor.from_interaction(
+            interaction
+        )
 
         if (
             actor.user_id != self.actor.user_id
@@ -693,11 +841,22 @@ class SearchModal(discord.ui.Modal):
             )
             return
 
-        keyword = str(self.keyword.value).strip()
-        result = find_characters(actor, self.category, keyword)
+        keyword = str(
+            self.keyword.value
+        ).strip()
+
+        result = find_characters(
+            actor,
+            self.category,
+            keyword,
+        )
 
         await interaction.response.send_message(
-            category_text(self.category, result, keyword),
+            category_text(
+                self.category,
+                result,
+                keyword,
+            ),
             view=CharacterListView(
                 actor,
                 self.category,
@@ -708,10 +867,6 @@ class SearchModal(discord.ui.Modal):
         )
 
 
-# ==================================================
-# 分類介面
-# ==================================================
-
 class CharacterCategorySelect(discord.ui.Select):
     def __init__(self, actor):
         self.actor = actor
@@ -719,10 +874,10 @@ class CharacterCategorySelect(discord.ui.Select):
         options = [
             discord.SelectOption(
                 label=label,
-                value=value,
+                value=code,
                 emoji=emoji,
             )
-            for value, label, emoji in (
+            for code, label, emoji in (
                 ("original", "原創角色", "🎭"),
                 ("player_npc", "玩家 NPC", "👤"),
                 ("official_npc", "官方角色", "🏛️"),
@@ -732,47 +887,66 @@ class CharacterCategorySelect(discord.ui.Select):
 
         super().__init__(
             placeholder="選擇角色分類",
-            options=options,
             min_values=1,
             max_values=1,
+            options=options,
         )
 
     async def callback(self, interaction):
-        actor = Actor.from_interaction(interaction)
+        actor = Actor.from_interaction(
+            interaction
+        )
 
         if (
             actor.user_id != self.actor.user_id
             or actor.guild_id != self.actor.guild_id
         ):
             await interaction.response.send_message(
-                "⛔ 這不是你的角色選單。",
+                "⛔ 這不是你的選單。",
                 ephemeral=True,
             )
             return
 
         category = self.values[0]
-        result = find_characters(actor, category)
+
+        result = find_characters(
+            actor,
+            category,
+        )
 
         await interaction.response.edit_message(
-            content=category_text(category, result),
+            content=category_text(
+                category,
+                result,
+            ),
             embed=None,
-            view=CharacterListView(actor, category),
+            view=CharacterListView(
+                actor,
+                category,
+            ),
         )
 
 
 class CategoryView(discord.ui.View):
     def __init__(self, actor):
         super().__init__(timeout=900)
+
         self.actor = actor
-        self.add_item(CharacterCategorySelect(actor))
 
+        self.add_item(
+            CharacterCategorySelect(actor)
+        )
 
-# ==================================================
-# 角色選單
-# ==================================================
 
 class CharacterItemSelect(discord.ui.Select):
-    def __init__(self, actor, category, keyword, page, items):
+    def __init__(
+        self,
+        actor,
+        category,
+        keyword,
+        page,
+        items,
+    ):
         self.actor = actor
         self.category = category
         self.keyword = keyword
@@ -783,7 +957,10 @@ class CharacterItemSelect(discord.ui.Select):
         for character in items:
             options.append(
                 discord.SelectOption(
-                    label=shorten(character["name"], 100),
+                    label=shorten(
+                        character["name"],
+                        100,
+                    ),
                     value=str(character["id"]),
                     description=shorten(
                         f"#{character['id']}｜"
@@ -803,15 +980,17 @@ class CharacterItemSelect(discord.ui.Select):
 
         super().__init__(
             placeholder="選擇要查看的角色",
-            options=options,
             min_values=1,
             max_values=1,
+            options=options,
             disabled=not bool(items),
             row=0,
         )
 
     async def callback(self, interaction):
-        actor = Actor.from_interaction(interaction)
+        actor = Actor.from_interaction(
+            interaction
+        )
 
         if (
             actor.user_id != self.actor.user_id
@@ -824,15 +1003,24 @@ class CharacterItemSelect(discord.ui.Select):
             return
 
         try:
-            character_id = int(self.values[0])
-            character = get_character(actor, character_id)
+            character_id = int(
+                self.values[0]
+            )
+
+            character = get_character(
+                actor,
+                character_id,
+            )
 
             if get_category(character) != self.category:
                 raise InvalidState(
-                    "角色分類已改變，請重新查詢。"
+                    "角色分類已更改，請重新查詢。"
                 )
 
-            embed = make_character_embed(actor, character_id)
+            embed = make_character_embed(
+                actor,
+                character_id,
+            )
 
             await interaction.response.edit_message(
                 content=None,
@@ -846,7 +1034,11 @@ class CharacterItemSelect(discord.ui.Select):
                 ),
             )
 
-        except (InvalidState, PermissionDenied, ValueError) as exc:
+        except (
+            InvalidState,
+            PermissionDenied,
+            ValueError,
+        ) as exc:
             await interaction.response.send_message(
                 f"⚠️ {exc}",
                 ephemeral=True,
@@ -854,7 +1046,13 @@ class CharacterItemSelect(discord.ui.Select):
 
 
 class CharacterListView(discord.ui.View):
-    def __init__(self, actor, category, keyword="", page=0):
+    def __init__(
+        self,
+        actor,
+        category,
+        keyword="",
+        page=0,
+    ):
         super().__init__(timeout=900)
 
         self.actor = actor
@@ -881,11 +1079,18 @@ class CharacterListView(discord.ui.View):
             )
         )
 
-        self.previous.disabled = self.page <= 0
-        self.next.disabled = self.page >= self.max_page
+        self.previous.disabled = (
+            self.page <= 0
+        )
+
+        self.next.disabled = (
+            self.page >= self.max_page
+        )
 
     async def interaction_check(self, interaction):
-        actor = Actor.from_interaction(interaction)
+        actor = Actor.from_interaction(
+            interaction
+        )
 
         if (
             actor.user_id != self.actor.user_id
@@ -929,7 +1134,10 @@ class CharacterListView(discord.ui.View):
         row=1,
     )
     async def previous(self, interaction, button):
-        await self.move(interaction, self.page - 1)
+        await self.move(
+            interaction,
+            self.page - 1,
+        )
 
     @discord.ui.button(
         label="➡️ 下一頁",
@@ -937,7 +1145,10 @@ class CharacterListView(discord.ui.View):
         row=1,
     )
     async def next(self, interaction, button):
-        await self.move(interaction, self.page + 1)
+        await self.move(
+            interaction,
+            self.page + 1,
+        )
 
     @discord.ui.button(
         label="🔎 搜尋",
@@ -946,7 +1157,10 @@ class CharacterListView(discord.ui.View):
     )
     async def search(self, interaction, button):
         await interaction.response.send_modal(
-            SearchModal(self.actor, self.category)
+            SearchModal(
+                self.actor,
+                self.category,
+            )
         )
 
     @discord.ui.button(
@@ -965,9 +1179,179 @@ class CharacterListView(discord.ui.View):
         )
 
 
-# ==================================================
-# 角色詳細面板
-# ==================================================
+class BatchUseModal(discord.ui.Modal):
+    """批量使用物品。
+
+    單次最多 100 次。
+    每次獨立結算。
+    """
+
+    def __init__(self, actor, character_id):
+        super().__init__(
+            title="📦 批量使用物品"
+        )
+
+        self.user_id = str(actor.user_id)
+        self.guild_id = str(actor.guild_id)
+        self.character_id = int(character_id)
+
+        self.product = discord.ui.TextInput(
+            label="商品編號",
+            placeholder="例如：12",
+            max_length=12,
+            required=True,
+        )
+
+        self.count = discord.ui.TextInput(
+            label="使用次數（1～100）",
+            placeholder="例如：5",
+            max_length=3,
+            required=True,
+        )
+
+        self.add_item(self.product)
+        self.add_item(self.count)
+
+    async def on_submit(self, interaction):
+        if (
+            str(interaction.user.id) != self.user_id
+            or str(interaction.guild_id) != self.guild_id
+        ):
+            await interaction.response.send_message(
+                "⛔ 這不是你的背包。",
+                ephemeral=True,
+            )
+            return
+
+        try:
+            product_id = int(
+                str(self.product.value)
+            )
+
+            quantity = int(
+                str(self.count.value)
+            )
+
+            if product_id <= 0:
+                raise ValueError(
+                    "商品編號必須大於零。"
+                )
+
+            if not 1 <= quantity <= 100:
+                raise ValueError(
+                    "單次使用次數必須介於 1～100。"
+                )
+
+        except ValueError as exc:
+            await interaction.response.send_message(
+                f"⚠️ 輸入錯誤：{exc}",
+                ephemeral=True,
+            )
+            return
+
+        actor = Actor.from_interaction(
+            interaction
+        )
+
+        try:
+            require_inventory_owner(
+                actor,
+                self.character_id,
+            )
+
+        except (
+            InvalidState,
+            PermissionDenied,
+        ) as exc:
+            await interaction.response.send_message(
+                f"⚠️ {exc}",
+                ephemeral=True,
+            )
+            return
+
+        # 只允許一次性道具批量使用。
+        # 非消耗品不能透過重複啟用刷取屬性。
+        with get_connection() as conn:
+            item = conn.execute(
+                """
+                SELECT effect_kind
+                FROM shop_products
+                WHERE guild_id = ?
+                  AND id = ?
+                """,
+                (
+                    actor.guild_id,
+                    product_id,
+                ),
+            ).fetchone()
+
+        if item is None:
+            await interaction.response.send_message(
+                "⚠️ 商品不存在。",
+                ephemeral=True,
+            )
+            return
+
+        if item["effect_kind"] != "instant":
+            await interaction.response.send_message(
+                "⚠️ 這件商品不是一次性效果商品，"
+                "請使用單次啟用或穿戴功能。",
+                ephemeral=True,
+            )
+            return
+
+        from modules.shop import use_item
+
+        await interaction.response.defer(
+            ephemeral=True
+        )
+
+        completed = 0
+        error = ""
+
+        for index in range(quantity):
+            try:
+                await asyncio.to_thread(
+                    use_item,
+                    actor,
+                    self.character_id,
+                    product_id,
+                    f"{interaction.id}:{index}",
+                )
+
+                completed += 1
+
+            except (
+                ValueError,
+                PermissionDenied,
+                InvalidState,
+                sqlite3.Error,
+            ) as exc:
+                error = str(exc)
+                break
+
+            except Exception:
+                LOG.exception(
+                    "背包批量使用失敗"
+                )
+                error = "系統處理失敗，請聯絡管理員。"
+                break
+
+        message = (
+            f"📦 **批量使用結果**\n"
+            f"商品編號：#{product_id}\n"
+            f"預計使用：{quantity} 次\n"
+            f"成功使用：{completed} 次"
+        )
+
+        if error:
+            message += f"\n⚠️ 停止原因：{error}"
+
+        await interaction.followup.send(
+            message[:1900],
+            ephemeral=True,
+        )
+
 
 class CharacterDetailView(discord.ui.View):
     def __init__(
@@ -986,11 +1370,15 @@ class CharacterDetailView(discord.ui.View):
         self.keyword = keyword
         self.page = page
 
-        character = get_character(actor, character_id)
-
-        self.is_own_character = (
-            str(character["owner_id"]) == str(actor.user_id)
+        character = get_character(
+            actor,
+            character_id,
         )
+
+        self.is_own_character = is_owner(
+            actor,
+            character,
+        ) and character["status"] == "active"
 
         self.private_button.disabled = (
             not can_see_private(actor, character)
@@ -1005,12 +1393,15 @@ class CharacterDetailView(discord.ui.View):
                 self.inventory_button,
                 self.gift_item_button,
                 self.use_item_button,
+                self.bulk_use_button,
                 self.stop_effect_button,
             ):
                 self.remove_item(control)
 
     async def interaction_check(self, interaction):
-        actor = Actor.from_interaction(interaction)
+        actor = Actor.from_interaction(
+            interaction
+        )
 
         if (
             actor.user_id != self.actor.user_id
@@ -1043,7 +1434,10 @@ class CharacterDetailView(discord.ui.View):
                 view=self,
             )
 
-        except (PermissionDenied, InvalidState) as exc:
+        except (
+            PermissionDenied,
+            InvalidState,
+        ) as exc:
             await interaction.response.send_message(
                 f"⚠️ {exc}",
                 ephemeral=True,
@@ -1068,7 +1462,10 @@ class CharacterDetailView(discord.ui.View):
                 view=self,
             )
 
-        except (PermissionDenied, InvalidState) as exc:
+        except (
+            PermissionDenied,
+            InvalidState,
+        ) as exc:
             await interaction.response.send_message(
                 f"⚠️ {exc}",
                 ephemeral=True,
@@ -1091,7 +1488,10 @@ class CharacterDetailView(discord.ui.View):
                 ephemeral=True,
             )
 
-        except (PermissionDenied, InvalidState) as exc:
+        except (
+            PermissionDenied,
+            InvalidState,
+        ) as exc:
             await interaction.response.send_message(
                 f"⚠️ {exc}",
                 ephemeral=True,
@@ -1103,24 +1503,33 @@ class CharacterDetailView(discord.ui.View):
         row=2,
     )
     async def inventory_button(self, interaction, button):
-        from modules.shop_integration import combined_inventory
-
-        if not self.is_own_character:
-            await interaction.response.send_message(
-                "只能查看自己的角色背包。",
-                ephemeral=True,
-            )
-            return
-
-        await interaction.response.defer(ephemeral=True)
+        actor = Actor.from_interaction(
+            interaction
+        )
 
         try:
-            actor = Actor.from_interaction(interaction)
+            require_inventory_owner(
+                actor,
+                self.character_id,
+            )
+
+            from modules.shop_integration import (
+                combined_inventory,
+            )
+
+            await interaction.response.defer(
+                ephemeral=True
+            )
 
             result = await asyncio.to_thread(
                 combined_inventory,
                 actor,
                 self.character_id,
+            )
+
+            await interaction.followup.send(
+                str(result)[:1900],
+                ephemeral=True,
             )
 
         except (
@@ -1129,30 +1538,55 @@ class CharacterDetailView(discord.ui.View):
             InvalidState,
             sqlite3.Error,
         ) as exc:
-            result = f"⚠️ {exc}"
+            if interaction.response.is_done():
+                await interaction.followup.send(
+                    f"⚠️ {exc}",
+                    ephemeral=True,
+                )
+            else:
+                await interaction.response.send_message(
+                    f"⚠️ {exc}",
+                    ephemeral=True,
+                )
 
-        await interaction.followup.send(
-            str(result)[:1900],
-            ephemeral=True,
+    async def open_item_action(
+        self,
+        interaction,
+        kind,
+    ):
+        actor = Actor.from_interaction(
+            interaction
         )
 
-    async def open_item_action(self, interaction, kind):
-        from modules.shop import ShopActionModal
+        try:
+            require_inventory_owner(
+                actor,
+                self.character_id,
+            )
 
-        if not self.is_own_character:
+        except (
+            PermissionDenied,
+            InvalidState,
+        ) as exc:
             await interaction.response.send_message(
-                "只能操作自己的角色背包。",
+                f"⚠️ {exc}",
                 ephemeral=True,
             )
             return
 
+        from modules.shop import ShopActionModal
+
         menu = SimpleNamespace(
-            owner_id=int(self.actor.user_id),
+            owner_id=int(actor.user_id),
             character_id=self.character_id,
+            guild_id=interaction.guild_id,
         )
 
         await interaction.response.send_modal(
-            ShopActionModal(menu, kind)
+            ShopActionModal(
+                menu,
+                kind,
+            )
         )
 
     @discord.ui.button(
@@ -1175,6 +1609,39 @@ class CharacterDetailView(discord.ui.View):
         await self.open_item_action(
             interaction,
             "use",
+        )
+
+    @discord.ui.button(
+        label="📦 批量使用",
+        style=discord.ButtonStyle.secondary,
+        row=3,
+    )
+    async def bulk_use_button(self, interaction, button):
+        actor = Actor.from_interaction(
+            interaction
+        )
+
+        try:
+            require_inventory_owner(
+                actor,
+                self.character_id,
+            )
+
+        except (
+            PermissionDenied,
+            InvalidState,
+        ) as exc:
+            await interaction.response.send_message(
+                f"⚠️ {exc}",
+                ephemeral=True,
+            )
+            return
+
+        await interaction.response.send_modal(
+            BatchUseModal(
+                actor,
+                self.character_id,
+            )
         )
 
     @discord.ui.button(
@@ -1217,10 +1684,6 @@ class CharacterDetailView(discord.ui.View):
         )
 
 
-# ==================================================
-# 正式指令
-# ==================================================
-
 class CharacterView(commands.Cog):
     """角色與 NPC 資料查看中心。"""
 
@@ -1229,7 +1692,7 @@ class CharacterView(commands.Cog):
 
     @app_commands.command(
         name="查看",
-        description="查看角色與 NPC 的資料、屬性及資產",
+        description="查看角色、屬性、資產及背包",
     )
     @app_commands.guild_only()
     async def view_character(
@@ -1237,29 +1700,34 @@ class CharacterView(commands.Cog):
         interaction: discord.Interaction,
     ):
         try:
-            actor = Actor.from_interaction(interaction)
+            actor = Actor.from_interaction(
+                interaction
+            )
 
             await interaction.response.send_message(
                 (
                     "🎭 **角色資料中心**\n\n"
-                    "請先選擇角色分類。\n"
-                    "接著可以依姓名、藝名或公開代碼搜尋。\n\n"
-                    "📋 公開角色資料\n"
+                    "請先選擇角色分類，"
+                    "再選擇要查看的角色。\n\n"
+                    "📋 角色基本資料\n"
                     "📈 十三項角色屬性\n"
                     "📊 系統動態追蹤\n"
-                    "💰 公開貨幣資產總額\n"
+                    "💰 公開貨幣資產\n"
                     "🔒 私人資料與帳戶明細\n"
-                    "🎒 個人背包與物品管理\n\n"
-                    "私人資訊僅限本人及授權管理員查看。"
+                    "🎒 個人背包\n"
+                    "🎁 贈送物品\n"
+                    "✨ 使用與停用效果\n"
+                    "📦 批量使用物品\n\n"
+                    "背包操作僅限角色擁有者。"
                 ),
                 view=CategoryView(actor),
                 ephemeral=True,
             )
 
         except (
+            ValueError,
             PermissionDenied,
             InvalidState,
-            ValueError,
         ) as exc:
             await interaction.response.send_message(
                 f"⚠️ {exc}",
@@ -1267,7 +1735,9 @@ class CharacterView(commands.Cog):
             )
 
         except sqlite3.Error:
-            LOG.exception("角色查看系統發生資料庫錯誤")
+            LOG.exception(
+                "角色查看系統發生資料庫錯誤"
+            )
 
             await interaction.response.send_message(
                 "⚠️ 角色資料讀取失敗，請聯絡管理員。",
@@ -1276,4 +1746,6 @@ class CharacterView(commands.Cog):
 
 
 async def setup(bot: commands.Bot):
-    await bot.add_cog(CharacterView(bot))
+    await bot.add_cog(
+        CharacterView(bot)
+    )
