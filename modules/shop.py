@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 import sqlite3
 from datetime import datetime, timezone
 
@@ -569,6 +570,74 @@ def log_event(
     )
 
 
+# ==========================================
+# 商店位置與購買限制
+# ==========================================
+
+# 只有能明確辨識的分類才套用搬遷規則，避免錯擋未分類舊商品。
+_STORE_WORDS = {
+    "B01": ("服飾", "精品"),
+    "B02": ("美妝", "保養"),
+    "B03": ("珠寶", "鐘錶"),
+    "B04": ("數位", "科技"),
+    "B05": ("演藝",),
+    "B06": ("書籍", "文具"),
+    "B07": ("家居", "生活"),
+    "B08": ("娛樂", "收藏"),
+    "B09": ("特殊道具",),
+}
+
+
+def get_product_store_code(item):
+    """依照商品 scope / category 辨認官方商店。"""
+    if str(item["scope"] or "").lower() == "black":
+        return "B10"
+
+    category = str(item["category"] or "").strip()
+    match = re.search(r"(?<![A-Z0-9])B(0[1-9]|10)(?![0-9])", category.upper())
+    if match:
+        return "B" + match.group(1)
+
+    for code, words in _STORE_WORDS.items():
+        if any(word in category for word in words):
+            return code
+    return None
+
+
+def _store_location_in_transaction(conn, guild_id, code):
+    """在既有 SQLite 交易內查詢，避免巢狀 transaction 造成鎖定。"""
+    if not code:
+        return "mall", ""
+
+    # 相容尚未建立商店位置表的舊資料庫。
+    exists = conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' "
+        "AND name='shop_locations'"
+    ).fetchone()
+    if not exists:
+        return "mall", ""
+
+    row = conn.execute(
+        "SELECT placement, target_url FROM shop_locations "
+        "WHERE guild_id=? AND store_code=?",
+        (str(guild_id), code),
+    ).fetchone()
+    if not row:
+        return "mall", ""
+    return str(row["placement"]), str(row["target_url"] or "")
+
+
+def require_store_purchase_location(conn, guild_id, item):
+    """商城下單前驗證搬遷狀態；其他頻道僅提供連結。"""
+    code = get_product_store_code(item)
+    placement, url = _store_location_in_transaction(conn, guild_id, code)
+    if placement == "channel":
+        raise InvalidState(
+            f"{code} 已移至其他頻道，不能從 /商城 購買。"
+            + (f"\n商店連結：{url}" if url else "")
+        )
+
+
 def buy(
     actor,
     character_id,
@@ -603,6 +672,11 @@ def buy(
             conn,
             actor.guild_id,
             product_id,
+        )
+
+        # 在扣款、扣庫存、入背包之前，阻止已搬遷商店的商城購買。
+        require_store_purchase_location(
+            conn, actor.guild_id, item
         )
 
         if not item["active"]:
@@ -1108,7 +1182,7 @@ def catalog(
         ]
 
         sql = """
-            SELECT id,name,category,price,stock
+            SELECT id,name,category,price,stock,scope
             FROM shop_products
             WHERE guild_id=?
               AND scope=?
@@ -1125,6 +1199,16 @@ def catalog(
             sql,
             params,
         ).fetchall()
+
+        # 相容舊商城：不顯示搬遷商店的商品。
+        rows = [
+            row for row in rows
+            if _store_location_in_transaction(
+                conn,
+                actor.guild_id,
+                get_product_store_code(row),
+            )[0] != "channel"
+        ]
 
         if not rows:
             return (
@@ -1531,8 +1615,17 @@ class Shop(commands.Cog):
                 )
 
             else:
+                with get_connection() as conn:
+                    black_allowed = has_black_access(
+                        conn,
+                        interaction.guild_id,
+                        角色編號,
+                    )
+
                 content = home_text(
-                    角色編號
+                    角色編號,
+                    interaction.guild_id,
+                    black_allowed,
                 )
 
                 view = ShopHome(
