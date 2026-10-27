@@ -1596,6 +1596,14 @@ class PanelSubView(discord.ui.View):
                     )
             status_btn.callback = show_gear
             self.add_item(status_btn)
+            redeem_btn = discord.ui.Button(
+                label='🎁 特殊兌換', style=discord.ButtonStyle.secondary, row=1
+            )
+            async def open_redeem(interaction):
+                from modules.redeem_ui import show_player
+                await show_player(interaction, self.parent)
+            redeem_btn.callback = open_redeem
+            self.add_item(redeem_btn)
         if mode=='awards':
             for label,kind in [('成就','works'),('榮譽','endorsement')]:
                 btn=discord.ui.Button(label=label,style=discord.ButtonStyle.secondary,row=0)
