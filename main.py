@@ -6,7 +6,8 @@
 - 自動載入 modules 中全部功能模組
 - 維持商城模組的特殊載入順序
 - 自動停用六條重複的角色舊指令
-- 保留其他尚未整合的舊指令
+- 停用已有正式替代入口的銀行舊指令
+- 保留尚未整合的特殊功能指令
 - 同步 Discord 全域指令
 - 支援 TEST_GUILD_ID 測試伺服器同步
 - 管理員系統狀態
@@ -16,7 +17,6 @@ Railway 環境變數：
 DISCORD_TOKEN
 DATABASE_PATH=/app/data/bot.sqlite3
 TEST_GUILD_ID（選填）
-RP_HIDE_LEGACY_COMMANDS=0（預設）
 
 注意：
 指令清理只影響斜線指令註冊，
@@ -27,7 +27,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import os
 from collections import Counter
 from pathlib import Path
 
@@ -57,7 +56,10 @@ BASE_DIR = Path(__file__).resolve().parent
 MODULES_DIR = BASE_DIR / "modules"
 
 
-# 正式規劃的 21 條頂層指令
+# ==================================================
+# 正式指令
+# ==================================================
+
 OFFICIAL_COMMANDS = {
     "創角": "建立角色與草稿",
     "查看": "角色與 NPC 資訊",
@@ -83,7 +85,10 @@ OFFICIAL_COMMANDS = {
 }
 
 
-# 目前仍可能存在的舊指令
+# ==================================================
+# 舊指令盤點
+# ==================================================
+
 LEGACY_COMMANDS = {
     "建立角色",
     "角色",
@@ -97,23 +102,35 @@ LEGACY_COMMANDS = {
     "設定官方屬性",
     "屬性",
     "店鋪申請",
+    "提款",
+    "存錢",
+    "轉帳",
+    "定存",
+    "定存解約",
     "貸款申請",
+    "貸款還款",
+    "貸款紀錄",
     "貸款審核",
     "貸款待審",
     "信用卡申請",
     "信用卡待審",
     "信用卡審核",
+    "信用卡繳款",
+    "信用卡",
     "黑卡申請",
     "黑卡待審",
     "黑卡審核",
+    "黑卡",
     "銀行利率",
     "存款",
     "角色轉帳",
 }
 
 
-# 第一批確定停用的角色舊指令
-# 必須先確認替代指令存在
+# ==================================================
+# 第一批：角色舊指令
+# ==================================================
+
 CHARACTER_LEGACY_MAP = {
     "建立角色": "創角",
     "角色填寫": "創角",
@@ -124,21 +141,42 @@ CHARACTER_LEGACY_MAP = {
 }
 
 
-# 第二批舊指令：
-# 只有管理員明確啟用環境變數後才隱藏。
-# 未確認替代功能之前請保持關閉。
-OPTIONAL_HIDE_COMMANDS = {
-    "初始配點",
-    "店鋪申請",
-    "貸款申請",
-    "信用卡申請",
-    "黑卡申請",
-    "存款",
-    "角色轉帳",
+# ==================================================
+# 第二批：銀行舊指令
+# ==================================================
+
+BANK_LEGACY_MAP = {
+    "存款": "銀行",
+    "提款": "銀行",
+    "存錢": "銀行",
+    "角色轉帳": "銀行",
+    "轉帳": "銀行",
+    "定存": "銀行",
+    "定存解約": "銀行",
+
+    "貸款申請": "銀行",
+    "貸款還款": "銀行",
+    "貸款紀錄": "銀行",
+    "貸款審核": "審核",
+    "貸款待審": "審核",
+
+    "信用卡申請": "銀行",
+    "信用卡繳款": "銀行",
+    "信用卡": "銀行",
+    "信用卡審核": "審核",
+    "信用卡待審": "審核",
+
+    "黑卡申請": "銀行",
+    "黑卡": "銀行",
+    "黑卡審核": "審核",
+    "黑卡待審": "審核",
 }
 
 
-# 原專案的商城依賴載入順序
+# ==================================================
+# 模組載入順序
+# ==================================================
+
 PRIORITY_MODULES = (
     "modules.shop",
     "modules.player_shops",
@@ -146,19 +184,10 @@ PRIORITY_MODULES = (
     "modules.shop_integration",
 )
 
-
-def hide_legacy_enabled() -> bool:
-    raw = os.getenv(
-        "RP_HIDE_LEGACY_COMMANDS",
-        "0",
-    ).strip().lower()
-
-    return raw in {
-        "1",
-        "true",
-        "yes",
-        "on",
-    }
+# 群主審核政策必須最後載入
+FINAL_MODULES = (
+    "modules.zz_owner_review_policy",
+)
 
 
 def discover_extensions() -> list[str]:
@@ -185,6 +214,7 @@ def discover_extensions() -> list[str]:
         name
         for name in extensions
         if name not in PRIORITY_MODULES
+        and name not in FINAL_MODULES
     ]
 
     priority = [
@@ -193,7 +223,13 @@ def discover_extensions() -> list[str]:
         if name in extensions
     ]
 
-    ordered = normal + priority
+    final = [
+        name
+        for name in FINAL_MODULES
+        if name in extensions
+    ]
+
+    ordered = normal + priority + final
 
     if len(ordered) != len(set(ordered)):
         raise RuntimeError(
@@ -203,6 +239,10 @@ def discover_extensions() -> list[str]:
     return ordered
 
 
+# ==================================================
+# 指令盤點
+# ==================================================
+
 def collect_top_level_commands(tree):
     return list(
         tree.get_commands()
@@ -210,7 +250,7 @@ def collect_top_level_commands(tree):
 
 
 def audit_commands(tree):
-    """盤點目前本地註冊的頂層指令。"""
+    """盤點目前註冊的頂層指令。"""
 
     names = [
         command.name
@@ -224,20 +264,24 @@ def audit_commands(tree):
 
     return {
         "total": len(names),
+
         "duplicates": sorted(
             name
             for name, count in counts.items()
             if count > 1
         ),
+
         "official": sorted(
             actual.intersection(
                 OFFICIAL_COMMANDS
             )
         ),
+
         "missing": sorted(
             set(OFFICIAL_COMMANDS)
             - actual
         ),
+
         "legacy": sorted(
             actual.intersection(
                 LEGACY_COMMANDS
@@ -282,8 +326,12 @@ def log_report(report):
         )
 
 
+# ==================================================
+# 清理角色舊指令
+# ==================================================
+
 def remove_character_legacy(tree):
-    """移除六條已確認有替代入口的角色舊指令。"""
+    """移除已有正式替代入口的角色指令。"""
 
     names = {
         command.name
@@ -297,22 +345,15 @@ def remove_character_legacy(tree):
     ):
         if replacement not in names:
             LOG.warning(
-                "保留 /%s："
-                "替代指令 /%s 尚未註冊",
+                "保留 /%s：替代指令 /%s 尚未註冊",
                 old_name,
                 replacement,
             )
             continue
 
-        command = tree.get_command(
-            old_name
-        )
+        command = tree.get_command(old_name)
 
         if command is None:
-            LOG.info(
-                "舊指令 /%s 已不存在",
-                old_name,
-            )
             continue
 
         if not isinstance(
@@ -320,8 +361,7 @@ def remove_character_legacy(tree):
             app_commands.Command,
         ):
             LOG.warning(
-                "保留 /%s："
-                "不是一般斜線指令",
+                "保留 /%s：不是一般斜線指令",
                 old_name,
             )
             continue
@@ -332,13 +372,10 @@ def remove_character_legacy(tree):
         )
 
         if result is not None:
-            removed.append(
-                old_name
-            )
+            removed.append(old_name)
 
             LOG.info(
-                "已停用舊角色指令 /%s "
-                "→ /%s",
+                "已停用舊角色指令 /%s → /%s",
                 old_name,
                 replacement,
             )
@@ -351,46 +388,35 @@ def remove_character_legacy(tree):
     return removed
 
 
-def remove_optional_legacy(tree):
-    """可選清理；預設不移除金融舊入口。"""
+# ==================================================
+# 清理銀行舊指令
+# ==================================================
 
-    if not hide_legacy_enabled():
-        LOG.info(
-            "其他舊指令隱藏功能未啟用。"
-        )
-        return []
+def remove_optional_legacy(tree):
+    """清理已整合的銀行舊入口。
+
+    僅取消斜線指令註冊。
+    不刪除原本的金融函式或資料庫。
+    """
 
     names = {
         command.name
         for command in tree.get_commands()
     }
 
-    # 額外檢查，避免沒有正式入口
-    # 就隱藏仍在使用的功能。
-    required = {
-        "創角",
-        "玩家申請",
-        "銀行",
-    }
-
-    missing = required - names
-
-    if missing:
-        LOG.warning(
-            "不執行第二批清理，"
-            "尚缺：%s",
-            "、".join(sorted(missing)),
-        )
-        return []
-
     removed = []
 
-    for name in sorted(
-        OPTIONAL_HIDE_COMMANDS
-    ):
-        command = tree.get_command(
-            name
-        )
+    for name, replacement in BANK_LEGACY_MAP.items():
+
+        if replacement not in names:
+            LOG.warning(
+                "保留 /%s：替代入口 /%s 尚未註冊",
+                name,
+                replacement,
+            )
+            continue
+
+        command = tree.get_command(name)
 
         if not isinstance(
             command,
@@ -406,14 +432,24 @@ def remove_optional_legacy(tree):
         if old is not None:
             removed.append(name)
 
-    LOG.warning(
-        "第二批停用 %d 條：%s",
+            LOG.info(
+                "已停用銀行舊指令 /%s → /%s",
+                name,
+                replacement,
+            )
+
+    LOG.info(
+        "銀行舊入口停用 %d 條：%s",
         len(removed),
         "、".join(removed) or "無",
     )
 
     return removed
 
+
+# ==================================================
+# 機器人主體
+# ==================================================
 
 class RPBot(commands.Bot):
     def __init__(self):
@@ -467,8 +503,7 @@ class RPBot(commands.Bot):
             len(self.loaded_modules),
         )
 
-        # 所有模組載入完才清理指令，
-        # 防止後載入的模組重新註冊舊入口。
+        # 所有功能模組載入後再清理舊指令。
         self.hidden_legacy = (
             remove_character_legacy(
                 self.tree
@@ -481,11 +516,8 @@ class RPBot(commands.Bot):
             )
         )
 
-        # 清理後重新盤點指令
-        self.command_report = (
-            audit_commands(
-                self.tree
-            )
+        self.command_report = audit_commands(
+            self.tree
         )
 
         log_report(
@@ -497,9 +529,7 @@ class RPBot(commands.Bot):
                 "頂層斜線指令存在重複名稱。"
             )
 
-        # 第一步：同步全域指令。
-        # Discord 會用目前清理後的清單
-        # 更新全域指令，移除舊入口。
+        # 全域指令同步
         synced_global = await self.tree.sync()
 
         LOG.info(
@@ -507,8 +537,7 @@ class RPBot(commands.Bot):
             len(synced_global),
         )
 
-        # 第二步：如果有指定測試伺服器，
-        # 再同步該伺服器的指令清單。
+        # 測試伺服器同步
         test_guild_id = get_test_guild_id()
 
         if test_guild_id is not None:
@@ -520,15 +549,12 @@ class RPBot(commands.Bot):
                 guild=guild
             )
 
-            synced_guild = (
-                await self.tree.sync(
-                    guild=guild
-                )
+            synced_guild = await self.tree.sync(
+                guild=guild
             )
 
             LOG.info(
-                "已同步測試伺服器 %s："
-                "%d 條頂層指令",
+                "已同步測試伺服器 %s：%d 條頂層指令",
                 test_guild_id,
                 len(synced_guild),
             )
@@ -562,6 +588,10 @@ class RPBot(commands.Bot):
 bot = RPBot()
 
 
+# ==================================================
+# 測試指令
+# ==================================================
+
 @bot.tree.command(
     name="測試",
     description="確認 Discord RP 機器人運作",
@@ -574,6 +604,10 @@ async def test_command(
         ephemeral=True,
     )
 
+
+# ==================================================
+# 系統狀態
+# ==================================================
 
 @bot.tree.command(
     name="系統狀態",
@@ -680,6 +714,10 @@ async def system_status(
     )
 
 
+# ==================================================
+# 全域錯誤處理
+# ==================================================
+
 @bot.tree.error
 async def on_app_command_error(
     interaction: discord.Interaction,
@@ -718,6 +756,10 @@ async def on_app_command_error(
             "無法傳送錯誤提示"
         )
 
+
+# ==================================================
+# 啟動
+# ==================================================
 
 def main():
     bot.run(
