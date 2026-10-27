@@ -1,4 +1,3 @@
-
 """Discord RP 官方人員管理中心。
 
 正式指令：/官方
@@ -1549,9 +1548,17 @@ class OfficialProductModal(discord.ui.Modal):
 
         actor = Actor.from_interaction(interaction)
 
+        # 群主權限高於一般管理員，且商城底層需要 is_admin。
+        if is_owner(interaction) and not actor.is_admin:
+            actor = Actor(
+                guild_id=actor.guild_id,
+                user_id=actor.user_id,
+                is_admin=True,
+            )
+
         if not actor.is_admin:
             await interaction.response.send_message(
-                "⛔ 只有伺服器管理員可以管理官方商品。",
+                "⛔ 只有群主或伺服器管理員可以管理官方商品。",
                 ephemeral=True,
             )
             return
@@ -1620,101 +1627,22 @@ class OfficialProductModal(discord.ui.Modal):
         )
 
 class OfficialHome(PrivateView):
+    """保留官方人員功能；商城統一進入管理子選單。"""
 
     def __init__(self, interaction):
         super().__init__(interaction)
 
-        # ===== 新增：官方商城管理入口 =====
+        from core.permissions import Actor
         from modules.official_shop import ShopManageButton
-        from core.permissions import Actor
 
         actor = Actor.from_interaction(interaction)
 
-        # 群主或授權管理員可以使用
-        if (
-            is_owner(interaction)
-            or actor.is_admin
-        ):
+        # 群主不受一般身分組限制；其他人須具管理權限。
+        if is_owner(interaction) or actor.is_admin:
             self.add_item(ShopManageButton())
-        # ===== 官方商城管理入口結束 =====
 
-        from core.permissions import Actor
-
-        actor = Actor.from_interaction(interaction)
-
-        if not actor.is_admin:
-            self.remove_item(self.official_add_product)
-            self.remove_item(self.official_edit_product)
-
-    @discord.ui.button(
-        label="官方新增商品",
-        style=discord.ButtonStyle.success,
-        row=3,
-    )
-    async def official_add_product(
-        self,
-        interaction,
-        button,
-    ):
-        from core.permissions import Actor
-
-        if not Actor.from_interaction(interaction).is_admin:
-            await interaction.response.send_message(
-                "⛔ 只有伺服器管理員可以新增官方商品。",
-                ephemeral=True,
-            )
-            return
-
-        await interaction.response.send_modal(
-            OfficialProductModal("add")
-        )
-
-    @discord.ui.button(
-        label="官方修改商品",
-        style=discord.ButtonStyle.secondary,
-        row=3,
-    )
-    async def official_edit_product(
-        self,
-        interaction,
-        button,
-    ):
-        from core.permissions import Actor
-
-        if not Actor.from_interaction(interaction).is_admin:
-            await interaction.response.send_message(
-                "⛔ 只有伺服器管理員可以修改官方商品。",
-                ephemeral=True,
-            )
-            return
-
-        await interaction.response.send_modal(
-            OfficialProductModal("edit")
-        )
-
-
-    @discord.ui.button(
-        label="官方修改商品",
-        style=discord.ButtonStyle.secondary,
-        row=3,
-    )
-    async def official_edit_product(
-        self,
-        interaction,
-        button,
-    ):
-        from core.permissions import Actor
-
-        if not Actor.from_interaction(interaction).is_admin:
-            await interaction.response.send_message(
-                "⛔ 只有伺服器管理員可以修改官方商品。",
-                ephemeral=True,
-            )
-            return
-
-        await interaction.response.send_modal(
-            OfficialProductModal("edit")
-        )
+    # 舊的兩個商品按鈕（含重複的修改按鈕）已移除。
+    # 下方玩家申請、審核、正式人員及身分組按鈕全部保留。
 
     @discord.ui.button(
         label="申請審核員",
