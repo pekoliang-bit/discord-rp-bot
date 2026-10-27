@@ -409,12 +409,14 @@ def apply_staff(guild_id, user_id, kind, reason):
     if kind not in STAFF_TYPES:
         raise ValueError("職位不存在。")
 
+
     reason = reason.strip()
 
-    if not 10 <= len(reason) <= 1000:
+    if not 2 <= len(reason) <= 32:
         raise ValueError(
-            "申請理由需要10至1000字。"
+            "身分專用暱稱必須介於2至32字。"
         )
+
 
     with transaction() as conn:
         existing = conn.execute(
@@ -863,21 +865,25 @@ class OwnerView(PrivateView):
             return False
 
 
+
 class ApplyModal(discord.ui.Modal):
     def __init__(self, kind):
         super().__init__(
             title=f"申請{STAFF_TYPES[kind]}"
         )
+
         self.kind = kind
 
-        self.reason = discord.ui.TextInput(
-            label="申請理由",
-            style=discord.TextStyle.paragraph,
-            min_length=10,
-            max_length=1000,
+        self.nickname = discord.ui.TextInput(
+            label="身分專用暱稱",
+            placeholder="請填寫擔任此職位時使用的暱稱",
+            style=discord.TextStyle.short,
+            min_length=2,
+            max_length=32,
             required=True,
         )
-        self.add_item(self.reason)
+
+        self.add_item(self.nickname)
 
     async def on_submit(self, interaction):
         try:
@@ -886,18 +892,28 @@ class ApplyModal(discord.ui.Modal):
                     "請在伺服器內申請。"
                 )
 
+            nickname = str(
+                self.nickname.value
+            ).strip()
+
+            if not 2 <= len(nickname) <= 32:
+                raise ValueError(
+                    "身分專用暱稱必須介於2至32字。"
+                )
+
             number = apply_staff(
                 interaction.guild_id,
                 interaction.user.id,
                 self.kind,
-                str(self.reason.value),
+                nickname,
             )
 
             await interaction.response.send_message(
                 "✅ **申請成功送出**\n\n"
                 f"編號：#{number}\n"
-                f"職位：{STAFF_TYPES[self.kind]}\n"
-                "等待伺服器擁有者審核。",
+                f"申請職位：{STAFF_TYPES[self.kind]}\n"
+                f"身分專用暱稱：{discord.utils.escape_mentions(nickname)}\n\n"
+                "請等待伺服器擁有者審核。",
                 ephemeral=True,
             )
 
@@ -999,9 +1015,11 @@ class ApplicationSelect(discord.ui.Select):
                 int(self.values[0]),
             )
 
-            reason = discord.utils.escape_mentions(
+
+            nickname = discord.utils.escape_mentions(
                 row["reason"]
             )
+
 
             await interaction.response.edit_message(
                 content=(
@@ -1010,7 +1028,8 @@ class ApplicationSelect(discord.ui.Select):
                     f"申請人：<@{row['user_id']}>\n"
                     f"職位：{STAFF_TYPES[row['staff_type']]}\n"
                     f"申請時間：{row['created_at']}\n\n"
-                    f"**理由**\n{reason[:1100]}"
+                    f"**身分專用暱稱**\n{nickname[:32]}"
+
                 ),
                 view=ApplicationDetailView(
                     interaction,
@@ -1479,7 +1498,210 @@ class GrantsView(OwnerView):
 # 官方首頁
 # ==================================================
 
+class OfficialProductModal(discord.ui.Modal):
+    """官方商城商品新增與修改表單。"""
+
+    def __init__(self, kind):
+        title = (
+            "官方商城新增商品"
+            if kind == "add"
+            else "官方商城修改商品"
+        )
+
+        super().__init__(title=title, timeout=300)
+        self.kind = kind
+
+        if kind == "add":
+            fields = (
+                ("商品名稱", True),
+                ("商品分類", True),
+                ("售價（金幣）", True),
+                ("庫存（留空不限）", False),
+                ("黑卡專屬（是／否，預設否）", False),
+            )
+        else:
+            fields = (
+                ("商品編號", True),
+                ("新價格（留空不更改）", False),
+                ("新庫存（留空不更改）", False),
+                ("是否上架（是／否／留空）", False),
+            )
+
+        self.fields = []
+
+        for label, required in fields:
+            field = discord.ui.TextInput(
+                label=label,
+                required=required,
+                max_length=100,
+            )
+
+            self.add_item(field)
+            self.fields.append(field)
+
+    async def on_submit(self, interaction):
+        from core.permissions import (
+            Actor,
+            PermissionDenied,
+            InvalidState,
+        )
+        from modules import shop
+
+        actor = Actor.from_interaction(interaction)
+
+        if not actor.is_admin:
+            await interaction.response.send_message(
+                "⛔ 只有伺服器管理員可以管理官方商品。",
+                ephemeral=True,
+            )
+            return
+
+        await interaction.response.defer(ephemeral=True)
+
+        try:
+            values = [
+                str(field.value or "").strip()
+                for field in self.fields
+            ]
+
+            if self.kind == "add":
+                if values[4] not in ("", "是", "否"):
+                    raise ValueError(
+                        "黑卡專屬請填寫「是」或「否」。"
+                    )
+
+                product_id = shop.add_product(
+                    actor,
+                    values[0],
+                    values[1],
+                    int(values[2]),
+                    int(values[3]) if values[3] else None,
+                    "black" if values[4] == "是" else "public",
+                    "none",
+                    "",
+                    0,
+                    "",
+                    "",
+                )
+
+                result = (
+                    f"✅ 官方商品 #{product_id} 已新增。"
+                )
+
+            else:
+                if values[3] not in ("", "是", "否"):
+                    raise ValueError(
+                        "是否上架請填寫「是」或「否」。"
+                    )
+
+                result = shop.edit_product(
+                    actor,
+                    int(values[0]),
+                    int(values[1]) if values[1] else None,
+                    int(values[2]) if values[2] else None,
+                    (
+                        None
+                        if not values[3]
+                        else values[3] == "是"
+                    ),
+                )
+
+        except (
+            ValueError,
+            PermissionDenied,
+            InvalidState,
+            sqlite3.Error,
+        ) as exc:
+            result = f"⚠️ {exc}"
+
+        await interaction.followup.send(
+            str(result)[:1900],
+            ephemeral=True,
+        )
+
 class OfficialHome(PrivateView):
+
+    def __init__(self, interaction):
+        super().__init__(interaction)
+
+        from core.permissions import Actor
+
+        actor = Actor.from_interaction(interaction)
+
+        if not actor.is_admin:
+            self.remove_item(self.official_add_product)
+            self.remove_item(self.official_edit_product)
+
+    @discord.ui.button(
+        label="官方新增商品",
+        style=discord.ButtonStyle.success,
+        row=3,
+    )
+    async def official_add_product(
+        self,
+        interaction,
+        button,
+    ):
+        from core.permissions import Actor
+
+        if not Actor.from_interaction(interaction).is_admin:
+            await interaction.response.send_message(
+                "⛔ 只有伺服器管理員可以新增官方商品。",
+                ephemeral=True,
+            )
+            return
+
+        await interaction.response.send_modal(
+            OfficialProductModal("add")
+        )
+
+    @discord.ui.button(
+        label="官方修改商品",
+        style=discord.ButtonStyle.secondary,
+        row=3,
+    )
+    async def official_edit_product(
+        self,
+        interaction,
+        button,
+    ):
+        from core.permissions import Actor
+
+        if not Actor.from_interaction(interaction).is_admin:
+            await interaction.response.send_message(
+                "⛔ 只有伺服器管理員可以修改官方商品。",
+                ephemeral=True,
+            )
+            return
+
+        await interaction.response.send_modal(
+            OfficialProductModal("edit")
+        )
+
+
+    @discord.ui.button(
+        label="官方修改商品",
+        style=discord.ButtonStyle.secondary,
+        row=3,
+    )
+    async def official_edit_product(
+        self,
+        interaction,
+        button,
+    ):
+        from core.permissions import Actor
+
+        if not Actor.from_interaction(interaction).is_admin:
+            await interaction.response.send_message(
+                "⛔ 只有伺服器管理員可以修改官方商品。",
+                ephemeral=True,
+            )
+            return
+
+        await interaction.response.send_modal(
+            OfficialProductModal("edit")
+        )
+
     @discord.ui.button(
         label="申請審核員",
         style=discord.ButtonStyle.primary,
