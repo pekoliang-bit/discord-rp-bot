@@ -490,9 +490,6 @@ def make_asset_detail_embed(actor, character_id):
             "只有本人及授權管理員可以查看詳細帳目。"
         )
 
-    relationship_summary, _ = _panel_relationships(actor, character_id, 0)
-    embed.add_field(name="💕 關係（好感度與自訂關係）", value=shorten(relationship_summary, 1000), inline=False)
-
     money = read_money_assets(
         actor,
         character_id,
@@ -510,6 +507,14 @@ def make_asset_detail_embed(actor, character_id):
         ),
         color=discord.Color.gold(),
     )
+
+    # 車輛、房產、珠寶、公司；不存在的來源顯示尚未登記，不虛構資產。
+    for group_name, group_lines in _panel_asset_groups(actor, character_id):
+        embed.add_field(
+            name=group_name,
+            value=shorten("\n".join(group_lines) if group_lines else "尚無登記", 1024),
+            inline=False,
+        )
 
     with get_connection() as conn:
         rows = conn.execute(
@@ -677,49 +682,21 @@ def make_character_embed(
         character_id,
     )
 
-    if attributes:
-        general = [
-            f"{name}：{attributes[name]}"
-            for name in ATTRIBUTE_GENERAL
-            if name in attributes
-        ]
+    # 十三項屬性全部公開，包括目前沒有紀錄的 0 點屬性。
+    general = [f"{name}：{attributes.get(name, 0)}" for name in ATTRIBUTE_GENERAL]
+    talents = [f"{name}：{attributes.get(name, 0)}" for name in ATTRIBUTE_TALENT]
+    add_field_chunks(embed, "📈 商業與名氣（5 項）", general)
+    add_field_chunks(embed, "🎤 藝能與實力（8 項）", talents)
+    known = set(ATTRIBUTE_GENERAL + ATTRIBUTE_TALENT)
+    others = [f"{name}：{value}" for name, value in attributes.items() if name not in known]
+    if others:
+        add_field_chunks(embed, "其他已登記屬性", others)
 
-        talents = [
-            f"{name}：{attributes[name]}"
-            for name in ATTRIBUTE_TALENT
-            if name in attributes
-        ]
-
-        known = set(
-            ATTRIBUTE_GENERAL + ATTRIBUTE_TALENT
-        )
-
-        others = [
-            f"{name}：{value}"
-            for name, value in attributes.items()
-            if name not in known
-        ]
-
-        if general:
-            add_field_chunks(
-                embed,
-                "📈 商業與名氣",
-                general,
-            )
-
-        if talents:
-            add_field_chunks(
-                embed,
-                "🎤 藝能與實力",
-                talents,
-            )
-
-        if others:
-            add_field_chunks(
-                embed,
-                "其他屬性",
-                others,
-            )
+    embed.add_field(
+        name="🏳️ 所屬陣營",
+        value=_panel_faction(actor, character_id),
+        inline=False,
+    )
 
     tracking = read_tracking(
         actor,
@@ -1494,6 +1471,51 @@ def _panel_career(actor,cid,mode,page=0):
     return ('\n'.join(lines) or '目前尚無已核准的'+('代言' if mode=='endorsement' else '作品')+'紀錄。')+f'\n\n第 {page+1}/{last+1} 頁',last
 
 
+def _panel_faction(actor, cid):
+    """目前沒有正式陣營資料結構時，不臆測角色歸屬。"""
+    with get_connection() as db:
+        # 若日後陣營模組建立此關聯表，公開面板可立即顯示。
+        if _panel_table(db, "faction_members") and _panel_table(db, "factions"):
+            try:
+                row = db.execute(
+                    """SELECT f.name FROM faction_members m
+                       JOIN factions f ON f.guild_id=m.guild_id AND f.id=m.faction_id
+                       WHERE m.guild_id=? AND m.character_id=? LIMIT 1""",
+                    (str(actor.guild_id), cid),
+                ).fetchone()
+                if row:
+                    return str(row["name"])
+            except sqlite3.OperationalError:
+                pass
+    return "尚未加入／尚未建立陣營資料"
+
+
+def _panel_asset_groups(actor, cid):
+    """只讀取現有的資產來源；沒有正式權屬資料的類別不杜撰。"""
+    groups = [("🚗 車輛", []), ("🏠 房產", []), ("💎 珠寶", []), ("🏢 公司", [])]
+    with get_connection() as db:
+        if _panel_table(db, "shop_inventory") and _panel_table(db, "shop_products"):
+            rows = db.execute(
+                """SELECT p.name, p.category, i.quantity
+                   FROM shop_inventory i
+                   JOIN shop_products p ON p.guild_id=i.guild_id AND p.id=i.product_id
+                   WHERE i.guild_id=? AND i.character_id=? AND i.quantity>0""",
+                (str(actor.guild_id), cid),
+            ).fetchall()
+            for row in rows:
+                name = str(row["name"])
+                category = str(row["category"] or "")
+                qty = int(row["quantity"])
+                if "珠寶" in category or "鐘錶" in category or "B03" in category.upper():
+                    groups[2][1].append(f"{name} ×{qty}")
+                elif "車輛" in category or "汽車" in category:
+                    groups[0][1].append(f"{name} ×{qty}")
+                elif "房產" in category or "不動產" in category:
+                    groups[1][1].append(f"{name} ×{qty}")
+    # 公司、車、房的獨立所有權須等正式登記系統串接。
+    return groups
+
+
 def _panel_routes(actor,cid):
     # 劇情需由未來「內容建立」功能正式建立；此處只讀取，不建立故事。
     return '目前尚未建立官方角色攻略劇情。\n\n未觸發的劇情將只顯示前置任務；完成前置任務後才公開劇情名稱、順序及未完成條件。'
@@ -1593,7 +1615,7 @@ class CharacterDetailView(discord.ui.View):
         self.actor=actor;return True
     @discord.ui.button(label='🌐 公開',style=discord.ButtonStyle.secondary,row=0)
     async def public_button(self,interaction,button):
-        await interaction.response.edit_message(content=None,embed=make_character_embed(self.actor,self.character_id),view=PublicPanelView(self))
+        await interaction.response.edit_message(content=None,embed=make_character_embed(self.actor,self.character_id),view=self)
     @discord.ui.button(label='🔒 私人',style=discord.ButtonStyle.primary,row=0)
     async def private_button(self,interaction,button):
         await interaction.response.edit_message(content=None,embed=make_character_embed(self.actor,self.character_id,private=True),view=self)
@@ -1607,10 +1629,13 @@ class CharacterDetailView(discord.ui.View):
     @discord.ui.button(label='📖 攻略',style=discord.ButtonStyle.secondary,row=1)
     async def guides_button(self,interaction,button):
         await PanelSubView(self,'routes').show(interaction,'routes')
+    @discord.ui.button(label='💕 關係',style=discord.ButtonStyle.secondary,row=1)
+    async def relationship_button(self,interaction,button):
+        await PanelSubView(self,'relations').show(interaction,'relations')
     @discord.ui.button(label='🏆 成就榮譽',style=discord.ButtonStyle.secondary,row=1)
     async def awards_button(self,interaction,button):
         await PanelSubView(self,'awards').show(interaction,'awards')
-    @discord.ui.button(label='⬅️ 返回',style=discord.ButtonStyle.secondary,row=1)
+    @discord.ui.button(label='⬅️ 返回',style=discord.ButtonStyle.secondary,row=2)
     async def back(self,interaction,button):
         result=find_characters(self.actor,self.category,self.keyword,self.page)
         await interaction.response.edit_message(content=category_text(self.category,result,self.keyword),embed=None,view=CharacterListView(self.actor,self.category,self.keyword,result['page']))
