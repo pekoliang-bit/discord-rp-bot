@@ -32,7 +32,6 @@ import asyncio
 import json
 import logging
 import sqlite3
-from types import SimpleNamespace
 
 import discord
 from discord import app_commands
@@ -830,19 +829,10 @@ class SearchModal(discord.ui.Modal):
             keyword,
         )
 
-        await interaction.response.send_message(
-            category_text(
-                self.category,
-                result,
-                keyword,
-            ),
-            view=CharacterListView(
-                actor,
-                self.category,
-                keyword,
-                result["page"],
-            ),
-            ephemeral=True,
+        await interaction.response.edit_message(
+            content=category_text(self.category, result, keyword),
+            embed=None,
+            view=CharacterListView(actor, self.category, keyword, result["page"]),
         )
 
 
@@ -1158,183 +1148,76 @@ class CharacterListView(discord.ui.View):
         )
 
 
-class BatchUseModal(discord.ui.Modal):
-    """批量使用物品。
+class PanelItemModal(discord.ui.Modal):
+    """背包操作：成功後編輯來源訊息，不額外發送結果訊息。"""
 
-    單次最多 100 次。
-    每次獨立結算。
-    """
-
-    def __init__(self, actor, character_id):
-        super().__init__(
-            title="📦 批量使用物品"
-        )
-
-        self.user_id = str(actor.user_id)
-        self.guild_id = str(actor.guild_id)
-        self.character_id = int(character_id)
-
-        self.product = discord.ui.TextInput(
-            label="商品編號",
-            placeholder="例如：12",
-            max_length=12,
-            required=True,
-        )
-
-        self.count = discord.ui.TextInput(
-            label="使用次數（1～100）",
-            placeholder="例如：5",
-            max_length=3,
-            required=True,
-        )
-
+    def __init__(self, parent, kind, page=0):
+        super().__init__(title={"use":"使用物品", "batch":"批量使用物品", "gift":"贈送物品"}[kind])
+        self.parent = parent
+        self.kind = kind
+        self.page = page
+        self.product = discord.ui.TextInput(label="商品編號", placeholder="例如：12", max_length=12)
         self.add_item(self.product)
-        self.add_item(self.count)
+        if kind in ("batch", "gift"):
+            self.quantity = discord.ui.TextInput(label="使用次數（1～100）" if kind == "batch" else "贈送數量（1～10000）", max_length=5, default="1")
+            self.add_item(self.quantity)
+        if kind == "gift":
+            self.recipient = discord.ui.TextInput(label="收禮角色編號", max_length=12)
+            self.add_item(self.recipient)
 
     async def on_submit(self, interaction):
-        if (
-            str(interaction.user.id) != self.user_id
-            or str(interaction.guild_id) != self.guild_id
-        ):
-            await interaction.response.send_message(
-                "⛔ 這不是你的背包。",
-                ephemeral=True,
-            )
+        actor = Actor.from_interaction(interaction)
+        if (str(actor.user_id) != str(self.parent.actor.user_id) or
+                str(actor.guild_id) != str(self.parent.actor.guild_id)):
+            await interaction.response.send_message("⛔ 這不是你的背包。", ephemeral=True)
             return
-
         try:
-            product_id = int(
-                str(self.product.value)
+            require_inventory_owner(actor, self.parent.character_id)
+            pid = int(str(self.product.value))
+            qty = int(str(self.quantity.value)) if self.kind in ("batch", "gift") else 1
+            if pid <= 0 or qty < 1 or qty > (100 if self.kind == "batch" else 10000):
+                raise ValueError("商品編號或數量不正確。")
+            if self.kind == "gift":
+                target = int(str(self.recipient.value))
+                if target <= 0:
+                    raise ValueError("收禮角色編號不正確。")
+            if self.kind == "batch":
+                with get_connection() as db:
+                    item = db.execute("SELECT effect_kind FROM shop_products WHERE guild_id=? AND id=?", (str(actor.guild_id), pid)).fetchone()
+                    if item is None:
+                        raise ValueError("商品不存在。")
+                    # 多次使用商品仍由現有商城使用橋接器處理；
+                    # 批量呼叫同一個 use_item 並確保每次使用都有唯一交易鍵。
+                    if item["effect_kind"] != "instant":
+                        raise InvalidState("批量使用僅支援消耗型商品。")
+            from modules import shop
+            completed = 0
+            result = ""
+            if self.kind == "gift":
+                result = await asyncio.to_thread(shop.gift, actor, self.parent.character_id, target, pid, qty, str(interaction.id))
+            else:
+                for i in range(qty):
+                    try:
+                        result = await asyncio.to_thread(shop.use_item, actor, self.parent.character_id, pid, f"{interaction.id}:{i}")
+                        completed += 1
+                    except (ValueError, InvalidState, PermissionDenied, sqlite3.Error) as err:
+                        if not completed:
+                            raise
+                        result = f"成功 {completed}/{qty} 次；停止原因：{err}"
+                        break
+            info, last = _panel_inventory(actor, self.parent.character_id, self.page)
+            view = PanelSubView(self.parent, "bag", min(self.page, last))
+            await interaction.response.edit_message(
+                content=None,
+                embed=_panel_embed("🎒 背包", f"✅ {result}\n\n{info}"),
+                view=view,
             )
+        except (ValueError, PermissionDenied, InvalidState, sqlite3.Error) as exc:
+            await interaction.response.send_message(f"⚠️ {exc}", ephemeral=True)
+        except Exception:
+            LOG.exception("背包操作失敗")
+            await interaction.response.send_message("⚠️ 背包操作失敗，請查看 Railway 日誌。", ephemeral=True)
 
-            quantity = int(
-                str(self.count.value)
-            )
-
-            if product_id <= 0:
-                raise ValueError(
-                    "商品編號必須大於零。"
-                )
-
-            if not 1 <= quantity <= 100:
-                raise ValueError(
-                    "單次使用次數必須介於 1～100。"
-                )
-
-        except ValueError as exc:
-            await interaction.response.send_message(
-                f"⚠️ 輸入錯誤：{exc}",
-                ephemeral=True,
-            )
-            return
-
-        actor = Actor.from_interaction(
-            interaction
-        )
-
-        try:
-            require_inventory_owner(
-                actor,
-                self.character_id,
-            )
-
-        except (
-            InvalidState,
-            PermissionDenied,
-        ) as exc:
-            await interaction.response.send_message(
-                f"⚠️ {exc}",
-                ephemeral=True,
-            )
-            return
-
-        # 只允許一次性道具批量使用。
-        # 非消耗品不能透過重複啟用刷取屬性。
-        with get_connection() as conn:
-            item = conn.execute(
-                """
-                SELECT effect_kind
-                FROM shop_products
-                WHERE guild_id = ?
-                  AND id = ?
-                """,
-                (
-                    actor.guild_id,
-                    product_id,
-                ),
-            ).fetchone()
-
-        if item is None:
-            await interaction.response.send_message(
-                "⚠️ 商品不存在。",
-                ephemeral=True,
-            )
-            return
-
-        if item["effect_kind"] != "instant":
-            await interaction.response.send_message(
-                "⚠️ 這件商品不是一次性效果商品，"
-                "請使用單次啟用或穿戴功能。",
-                ephemeral=True,
-            )
-            return
-
-        from modules.shop import use_item
-
-        await interaction.response.defer(
-            ephemeral=True
-        )
-
-        completed = 0
-        error = ""
-
-        for index in range(quantity):
-            try:
-                await asyncio.to_thread(
-                    use_item,
-                    actor,
-                    self.character_id,
-                    product_id,
-                    f"{interaction.id}:{index}",
-                )
-
-                completed += 1
-
-            except (
-                ValueError,
-                PermissionDenied,
-                InvalidState,
-                sqlite3.Error,
-            ) as exc:
-                error = str(exc)
-                break
-
-            except Exception:
-                LOG.exception(
-                    "背包批量使用失敗"
-                )
-                error = "系統處理失敗，請聯絡管理員。"
-                break
-
-        message = (
-            f"📦 **批量使用結果**\n"
-            f"商品編號：#{product_id}\n"
-            f"預計使用：{quantity} 次\n"
-            f"成功使用：{completed} 次"
-        )
-
-        if error:
-            message += f"\n⚠️ 停止原因：{error}"
-
-        await interaction.followup.send(
-            message[:1900],
-            ephemeral=True,
-        )
-
-
-# ==================================================
-# 統一角色面板：主頁固定兩排七個按鈕
-# ==================================================
 
 def _panel_table(conn, name):
     return conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (name,)).fetchone() is not None
@@ -1521,28 +1404,71 @@ def _panel_routes(actor,cid):
     return '目前尚未建立官方角色攻略劇情。\n\n未觸發的劇情將只顯示前置任務；完成前置任務後才公開劇情名稱、順序及未完成條件。'
 
 
-class PanelRelationModal(discord.ui.Modal, title='設定角色關係'):
-    def __init__(self,actor,cid):
-        super().__init__();self.actor=actor;self.cid=cid
-        self.other=discord.ui.TextInput(label='對方角色編號',required=True,max_length=12)
-        self.relation=discord.ui.TextInput(label='自訂關係（例如：曖昧、好奇、水火不容）',required=True,max_length=40)
-        self.add_item(self.other);self.add_item(self.relation)
-    async def on_submit(self,interaction):
+class PanelRelationModal(discord.ui.Modal, title="設定角色關係"):
+    """儲存自訂關係，成功後直接刷新原本的關係面板。"""
+
+    def __init__(self, parent, page=0):
+        super().__init__()
+        self.parent = parent
+        self.cid = parent.character_id
+        self.page = page
+        self.other = discord.ui.TextInput(
+            label="對方角色編號", required=True, max_length=12
+        )
+        self.relation = discord.ui.TextInput(
+            label="自訂關係（例如：曖昧、好奇、水火不容）",
+            required=True,
+            max_length=40,
+        )
+        self.add_item(self.other)
+        self.add_item(self.relation)
+
+    async def on_submit(self, interaction: discord.Interaction):
         try:
-            actor=Actor.from_interaction(interaction);require_inventory_owner(actor,self.cid)
-            other=int(str(self.other.value));name=str(self.relation.value).strip()
-            if other==self.cid or other<=0 or not name:raise ValueError('請填寫有效角色及關係。')
-            a,b=sorted((self.cid,other))
+            actor = Actor.from_interaction(interaction)
+            require_inventory_owner(actor, self.cid)
+            other = int(str(self.other.value))
+            name = str(self.relation.value).strip()
+            if other <= 0 or other == self.cid or not name:
+                raise ValueError("請填寫有效的對方角色編號及關係名稱。")
+
+            a, b = sorted((self.cid, other))
             with get_connection() as db:
-                exists=db.execute("SELECT 1 FROM characters WHERE guild_id=? AND id=? AND status!='deleted'",(str(actor.guild_id),other)).fetchone()
-                if not exists:raise ValueError('找不到對方角色。')
+                exists = db.execute(
+                    "SELECT 1 FROM characters WHERE guild_id=? AND id=? "
+                    "AND status!='deleted'",
+                    (str(actor.guild_id), other),
+                ).fetchone()
+                if not exists:
+                    raise ValueError("找不到對方角色。")
+
             from core.database import transaction
             with transaction() as db:
-                db.execute('CREATE TABLE IF NOT EXISTS rp_relation_labels(guild_id TEXT NOT NULL,a INTEGER NOT NULL,b INTEGER NOT NULL,name TEXT NOT NULL,PRIMARY KEY(guild_id,a,b))')
-                db.execute('INSERT INTO rp_relation_labels(guild_id,a,b,name) VALUES(?,?,?,?) ON CONFLICT(guild_id,a,b) DO UPDATE SET name=excluded.name',(str(actor.guild_id),a,b,name))
-            await interaction.response.send_message('✅ 關係已設定；返回「關係」面板可查看。',ephemeral=True)
-        except (ValueError,PermissionDenied,InvalidState,sqlite3.Error) as exc:
-            await interaction.response.send_message(f'⚠️ {exc}',ephemeral=True)
+                db.execute(
+                    "CREATE TABLE IF NOT EXISTS rp_relation_labels ("
+                    "guild_id TEXT NOT NULL, a INTEGER NOT NULL, "
+                    "b INTEGER NOT NULL, name TEXT NOT NULL, "
+                    "PRIMARY KEY(guild_id,a,b))"
+                )
+                db.execute(
+                    "INSERT INTO rp_relation_labels(guild_id,a,b,name) "
+                    "VALUES(?,?,?,?) ON CONFLICT(guild_id,a,b) "
+                    "DO UPDATE SET name=excluded.name",
+                    (str(actor.guild_id), a, b, name),
+                )
+
+            # Modal 由原角色面板的按鈕開啟，直接編輯來源訊息。
+            text, last = _panel_relationships(actor, self.cid, self.page)
+            page = max(0, min(self.page, last))
+            view = PanelSubView(self.parent, "relations", page)
+            await interaction.response.edit_message(
+                content=None,
+                embed=_panel_embed("💕 關係", text),
+                view=view,
+            )
+        except (ValueError, PermissionDenied, InvalidState, sqlite3.Error) as exc:
+            # Modal 失敗時不能保證來源訊息可編輯，使用短暫的私密錯誤通知。
+            await interaction.response.send_message(f"⚠️ {exc}", ephemeral=True)
 
 
 class PanelSubView(discord.ui.View):
@@ -1552,7 +1478,7 @@ class PanelSubView(discord.ui.View):
             for label,kind in [('使用','use'),('批量使用','batch'),('贈送','gift')]:
                 btn=discord.ui.Button(label=label,style=discord.ButtonStyle.primary if kind=='use' else discord.ButtonStyle.secondary,row=0)
                 async def action(interaction,k=kind):
-                    await self.parent.open_item_action(interaction,k) if k!='batch' else await interaction.response.send_modal(BatchUseModal(Actor.from_interaction(interaction),self.parent.character_id))
+                    await interaction.response.send_modal(PanelItemModal(self.parent,k,self.page))
                 btn.callback=action;self.add_item(btn)
         if mode=='awards':
             for label,kind in [('成就','works'),('榮譽','endorsement')]:
@@ -1561,7 +1487,7 @@ class PanelSubView(discord.ui.View):
                 btn.callback=action;self.add_item(btn)
         if mode=='relations' and self.parent.is_own_character:
             btn=discord.ui.Button(label='自訂關係',style=discord.ButtonStyle.secondary,row=0)
-            async def relation(interaction):await interaction.response.send_modal(PanelRelationModal(Actor.from_interaction(interaction),self.parent.character_id))
+            async def relation(interaction):await interaction.response.send_modal(PanelRelationModal(self.parent, self.page))
             btn.callback=relation;self.add_item(btn)
         if mode in ('bag','relations','works','endorsement'):
             previous=discord.ui.Button(label='上一頁',style=discord.ButtonStyle.secondary,row=1)
@@ -1586,7 +1512,7 @@ class PanelSubView(discord.ui.View):
 
 
 class PublicPanelView(discord.ui.View):
-    """公開資料的次級頁面，關係獨立入口不佔主頁七鍵。"""
+    """公開資料的次級頁面，關係已在主頁第二排；此類僅供舊版本相容。"""
     def __init__(self,parent):
         super().__init__(timeout=900);self.parent=parent
     async def interaction_check(self,interaction):
@@ -1639,11 +1565,6 @@ class CharacterDetailView(discord.ui.View):
     async def back(self,interaction,button):
         result=find_characters(self.actor,self.category,self.keyword,self.page)
         await interaction.response.edit_message(content=category_text(self.category,result,self.keyword),embed=None,view=CharacterListView(self.actor,self.category,self.keyword,result['page']))
-    async def open_item_action(self,interaction,kind):
-        from modules.shop import ShopActionModal
-        actor=Actor.from_interaction(interaction);require_inventory_owner(actor,self.character_id)
-        menu=SimpleNamespace(owner_id=int(actor.user_id),character_id=self.character_id,guild_id=interaction.guild_id)
-        await interaction.response.send_modal(ShopActionModal(menu,kind))
 
 class CharacterView(commands.Cog):
     """角色與 NPC 資料查看中心。"""
