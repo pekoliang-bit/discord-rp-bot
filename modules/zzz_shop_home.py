@@ -1,4 +1,3 @@
-
 """Discord RP｜十間商店首頁與付費行動值系統。
 
 檔案：modules/zzz_shop_home.py
@@ -416,141 +415,126 @@ def require_access(
 # 商店商品查詢
 # ==========================================
 
-def make_store_screen(
-    actor,
-    character_id,
-    code,
-    page=0,
-):
+def make_store_screen(actor, character_id, code, page=0):
+    """商品清單：購買前直接顯示效果、價格及使用次數。"""
     if code not in dict(STORES):
-        raise ValueError(
-            "商店編號錯誤。"
-        )
+        raise ValueError("商店編號錯誤。")
 
-    require_access(
-        actor,
-        character_id,
-        code,
-    )
-
-    scope = (
-        "black"
-        if code == "B10"
-        else "public"
-    )
-
-    where = (
-        "guild_id=? "
-        "AND scope=? "
-        "AND active=1"
-    )
-
-    args = [
-        actor.guild_id,
-        scope,
-    ]
-
+    require_access(actor, character_id, code)
+    scope = "black" if code == "B10" else "public"
+    where = "guild_id=? AND scope=? AND active=1"
+    args = [str(actor.guild_id), scope]
     if code != "B10":
-        store_name = dict(STORES)[code].split(
-            " ",
-            1,
-        )[-1]
-
-        where += (
-            " AND ("
-            "category LIKE ? "
-            "OR category LIKE ?"
-            ")"
-        )
-
-        args.extend([
-            f"%{code}%",
-            f"%{store_name}%",
-        ])
+        name = dict(STORES)[code].split(" ", 1)[-1]
+        where += " AND (category LIKE ? OR category LIKE ?)"
+        args.extend([f"%{code}%", f"%{name}%"])
 
     with get_connection() as conn:
-        total = conn.execute(
-            """
-            SELECT COUNT(*)
-            FROM shop_products
-            WHERE
-            """
-            + where,
+        total = int(conn.execute(
+            "SELECT COUNT(*) FROM shop_products WHERE " + where,
             args,
-        ).fetchone()[0]
-
-        last = max(
-            0,
-            (total - 1) // PAGE_SIZE,
-        )
-
-        page = max(
-            0,
-            min(int(page), last),
-        )
-
+        ).fetchone()[0])
+        last = max(0, (total - 1) // PAGE_SIZE)
+        page = max(0, min(int(page), last))
         rows = conn.execute(
-            """
-            SELECT
-                id,
-                name,
-                price,
-                stock
-            FROM shop_products
-            WHERE
-            """
-            + where
-            + """
-            ORDER BY id
-            LIMIT ? OFFSET ?
-            """,
-            args + [
-                PAGE_SIZE,
-                page * PAGE_SIZE,
-            ],
+            "SELECT id,name,price,stock,effect_kind,effect_stat,"
+            "effect_value,effect_context FROM shop_products WHERE "
+            + where + " ORDER BY id LIMIT ? OFFSET ?",
+            [*args, PAGE_SIZE, page * PAGE_SIZE],
         ).fetchall()
 
-    lines = []
+        ids = [int(r["id"]) for r in rows]
+        uses = {}
+        held = {}
+        if ids:
+            placeholders = ",".join("?" for _ in ids)
+            tables = {r[0] for r in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            ).fetchall()}
+            if "item_use_settings" in tables:
+                for r in conn.execute(
+                    "SELECT product_id,max_uses FROM item_use_settings "
+                    f"WHERE guild_id=? AND product_id IN ({placeholders})",
+                    [str(actor.guild_id), *ids],
+                ):
+                    uses[int(r["product_id"])] = int(r["max_uses"])
+            for table in ("b02_catalog", "b04_catalog"):
+                if table not in tables:
+                    continue
+                for r in conn.execute(
+                    "SELECT product_id,bonus_stat,bonus_value,item_type "
+                    f"FROM {table} WHERE guild_id=? "
+                    f"AND product_id IN ({placeholders})",
+                    [str(actor.guild_id), *ids],
+                ):
+                    if r["item_type"] == "持有":
+                        held[int(r["product_id"])] = (
+                            str(r["bonus_stat"]), int(r["bonus_value"])
+                        )
 
-    for row in rows:
-        stock = (
-            "不限"
-            if row["stock"] is None
-            else str(row["stock"])
-        )
+    lines = [
+        f"**{dict(STORES)[code]}**｜共 {total} 件",
+        f"第 {page+1}/{last+1} 頁", "",
+    ]
+    for r in rows:
+        pid = int(r["id"])
+        stat = str(r["effect_stat"] or "").strip()
+        value = int(r["effect_value"] or 0)
+        kind = str(r["effect_kind"] or "none").lower()
+        condition = str(r["effect_context"] or "").strip()
+        if pid in uses:
+            n = uses[pid]
+            effect = (f"{stat} +{value}/次 ×{n} 次（總 +{value*n}）"
+                      if stat and value > 0 else f"可用 {n} 次｜效果未設定")
+        elif kind == "context" and stat and value:
+            effect = f"{stat} +{value}（{condition or '條件生效'}）"
+        elif kind == "instant" and stat and value:
+            effect = f"{stat} +{value}（使用後永久）"
+        elif kind == "weekly" and stat and value:
+            effect = f"{stat} +{value}（週期效果）"
+        elif pid in held:
+            hstat, hvalue = held[pid]
+            effect = f"{hstat} +{hvalue}（預定持有加成，尚未啟用）"
+        elif stat and value:
+            effect = f"{stat} +{value}（{condition or '效果待確認'}）"
+        else:
+            effect = "無直接屬性加成"
+        stock = "不限" if r["stock"] is None else str(r["stock"])
+        lines.append(f"**#{pid} {r['name']}**｜💰{int(r['price']):,}｜庫存 {stock}")
+        lines.append(f"✨ {effect}")
 
-        lines.append(
-            f"#{row['id']}｜"
-            f"{row['name']}｜"
-            f"{int(row['price']):,} 金幣｜"
-            f"庫存：{stock}"
-        )
-
-    content = (
-        f"**{dict(STORES)[code]}**\n"
-        f"已上架商品：{total} 件\n"
-        f"第 {page + 1}/{last + 1} 頁\n\n"
-        + (
-            "\n".join(lines)
-            if lines
-            else "目前尚未上架商品。"
-        )
-        + "\n\n"
-        "🛒 購買時請輸入清單中的 #商品編號。\n"
-        "可以一次購買多件商品。"
-    )
+    if not rows:
+        lines.append("目前尚未上架商品。")
+    lines.extend(["", "🛒 購買請使用商品編號；支援批量購買。"])
+    content = "\n".join(lines)
+    if len(content) > 1900:
+        # 顯示完整商品優先：縮短文字，不以字元切割商品。
+        compact = [f"**{dict(STORES)[code]}**｜第 {page+1}/{last+1} 頁"]
+        for r in rows:
+            pid = int(r["id"])
+            stat = str(r["effect_stat"] or "")
+            value = int(r["effect_value"] or 0)
+            if pid in uses:
+                effect = f"{stat}+{value}/次×{uses[pid]}"
+            elif pid in held:
+                s, v = held[pid]
+                effect = f"預定{s}+{v}（未啟用）"
+            elif stat and value:
+                effect = f"{stat}+{value}"
+            else:
+                effect = "無加成"
+            compact.append(
+                f"#{pid} {str(r['name'])[:40]}｜{int(r['price']):,}｜{effect}"
+            )
+        content = "\n".join(compact)
+        if len(content) > 1900:
+            content = content[:1890] + "…"
 
     view = ShopHome(
-        int(actor.user_id),
-        character_id,
-        code == "B10",
-        code,
-        int(actor.guild_id),
-        page=page,
-        last=last,
+        int(actor.user_id), character_id, code == "B10", code,
+        int(actor.guild_id), page=page, last=last,
     )
-
-    return content[:1900], view
+    return content, view
 
 
 # ==========================================
