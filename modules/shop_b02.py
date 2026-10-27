@@ -442,7 +442,7 @@ class B02Modal(discord.ui.Modal):
 
 class B02Shop(commands.Cog):
     group = app_commands.Group(
-        name="B02",
+        name="b02",
         description="B02 美妝保養商品管理",
         guild_only=True,
     )
