@@ -521,9 +521,15 @@ class ShopManageView(discord.ui.View):
             ManageSelect()
         )
 
+
         self.add_item(
             StoreSelect(self.store)
         )
+
+        # 📍 商店販售位置與頻道連結管理
+        from modules.shop_location import LocationButton
+        self.add_item(LocationButton(self.store))
+
 
         # 批量上架只給群主使用。
         self.publish_button.disabled = (
