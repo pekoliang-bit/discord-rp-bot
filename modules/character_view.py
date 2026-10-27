@@ -11,16 +11,18 @@
 - 角色立繪
 - 公開貨幣資產總額
 - 私人錢包、銀行及帳戶分錄
-- 嚴格限制未公開角色與私人資料存取
+- 個人背包、贈送物品、使用物品、停用效果
 
 沿用既有資料庫，不重建或刪除角色資料。
 """
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import sqlite3
+from types import SimpleNamespace
 
 import discord
 from discord import app_commands
@@ -143,7 +145,7 @@ def get_category(character):
 
 def can_see_private(actor, character):
     return (
-        str(character["owner_id"]) == actor.user_id
+        str(character["owner_id"]) == str(actor.user_id)
         or actor.is_admin
     )
 
@@ -559,7 +561,6 @@ def make_character_embed(actor, character_id, *, private=False):
             [str(public_bio)],
         )
 
-    # 十三項屬性
     attributes = read_attributes(actor, character_id)
 
     if attributes:
@@ -604,7 +605,6 @@ def make_character_embed(actor, character_id, *, private=False):
                 other_lines,
             )
 
-    # 粉絲與社會評價
     tracking = read_tracking(actor, character_id)
 
     embed.add_field(
@@ -618,7 +618,6 @@ def make_character_embed(actor, character_id, *, private=False):
         inline=False,
     )
 
-    # 公開資產只顯示合計
     money = read_money_assets(actor, character_id)
 
     embed.add_field(
@@ -631,7 +630,6 @@ def make_character_embed(actor, character_id, *, private=False):
         inline=False,
     )
 
-    # 私人資料
     if private:
         private_lines = [
             f"**{label}**："
@@ -645,7 +643,6 @@ def make_character_embed(actor, character_id, *, private=False):
             private_lines,
         )
 
-    # 立繪
     portrait = settings.get("portrait_url")
 
     if (
@@ -991,6 +988,10 @@ class CharacterDetailView(discord.ui.View):
 
         character = get_character(actor, character_id)
 
+        self.is_own_character = (
+            str(character["owner_id"]) == str(actor.user_id)
+        )
+
         self.private_button.disabled = (
             not can_see_private(actor, character)
         )
@@ -998,6 +999,15 @@ class CharacterDetailView(discord.ui.View):
         self.asset_detail_button.disabled = (
             not can_see_private(actor, character)
         )
+
+        if not self.is_own_character:
+            for control in (
+                self.inventory_button,
+                self.gift_item_button,
+                self.use_item_button,
+                self.stop_effect_button,
+            ):
+                self.remove_item(control)
 
     async def interaction_check(self, interaction):
         actor = Actor.from_interaction(interaction)
@@ -1088,6 +1098,97 @@ class CharacterDetailView(discord.ui.View):
             )
 
     @discord.ui.button(
+        label="🎒 我的背包",
+        style=discord.ButtonStyle.primary,
+        row=2,
+    )
+    async def inventory_button(self, interaction, button):
+        from modules.shop_integration import combined_inventory
+
+        if not self.is_own_character:
+            await interaction.response.send_message(
+                "只能查看自己的角色背包。",
+                ephemeral=True,
+            )
+            return
+
+        await interaction.response.defer(ephemeral=True)
+
+        try:
+            actor = Actor.from_interaction(interaction)
+
+            result = await asyncio.to_thread(
+                combined_inventory,
+                actor,
+                self.character_id,
+            )
+
+        except (
+            ValueError,
+            PermissionDenied,
+            InvalidState,
+            sqlite3.Error,
+        ) as exc:
+            result = f"⚠️ {exc}"
+
+        await interaction.followup.send(
+            str(result)[:1900],
+            ephemeral=True,
+        )
+
+    async def open_item_action(self, interaction, kind):
+        from modules.shop import ShopActionModal
+
+        if not self.is_own_character:
+            await interaction.response.send_message(
+                "只能操作自己的角色背包。",
+                ephemeral=True,
+            )
+            return
+
+        menu = SimpleNamespace(
+            owner_id=int(self.actor.user_id),
+            character_id=self.character_id,
+        )
+
+        await interaction.response.send_modal(
+            ShopActionModal(menu, kind)
+        )
+
+    @discord.ui.button(
+        label="🎁 贈送物品",
+        style=discord.ButtonStyle.secondary,
+        row=2,
+    )
+    async def gift_item_button(self, interaction, button):
+        await self.open_item_action(
+            interaction,
+            "gift",
+        )
+
+    @discord.ui.button(
+        label="✨ 使用物品",
+        style=discord.ButtonStyle.secondary,
+        row=3,
+    )
+    async def use_item_button(self, interaction, button):
+        await self.open_item_action(
+            interaction,
+            "use",
+        )
+
+    @discord.ui.button(
+        label="⏹️ 停用效果",
+        style=discord.ButtonStyle.secondary,
+        row=3,
+    )
+    async def stop_effect_button(self, interaction, button):
+        await self.open_item_action(
+            interaction,
+            "stop",
+        )
+
+    @discord.ui.button(
         label="⬅️ 返回角色清單",
         style=discord.ButtonStyle.secondary,
         row=1,
@@ -1147,7 +1248,8 @@ class CharacterView(commands.Cog):
                     "📈 十三項角色屬性\n"
                     "📊 系統動態追蹤\n"
                     "💰 公開貨幣資產總額\n"
-                    "🔒 私人資料與帳戶明細\n\n"
+                    "🔒 私人資料與帳戶明細\n"
+                    "🎒 個人背包與物品管理\n\n"
                     "私人資訊僅限本人及授權管理員查看。"
                 ),
                 view=CategoryView(actor),
