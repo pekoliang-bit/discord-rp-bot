@@ -304,8 +304,7 @@ async def setup(bot):
     old_detail_init = character_view.CharacterDetailView.__init__
     def new_detail_init(self, *args, **kwargs):
         old_detail_init(self, *args, **kwargs)
-        self.add_item(BagButton())
-        self.add_item(RelationshipButton())
+        # 角色詳情已統一七鍵入口，避免重複增設背包及關係按鈕。
     character_view.CharacterDetailView.__init__ = new_detail_init
 
     old_official_init = official_center.OfficialHome.__init__
