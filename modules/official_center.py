@@ -1626,20 +1626,25 @@ class OfficialProductModal(discord.ui.Modal):
             ephemeral=True,
         )
 
+
 class OfficialHome(PrivateView):
-    """保留官方人員功能；商城統一進入管理子選單。"""
+    """保留官方人員功能；商城與金幣管理統一入口。"""
 
     def __init__(self, interaction):
         super().__init__(interaction)
 
         from core.permissions import Actor
         from modules.official_shop import ShopManageButton
+        from modules.official_test_money import MoneyManageButton
 
         actor = Actor.from_interaction(interaction)
 
-        # 群主不受一般身分組限制；其他人須具管理權限。
+        # 群主及具備管理權限的人員才顯示管理按鈕
         if is_owner(interaction) or actor.is_admin:
             self.add_item(ShopManageButton())
+            self.add_item(MoneyManageButton())
+
+    # 原本其他按鈕與功能全部保留
 
     # 舊的兩個商品按鈕（含重複的修改按鈕）已移除。
     # 下方玩家申請、審核、正式人員及身分組按鈕全部保留。
