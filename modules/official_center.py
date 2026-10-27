@@ -5,28 +5,21 @@
 /官方
 
 功能：
-- 玩家申請審核員、紀律人員
-- 查詢自己的申請
-- 群主設定官方身分組
-- 待審申請分頁
-- 查看申請資料
-- 核准與駁回
-- 正式人員分頁與撤銷
-- Discord 身分組同步
-- 管理功能獨立次級頁面
+- 審核員與紀律人員申請
+- 申請紀錄
+- 待審人員完整分頁
+- 核准、駁回及撤銷職位
+- Discord 身分組設定及同步
+- 稽核紀錄
 - 商城管理
 - 金幣管理
 - 內容建立
-- B09 特殊道具兌換審核
-- 資料庫稽核紀錄
-- 權限及操作介面隔離
+- 特殊道具兌換審核
+- 場景商店管理
+- 群主最高權限
+- 管理員及玩家權限隔離
 
-其他模組可使用：
-has_staff_permission(interaction, staff_type)
-require_staff_permission(interaction, staff_type)
-
-注意：
-本檔案是唯一的 /官方 指令註冊模組。
+本模組是唯一註冊 /官方 的模組。
 """
 
 from __future__ import annotations
@@ -40,13 +33,8 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-from core.database import (
-    get_connection,
-    transaction,
-)
-
+from core.database import get_connection, transaction
 from core.permissions import Actor
-
 
 LOG = logging.getLogger(__name__)
 
@@ -60,39 +48,26 @@ STAFF_TYPES = {
 
 
 # ==========================================
-# 資料庫初始化
+# 資料庫
 # ==========================================
 
 def init_official_tables():
     with transaction() as conn:
-        conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS
-            official_role_config (
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS official_role_config (
                 guild_id TEXT NOT NULL,
                 staff_type TEXT NOT NULL,
                 role_id TEXT NOT NULL,
                 updated_by TEXT NOT NULL,
                 updated_at TEXT NOT NULL
                     DEFAULT CURRENT_TIMESTAMP,
-                PRIMARY KEY (
-                    guild_id,
-                    staff_type
-                ),
-                CHECK (
-                    staff_type IN (
-                        'reviewer',
-                        'discipline'
-                    )
-                )
+                PRIMARY KEY(guild_id, staff_type),
+                CHECK(staff_type IN ('reviewer','discipline'))
             )
-            """
-        )
+        """)
 
-        conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS
-            official_staff_applications (
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS official_staff_applications (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 guild_id TEXT NOT NULL,
                 user_id TEXT NOT NULL,
@@ -104,95 +79,49 @@ def init_official_tables():
                 created_at TEXT NOT NULL
                     DEFAULT CURRENT_TIMESTAMP,
                 reviewed_at TEXT,
-                CHECK (
-                    staff_type IN (
-                        'reviewer',
-                        'discipline'
-                    )
-                ),
-                CHECK (
-                    status IN (
-                        'pending',
-                        'approved',
-                        'rejected',
-                        'cancelled'
-                    )
-                )
+                CHECK(staff_type IN ('reviewer','discipline')),
+                CHECK(status IN (
+                    'pending','approved','rejected','cancelled'
+                ))
             )
-            """
-        )
+        """)
 
-        conn.execute(
-            """
+        conn.execute("""
             CREATE UNIQUE INDEX IF NOT EXISTS
             idx_official_staff_pending
-            ON official_staff_applications (
-                guild_id,
-                user_id,
-                staff_type
+            ON official_staff_applications(
+                guild_id,user_id,staff_type
             )
             WHERE status='pending'
-            """
-        )
+        """)
 
-        conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS
-            official_staff_grants (
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS official_staff_grants (
                 guild_id TEXT NOT NULL,
                 user_id TEXT NOT NULL,
                 staff_type TEXT NOT NULL,
                 granted_by TEXT NOT NULL,
                 granted_at TEXT NOT NULL
                     DEFAULT CURRENT_TIMESTAMP,
-                PRIMARY KEY (
-                    guild_id,
-                    user_id,
-                    staff_type
-                ),
-                CHECK (
-                    staff_type IN (
-                        'reviewer',
-                        'discipline'
-                    )
-                )
+                PRIMARY KEY(guild_id,user_id,staff_type),
+                CHECK(staff_type IN ('reviewer','discipline'))
             )
-            """
-        )
+        """)
 
 
-# ==========================================
-# 稽核紀錄
-# ==========================================
-
-def audit(
-    conn,
-    guild_id,
-    actor_id,
-    action,
-    target,
-    details,
-):
+def audit(conn, guild_id, actor_id, action, target, details):
     conn.execute(
         """
-        INSERT INTO audit_events (
-            guild_id,
-            actor_id,
-            action,
-            target_key,
-            details_json
-        )
-        VALUES (?, ?, ?, ?, ?)
+        INSERT INTO audit_events(
+            guild_id,actor_id,action,target_key,details_json
+        ) VALUES (?,?,?,?,?)
         """,
         (
             str(guild_id),
             str(actor_id),
             action,
             str(target),
-            json.dumps(
-                details,
-                ensure_ascii=False,
-            ),
+            json.dumps(details, ensure_ascii=False),
         ),
     )
 
@@ -204,15 +133,14 @@ def audit(
 def is_owner(interaction):
     return (
         interaction.guild is not None
-        and interaction.guild.owner_id
-        == interaction.user.id
+        and interaction.guild.owner_id == interaction.user.id
     )
 
 
 def require_owner(interaction):
     if not is_owner(interaction):
         raise PermissionError(
-            "只有伺服器擁有者可以執行此操作。"
+            "只有伺服器群主可以執行此操作。"
         )
 
 
@@ -223,11 +151,9 @@ def is_management_user(interaction):
     if interaction.guild_id is None:
         return False
 
-    actor = Actor.from_interaction(
-        interaction
+    return bool(
+        Actor.from_interaction(interaction).is_admin
     )
-
-    return bool(actor.is_admin)
 
 
 def require_management_user(interaction):
@@ -237,11 +163,7 @@ def require_management_user(interaction):
         )
 
 
-def require_same_user(
-    interaction,
-    user_id,
-    guild_id,
-):
+def require_same_user(interaction, user_id, guild_id):
     if (
         str(interaction.user.id) != str(user_id)
         or str(interaction.guild_id) != str(guild_id)
@@ -251,63 +173,41 @@ def require_same_user(
         )
 
 
-def has_staff_permission(
-    interaction,
-    staff_type,
-):
-    """正式人員需同時具備資料庫授權與 Discord 身分組。"""
-
+def has_staff_permission(interaction, staff_type):
     if staff_type not in STAFF_TYPES:
         return False
 
     if interaction.guild is None:
         return False
 
-    # 群主具有最高官方職位權限。
     if is_owner(interaction):
         return True
 
     member = interaction.user
 
-    if not isinstance(
-        member,
-        discord.Member,
-    ):
+    if not isinstance(member, discord.Member):
         return False
-
-    guild_id = str(
-        interaction.guild_id
-    )
-
-    user_id = str(
-        member.id
-    )
 
     with get_connection() as conn:
         grant = conn.execute(
             """
-            SELECT 1
-            FROM official_staff_grants
-            WHERE guild_id=?
-              AND user_id=?
-              AND staff_type=?
+            SELECT 1 FROM official_staff_grants
+            WHERE guild_id=? AND user_id=? AND staff_type=?
             """,
             (
-                guild_id,
-                user_id,
+                str(interaction.guild_id),
+                str(member.id),
                 staff_type,
             ),
         ).fetchone()
 
         config = conn.execute(
             """
-            SELECT role_id
-            FROM official_role_config
-            WHERE guild_id=?
-              AND staff_type=?
+            SELECT role_id FROM official_role_config
+            WHERE guild_id=? AND staff_type=?
             """,
             (
-                guild_id,
+                str(interaction.guild_id),
                 staff_type,
             ),
         ).fetchone()
@@ -315,45 +215,33 @@ def has_staff_permission(
     if grant is None or config is None:
         return False
 
-    role_id = int(
-        config["role_id"]
-    )
+    role_id = int(config["role_id"])
 
-    role = interaction.guild.get_role(
-        role_id
-    )
-
-    if role is None:
+    if interaction.guild.get_role(role_id) is None:
         return False
 
     return any(
-        user_role.id == role_id
-        for user_role in member.roles
+        role.id == role_id
+        for role in member.roles
     )
 
 
-def require_staff_permission(
-    interaction,
-    staff_type,
-):
-    if not has_staff_permission(
-        interaction,
-        staff_type,
-    ):
+def require_staff_permission(interaction, staff_type):
+    if not has_staff_permission(interaction, staff_type):
         raise PermissionError(
             "你沒有這項官方職位的正式授權。"
         )
 
 
 # ==========================================
-# 官方身分組設定
+# 身分組設定
 # ==========================================
 
 def get_config(guild_id):
     with get_connection() as conn:
         rows = conn.execute(
             """
-            SELECT staff_type, role_id
+            SELECT staff_type,role_id
             FROM official_role_config
             WHERE guild_id=?
             """,
@@ -361,17 +249,12 @@ def get_config(guild_id):
         ).fetchall()
 
     return {
-        row["staff_type"]: str(
-            row["role_id"]
-        )
+        row["staff_type"]: str(row["role_id"])
         for row in rows
     }
 
 
-def validate_role(
-    interaction,
-    role,
-):
+def validate_role(interaction, role):
     require_owner(interaction)
 
     if role.is_default() or role.managed:
@@ -385,7 +268,7 @@ def validate_role(
         or role.permissions.manage_roles
     ):
         raise ValueError(
-            "官方職位身分組不可具有伺服器管理權限。"
+            "官方人員身分組不可擁有伺服器管理權限。"
         )
 
     me = interaction.guild.me
@@ -396,102 +279,67 @@ def validate_role(
         or role >= me.top_role
     ):
         raise PermissionError(
-            "機器人無權管理此身分組。"
-            "請調整機器人身分組階級。"
+            "機器人無法管理這個身分組，"
+            "請調整機器人的身分組階級。"
         )
 
 
-def set_binding(
-    interaction,
-    kind,
-    role,
-):
+def set_binding(interaction, kind, role):
     require_owner(interaction)
 
     if kind not in STAFF_TYPES:
-        raise ValueError(
-            "職位不正確。"
-        )
+        raise ValueError("職位不存在。")
 
-    validate_role(
-        interaction,
-        role,
-    )
+    validate_role(interaction, role)
 
-    guild_id = str(
-        interaction.guild_id
-    )
+    guild_id = str(interaction.guild_id)
 
     with transaction() as conn:
-        existing_grants = conn.execute(
+        existing = conn.execute(
             """
-            SELECT COUNT(*) AS total
-            FROM official_staff_grants
-            WHERE guild_id=?
-              AND staff_type=?
+            SELECT COUNT(*) FROM official_staff_grants
+            WHERE guild_id=? AND staff_type=?
             """,
-            (
-                guild_id,
-                kind,
-            ),
-        ).fetchone()["total"]
+            (guild_id, kind),
+        ).fetchone()[0]
 
         old = conn.execute(
             """
-            SELECT role_id
-            FROM official_role_config
-            WHERE guild_id=?
-              AND staff_type=?
+            SELECT role_id FROM official_role_config
+            WHERE guild_id=? AND staff_type=?
             """,
-            (
-                guild_id,
-                kind,
-            ),
+            (guild_id, kind),
         ).fetchone()
 
         if (
-            existing_grants
+            existing
             and old is not None
             and str(old["role_id"]) != str(role.id)
         ):
             raise ValueError(
-                "這個職位已有正式人員。"
-                "請先撤銷授權，再更改身分組。"
+                "此職位已有正式人員，"
+                "請先撤銷授權再更換身分組。"
             )
 
         other = conn.execute(
             """
-            SELECT staff_type
-            FROM official_role_config
-            WHERE guild_id=?
-              AND role_id=?
-              AND staff_type!=?
+            SELECT 1 FROM official_role_config
+            WHERE guild_id=? AND role_id=? AND staff_type!=?
             """,
-            (
-                guild_id,
-                str(role.id),
-                kind,
-            ),
+            (guild_id, str(role.id), kind),
         ).fetchone()
 
         if other:
             raise ValueError(
-                "此身分組已綁定另一個官方職位。"
+                "同一個身分組不能綁定兩種官方職位。"
             )
 
         conn.execute(
             """
-            INSERT INTO official_role_config (
-                guild_id,
-                staff_type,
-                role_id,
-                updated_by
-            )
-            VALUES (?, ?, ?, ?)
-            ON CONFLICT(
-                guild_id,
-                staff_type
-            )
+            INSERT INTO official_role_config(
+                guild_id,staff_type,role_id,updated_by
+            ) VALUES (?,?,?,?)
+            ON CONFLICT(guild_id,staff_type)
             DO UPDATE SET
                 role_id=excluded.role_id,
                 updated_by=excluded.updated_by,
@@ -511,56 +359,35 @@ def set_binding(
             interaction.user.id,
             "official.staff.role_bind",
             f"staff_type:{kind}",
-            {
-                "role_id": str(role.id),
-            },
+            {"role_id": str(role.id)},
         )
 
 
 # ==========================================
-# 資料分頁
+# 人員申請
 # ==========================================
 
 def paginate(total, page):
-    last = max(
-        0,
-        (total - 1) // PAGE_SIZE,
-    )
-
-    page = max(
-        0,
-        min(int(page), last),
-    )
-
-    return page, last
+    last = max(0, (total - 1) // PAGE_SIZE)
+    return max(0, min(int(page), last)), last
 
 
-def get_pending(
-    guild_id,
-    page=0,
-):
+def get_pending(guild_id, page=0):
     with get_connection() as conn:
         total = conn.execute(
             """
-            SELECT COUNT(*) AS total
-            FROM official_staff_applications
-            WHERE guild_id=?
-              AND status='pending'
+            SELECT COUNT(*) FROM official_staff_applications
+            WHERE guild_id=? AND status='pending'
             """,
             (str(guild_id),),
-        ).fetchone()["total"]
+        ).fetchone()[0]
 
-        page, last = paginate(
-            total,
-            page,
-        )
+        page, last = paginate(total, page)
 
         rows = conn.execute(
             """
-            SELECT *
-            FROM official_staff_applications
-            WHERE guild_id=?
-              AND status='pending'
+            SELECT * FROM official_staff_applications
+            WHERE guild_id=? AND status='pending'
             ORDER BY id ASC
             LIMIT ? OFFSET ?
             """,
@@ -572,44 +399,30 @@ def get_pending(
         ).fetchall()
 
     return {
-        "items": [
-            dict(row)
-            for row in rows
-        ],
+        "items": [dict(row) for row in rows],
         "total": total,
         "page": page,
         "last": last,
     }
 
 
-def get_grants(
-    guild_id,
-    page=0,
-):
+def get_grants(guild_id, page=0):
     with get_connection() as conn:
         total = conn.execute(
             """
-            SELECT COUNT(*) AS total
-            FROM official_staff_grants
+            SELECT COUNT(*) FROM official_staff_grants
             WHERE guild_id=?
             """,
             (str(guild_id),),
-        ).fetchone()["total"]
+        ).fetchone()[0]
 
-        page, last = paginate(
-            total,
-            page,
-        )
+        page, last = paginate(total, page)
 
         rows = conn.execute(
             """
-            SELECT *
-            FROM official_staff_grants
+            SELECT * FROM official_staff_grants
             WHERE guild_id=?
-            ORDER BY
-                staff_type,
-                granted_at,
-                user_id
+            ORDER BY staff_type,granted_at,user_id
             LIMIT ? OFFSET ?
             """,
             (
@@ -620,82 +433,45 @@ def get_grants(
         ).fetchall()
 
     return {
-        "items": [
-            dict(row)
-            for row in rows
-        ],
+        "items": [dict(row) for row in rows],
         "total": total,
         "page": page,
         "last": last,
     }
 
 
-def get_my_applications(
-    guild_id,
-    user_id,
-):
+def get_my_applications(guild_id, user_id):
     with get_connection() as conn:
         rows = conn.execute(
             """
-            SELECT
-                id,
-                staff_type,
-                status,
-                created_at,
-                reviewed_at,
-                review_reason
+            SELECT id,staff_type,status,created_at,
+                   reviewed_at,review_reason
             FROM official_staff_applications
-            WHERE guild_id=?
-              AND user_id=?
-            ORDER BY id DESC
-            LIMIT 20
+            WHERE guild_id=? AND user_id=?
+            ORDER BY id DESC LIMIT 20
             """,
-            (
-                str(guild_id),
-                str(user_id),
-            ),
+            (str(guild_id), str(user_id)),
         ).fetchall()
 
-    return [
-        dict(row)
-        for row in rows
-    ]
+    return [dict(row) for row in rows]
 
 
-# ==========================================
-# 申請官方人員
-# ==========================================
-
-def apply_staff(
-    guild_id,
-    user_id,
-    kind,
-    reason,
-):
+def apply_staff(guild_id, user_id, kind, reason):
     if kind not in STAFF_TYPES:
-        raise ValueError(
-            "職位不存在。"
-        )
+        raise ValueError("職位不存在。")
 
-    # 保留舊資料表 reason 欄位，
-    # 實際用途為身分專用暱稱。
-    nickname = str(
-        reason
-    ).strip()
+    nickname = str(reason).strip()
 
     if not 2 <= len(nickname) <= 32:
         raise ValueError(
-            "身分專用暱稱必須介於 2 至 32 字。"
+            "身分專用暱稱必須介於 2～32 字。"
         )
 
     with transaction() as conn:
         existing = conn.execute(
             """
-            SELECT 1
-            FROM official_staff_grants
-            WHERE guild_id=?
-              AND user_id=?
-              AND staff_type=?
+            SELECT 1 FROM official_staff_grants
+            WHERE guild_id=? AND user_id=? AND staff_type=?
             """,
             (
                 str(guild_id),
@@ -706,19 +482,15 @@ def apply_staff(
 
         if existing:
             raise ValueError(
-                "你已經擁有此職位，不能重複申請。"
+                "你已擁有此職位，不能重複申請。"
             )
 
         try:
             cursor = conn.execute(
                 """
-                INSERT INTO official_staff_applications (
-                    guild_id,
-                    user_id,
-                    staff_type,
-                    reason
-                )
-                VALUES (?, ?, ?, ?)
+                INSERT INTO official_staff_applications(
+                    guild_id,user_id,staff_type,reason
+                ) VALUES (?,?,?,?)
                 """,
                 (
                     str(guild_id),
@@ -727,10 +499,9 @@ def apply_staff(
                     nickname,
                 ),
             )
-
         except sqlite3.IntegrityError as exc:
             raise ValueError(
-                "此職位已有待審申請。"
+                "你已有相同職位的待審申請。"
             ) from exc
 
         application_id = cursor.lastrowid
@@ -741,32 +512,20 @@ def apply_staff(
             user_id,
             "official.staff.apply",
             f"staff_application:{application_id}",
-            {
-                "staff_type": kind,
-                "nickname": nickname,
-            },
+            {"staff_type": kind},
         )
 
-        return application_id
+    return application_id
 
 
-def get_application(
-    guild_id,
-    application_id,
-):
+def get_application(guild_id, application_id):
     with get_connection() as conn:
         row = conn.execute(
             """
-            SELECT *
-            FROM official_staff_applications
-            WHERE guild_id=?
-              AND id=?
-              AND status='pending'
+            SELECT * FROM official_staff_applications
+            WHERE guild_id=? AND id=? AND status='pending'
             """,
-            (
-                str(guild_id),
-                int(application_id),
-            ),
+            (str(guild_id), int(application_id)),
         ).fetchone()
 
     if row is None:
@@ -778,34 +537,22 @@ def get_application(
 
 
 # ==========================================
-# Discord 成員讀取
+# 核准與撤銷
 # ==========================================
 
-async def fetch_member(
-    guild,
-    user_id,
-):
-    member = guild.get_member(
-        int(user_id)
-    )
+async def fetch_member(guild, user_id):
+    member = guild.get_member(int(user_id))
 
     if member is not None:
         return member
 
     try:
-        return await guild.fetch_member(
-            int(user_id)
-        )
-
+        return await guild.fetch_member(int(user_id))
     except discord.NotFound as exc:
         raise ValueError(
-            "該使用者目前不在伺服器內。"
+            "使用者目前不在伺服器內。"
         ) from exc
 
-
-# ==========================================
-# 核准及駁回
-# ==========================================
 
 async def decide_application(
     interaction,
@@ -824,38 +571,26 @@ async def decide_application(
     )
 
     kind = application["staff_type"]
-
     member = None
     role = None
     added_role = False
 
     if approve:
-        config = get_config(
-            guild_id
-        )
-
-        role_id = config.get(
-            kind
-        )
+        role_id = get_config(guild_id).get(kind)
 
         if not role_id:
             raise ValueError(
                 "請先設定對應的官方身分組。"
             )
 
-        role = guild.get_role(
-            int(role_id)
-        )
+        role = guild.get_role(int(role_id))
 
         if role is None:
             raise ValueError(
                 "官方身分組已不存在。"
             )
 
-        validate_role(
-            interaction,
-            role,
-        )
+        validate_role(interaction, role)
 
         member = await fetch_member(
             guild,
@@ -865,12 +600,8 @@ async def decide_application(
         if role not in member.roles:
             await member.add_roles(
                 role,
-                reason=(
-                    f"官方人員申請 "
-                    f"#{application_id} 核准"
-                ),
+                reason=f"官方人員申請 #{application_id} 核准",
             )
-
             added_role = True
 
     try:
@@ -882,18 +613,12 @@ async def decide_application(
                     reviewer_id=?,
                     review_reason=?,
                     reviewed_at=CURRENT_TIMESTAMP
-                WHERE guild_id=?
-                  AND id=?
-                  AND status='pending'
+                WHERE guild_id=? AND id=? AND status='pending'
                 """,
                 (
-                    (
-                        "approved"
-                        if approve
-                        else "rejected"
-                    ),
+                    "approved" if approve else "rejected",
                     str(interaction.user.id),
-                    str(reason)[:500],
+                    reason[:500],
                     guild_id,
                     int(application_id),
                 ),
@@ -907,18 +632,10 @@ async def decide_application(
             if approve:
                 conn.execute(
                     """
-                    INSERT INTO official_staff_grants (
-                        guild_id,
-                        user_id,
-                        staff_type,
-                        granted_by
-                    )
-                    VALUES (?, ?, ?, ?)
-                    ON CONFLICT (
-                        guild_id,
-                        user_id,
-                        staff_type
-                    )
+                    INSERT INTO official_staff_grants(
+                        guild_id,user_id,staff_type,granted_by
+                    ) VALUES (?,?,?,?)
+                    ON CONFLICT(guild_id,user_id,staff_type)
                     DO UPDATE SET
                         granted_by=excluded.granted_by,
                         granted_at=CURRENT_TIMESTAMP
@@ -941,7 +658,7 @@ async def decide_application(
                     "approved": approve,
                     "staff_type": kind,
                     "user_id": application["user_id"],
-                    "reason": str(reason)[:500],
+                    "reason": reason[:500],
                 },
             )
 
@@ -952,26 +669,16 @@ async def decide_application(
                     role,
                     reason="審核失敗，復原授權",
                 )
-
             except discord.HTTPException:
                 LOG.exception(
-                    "Discord 身分組復原失敗"
+                    "身分組復原失敗"
                 )
-
         raise
 
     return application
 
 
-# ==========================================
-# 撤銷正式職位
-# ==========================================
-
-async def revoke_grant(
-    interaction,
-    user_id,
-    kind,
-):
+async def revoke_grant(interaction, user_id, kind):
     require_owner(interaction)
 
     guild = interaction.guild
@@ -979,28 +686,20 @@ async def revoke_grant(
     user_id = str(user_id)
 
     if kind not in STAFF_TYPES:
-        raise ValueError(
-            "職位不存在。"
-        )
+        raise ValueError("職位不存在。")
 
     with transaction() as conn:
-        changed = conn.execute(
+        result = conn.execute(
             """
             DELETE FROM official_staff_grants
-            WHERE guild_id=?
-              AND user_id=?
-              AND staff_type=?
+            WHERE guild_id=? AND user_id=? AND staff_type=?
             """,
-            (
-                guild_id,
-                user_id,
-                kind,
-            ),
+            (guild_id, user_id, kind),
         )
 
-        if changed.rowcount != 1:
+        if result.rowcount != 1:
             raise ValueError(
-                "此人沒有這個職位的正式授權。"
+                "此人沒有該職位的正式授權。"
             )
 
         audit(
@@ -1009,31 +708,21 @@ async def revoke_grant(
             interaction.user.id,
             "official.staff.revoke",
             f"user:{user_id}",
-            {
-                "staff_type": kind,
-            },
+            {"staff_type": kind},
         )
 
-    role_id = get_config(
-        guild_id
-    ).get(kind)
+    role_id = get_config(guild_id).get(kind)
 
     if not role_id:
         return
 
-    role = guild.get_role(
-        int(role_id)
-    )
+    role = guild.get_role(int(role_id))
 
     if role is None:
         return
 
     try:
-        member = await fetch_member(
-            guild,
-            user_id,
-        )
-
+        member = await fetch_member(guild, user_id)
     except ValueError:
         return
 
@@ -1043,37 +732,28 @@ async def revoke_grant(
                 role,
                 reason="官方人員職位撤銷",
             )
-
-        except discord.HTTPException:
+        except discord.HTTPException as exc:
             LOG.exception(
-                "資料庫授權已撤銷，但 Discord 身分組移除失敗"
+                "撤銷身分組失敗"
             )
-
             raise RuntimeError(
                 "資料庫授權已撤銷，"
                 "但 Discord 身分組移除失敗。"
-                "請手動檢查。"
-            )
+            ) from exc
 
 
 # ==========================================
-# 共用錯誤處理
+# 互動檢查與錯誤處理
 # ==========================================
 
-async def send_error(
-    interaction,
-    exc,
-):
-    message = (
-        f"⚠️ {str(exc)[:1700]}"
-    )
+async def send_error(interaction, exc):
+    message = f"⚠️ {str(exc)[:1700]}"
 
     if interaction.response.is_done():
         await interaction.followup.send(
             message,
             ephemeral=True,
         )
-
     else:
         await interaction.response.send_message(
             message,
@@ -1081,102 +761,53 @@ async def send_error(
         )
 
 
-# ==========================================
-# 私人互動面板
-# ==========================================
-
 class PrivateView(discord.ui.View):
     def __init__(self, interaction):
-        super().__init__(
-            timeout=TIMEOUT
-        )
+        super().__init__(timeout=TIMEOUT)
+        self.user_id = str(interaction.user.id)
+        self.guild_id = str(interaction.guild_id)
 
-        self.user_id = str(
-            interaction.user.id
-        )
-
-        self.guild_id = str(
-            interaction.guild_id
-        )
-
-    async def interaction_check(
-        self,
-        interaction,
-    ):
+    async def interaction_check(self, interaction):
         try:
             require_same_user(
                 interaction,
                 self.user_id,
                 self.guild_id,
             )
-
             return True
-
         except PermissionError as exc:
-            await send_error(
-                interaction,
-                exc,
-            )
-
+            await send_error(interaction, exc)
             return False
 
 
 class OwnerView(PrivateView):
-    async def interaction_check(
-        self,
-        interaction,
-    ):
-        if not await super().interaction_check(
-            interaction
-        ):
+    async def interaction_check(self, interaction):
+        if not await super().interaction_check(interaction):
             return False
 
         try:
-            require_owner(
-                interaction
-            )
-
+            require_owner(interaction)
             return True
-
         except PermissionError as exc:
-            await send_error(
-                interaction,
-                exc,
-            )
-
+            await send_error(interaction, exc)
             return False
 
 
 class ManagementView(PrivateView):
-    """管理員與群主專用面板。"""
-
-    async def interaction_check(
-        self,
-        interaction,
-    ):
-        if not await super().interaction_check(
-            interaction
-        ):
+    async def interaction_check(self, interaction):
+        if not await super().interaction_check(interaction):
             return False
 
         try:
-            require_management_user(
-                interaction
-            )
-
+            require_management_user(interaction)
             return True
-
         except PermissionError as exc:
-            await send_error(
-                interaction,
-                exc,
-            )
-
+            await send_error(interaction, exc)
             return False
 
 
 # ==========================================
-# 官方職位申請表單
+# 申請表單
 # ==========================================
 
 class ApplyModal(discord.ui.Modal):
@@ -1186,86 +817,53 @@ class ApplyModal(discord.ui.Modal):
         )
 
         self.kind = kind
-
         self.nickname = discord.ui.TextInput(
             label="身分專用暱稱",
             placeholder="擔任此職位時使用的暱稱",
-            style=discord.TextStyle.short,
             min_length=2,
             max_length=32,
-            required=True,
         )
+        self.add_item(self.nickname)
 
-        self.add_item(
-            self.nickname
-        )
-
-    async def on_submit(
-        self,
-        interaction,
-    ):
+    async def on_submit(self, interaction):
         try:
-            if interaction.guild_id is None:
-                raise ValueError(
-                    "請在伺服器內申請。"
-                )
-
-            nickname = str(
-                self.nickname.value
-            ).strip()
-
             number = apply_staff(
                 interaction.guild_id,
                 interaction.user.id,
                 self.kind,
-                nickname,
+                str(self.nickname.value),
             )
 
-            safe_name = (
-                discord.utils.escape_mentions(
-                    nickname
-                )
+            nickname = discord.utils.escape_mentions(
+                str(self.nickname.value)
             )
 
             await interaction.response.send_message(
-                "✅ **申請成功送出**\n\n"
+                "✅ **申請已送出**\n\n"
                 f"編號：#{number}\n"
-                f"申請職位：{STAFF_TYPES[self.kind]}\n"
-                f"身分專用暱稱：{safe_name}\n\n"
-                "請等待伺服器擁有者審核。",
+                f"職位：{STAFF_TYPES[self.kind]}\n"
+                f"暱稱：{nickname}\n\n"
+                "請等待群主審核。",
                 ephemeral=True,
             )
-
-        except (
-            ValueError,
-            sqlite3.Error,
-        ) as exc:
-            await send_error(
-                interaction,
-                exc,
-            )
+        except (ValueError, sqlite3.Error) as exc:
+            await send_error(interaction, exc)
 
 
 # ==========================================
-# 身分組綁定選單
+# 身分組選擇
 # ==========================================
 
 class RoleBindingSelect(discord.ui.RoleSelect):
     def __init__(self, kind):
         super().__init__(
-            placeholder=(
-                f"選擇{STAFF_TYPES[kind]}身分組"
-            ),
+            placeholder=f"選擇{STAFF_TYPES[kind]}身分組",
             min_values=1,
             max_values=1,
         )
-
         self.kind = kind
 
-    async def callback(
-        self,
-        interaction,
-    ):
+    async def callback(self, interaction):
         try:
             set_binding(
                 interaction,
@@ -1281,36 +879,33 @@ class RoleBindingSelect(discord.ui.RoleSelect):
                 ),
                 view=None,
             )
-
         except (
             PermissionError,
             ValueError,
             sqlite3.Error,
         ) as exc:
-            await send_error(
-                interaction,
-                exc,
-            )
+            await send_error(interaction, exc)
 
 
 class RoleBindingView(OwnerView):
-    def __init__(
-        self,
-        interaction,
-        kind,
-    ):
-        super().__init__(
-            interaction
-        )
-
-        self.add_item(
-            RoleBindingSelect(kind)
-        )
+    def __init__(self, interaction, kind):
+        super().__init__(interaction)
+        self.add_item(RoleBindingSelect(kind))
 
 
 # ==========================================
-# 待審申請選擇器
+# 待審申請
 # ==========================================
+
+def pending_text(result):
+    return (
+        "🛡️ **官方人員待審申請**\n\n"
+        f"待審：{result['total']} 份\n"
+        f"第 {result['page'] + 1}/"
+        f"{result['last'] + 1} 頁\n\n"
+        "請選擇申請進行審核。"
+    )
+
 
 class ApplicationSelect(discord.ui.Select):
     def __init__(self, result):
@@ -1322,9 +917,7 @@ class ApplicationSelect(discord.ui.Select):
                     f"#{row['id']} "
                     f"{STAFF_TYPES[row['staff_type']]}"
                 )[:100],
-                description=(
-                    f"申請人：{row['user_id']}"
-                )[:100],
+                description=f"申請人：{row['user_id']}"[:100],
                 value=str(row["id"]),
             )
             for row in items
@@ -1345,20 +938,15 @@ class ApplicationSelect(discord.ui.Select):
             row=0,
         )
 
-    async def callback(
-        self,
-        interaction,
-    ):
+    async def callback(self, interaction):
         try:
             row = get_application(
                 interaction.guild_id,
                 int(self.values[0]),
             )
 
-            nickname = (
-                discord.utils.escape_mentions(
-                    row["reason"]
-                )
+            nickname = discord.utils.escape_mentions(
+                row["reason"]
             )
 
             await interaction.response.edit_message(
@@ -1368,38 +956,22 @@ class ApplicationSelect(discord.ui.Select):
                     f"申請人：<@{row['user_id']}>\n"
                     f"職位：{STAFF_TYPES[row['staff_type']]}\n"
                     f"申請時間：{row['created_at']}\n\n"
-                    "**身分專用暱稱**\n"
-                    f"{nickname[:32]}"
+                    f"身分專用暱稱：{nickname}"
                 ),
                 view=ApplicationDetailView(
                     interaction,
                     row["id"],
                 ),
             )
+        except (ValueError, sqlite3.Error) as exc:
+            await send_error(interaction, exc)
 
-        except (
-            ValueError,
-            sqlite3.Error,
-        ) as exc:
-            await send_error(
-                interaction,
-                exc,
-            )
-
-
-# ==========================================
-# 駁回申請
-# ==========================================
 
 class RejectModal(discord.ui.Modal):
-    def __init__(
-        self,
-        application_id,
-    ):
+    def __init__(self, application_id):
         super().__init__(
             title="駁回官方人員申請"
         )
-
         self.application_id = application_id
 
         self.reason = discord.ui.TextInput(
@@ -1407,17 +979,10 @@ class RejectModal(discord.ui.Modal):
             style=discord.TextStyle.paragraph,
             min_length=1,
             max_length=500,
-            required=True,
         )
+        self.add_item(self.reason)
 
-        self.add_item(
-            self.reason
-        )
-
-    async def on_submit(
-        self,
-        interaction,
-    ):
+    async def on_submit(self, interaction):
         try:
             await decide_application(
                 interaction,
@@ -1425,54 +990,30 @@ class RejectModal(discord.ui.Modal):
                 False,
                 str(self.reason.value),
             )
-
             await interaction.response.send_message(
-                "✅ 申請已駁回並保存紀錄。",
+                "✅ 已駁回申請並保存紀錄。",
                 ephemeral=True,
             )
-
         except (
             PermissionError,
             ValueError,
             sqlite3.Error,
         ) as exc:
-            await send_error(
-                interaction,
-                exc,
-            )
+            await send_error(interaction, exc)
 
-
-# ==========================================
-# 申請詳細頁
-# ==========================================
 
 class ApplicationDetailView(OwnerView):
-    def __init__(
-        self,
-        interaction,
-        application_id,
-    ):
-        super().__init__(
-            interaction
-        )
-
-        self.application_id = (
-            application_id
-        )
+    def __init__(self, interaction, application_id):
+        super().__init__(interaction)
+        self.application_id = application_id
 
     @discord.ui.button(
         label="✅ 核准",
         style=discord.ButtonStyle.success,
         row=0,
     )
-    async def approve(
-        self,
-        interaction,
-        button,
-    ):
-        await interaction.response.defer(
-            ephemeral=True
-        )
+    async def approve(self, interaction, button):
+        await interaction.response.defer(ephemeral=True)
 
         try:
             await decide_application(
@@ -1480,40 +1021,26 @@ class ApplicationDetailView(OwnerView):
                 self.application_id,
                 True,
             )
-
             await interaction.edit_original_response(
-                content=(
-                    "✅ 已核准，"
-                    "授權與身分組已更新。"
-                ),
+                content="✅ 已核准並更新人員授權。",
                 view=None,
             )
-
         except (
             PermissionError,
             ValueError,
             discord.HTTPException,
             sqlite3.Error,
         ) as exc:
-            await send_error(
-                interaction,
-                exc,
-            )
+            await send_error(interaction, exc)
 
     @discord.ui.button(
         label="❌ 駁回",
         style=discord.ButtonStyle.danger,
         row=0,
     )
-    async def reject(
-        self,
-        interaction,
-        button,
-    ):
+    async def reject(self, interaction, button):
         await interaction.response.send_modal(
-            RejectModal(
-                self.application_id
-            )
+            RejectModal(self.application_id)
         )
 
     @discord.ui.button(
@@ -1521,14 +1048,8 @@ class ApplicationDetailView(OwnerView):
         style=discord.ButtonStyle.secondary,
         row=1,
     )
-    async def back(
-        self,
-        interaction,
-        button,
-    ):
-        result = get_pending(
-            interaction.guild_id
-        )
+    async def back(self, interaction, button):
+        result = get_pending(interaction.guild_id)
 
         await interaction.response.edit_message(
             content=pending_text(result),
@@ -1536,29 +1057,9 @@ class ApplicationDetailView(OwnerView):
         )
 
 
-def pending_text(result):
-    return (
-        "🛡️ **官方人員待審申請**\n\n"
-        f"待審：{result['total']} 份\n"
-        f"第 {result['page'] + 1}/"
-        f"{result['last'] + 1} 頁\n\n"
-        "請選擇申請並核准或駁回。"
-    )
-
-
-# ==========================================
-# 待審分頁
-# ==========================================
-
 class PendingView(OwnerView):
-    def __init__(
-        self,
-        interaction,
-        page=0,
-    ):
-        super().__init__(
-            interaction
-        )
+    def __init__(self, interaction, page=0):
+        super().__init__(interaction)
 
         result = get_pending(
             interaction.guild_id,
@@ -1568,28 +1069,17 @@ class PendingView(OwnerView):
         self.page = result["page"]
         self.last = result["last"]
 
-        self.add_item(
-            ApplicationSelect(result)
-        )
+        self.add_item(ApplicationSelect(result))
 
-        self.previous.disabled = (
-            self.page == 0
-        )
-
-        self.next.disabled = (
-            self.page >= self.last
-        )
+        self.previous.disabled = self.page == 0
+        self.next.disabled = self.page >= self.last
 
     @discord.ui.button(
         label="⬅️ 上一頁",
         style=discord.ButtonStyle.secondary,
         row=1,
     )
-    async def previous(
-        self,
-        interaction,
-        button,
-    ):
+    async def previous(self, interaction, button):
         result = get_pending(
             interaction.guild_id,
             self.page - 1,
@@ -1608,11 +1098,7 @@ class PendingView(OwnerView):
         style=discord.ButtonStyle.secondary,
         row=1,
     )
-    async def next(
-        self,
-        interaction,
-        button,
-    ):
+    async def next(self, interaction, button):
         result = get_pending(
             interaction.guild_id,
             self.page + 1,
@@ -1631,11 +1117,7 @@ class PendingView(OwnerView):
         style=discord.ButtonStyle.primary,
         row=1,
     )
-    async def refresh(
-        self,
-        interaction,
-        button,
-    ):
+    async def refresh(self, interaction, button):
         result = get_pending(
             interaction.guild_id,
             self.page,
@@ -1651,8 +1133,18 @@ class PendingView(OwnerView):
 
 
 # ==========================================
-# 正式人員選擇器
+# 正式人員
 # ==========================================
+
+def grants_text(result):
+    return (
+        "🏛️ **正式官方人員名單**\n\n"
+        f"授權數量：{result['total']}\n"
+        f"第 {result['page'] + 1}/"
+        f"{result['last'] + 1} 頁\n\n"
+        "請選擇人員查看或撤銷授權。"
+    )
+
 
 class GrantSelect(discord.ui.Select):
     def __init__(self, result):
@@ -1661,8 +1153,8 @@ class GrantSelect(discord.ui.Select):
         options = [
             discord.SelectOption(
                 label=(
-                    f"{STAFF_TYPES[row['staff_type']]} "
-                    f"｜{row['user_id']}"
+                    f"{STAFF_TYPES[row['staff_type']]}｜"
+                    f"{row['user_id']}"
                 )[:100],
                 description=(
                     f"授權時間：{row['granted_at']}"
@@ -1677,7 +1169,7 @@ class GrantSelect(discord.ui.Select):
         if not options:
             options = [
                 discord.SelectOption(
-                    label="目前沒有正式人員",
+                    label="沒有正式人員",
                     value="empty",
                 )
             ]
@@ -1689,26 +1181,15 @@ class GrantSelect(discord.ui.Select):
             row=0,
         )
 
-    async def callback(
-        self,
-        interaction,
-    ):
+    async def callback(self, interaction):
         try:
-            kind, user_id = (
-                self.values[0].split(
-                    ":",
-                    1,
-                )
-            )
+            kind, user_id = self.values[0].split(":", 1)
 
             with get_connection() as conn:
                 row = conn.execute(
                     """
-                    SELECT *
-                    FROM official_staff_grants
-                    WHERE guild_id=?
-                      AND user_id=?
-                      AND staff_type=?
+                    SELECT * FROM official_staff_grants
+                    WHERE guild_id=? AND user_id=? AND staff_type=?
                     """,
                     (
                         str(interaction.guild_id),
@@ -1719,7 +1200,7 @@ class GrantSelect(discord.ui.Select):
 
             if row is None:
                 raise ValueError(
-                    "此人員授權已失效，請重新整理。"
+                    "授權已失效，請重新整理。"
                 )
 
             await interaction.response.edit_message(
@@ -1728,7 +1209,7 @@ class GrantSelect(discord.ui.Select):
                     f"人員：<@{user_id}>\n"
                     f"職位：{STAFF_TYPES[kind]}\n"
                     f"授權時間：{row['granted_at']}\n\n"
-                    "如需撤銷，請使用下方按鈕。"
+                    "可使用下方按鈕撤銷職位。"
                 ),
                 view=GrantDetailView(
                     interaction,
@@ -1736,54 +1217,27 @@ class GrantSelect(discord.ui.Select):
                     kind,
                 ),
             )
+        except (ValueError, sqlite3.Error) as exc:
+            await send_error(interaction, exc)
 
-        except (
-            ValueError,
-            sqlite3.Error,
-        ) as exc:
-            await send_error(
-                interaction,
-                exc,
-            )
-
-
-# ==========================================
-# 正式人員詳細頁
-# ==========================================
 
 class GrantDetailView(OwnerView):
-    def __init__(
-        self,
-        interaction,
-        user_id,
-        kind,
-    ):
-        super().__init__(
-            interaction
-        )
-
-        self.target_user_id = (
-            user_id
-        )
-
+    def __init__(self, interaction, user_id, kind):
+        super().__init__(interaction)
+        self.target_user_id = user_id
         self.kind = kind
 
     @discord.ui.button(
         label="撤銷此職位",
         style=discord.ButtonStyle.danger,
     )
-    async def revoke(
-        self,
-        interaction,
-        button,
-    ):
+    async def revoke(self, interaction, button):
         await interaction.response.edit_message(
             content=(
-                "⚠️ **確認撤銷官方職位？**\n\n"
+                "⚠️ **確定撤銷官方職位？**\n\n"
                 f"人員：<@{self.target_user_id}>\n"
                 f"職位：{STAFF_TYPES[self.kind]}\n\n"
-                "確認後會停止資料庫授權，"
-                "並移除 Discord 身分組。"
+                "確認後將撤銷資料庫授權並移除身分組。"
             ),
             view=RevokeConfirmView(
                 interaction,
@@ -1796,14 +1250,8 @@ class GrantDetailView(OwnerView):
         label="⬅️ 返回人員清單",
         style=discord.ButtonStyle.secondary,
     )
-    async def back(
-        self,
-        interaction,
-        button,
-    ):
-        result = get_grants(
-            interaction.guild_id
-        )
+    async def back(self, interaction, button):
+        result = get_grants(interaction.guild_id)
 
         await interaction.response.edit_message(
             content=grants_text(result),
@@ -1811,39 +1259,18 @@ class GrantDetailView(OwnerView):
         )
 
 
-# ==========================================
-# 確認撤銷
-# ==========================================
-
 class RevokeConfirmView(OwnerView):
-    def __init__(
-        self,
-        interaction,
-        user_id,
-        kind,
-    ):
-        super().__init__(
-            interaction
-        )
-
-        self.target_user_id = (
-            user_id
-        )
-
+    def __init__(self, interaction, user_id, kind):
+        super().__init__(interaction)
+        self.target_user_id = user_id
         self.kind = kind
 
     @discord.ui.button(
         label="確認撤銷",
         style=discord.ButtonStyle.danger,
     )
-    async def confirm(
-        self,
-        interaction,
-        button,
-    ):
-        await interaction.response.defer(
-            ephemeral=True
-        )
+    async def confirm(self, interaction, button):
+        await interaction.response.defer(ephemeral=True)
 
         try:
             await revoke_grant(
@@ -1851,61 +1278,32 @@ class RevokeConfirmView(OwnerView):
                 self.target_user_id,
                 self.kind,
             )
-
             await interaction.edit_original_response(
                 content="✅ 官方職位已撤銷。",
                 view=None,
             )
-
         except (
             PermissionError,
             ValueError,
             RuntimeError,
             sqlite3.Error,
         ) as exc:
-            await send_error(
-                interaction,
-                exc,
-            )
+            await send_error(interaction, exc)
 
     @discord.ui.button(
         label="取消",
         style=discord.ButtonStyle.secondary,
     )
-    async def cancel(
-        self,
-        interaction,
-        button,
-    ):
+    async def cancel(self, interaction, button):
         await interaction.response.edit_message(
             content="已取消撤銷操作。",
             view=None,
         )
 
 
-def grants_text(result):
-    return (
-        "🏛️ **正式官方人員名單**\n\n"
-        f"目前授權：{result['total']} 項\n"
-        f"第 {result['page'] + 1}/"
-        f"{result['last'] + 1} 頁\n\n"
-        "請選擇人員查看或撤銷授權。"
-    )
-
-
-# ==========================================
-# 正式人員分頁
-# ==========================================
-
 class GrantsView(OwnerView):
-    def __init__(
-        self,
-        interaction,
-        page=0,
-    ):
-        super().__init__(
-            interaction
-        )
+    def __init__(self, interaction, page=0):
+        super().__init__(interaction)
 
         result = get_grants(
             interaction.guild_id,
@@ -1915,28 +1313,17 @@ class GrantsView(OwnerView):
         self.page = result["page"]
         self.last = result["last"]
 
-        self.add_item(
-            GrantSelect(result)
-        )
+        self.add_item(GrantSelect(result))
 
-        self.previous.disabled = (
-            self.page == 0
-        )
-
-        self.next.disabled = (
-            self.page >= self.last
-        )
+        self.previous.disabled = self.page == 0
+        self.next.disabled = self.page >= self.last
 
     @discord.ui.button(
         label="⬅️ 上一頁",
         style=discord.ButtonStyle.secondary,
         row=1,
     )
-    async def previous(
-        self,
-        interaction,
-        button,
-    ):
+    async def previous(self, interaction, button):
         result = get_grants(
             interaction.guild_id,
             self.page - 1,
@@ -1955,11 +1342,7 @@ class GrantsView(OwnerView):
         style=discord.ButtonStyle.secondary,
         row=1,
     )
-    async def next(
-        self,
-        interaction,
-        button,
-    ):
+    async def next(self, interaction, button):
         result = get_grants(
             interaction.guild_id,
             self.page + 1,
@@ -1978,11 +1361,7 @@ class GrantsView(OwnerView):
         style=discord.ButtonStyle.primary,
         row=1,
     )
-    async def refresh(
-        self,
-        interaction,
-        button,
-    ):
+    async def refresh(self, interaction, button):
         result = get_grants(
             interaction.guild_id,
             self.page,
@@ -1998,13 +1377,14 @@ class GrantsView(OwnerView):
 
 
 # ==========================================
-# 舊商城商品表單兼容
+# 舊版商品表單兼容
 # ==========================================
 
 class OfficialProductModal(discord.ui.Modal):
-    """保留舊模組可能使用的商品表單。"""
-
     def __init__(self, kind):
+        if kind not in ("add", "edit"):
+            raise ValueError("商品操作不支援。")
+
         super().__init__(
             title=(
                 "官方商城新增商品"
@@ -2025,18 +1405,12 @@ class OfficialProductModal(discord.ui.Modal):
                 ("庫存（留空不限）", False),
                 ("黑卡專屬（是／否）", False),
             )
-
-        elif kind == "edit":
+        else:
             fields = (
                 ("商品編號", True),
                 ("新價格（留空不更改）", False),
                 ("新庫存（留空不更改）", False),
                 ("是否上架（是／否／留空）", False),
-            )
-
-        else:
-            raise ValueError(
-                "不支援的商品表單類型。"
             )
 
         for label, required in fields:
@@ -2045,26 +1419,18 @@ class OfficialProductModal(discord.ui.Modal):
                 required=required,
                 max_length=100,
             )
-
             self.add_item(field)
             self.fields.append(field)
 
-    async def on_submit(
-        self,
-        interaction,
-    ):
+    async def on_submit(self, interaction):
+        from modules import shop
         from core.permissions import (
             PermissionDenied,
             InvalidState,
         )
 
-        from modules import shop
+        actor = Actor.from_interaction(interaction)
 
-        actor = Actor.from_interaction(
-            interaction
-        )
-
-        # 群主可無視一般管理限制。
         if is_owner(interaction) and not actor.is_admin:
             actor = Actor(
                 guild_id=actor.guild_id,
@@ -2079,9 +1445,7 @@ class OfficialProductModal(discord.ui.Modal):
             )
             return
 
-        await interaction.response.defer(
-            ephemeral=True
-        )
+        await interaction.response.defer(ephemeral=True)
 
         try:
             values = [
@@ -2090,13 +1454,9 @@ class OfficialProductModal(discord.ui.Modal):
             ]
 
             if self.kind == "add":
-                if values[4] not in (
-                    "",
-                    "是",
-                    "否",
-                ):
+                if values[4] not in ("", "是", "否"):
                     raise ValueError(
-                        "黑卡專屬只能填是或否。"
+                        "黑卡專屬請填是或否。"
                     )
 
                 product_id = shop.add_product(
@@ -2104,55 +1464,28 @@ class OfficialProductModal(discord.ui.Modal):
                     values[0],
                     values[1],
                     int(values[2]),
-                    (
-                        int(values[3])
-                        if values[3]
-                        else None
-                    ),
-                    (
-                        "black"
-                        if values[4] == "是"
-                        else "public"
-                    ),
+                    int(values[3]) if values[3] else None,
+                    "black" if values[4] == "是" else "public",
                     "none",
                     "",
                     0,
                     "",
                     "",
                 )
-
-                result = (
-                    f"✅ 商品 #{product_id} 已新增。"
-                )
+                result = f"✅ 商品 #{product_id} 已新增。"
 
             else:
-                if values[3] not in (
-                    "",
-                    "是",
-                    "否",
-                ):
+                if values[3] not in ("", "是", "否"):
                     raise ValueError(
-                        "是否上架只能填是或否。"
+                        "是否上架請填是或否。"
                     )
 
                 result = shop.edit_product(
                     actor,
                     int(values[0]),
-                    (
-                        int(values[1])
-                        if values[1]
-                        else None
-                    ),
-                    (
-                        int(values[2])
-                        if values[2]
-                        else None
-                    ),
-                    (
-                        None
-                        if not values[3]
-                        else values[3] == "是"
-                    ),
+                    int(values[1]) if values[1] else None,
+                    int(values[2]) if values[2] else None,
+                    None if not values[3] else values[3] == "是",
                 )
 
         except (
@@ -2170,57 +1503,32 @@ class OfficialProductModal(discord.ui.Modal):
 
 
 # ==========================================
-# 管理功能中心
+# 管理中心
 # ==========================================
 
-def load_management_button(
-    module_name,
-    class_name,
-):
-    """載入其他管理模組的按鈕。
+def load_management_button(module_name, class_name):
+    module = importlib.import_module(module_name)
+    button_type = getattr(module, class_name)
+    button = button_type()
 
-    如選用模組尚未安裝，不讓整個 /官方
-    因為 ImportError 而無法使用。
-    """
-
-    module = importlib.import_module(
-        module_name
-    )
-
-    button_class = getattr(
-        module,
-        class_name,
-    )
-
-    button = button_class()
-
-    if not isinstance(
-        button,
-        discord.ui.Button,
-    ):
+    if not isinstance(button, discord.ui.Button):
         raise TypeError(
-            f"{module_name}.{class_name}"
-            " 不是 Discord 按鈕。"
+            f"{module_name}.{class_name} "
+            "不是 Discord 按鈕。"
         )
 
     return button
 
 
 class AdminToolsView(ManagementView):
-    """商城、金幣、內容、兌換的獨立頁面。"""
+    """獨立管理功能頁面。"""
 
     def __init__(self, interaction):
-        super().__init__(
-            interaction
-        )
+        super().__init__(interaction)
 
-        self.owner = is_owner(
-            interaction
-        )
-
+        self.owner = is_owner(interaction)
         self.unavailable = []
 
-        # 功能名稱、模組、按鈕類別、群主專屬
         tools = [
             (
                 "商城管理",
@@ -2246,14 +1554,15 @@ class AdminToolsView(ManagementView):
                 "RedeemManageButton",
                 True,
             ),
+            (
+                "場景商店",
+                "modules.scene_shops",
+                "SceneShopButton",
+                True,
+            ),
         ]
 
-        for (
-            label,
-            module_name,
-            class_name,
-            owner_only,
-        ) in tools:
+        for label, module_name, class_name, owner_only in tools:
             if owner_only and not self.owner:
                 continue
 
@@ -2263,10 +1572,8 @@ class AdminToolsView(ManagementView):
                     class_name,
                 )
 
-                # 由管理中心重新安排元件列數。
-                # 不使用原本按鈕可能固定的 row。
+                # 管理中心按鈕統一配置到前兩列。
                 button.row = None
-
                 self.add_item(button)
 
             except (
@@ -2279,28 +1586,17 @@ class AdminToolsView(ManagementView):
                     "管理功能載入失敗：%s",
                     label,
                 )
-
-                self.unavailable.append(
-                    label
-                )
+                self.unavailable.append(label)
 
     @discord.ui.button(
         label="🏠 返回官方首頁",
         style=discord.ButtonStyle.secondary,
         row=4,
     )
-    async def back(
-        self,
-        interaction,
-        button,
-    ):
+    async def back(self, interaction, button):
         await interaction.response.edit_message(
-            content=official_home_text(
-                interaction
-            ),
-            view=OfficialHome(
-                interaction
-            ),
+            content=official_home_text(interaction),
+            view=OfficialHome(interaction),
         )
 
 
@@ -2310,29 +1606,29 @@ def management_text(view):
         "",
         "請選擇需要使用的管理功能。",
         "",
-        "🛍️ 商城管理：商品、上架、位置與連結",
-        "💰 金幣管理：查詢及調整",
+        "🛍️ 商城管理：商品、上架、販售位置",
+        "💰 金幣管理：查詢與調整",
     ]
 
     if view.owner:
         lines.extend([
-            "✍️ 內容建立：劇情、獎項與活動",
-            "🎁 兌換審核：特殊道具申請",
+            "✍️ 內容建立：劇情、活動、獎項等",
+            "🎁 兌換審核：特殊道具兌換",
+            "🏪 場景商店：餐廳、診所、酒店等",
         ])
 
     if view.unavailable:
         lines.extend([
             "",
-            "⚠️ **尚未正常載入的功能**",
+            "⚠️ **尚未載入的功能**",
             "、".join(view.unavailable),
-            "請檢查對應模組是否存在。",
         ])
 
     return "\n".join(lines)
 
 
 # ==========================================
-# 官方首頁文字
+# 官方首頁
 # ==========================================
 
 def official_home_text(interaction):
@@ -2340,16 +1636,14 @@ def official_home_text(interaction):
         "🏛️ **Discord RP 官方管理中心**",
         "",
         "🛡️ 審核員：角色與各項申請審核",
-        "⚖️ 紀律人員：檢舉及違規處理",
+        "⚖️ 紀律人員：檢舉與違規處理",
         "",
-        "玩家可以使用下方按鈕申請官方職位。",
-        "正式授權須由伺服器擁有者核准。",
+        "玩家可申請擔任官方人員。",
+        "正式授權須由伺服器群主核准。",
     ]
 
     if is_owner(interaction):
-        config = get_config(
-            interaction.guild_id
-        )
+        config = get_config(interaction.guild_id)
 
         lines.extend([
             "",
@@ -2357,9 +1651,7 @@ def official_home_text(interaction):
         ])
 
         for kind, name in STAFF_TYPES.items():
-            role_id = config.get(
-                kind
-            )
+            role_id = config.get(kind)
 
             lines.append(
                 f"{name}："
@@ -2373,270 +1665,17 @@ def official_home_text(interaction):
         lines.extend([
             "",
             "👑 **群主管理權限**",
-            "人員審核、身分組設定、商城、"
-            "金幣、內容建立與兌換審核。",
+            "人員、商城、金幣、內容、兌換及場景商店。",
         ])
 
     elif is_management_user(interaction):
         lines.extend([
             "",
-            "🛠️ 可從管理功能中心開啟"
-            "已授權的管理工具。",
+            "🛠️ 可以開啟已授權的管理功能。",
         ])
 
     return "\n".join(lines)
 
-
-# ==========================================
-# 官方首頁
-# ==========================================
-
-class OfficialHome(PrivateView):
-    """玩家申請與官方人員管理入口。"""
-
-    def __init__(self, interaction):
-        super().__init__(
-            interaction
-        )
-
-        # 只有群主或管理員看到管理入口。
-        if is_management_user(interaction):
-            self.add_item(
-                OpenAdminToolsButton()
-            )
-
-    # --------------------------------------
-    # 玩家申請
-    # --------------------------------------
-
-    @discord.ui.button(
-        label="申請審核員",
-        style=discord.ButtonStyle.primary,
-        row=0,
-    )
-    async def apply_reviewer(
-        self,
-        interaction,
-        button,
-    ):
-        await interaction.response.send_modal(
-            ApplyModal("reviewer")
-        )
-
-    @discord.ui.button(
-        label="申請紀律人員",
-        style=discord.ButtonStyle.primary,
-        row=0,
-    )
-    async def apply_discipline(
-        self,
-        interaction,
-        button,
-    ):
-        await interaction.response.send_modal(
-            ApplyModal("discipline")
-        )
-
-    @discord.ui.button(
-        label="我的申請",
-        style=discord.ButtonStyle.secondary,
-        row=0,
-    )
-    async def my_applications(
-        self,
-        interaction,
-        button,
-    ):
-        rows = get_my_applications(
-            interaction.guild_id,
-            interaction.user.id,
-        )
-
-        if not rows:
-            message = (
-                "你目前沒有官方人員申請紀錄。"
-            )
-
-        else:
-            status_names = {
-                "pending": "待審",
-                "approved": "通過",
-                "rejected": "駁回",
-                "cancelled": "取消",
-            }
-
-            lines = [
-                "📋 **我的官方人員申請**"
-            ]
-
-            for row in rows:
-                lines.append(
-                    f"#{row['id']}｜"
-                    f"{STAFF_TYPES[row['staff_type']]}｜"
-                    f"{status_names.get(row['status'], row['status'])}"
-                )
-
-            message = "\n".join(
-                lines
-            )
-
-        await interaction.response.send_message(
-            message[:1900],
-            ephemeral=True,
-        )
-
-    # --------------------------------------
-    # 待審人員申請
-    # --------------------------------------
-
-    @discord.ui.button(
-        label="待審人員申請",
-        style=discord.ButtonStyle.success,
-        row=1,
-    )
-    async def pending(
-        self,
-        interaction,
-        button,
-    ):
-        try:
-            require_owner(
-                interaction
-            )
-
-            result = get_pending(
-                interaction.guild_id
-            )
-
-            await interaction.response.send_message(
-                pending_text(result),
-                view=PendingView(
-                    interaction
-                ),
-                ephemeral=True,
-            )
-
-        except (
-            PermissionError,
-            sqlite3.Error,
-        ) as exc:
-            await send_error(
-                interaction,
-                exc,
-            )
-
-    # --------------------------------------
-    # 正式人員管理
-    # --------------------------------------
-
-    @discord.ui.button(
-        label="正式人員管理",
-        style=discord.ButtonStyle.secondary,
-        row=1,
-    )
-    async def staff_management(
-        self,
-        interaction,
-        button,
-    ):
-        try:
-            require_owner(
-                interaction
-            )
-
-            result = get_grants(
-                interaction.guild_id
-            )
-
-            await interaction.response.send_message(
-                grants_text(result),
-                view=GrantsView(
-                    interaction
-                ),
-                ephemeral=True,
-            )
-
-        except (
-            PermissionError,
-            sqlite3.Error,
-        ) as exc:
-            await send_error(
-                interaction,
-                exc,
-            )
-
-    # --------------------------------------
-    # 審核員身分組設定
-    # --------------------------------------
-
-    @discord.ui.button(
-        label="設定審核員身分組",
-        style=discord.ButtonStyle.secondary,
-        row=2,
-    )
-    async def reviewer_role(
-        self,
-        interaction,
-        button,
-    ):
-        try:
-            require_owner(
-                interaction
-            )
-
-            await interaction.response.send_message(
-                "請選擇審核員專用身分組。",
-                view=RoleBindingView(
-                    interaction,
-                    "reviewer",
-                ),
-                ephemeral=True,
-            )
-
-        except PermissionError as exc:
-            await send_error(
-                interaction,
-                exc,
-            )
-
-    # --------------------------------------
-    # 紀律人員身分組設定
-    # --------------------------------------
-
-    @discord.ui.button(
-        label="設定紀律人員身分組",
-        style=discord.ButtonStyle.secondary,
-        row=2,
-    )
-    async def discipline_role(
-        self,
-        interaction,
-        button,
-    ):
-        try:
-            require_owner(
-                interaction
-            )
-
-            await interaction.response.send_message(
-                "請選擇紀律人員專用身分組。",
-                view=RoleBindingView(
-                    interaction,
-                    "discipline",
-                ),
-                ephemeral=True,
-            )
-
-        except PermissionError as exc:
-            await send_error(
-                interaction,
-                exc,
-            )
-
-
-# ==========================================
-# 管理入口按鈕
-# ==========================================
 
 class OpenAdminToolsButton(discord.ui.Button):
     def __init__(self):
@@ -2646,36 +1685,172 @@ class OpenAdminToolsButton(discord.ui.Button):
             row=3,
         )
 
-    async def callback(
-        self,
-        interaction,
-    ):
+    async def callback(self, interaction):
         try:
-            require_management_user(
-                interaction
-            )
+            require_management_user(interaction)
 
-            view = AdminToolsView(
-                interaction
-            )
+            view = AdminToolsView(interaction)
 
             await interaction.response.edit_message(
                 content=management_text(view),
                 view=view,
             )
-
         except (
             PermissionError,
             sqlite3.Error,
         ) as exc:
-            await send_error(
-                interaction,
-                exc,
+            await send_error(interaction, exc)
+
+
+class OfficialHome(PrivateView):
+    def __init__(self, interaction):
+        super().__init__(interaction)
+
+        if is_management_user(interaction):
+            self.add_item(OpenAdminToolsButton())
+
+    @discord.ui.button(
+        label="申請審核員",
+        style=discord.ButtonStyle.primary,
+        row=0,
+    )
+    async def apply_reviewer(self, interaction, button):
+        await interaction.response.send_modal(
+            ApplyModal("reviewer")
+        )
+
+    @discord.ui.button(
+        label="申請紀律人員",
+        style=discord.ButtonStyle.primary,
+        row=0,
+    )
+    async def apply_discipline(self, interaction, button):
+        await interaction.response.send_modal(
+            ApplyModal("discipline")
+        )
+
+    @discord.ui.button(
+        label="我的申請",
+        style=discord.ButtonStyle.secondary,
+        row=0,
+    )
+    async def my_applications(self, interaction, button):
+        rows = get_my_applications(
+            interaction.guild_id,
+            interaction.user.id,
+        )
+
+        if not rows:
+            message = "目前沒有官方人員申請紀錄。"
+        else:
+            status_names = {
+                "pending": "待審",
+                "approved": "通過",
+                "rejected": "駁回",
+                "cancelled": "取消",
+            }
+
+            lines = ["📋 **我的官方人員申請**"]
+
+            for row in rows:
+                lines.append(
+                    f"#{row['id']}｜"
+                    f"{STAFF_TYPES[row['staff_type']]}｜"
+                    f"{status_names.get(row['status'], row['status'])}"
+                )
+
+            message = "\n".join(lines)
+
+        await interaction.response.send_message(
+            message[:1900],
+            ephemeral=True,
+        )
+
+    @discord.ui.button(
+        label="待審人員申請",
+        style=discord.ButtonStyle.success,
+        row=1,
+    )
+    async def pending(self, interaction, button):
+        try:
+            require_owner(interaction)
+            result = get_pending(interaction.guild_id)
+
+            await interaction.response.send_message(
+                pending_text(result),
+                view=PendingView(interaction),
+                ephemeral=True,
             )
+        except (
+            PermissionError,
+            sqlite3.Error,
+        ) as exc:
+            await send_error(interaction, exc)
+
+    @discord.ui.button(
+        label="正式人員管理",
+        style=discord.ButtonStyle.secondary,
+        row=1,
+    )
+    async def staff_management(self, interaction, button):
+        try:
+            require_owner(interaction)
+            result = get_grants(interaction.guild_id)
+
+            await interaction.response.send_message(
+                grants_text(result),
+                view=GrantsView(interaction),
+                ephemeral=True,
+            )
+        except (
+            PermissionError,
+            sqlite3.Error,
+        ) as exc:
+            await send_error(interaction, exc)
+
+    @discord.ui.button(
+        label="設定審核員身分組",
+        style=discord.ButtonStyle.secondary,
+        row=2,
+    )
+    async def reviewer_role(self, interaction, button):
+        try:
+            require_owner(interaction)
+
+            await interaction.response.send_message(
+                "請選擇審核員專用身分組。",
+                view=RoleBindingView(
+                    interaction,
+                    "reviewer",
+                ),
+                ephemeral=True,
+            )
+        except PermissionError as exc:
+            await send_error(interaction, exc)
+
+    @discord.ui.button(
+        label="設定紀律人員身分組",
+        style=discord.ButtonStyle.secondary,
+        row=2,
+    )
+    async def discipline_role(self, interaction, button):
+        try:
+            require_owner(interaction)
+
+            await interaction.response.send_message(
+                "請選擇紀律人員專用身分組。",
+                view=RoleBindingView(
+                    interaction,
+                    "discipline",
+                ),
+                ephemeral=True,
+            )
+        except PermissionError as exc:
+            await send_error(interaction, exc)
 
 
 # ==========================================
-# /官方 指令
+# 正式 /官方 指令
 # ==========================================
 
 class OfficialCenter(commands.Cog):
@@ -2690,45 +1865,23 @@ class OfficialCenter(commands.Cog):
         description="官方職位申請與管理中心",
     )
     @app_commands.guild_only()
-    async def official(
-        self,
-        interaction: discord.Interaction,
-    ):
+    async def official(self, interaction: discord.Interaction):
         try:
             await interaction.response.send_message(
-                official_home_text(
-                    interaction
-                ),
-                view=OfficialHome(
-                    interaction
-                ),
+                official_home_text(interaction),
+                view=OfficialHome(interaction),
                 ephemeral=True,
             )
 
-        except sqlite3.Error:
-            LOG.exception(
-                "官方管理中心資料庫錯誤"
-            )
-
-            await send_error(
-                interaction,
-                "官方管理中心無法讀取資料。",
-            )
+        except sqlite3.Error as exc:
+            LOG.exception("官方管理中心資料庫錯誤")
+            await send_error(interaction, exc)
 
 
-# ==========================================
-# 模組初始化
-# ==========================================
-
-async def setup(
-    bot: commands.Bot,
-):
-    await bot.add_cog(
-        OfficialCenter(bot)
-    )
+async def setup(bot: commands.Bot):
+    await bot.add_cog(OfficialCenter(bot))
 
     LOG.info(
-        "官方管理中心已載入："
-        "人員申請、審核、正式人員、"
-        "身分組設定及管理功能中心。"
+        "官方管理中心已載入：人員申請、審核、"
+        "商城、金幣、內容、兌換及場景商店。"
     )
