@@ -1,21 +1,26 @@
 
+
 """Discord RP｜官方商城統一管理中心。
 
 檔案：modules/official_shop.py
 
 功能：
-- 官方商品新增、修改、上下架
-- 商品使用次數設定與查詢
+- B01～B10 官方商店管理
+- 新增、修改、上下架商品
+- 商品使用次數設定及查詢
 - 商品使用次數批量匯入
-- B02～B10 商店分類管理
-- B02、B04 文字匯入
+- B02、B04 文字批量匯入
 - B03、B05～B10 一鍵上架
-- 各商店上架進度查詢
-- 群主專屬批量上架權限
-- 管理面板原訊息切換
+- 各商店商品登記進度查詢
+- 商店位置與 Discord 頻道連結管理
+- 查看目前商店販售位置
+- 返回 /官方 管理功能中心
+- 群主最高權限
+- 管理員商品管理權限
+- 私人管理面板防護
 
-不建立第二個 /商城 或 /官方 指令。
-不清空任何角色、銀行、商城、背包資料。
+不建立第二個 /商城 或 /官方。
+不刪除商品、背包、角色或銀行資料。
 """
 
 from __future__ import annotations
@@ -32,6 +37,12 @@ from core.permissions import Actor
 
 LOG = logging.getLogger(__name__)
 
+TIMEOUT = 900
+
+
+# ==========================================
+# 官方商店
+# ==========================================
 
 STORES = {
     "B01": "👗 服飾精品店",
@@ -46,7 +57,6 @@ STORES = {
     "B10": "🖤 黑卡隱藏商店",
 }
 
-# 使用固定商品資料的一鍵上架模組。
 AUTO_STORES = {
     "B03",
     "B05",
@@ -57,7 +67,6 @@ AUTO_STORES = {
     "B10",
 }
 
-# 使用貼上商品資料的匯入模組。
 TEXT_STORES = {
     "B02",
     "B04",
@@ -70,7 +79,7 @@ TEXT_STORES = {
 
 def is_guild_owner(interaction):
     return bool(
-        interaction.guild
+        interaction.guild is not None
         and interaction.user.id
         == interaction.guild.owner_id
     )
@@ -93,65 +102,148 @@ def permitted(interaction):
 def require_owner(interaction):
     if not is_guild_owner(interaction):
         raise PermissionError(
-            "批量上架商品僅限伺服器群主。"
+            "此操作僅限伺服器群主。"
         )
 
 
-def panel_text(store=""):
+def require_permitted(interaction):
+    if not permitted(interaction):
+        raise PermissionError(
+            "沒有官方商城管理權限。"
+        )
+
+
+# ==========================================
+# 商店位置查詢
+# ==========================================
+
+def get_store_placement(guild_id, code):
+    """讀取商店目前的位置設定。"""
+
+    if not code or code not in STORES:
+        return "mall", ""
+
+    from modules.shop_location import get_location
+
+    return get_location(
+        guild_id,
+        code,
+    )
+
+
+def placement_text(guild_id, code):
+    """管理面板顯示目前販售位置。"""
+
+    if code not in STORES:
+        return "尚未選擇商店。"
+
+    try:
+        placement, url = get_store_placement(
+            guild_id,
+            code,
+        )
+
+    except Exception:
+        LOG.exception(
+            "商店位置查詢失敗：%s",
+            code,
+        )
+
+        return "⚠️ 無法讀取販售位置。"
+
+    if placement == "channel":
+        return (
+            "📍 **目前販售位置：其他頻道**\n"
+            f"🔗 商店連結：{url or '尚未設定'}"
+        )
+
+    return (
+        "📍 **目前販售位置：官方商城內**\n"
+        "玩家可從 `/商城` 進入。"
+    )
+
+
+# ==========================================
+# 商城管理首頁
+# ==========================================
+
+def panel_text(store="", guild_id=None):
     lines = [
         "🛍️ **官方商城管理中心**",
         "",
-        "請先選擇管理功能或商店。",
+        "請選擇商品管理功能，"
+        "或從下方選擇 B01～B10 商店。",
         "",
         "📦 固定商品：可直接批量上架",
         "📋 B02、B04：使用文字匯入",
-        "🔎 可查詢各商店登記進度",
-        "",
+        "⚙️ 可設定商品使用次數",
+        "📍 可設定商店販售位置與連結",
+        "🔎 可查詢商品登記進度",
     ]
 
-    if store:
-        lines.append(
-            f"**目前選擇：{STORES[store]}**"
-        )
+    if store and store in STORES:
+        lines.extend([
+            "",
+            "━━━━━━━━━━━━━━━━",
+            f"**目前選擇：{store}**",
+            f"{STORES[store]}",
+            "",
+        ])
+
+        if guild_id is not None:
+            lines.append(
+                placement_text(
+                    guild_id,
+                    store,
+                )
+            )
 
         if store == "B01":
-            lines.append(
-                "B01 沿用既有服飾商品，"
-                "不提供重複批量上架。"
-            )
+            lines.extend([
+                "",
+                "👗 B01 沿用既有服飾商品。",
+                "不提供重複批量上架。",
+            ])
 
         elif store in TEXT_STORES:
-            lines.append(
-                "這間商店使用文字批量匯入。"
-            )
+            lines.extend([
+                "",
+                "📋 本商店使用文字批量匯入。",
+            ])
 
         elif store == "B09":
-            lines.append(
-                "⚠️ 特殊憑證兌換功能尚未開放。"
-            )
+            lines.extend([
+                "",
+                "🎁 特殊道具可另由"
+                "兌換審核系統處理。",
+            ])
 
         elif store == "B10":
-            lines.append(
-                "🖤 商品限定有效黑卡會員購買。"
-            )
+            lines.extend([
+                "",
+                "🖤 此商店限定有效黑卡會員購買。",
+            ])
 
         else:
-            lines.append(
-                "可使用下方按鈕批量上架或查詢。"
-            )
+            lines.extend([
+                "",
+                "📦 可使用批量上架功能。",
+            ])
 
     else:
-        lines.append(
-            "請從下拉選單選擇 B01～B10。"
-        )
+        lines.extend([
+            "",
+            "請從商店下拉選單選擇 B01～B10。",
+        ])
 
     lines.extend([
         "",
-        "⚠️ 批量上架僅限群主。",
-        "一般管理員可使用授權的商品編輯功能。",
+        "━━━━━━━━━━━━━━━━",
+        "👑 批量上架及販售位置設定僅限群主。",
+        "🛡️ 授權管理員可以管理一般商品。",
     ])
 
-    return "\n".join(lines)
+    return "\n".join(lines)[:1900]
 
 
 # ==========================================
@@ -201,8 +293,12 @@ def auto_publish(guild_id, code):
 
 
 def query_store(guild_id, code):
+    if code not in STORES:
+        raise ValueError(
+            "商店編號不正確。"
+        )
+
     if code == "B01":
-        # 直接查詢原商城資料，避免重複上架。
         from core.database import get_connection
 
         with get_connection() as conn:
@@ -217,7 +313,9 @@ def query_store(guild_id, code):
                     OR category LIKE '%服飾%'
                   )
                 """,
-                (str(guild_id),),
+                (
+                    str(guild_id),
+                ),
             ).fetchone()
 
         return (
@@ -236,7 +334,6 @@ def query_store(guild_id, code):
     if callable(init):
         init()
 
-    # 不同商店原本使用不同函式名稱。
     for name in (
         "query_catalog",
         "catalog_status",
@@ -257,7 +354,7 @@ def query_store(guild_id, code):
 
 
 # ==========================================
-# 商品次數管理表單
+# 商品使用次數表單
 # ==========================================
 
 class ItemUsesModal(discord.ui.Modal):
@@ -268,7 +365,8 @@ class ItemUsesModal(discord.ui.Modal):
                 "設定商品使用次數"
                 if action == "set"
                 else "查詢商品使用次數"
-            )
+            ),
+            timeout=300,
         )
 
         self.action = action
@@ -280,7 +378,9 @@ class ItemUsesModal(discord.ui.Modal):
             max_length=12,
         )
 
-        self.add_item(self.product_id)
+        self.add_item(
+            self.product_id
+        )
 
         if action == "set":
             self.uses = discord.ui.TextInput(
@@ -290,7 +390,9 @@ class ItemUsesModal(discord.ui.Modal):
                 max_length=3,
             )
 
-            self.add_item(self.uses)
+            self.add_item(
+                self.uses
+            )
 
     async def on_submit(self, interaction):
         if not permitted(interaction):
@@ -435,7 +537,7 @@ class ManageSelect(discord.ui.Select):
 
             else:
                 raise ValueError(
-                    "未知的管理操作。"
+                    "未知的商品管理操作。"
                 )
 
             await interaction.response.send_modal(
@@ -489,7 +591,10 @@ class StoreSelect(discord.ui.Select):
         code = self.values[0]
 
         await interaction.response.edit_message(
-            content=panel_text(code),
+            content=panel_text(
+                code,
+                interaction.guild_id,
+            ),
             view=ShopManageView(
                 interaction,
                 code,
@@ -505,11 +610,16 @@ class ShopManageView(discord.ui.View):
 
     def __init__(self, interaction, store=""):
         super().__init__(
-            timeout=900
+            timeout=TIMEOUT
         )
 
-        self.owner_id = interaction.user.id
-        self.guild_id = interaction.guild_id
+        self.owner_id = (
+            interaction.user.id
+        )
+
+        self.guild_id = (
+            interaction.guild_id
+        )
 
         self.store = (
             store
@@ -521,17 +631,30 @@ class ShopManageView(discord.ui.View):
             ManageSelect()
         )
 
-
         self.add_item(
-            StoreSelect(self.store)
+            StoreSelect(
+                self.store
+            )
         )
 
-        # 📍 商店販售位置與頻道連結管理
-        from modules.shop_location import LocationButton
-        self.add_item(LocationButton(self.store))
+        # ----------------------------------
+        # 商店販售位置設定
+        # ----------------------------------
 
+        from modules.shop_location import (
+            LocationButton,
+        )
 
-        # 批量上架只給群主使用。
+        self.add_item(
+            LocationButton(
+                self.store
+            )
+        )
+
+        # ----------------------------------
+        # 其他按鈕狀態
+        # ----------------------------------
+
         self.publish_button.disabled = (
             not is_guild_owner(interaction)
             or self.store not in AUTO_STORES
@@ -546,13 +669,18 @@ class ShopManageView(discord.ui.View):
             or self.store not in TEXT_STORES
         )
 
+        # 販售位置按鈕只有選店後可用，
+        # 實際權限由 shop_location 再驗證。
+
     async def interaction_check(
         self,
         interaction,
     ):
         if (
-            interaction.user.id != self.owner_id
-            or interaction.guild_id != self.guild_id
+            interaction.user.id
+            != self.owner_id
+            or interaction.guild_id
+            != self.guild_id
             or not permitted(interaction)
         ):
             await interaction.response.send_message(
@@ -563,9 +691,9 @@ class ShopManageView(discord.ui.View):
 
         return True
 
-    # --------------------------------------
-    # 固定商品一鍵上架
-    # --------------------------------------
+    # ======================================
+    # 批量上架
+    # ======================================
 
     @discord.ui.button(
         label="📦 批量上架",
@@ -578,7 +706,9 @@ class ShopManageView(discord.ui.View):
         button,
     ):
         try:
-            require_owner(interaction)
+            require_owner(
+                interaction
+            )
 
             if self.store not in AUTO_STORES:
                 raise ValueError(
@@ -615,22 +745,25 @@ class ShopManageView(discord.ui.View):
             )
 
         content = (
-            panel_text(self.store)
+            panel_text(
+                self.store,
+                interaction.guild_id,
+            )
             + "\n\n"
-            + str(result)[:850]
+            + str(result)[:700]
         )
 
         await interaction.edit_original_response(
-            content=content,
+            content=content[:1900],
             view=ShopManageView(
                 interaction,
                 self.store,
             ),
         )
 
-    # --------------------------------------
-    # 查詢上架進度
-    # --------------------------------------
+    # ======================================
+    # 查詢商品進度
+    # ======================================
 
     @discord.ui.button(
         label="🔎 查詢進度",
@@ -670,19 +803,22 @@ class ShopManageView(discord.ui.View):
 
         await interaction.edit_original_response(
             content=(
-                panel_text(self.store)
+                panel_text(
+                    self.store,
+                    interaction.guild_id,
+                )
                 + "\n\n"
-                + str(result)[:850]
-            ),
+                + str(result)[:700]
+            )[:1900],
             view=ShopManageView(
                 interaction,
                 self.store,
             ),
         )
 
-    # --------------------------------------
-    # B02／B04 文字匯入
-    # --------------------------------------
+    # ======================================
+    # B02／B04 商品文字匯入
+    # ======================================
 
     @discord.ui.button(
         label="📋 文字匯入",
@@ -695,7 +831,9 @@ class ShopManageView(discord.ui.View):
         button,
     ):
         try:
-            require_owner(interaction)
+            require_owner(
+                interaction
+            )
 
             if self.store == "B02":
                 from modules.shop_b02 import B02Modal
@@ -707,7 +845,7 @@ class ShopManageView(discord.ui.View):
 
             else:
                 raise ValueError(
-                    "只有 B02、B04 使用文字匯入。"
+                    "只有 B02、B04 可以文字匯入。"
                 )
 
             await interaction.response.send_modal(
@@ -725,12 +863,37 @@ class ShopManageView(discord.ui.View):
                     ephemeral=True,
                 )
 
-    # --------------------------------------
-    # 返回官方中心
-    # --------------------------------------
+    # ======================================
+    # 重新整理管理面板
+    # ======================================
 
     @discord.ui.button(
-        label="↩️ 返回官方",
+        label="🔄 重新整理",
+        style=discord.ButtonStyle.secondary,
+        row=2,
+    )
+    async def refresh(
+        self,
+        interaction,
+        button,
+    ):
+        await interaction.response.edit_message(
+            content=panel_text(
+                self.store,
+                interaction.guild_id,
+            ),
+            view=ShopManageView(
+                interaction,
+                self.store,
+            ),
+        )
+
+    # ======================================
+    # 返回官方管理功能中心
+    # ======================================
+
+    @discord.ui.button(
+        label="⬅️ 返回管理中心",
         style=discord.ButtonStyle.secondary,
         row=3,
     )
@@ -739,16 +902,23 @@ class ShopManageView(discord.ui.View):
         interaction,
         button,
     ):
-        from modules.official_center import OfficialHome
+        from modules.official_center import (
+            AdminToolsView,
+            management_text,
+        )
+
+        view = AdminToolsView(
+            interaction
+        )
 
         await interaction.response.edit_message(
-            content="🏛️ **官方人員管理中心**",
-            view=OfficialHome(interaction),
+            content=management_text(view),
+            view=view,
         )
 
 
 # ==========================================
-# /官方 首頁入口按鈕
+# 官方首頁入口按鈕
 # ==========================================
 
 class ShopManageButton(discord.ui.Button):
@@ -772,8 +942,12 @@ class ShopManageButton(discord.ui.Button):
             return
 
         await interaction.response.edit_message(
-            content=panel_text(),
-            view=ShopManageView(interaction),
+            content=panel_text(
+                guild_id=interaction.guild_id,
+            ),
+            view=ShopManageView(
+                interaction
+            ),
         )
 
 
@@ -781,9 +955,9 @@ class ShopManageButton(discord.ui.Button):
 # 模組初始化
 # ==========================================
 
-async def setup(
-    bot: commands.Bot,
-):
+async def setup(bot: commands.Bot):
     LOG.info(
-        "B01～B10 官方商城統一管理面板已載入。"
+        "官方商城管理中心已載入："
+        "B01～B10、批量上架、商品次數、"
+        "商店位置與頻道連結管理。"
     )
