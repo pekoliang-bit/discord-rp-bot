@@ -1627,8 +1627,9 @@ class OfficialProductModal(discord.ui.Modal):
         )
 
 
+
 class OfficialHome(PrivateView):
-    """保留官方人員功能；商城與金幣管理統一入口。"""
+    """官方人員、商城、金幣、內容建立與兌換管理中心。"""
 
     def __init__(self, interaction):
         super().__init__(interaction)
@@ -1639,15 +1640,23 @@ class OfficialHome(PrivateView):
 
         actor = Actor.from_interaction(interaction)
 
-        # 群主及具備管理權限的人員才顯示管理按鈕
+        # 群主或管理員可進入商城、金幣管理
         if is_owner(interaction) or actor.is_admin:
             self.add_item(ShopManageButton())
             self.add_item(MoneyManageButton())
 
-    # 原本其他按鈕與功能全部保留
+        # 群主專屬功能
+        if is_owner(interaction):
 
-    # 舊的兩個商品按鈕（含重複的修改按鈕）已移除。
-    # 下方玩家申請、審核、正式人員及身分組按鈕全部保留。
+            # ✍️ 內容建立中心
+            from modules.content_builder import ContentButton
+            self.add_item(ContentButton())
+
+            # 🎁 B09 特殊道具兌換審核
+            from modules.redeem_ui import RedeemManageButton
+            self.add_item(RedeemManageButton())
+
+    # 下面原有的 @discord.ui.button 全部保留
 
     @discord.ui.button(
         label="申請審核員",
