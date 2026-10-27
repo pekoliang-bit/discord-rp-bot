@@ -1,4 +1,3 @@
-
 """Discord RP｜十間商店首頁、商品數值顯示與付費行動值。
 
 檔案：modules/zzz_shop_home.py
@@ -393,28 +392,40 @@ def spend_paid_actions(
 # 商城首頁文字
 # ==========================================
 
-def home_text(character_id):
+def home_text(character_id, guild_id=None, black_allowed=False):
+    """商城首頁只列出目前在商城內的商店，外部商店顯示連結。"""
+    from modules.shop_location import get_location
+
+    mall = []
+    external = []
+    for code, name in STORES:
+        if code == "B10" and not black_allowed:
+            continue
+        placement, url = (
+            get_location(guild_id, code)
+            if guild_id is not None
+            else ("mall", "")
+        )
+        if placement == "channel":
+            if url:
+                external.append(f"{name}：{url}")
+        else:
+            mall.append(f"{name}")
+
+    available = "\n".join(mall) or "目前沒有商城內商店。"
+    outside = (
+        "\n\n📍 **其他頻道商店**\n" + "\n".join(external)
+        if external else ""
+    )
     return (
         f"🛍️ **官方商城｜角色 #{character_id}**\n\n"
         "歡迎來到 Discord RP 官方商城！\n"
         "請從下方選單選擇商店。\n\n"
-        "👗 B01｜服飾精品店\n"
-        "💄 B02｜美妝保養店\n"
-        "💎 B03｜珠寶鐘錶店\n"
-        "📱 B04｜數位科技店\n"
-        "🎭 B05｜演藝用品店\n"
-        "📚 B06｜書籍文具店\n"
-        "🏠 B07｜家居生活店\n"
-        "🎮 B08｜娛樂收藏店\n"
-        "🎁 B09｜特殊道具店\n"
-        "🖤 B10｜黑卡隱藏商店\n\n"
-        "✨ **所有商品均顯示已登記的數值效果。**\n"
-        "消耗品會顯示每次加成與使用次數。\n\n"
-        "⚡ **行動值補給**\n"
-        "每點 500 金幣，購買後有效 30 天。\n\n"
-        "🎒 背包、物品使用及贈送："
-        "請前往 `/查看`。"
-    )
+        + available + outside +
+        "\n\n✨ 商品清單顯示已登記的數值效果。"
+        "\n⚡ 行動值每點 500 金幣，有效 30 天。"
+        "\n🎒 背包、使用及贈送請前往 `/查看`。"
+    )[:1900]
 
 
 # ==========================================
@@ -880,6 +891,13 @@ def make_store_screen(
             "商店編號錯誤。"
         )
 
+    from modules.shop_location import get_location
+    placement, url = get_location(actor.guild_id, code)
+    if placement == "channel":
+        raise ValueError(
+            "此商店已改至其他頻道販售：" + (url or "請洽管理員")
+        )
+
     require_access(
         actor,
         character_id,
@@ -1232,17 +1250,18 @@ class StorePicker(discord.ui.Select):
     ):
         self.menu = menu
 
-        options = [
-            discord.SelectOption(
-                label=label,
-                value=code,
-            )
-            for code, label in STORES
-            if (
-                code != "B10"
-                or black_allowed
-            )
-        ]
+        from modules.shop_location import get_location
+        options = []
+        for code, label in STORES:
+            if code == "B10" and not black_allowed:
+                continue
+            if get_location(self.menu.guild_id, code)[0] == "channel":
+                continue
+            options.append(discord.SelectOption(label=label, value=code))
+        if not options:
+            options.append(discord.SelectOption(
+                label="目前沒有商城內商店", value="none"
+            ))
 
         super().__init__(
             placeholder="選擇要進入的商店",
@@ -1256,6 +1275,11 @@ class StorePicker(discord.ui.Select):
         self,
         interaction: discord.Interaction,
     ):
+        if self.values[0] == "none":
+            await interaction.response.send_message(
+                "目前沒有商城內商店。", ephemeral=True
+            )
+            return
         actor = Actor.from_interaction(
             interaction
         )
@@ -1376,6 +1400,12 @@ class ShopHome(discord.ui.View):
             self.next.disabled = (
                 self.page >= self.last
             )
+
+    def _black_allowed(self):
+        with get_connection() as conn:
+            return bool(shop.has_black_access(
+                conn, str(self.guild_id), self.character_id
+            ))
 
     async def interaction_check(
         self,
@@ -1531,7 +1561,9 @@ class ShopHome(discord.ui.View):
 
             await interaction.response.edit_message(
                 content=home_text(
-                    self.character_id
+                    self.character_id,
+                    self.guild_id,
+                    self._black_allowed(),
                 ),
                 view=ShopHome(
                     self.owner_id,
