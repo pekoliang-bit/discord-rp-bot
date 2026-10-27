@@ -1,25 +1,26 @@
 
-"""Discord RP：舊斜線指令清理。
+"""Discord RP：第一批舊角色指令清理。
 
-只移除舊指令入口，不刪除：
-- Python 模組
-- SQLite 資料
-- 角色與草稿
-- 審核紀錄
+只停止註冊重複的斜線指令。
+不刪除角色、草稿、資料庫或審核紀錄。
 
-第一批：角色系統六條重複指令。
+正式保留：
+/創角
+/查看
+/審核
+/角色切換
 """
 
 from __future__ import annotations
 
 import logging
 
-from discord import app_commands
+import discord
 from discord.ext import commands
 
 LOG = logging.getLogger(__name__)
 
-# 舊指令：對應的正式新入口
+# 第一批：舊角色指令 → 正式替代指令
 LEGACY_COMMANDS = {
     "建立角色": "創角",
     "角色填寫": "創角",
@@ -29,7 +30,7 @@ LEGACY_COMMANDS = {
     "角色審核": "審核",
 }
 
-# 不准移除的正式入口
+# 永遠不能由此模組移除的正式指令
 PROTECTED_COMMANDS = {
     "創角",
     "查看",
@@ -41,14 +42,33 @@ PROTECTED_COMMANDS = {
     "官方",
     "登記",
     "總覽",
+    "任務",
+    "排行",
+    "行動",
+    "內容建立",
+    "紀律",
+    "公司",
+    "陣營",
+    "合約",
+    "頒獎",
+    "抽獎",
+    "娛樂城",
 }
 
 
 async def setup(bot: commands.Bot):
+    """由 main.py 在載入其他模組後執行。"""
+
+    # 使用 discord.AppCommandType
+    # 而非 app_commands.AppCommandType
+    command_type = (
+        discord.AppCommandType.chat_input
+    )
+
     registered = {
         command.name
         for command in bot.tree.get_commands(
-            type=app_commands.AppCommandType.chat_input
+            type=command_type
         )
     }
 
@@ -56,19 +76,18 @@ async def setup(bot: commands.Bot):
     skipped = []
 
     for old_name, replacement in LEGACY_COMMANDS.items():
-        # 防止誤刪正式指令
+
         if old_name in PROTECTED_COMMANDS:
             LOG.warning(
-                "受保護指令不可移除：/%s",
+                "受保護指令不可刪除：/%s",
                 old_name,
             )
             skipped.append(old_name)
             continue
 
-        # 新入口必須已經存在
         if replacement not in registered:
             LOG.warning(
-                "找不到替代指令 /%s，"
+                "正式入口 /%s 不存在，"
                 "保留舊指令 /%s",
                 replacement,
                 old_name,
@@ -76,42 +95,60 @@ async def setup(bot: commands.Bot):
             skipped.append(old_name)
             continue
 
-        # 舊入口不存在，直接略過
         if old_name not in registered:
             LOG.info(
-                "舊指令 /%s 已不存在",
+                "舊指令 /%s 未註冊，略過",
                 old_name,
             )
             continue
 
-        command = bot.tree.remove_command(
-            old_name,
-            type=app_commands.AppCommandType.chat_input,
-        )
+        try:
+            removed_command = (
+                bot.tree.remove_command(
+                    old_name,
+                    type=command_type,
+                )
+            )
 
-        if command is None:
-            LOG.warning(
-                "無法移除 /%s",
+            if removed_command is None:
+                LOG.warning(
+                    "未能移除舊指令：/%s",
+                    old_name,
+                )
+                skipped.append(old_name)
+                continue
+
+            removed.append(old_name)
+
+            LOG.info(
+                "已移除 /%s，"
+                "請改用 /%s",
+                old_name,
+                replacement,
+            )
+
+        except Exception:
+            LOG.exception(
+                "移除舊指令 /%s 時出錯",
                 old_name,
             )
             skipped.append(old_name)
-            continue
-
-        removed.append(old_name)
-
-        LOG.info(
-            "已移除舊指令 /%s，"
-            "正式入口為 /%s",
-            old_name,
-            replacement,
-        )
 
     LOG.info(
         "角色舊指令清理完成："
-        "移除 %s 條，略過 %s 條",
+        "移除 %d 條，略過 %d 條",
         len(removed),
         len(skipped),
     )
 
-    # 不在此處自行 sync。
-    # 交由 main.py 載入全部模組後統一同步。
+    LOG.info(
+        "目前頂層斜線指令總數：%d",
+        len(
+            bot.tree.get_commands(
+                type=command_type
+            )
+        ),
+    )
+
+    # 不在這裡呼叫 bot.tree.sync()。
+    # 由 main.py 載入全部模組後統一同步。
