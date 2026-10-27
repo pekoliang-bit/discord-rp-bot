@@ -23,6 +23,7 @@ from core.permissions import (
     InvalidState,
     PermissionDenied,
 )
+from core.database import get_connection
 
 from modules import shop as official_shop
 from modules import storefront
@@ -36,9 +37,38 @@ ERRORS = (
 )
 
 
+def owns_personal_shop(guild_id, user_id):
+    """只有真正擁有個人商店的玩家才有店主管理入口。"""
+
+    if guild_id is None:
+        return False
+
+    with get_connection() as conn:
+        row = conn.execute(
+            """
+            SELECT 1
+            FROM personal_shops s
+            JOIN characters c
+              ON c.guild_id = s.guild_id
+             AND c.id = s.character_id
+            WHERE s.guild_id = ?
+              AND c.owner_id = ?
+              AND s.status != 'closed'
+            LIMIT 1
+            """,
+            (
+                str(guild_id),
+                str(user_id),
+            ),
+        ).fetchone()
+
+        return row is not None
+
+
 def require_positive(value, label):
     try:
         number = int(str(value).strip())
+
     except (TypeError, ValueError):
         raise ValueError(
             f"{label}必須是正整數。"
@@ -152,6 +182,7 @@ class BaseModal(discord.ui.Modal):
             title=title,
             timeout=300,
         )
+
         self.menu = menu
 
     async def do_work(
@@ -159,10 +190,7 @@ class BaseModal(discord.ui.Modal):
         interaction,
         func,
     ):
-        if (
-            interaction.user.id
-            != self.menu.owner_id
-        ):
+        if interaction.user.id != self.menu.owner_id:
             await interaction.response.send_message(
                 "這不是你的商城操作選單。",
                 ephemeral=True,
@@ -177,20 +205,26 @@ class BaseModal(discord.ui.Modal):
             result = await asyncio.to_thread(
                 func
             )
+
         except ERRORS as exc:
             result = f"⚠️ {exc}"
+
         except Exception:
             result = (
                 "⚠️ 操作未完成，"
                 "請管理員查看機器人錯誤紀錄。"
             )
+
+            await interaction.followup.send(
+                result,
+                ephemeral=True,
+            )
             raise
-        finally:
-            if "result" in locals():
-                await interaction.followup.send(
-                    str(result)[:1900],
-                    ephemeral=True,
-                )
+
+        await interaction.followup.send(
+            str(result)[:1900],
+            ephemeral=True,
+        )
 
 
 class ViewStoreModal(BaseModal):
@@ -338,6 +372,18 @@ class AddStoreProductModal(BaseModal):
         interaction,
     ):
         def work():
+            actor = Actor.from_interaction(
+                interaction
+            )
+
+            if not owns_personal_shop(
+                interaction.guild_id,
+                interaction.user.id,
+            ):
+                raise PermissionDenied(
+                    "只有擁有商店的店主可以新增商品。"
+                )
+
             shop_id = require_positive(
                 self.shop_id.value,
                 "商店編號",
@@ -358,9 +404,7 @@ class AddStoreProductModal(BaseModal):
             )
 
             product_id = storefront.create_product(
-                Actor.from_interaction(
-                    interaction
-                ),
+                actor,
                 shop_id,
                 str(self.name.value),
                 str(self.category.value),
@@ -430,6 +474,18 @@ class EditStoreProductModal(BaseModal):
         interaction,
     ):
         def work():
+            actor = Actor.from_interaction(
+                interaction
+            )
+
+            if not owns_personal_shop(
+                interaction.guild_id,
+                interaction.user.id,
+            ):
+                raise PermissionDenied(
+                    "只有擁有商店的店主可以修改商品。"
+                )
+
             shop_id = require_positive(
                 self.shop_id.value,
                 "商店編號",
@@ -466,10 +522,13 @@ class EditStoreProductModal(BaseModal):
 
             if raw_status == "上架":
                 active = True
+
             elif raw_status == "下架":
                 active = False
+
             elif not raw_status:
                 active = None
+
             else:
                 raise ValueError(
                     "上下架欄位只能填"
@@ -477,9 +536,7 @@ class EditStoreProductModal(BaseModal):
                 )
 
             return storefront.update_product(
-                Actor.from_interaction(
-                    interaction
-                ),
+                actor,
                 shop_id,
                 product_id,
                 price=price,
@@ -493,10 +550,8 @@ class EditStoreProductModal(BaseModal):
         )
 
 
-class UnifiedShopMenu(
-    official_shop.ShopMenu
-):
-    """直接擴充原有商城按鈕，不建立新指令。"""
+class UnifiedShopMenu(official_shop.ShopMenu):
+    """擴充原有商城按鈕，不建立新指令。"""
 
     def __init__(
         self,
@@ -504,16 +559,28 @@ class UnifiedShopMenu(
         character_id,
         black,
         category,
+        guild_id=None,
     ):
         super().__init__(
             owner_id,
             character_id,
             black,
             category,
+            guild_id,
         )
 
-        # 原本的官方商城按鈕保留。
-        # 新增的玩家商店操作集中在後兩排。
+        # 只有真正擁有商店的玩家，才顯示管理按鈕。
+        if not owns_personal_shop(
+            guild_id,
+            owner_id,
+        ):
+            self.remove_item(
+                self.add_store_product
+            )
+
+            self.remove_item(
+                self.edit_store_product
+            )
 
     @discord.ui.button(
         label="玩家商店",
@@ -534,6 +601,7 @@ class UnifiedShopMenu(
                 store_catalog,
                 interaction.guild_id,
             )
+
         except ERRORS as exc:
             result = f"⚠️ {exc}"
 
@@ -580,6 +648,16 @@ class UnifiedShopMenu(
         interaction: discord.Interaction,
         button: discord.ui.Button,
     ):
+        if not owns_personal_shop(
+            interaction.guild_id,
+            interaction.user.id,
+        ):
+            await interaction.response.send_message(
+                "只有擁有商店的店主可以管理商品。",
+                ephemeral=True,
+            )
+            return
+
         await interaction.response.send_modal(
             AddStoreProductModal(self)
         )
@@ -594,37 +672,18 @@ class UnifiedShopMenu(
         interaction: discord.Interaction,
         button: discord.ui.Button,
     ):
+        if not owns_personal_shop(
+            interaction.guild_id,
+            interaction.user.id,
+        ):
+            await interaction.response.send_message(
+                "只有擁有商店的店主可以管理商品。",
+                ephemeral=True,
+            )
+            return
+
         await interaction.response.send_modal(
             EditStoreProductModal(self)
-        )
-
-    async def bag_button(
-        self,
-        interaction: discord.Interaction,
-        button: discord.ui.Button,
-    ):
-        """統一背包的按鈕處理。
-
-        正式覆寫會在載入階段替換。
-        """
-        await interaction.response.defer(
-            ephemeral=True
-        )
-
-        try:
-            result = await asyncio.to_thread(
-                combined_inventory,
-                Actor.from_interaction(
-                    interaction
-                ),
-                self.character_id,
-            )
-        except ERRORS as exc:
-            result = f"⚠️ {exc}"
-
-        await interaction.followup.send(
-            str(result)[:1900],
-            ephemeral=True,
         )
 
 
@@ -647,9 +706,7 @@ async def setup(bot: commands.Bot):
         storefront.initialize_storefront
     )
 
-    # 原本 Shop.shop() 每次執行時，
-    # 都會透過模組內的 ShopMenu 名稱建立選單。
-    # 將其替換成包含玩家商店的新選單。
+    # 讓 /商城 使用整合後的商城按鈕。
     official_shop.ShopMenu = UnifiedShopMenu
 
     await bot.add_cog(
