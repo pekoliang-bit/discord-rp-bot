@@ -1131,3 +1131,12 @@ class OpenGeneralReview(
                 discord.AllowedMentions.none()
             ),
         )
+
+# ==========================================
+# Discord 擴充模組載入入口
+# ==========================================
+
+async def setup(bot):
+    """供 main.py 的 load_extension() 載入。"""
+    init_db()
+    LOG.info("一般申請與公司銀行授權模組已載入。")
