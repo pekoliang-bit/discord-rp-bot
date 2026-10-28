@@ -103,6 +103,10 @@ class ContentTypeSelect(discord.ui.Select):
         super().__init__(placeholder='選擇要建立的內容類型',options=[discord.SelectOption(label=name,value=key) for key,name in TYPES.items()],row=0)
     async def callback(self,i):
         if not owner(i):await i.response.send_message('僅限群主建立。',ephemeral=True);return
+        if self.values[0]=='lottery':
+            from modules.lottery_admin_ui import LotteryAdminView
+            await i.response.edit_message(content='🎟️ **抽獎獎單管理**',view=LotteryAdminView(i))
+            return
         if self.values[0]=='story':
             from modules.story_builder import StoryBuilderView
             await i.response.edit_message(content='📖 **角色劇情編輯器**',view=StoryBuilderView(i))
@@ -114,6 +118,8 @@ class ContentView(discord.ui.View):
         super().__init__(timeout=600);self.user_id=i.user.id;self.guild_id=i.guild_id;self.add_item(ContentTypeSelect())
         from modules.story_builder import StoryBuilderButton
         self.add_item(StoryBuilderButton())
+        from modules.lottery_admin_ui import LotteryAdminButton
+        self.add_item(LotteryAdminButton())
     async def interaction_check(self,i):
         if i.user.id!=self.user_id or i.guild_id!=self.guild_id or not owner(i):
             await i.response.send_message('這不是你的管理面板或權限不足。',ephemeral=True);return False
