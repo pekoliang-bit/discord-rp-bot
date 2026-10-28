@@ -12,6 +12,8 @@ import logging
 import sqlite3
 from core.database import get_or_create_account
 from core.economy import _payment
+from modules.story_episodes import (init_db as init_episode_db, get_episodes, episode_for,
+    rewards_parse, rewards_needing_character, verify_character, award_episode_in_tx)
 
 import discord
 from discord import app_commands
@@ -37,6 +39,7 @@ def init_db():
             FOREIGN KEY(story_id) REFERENCES rp_stories(id) ON DELETE CASCADE
         )""")
         db.execute("CREATE INDEX IF NOT EXISTS idx_story_progress_player ON rp_story_progress(guild_id,player_id,status)")
+    init_episode_db()
 
 
 def _decode(raw, default):
@@ -153,16 +156,32 @@ def next_segment_no(db, story_id, part, selected=None):
     return int(row[0]) if row[0] is not None else None
 
 
-def open_progress(guild_id, story_id, player_id):
+def open_progress(guild_id, story_id, player_id, character_id=None):
     story = get_story(guild_id, story_id)
     with transaction() as db:
         _check_prerequisites(db, guild_id, story_id, player_id, story)
+        episodes=get_episodes(db,int(story_id))
+        if episodes:
+            first=episode_for(episodes,1)
+            if first is None or first['episode_no']!=1:
+                raise ValueError('劇情尚未設定從第 1 段開始的第 1 回。')
+            rewards=rewards_parse(first['rewards_json'])
+            if rewards_needing_character(rewards):
+                verify_character(db,guild_id,player_id,character_id)
+        if character_id is not None:
+            verify_character(db,guild_id,player_id,character_id)
         db.execute('''INSERT OR IGNORE INTO rp_story_progress
                       (guild_id,story_id,player_id,segment_no) VALUES (?,?,?,1)''',
                    (str(guild_id), int(story_id), str(player_id)))
-        row = db.execute('''SELECT segment_no,status FROM rp_story_progress
+        row = db.execute('''SELECT segment_no,status,reward_character_id FROM rp_story_progress
                             WHERE guild_id=? AND story_id=? AND player_id=?''',
                          (str(guild_id), int(story_id), str(player_id))).fetchone()
+        if row['reward_character_id'] is not None and character_id is not None and int(row['reward_character_id'])!=int(character_id):
+            raise ValueError('本次攻略已綁定另一隻角色，無法中途更換獎勵歸屬。')
+        if row['reward_character_id'] is None and character_id is not None:
+            db.execute('''UPDATE rp_story_progress SET reward_character_id=?
+                WHERE guild_id=? AND story_id=? AND player_id=?''',
+                (int(character_id),str(guild_id),int(story_id),str(player_id)))
         return dict(row)
 
 
@@ -176,7 +195,7 @@ def advance(guild_id, story_id, player_id, expected_number, choice_index=None):
     elif choice_index is not None:
         raise ValueError('此段落沒有選項。')
     with transaction() as db:
-        row = db.execute('''SELECT segment_no,status FROM rp_story_progress
+        row = db.execute('''SELECT segment_no,status,reward_character_id FROM rp_story_progress
                             WHERE guild_id=? AND story_id=? AND player_id=?''',
                          (str(guild_id), int(story_id), str(player_id))).fetchone()
         if not row or row['status'] != 'playing':
@@ -185,6 +204,19 @@ def advance(guild_id, story_id, player_id, expected_number, choice_index=None):
             raise ValueError('劇情進度已更新，請重新使用 /劇情。')
         coins = _check_prerequisites(db, guild_id, story_id, player_id, story)
         nxt = next_segment_no(db, story_id, part, choice_index)
+        episodes = get_episodes(db,int(story_id))
+        episode = episode_for(episodes,int(expected_number)) if episodes else None
+        if episodes and episode is None:
+            raise ValueError('目前段落未屬於任何小劇情，請聯絡群主。')
+        destination = episode_for(episodes,int(nxt)) if nxt is not None and episodes else None
+        if nxt is not None and episodes and destination is None:
+            raise ValueError('下一段未屬於任何回目。')
+        if nxt is not None and episode and destination['episode_no'] < episode['episode_no']:
+            raise ValueError('劇情不能由後面的回目跳回前面的回目。')
+        if episode and (nxt is None or destination['episode_no'] != episode['episode_no']):
+            summaries=award_episode_in_tx(db,guild_id,int(story_id),episode,player_id,row['reward_character_id'])
+        else:
+            summaries=[]
         if nxt is not None:
             target = db.execute('SELECT 1 FROM rp_story_segments WHERE story_id=? AND segment_no=?',
                                 (int(story_id), int(nxt))).fetchone()
@@ -193,13 +225,13 @@ def advance(guild_id, story_id, player_id, expected_number, choice_index=None):
             db.execute('''UPDATE rp_story_progress SET segment_no=?,updated_at=CURRENT_TIMESTAMP
                           WHERE guild_id=? AND story_id=? AND player_id=?''',
                        (nxt, str(guild_id), int(story_id), str(player_id)))
-            return nxt
+            return (nxt,summaries)
         _grant_coins_in_tx(db, guild_id, story_id, player_id, coins)
         db.execute('''UPDATE rp_story_progress
                       SET status='completed',completed_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP
                       WHERE guild_id=? AND story_id=? AND player_id=?''',
                    (str(guild_id), int(story_id), str(player_id)))
-        return None
+        return (None,summaries)
 
 
 async def reply_error(interaction, error):
@@ -231,15 +263,16 @@ class PlayView(discord.ui.View):
 
     async def run_next(self, interaction, selected=None):
         try:
-            nxt = advance(self.guild_id, self.story_id, self.player_id, self.segment_no, selected)
+            nxt, earned = advance(self.guild_id, self.story_id, self.player_id, self.segment_no, selected)
+            award_text = ("\n\n🎁 **完成本回獎勵：**" + "、".join(earned)) if earned else ""
             if nxt is None:
                 await interaction.response.edit_message(
-                    content='🏁 **劇情攻略完成！**\n已保存通關紀錄；如有設定金幣獎勵，已一次性發放至玩家錢包。',
+                    content='🏁 **本章劇情攻略完成！**\n通關紀錄已保存。' + award_text,
                     view=None)
                 return
             part = get_segment(self.story_id, nxt)
             await interaction.response.edit_message(
-                content=render_segment(part),
+                content=("✅ **上一回攻略完成！**" + award_text + "\n\n" if earned is not None and award_text else "") + render_segment(part),
                 view=PlayView(self.guild_id, self.story_id, self.player_id, nxt))
         except (ValueError, sqlite3.Error) as exc:
             await reply_error(interaction, exc)
@@ -286,11 +319,12 @@ class StorySelect(discord.ui.Select):
 
 
 class StoryPickerView(discord.ui.View):
-    def __init__(self, interaction, stories):
+    def __init__(self, interaction, stories, character_id=None):
         super().__init__(timeout=300)
         self.owner_id = interaction.user.id
         self.guild_id = interaction.guild_id
         self.channel_id = interaction.channel_id
+        self.character_id = character_id
         self.add_item(StorySelect(stories))
 
     async def interaction_check(self, interaction):
@@ -304,7 +338,7 @@ class StoryPickerView(discord.ui.View):
             choices = available_stories(self.guild_id, self.channel_id)
             if story_id not in {x['id'] for x in choices}:
                 raise ValueError('此劇情不能在目前頻道開始。')
-            progress = open_progress(self.guild_id, story_id, self.owner_id)
+            progress = open_progress(self.guild_id, story_id, self.owner_id, self.character_id)
             if progress['status'] == 'completed':
                 await interaction.response.edit_message(content='✅ 你已完成這篇劇情，通關紀錄已保存。', view=None)
                 return
@@ -358,7 +392,8 @@ class StoryPlay(commands.Cog):
 
     @app_commands.command(name='劇情', description='在角色專屬論壇開始或繼續攻略劇情')
     @app_commands.guild_only()
-    async def play(self, interaction: discord.Interaction):
+    @app_commands.describe(角色編號='領取物品、專屬禮物及角色數值獎勵的本人角色編號（可選）')
+    async def play(self, interaction: discord.Interaction, 角色編號: int | None = None):
         try:
             choices = available_stories(interaction.guild_id, interaction.channel_id)
             if not choices:
@@ -368,7 +403,7 @@ class StoryPlay(commands.Cog):
                 return
             if len(choices) == 1:
                 story_id = choices[0]['id']
-                progress = open_progress(interaction.guild_id, story_id, interaction.user.id)
+                progress = open_progress(interaction.guild_id, story_id, interaction.user.id, 角色編號)
                 if progress['status'] == 'completed':
                     await interaction.response.send_message('✅ 你已完成這篇劇情，通關紀錄已保存。', ephemeral=True)
                     return
@@ -379,7 +414,7 @@ class StoryPlay(commands.Cog):
                     ephemeral=True)
                 return
             await interaction.response.send_message(
-                '📖 選擇要攻略的劇情：', view=StoryPickerView(interaction, choices), ephemeral=True)
+                '📖 選擇要攻略的劇情：', view=StoryPickerView(interaction, choices, 角色編號), ephemeral=True)
         except (ValueError, sqlite3.Error) as exc:
             await reply_error(interaction, exc)
         except Exception:
