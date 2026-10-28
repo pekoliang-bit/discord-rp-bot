@@ -10,6 +10,8 @@ from __future__ import annotations
 import json
 import logging
 import sqlite3
+from core.database import get_or_create_account
+from core.economy import _payment
 
 import discord
 from discord import app_commands
@@ -45,13 +47,49 @@ def _decode(raw, default):
     return default if result is None else result
 
 
-def _check_config(story):
+def _story_config(story):
     requirements = _decode(story['prerequisite_json'], {})
     rewards = _decode(story['rewards_json'], [])
-    if requirements not in ({}, []):
-        raise ValueError("此劇情的觸發條件尚未接入判定系統，目前條件尚未齊全。")
-    if rewards not in ([], {}):
-        raise ValueError("此劇情有未接入的獎勵，暫不開放攻略，以免完成後漏發。")
+    if not isinstance(requirements, dict) or set(requirements) - {'completed_story_ids'}:
+        raise ValueError('劇情觸發條件設定無法辨識，目前條件尚未齊全。')
+    needed = requirements.get('completed_story_ids', [])
+    if not isinstance(needed, list) or len(needed) > 20 or any(type(x) is not int or x <= 0 for x in needed):
+        raise ValueError('前置劇情設定不合法。')
+    # 獎勵只接受空清單或 {"coins": 正整數}，其他種類必須等待正式整合。
+    if rewards in ({}, []):
+        coins = 0
+    elif isinstance(rewards, dict) and set(rewards) == {'coins'} and type(rewards['coins']) is int and 1 <= rewards['coins'] <= 1000000:
+        coins = rewards['coins']
+    else:
+        raise ValueError('此劇情包含尚未支援的獎勵，目前條件尚未齊全。')
+    return needed, coins
+
+
+def _check_prerequisites(db, guild_id, story_id, player_id, story):
+    needed, coins = _story_config(story)
+    if story_id in needed:
+        raise ValueError('劇情不能以自己為前置條件。')
+    if needed:
+        placeholders = ','.join('?' for _ in needed)
+        rows = db.execute(
+            f"SELECT story_id FROM rp_story_progress WHERE guild_id=? AND player_id=? AND status='completed' AND story_id IN ({placeholders})",
+            (str(guild_id), str(player_id), *needed)
+        ).fetchall()
+        missing = set(needed) - {int(r['story_id']) for r in rows}
+        if missing:
+            raise ValueError('前置劇情尚未完成：' + '、'.join('#' + str(x) for x in sorted(missing)))
+    return coins
+
+
+def _grant_coins_in_tx(db, guild_id, story_id, player_id, amount):
+    """通關和金幣分錄同一交易提交；重複提交使用唯一鍵防重發。"""
+    if not amount:
+        return
+    source = get_or_create_account(db, guild_id, 'system', 'issuance', 'treasury')
+    # 玩家劇情獎勵歸玩家 wallet；未指定角色時不猜測角色錢包。
+    receiver = get_or_create_account(db, guild_id, 'player', str(player_id), 'wallet')
+    _payment(db, str(guild_id), f'rp_story_reward:{story_id}:{player_id}',
+             source, receiver, amount, f'劇情 #{story_id} 首次通關獎勵')
 
 
 def available_stories(guild_id, channel_id):
@@ -80,7 +118,7 @@ def get_story(guild_id, story_id):
     if row is None or row['status'] != 'ready':
         raise ValueError('劇情已取消公開或不存在。')
     result = dict(row)
-    _check_config(result)
+    _story_config(result)
     return result
 
 
@@ -116,8 +154,9 @@ def next_segment_no(db, story_id, part, selected=None):
 
 
 def open_progress(guild_id, story_id, player_id):
-    get_story(guild_id, story_id)
+    story = get_story(guild_id, story_id)
     with transaction() as db:
+        _check_prerequisites(db, guild_id, story_id, player_id, story)
         db.execute('''INSERT OR IGNORE INTO rp_story_progress
                       (guild_id,story_id,player_id,segment_no) VALUES (?,?,?,1)''',
                    (str(guild_id), int(story_id), str(player_id)))
@@ -129,7 +168,7 @@ def open_progress(guild_id, story_id, player_id):
 
 def advance(guild_id, story_id, player_id, expected_number, choice_index=None):
     """原子化驗證當前段落、選項與進度，防止重複點擊跳過劇情。"""
-    get_story(guild_id, story_id)
+    story = get_story(guild_id, story_id)
     part = get_segment(story_id, expected_number)
     if part['choices']:
         if choice_index is None or not 0 <= choice_index < len(part['choices']):
@@ -144,6 +183,7 @@ def advance(guild_id, story_id, player_id, expected_number, choice_index=None):
             raise ValueError('此劇情已結束，或尚未開始。')
         if row['segment_no'] != int(expected_number):
             raise ValueError('劇情進度已更新，請重新使用 /劇情。')
+        coins = _check_prerequisites(db, guild_id, story_id, player_id, story)
         nxt = next_segment_no(db, story_id, part, choice_index)
         if nxt is not None:
             target = db.execute('SELECT 1 FROM rp_story_segments WHERE story_id=? AND segment_no=?',
@@ -154,6 +194,7 @@ def advance(guild_id, story_id, player_id, expected_number, choice_index=None):
                           WHERE guild_id=? AND story_id=? AND player_id=?''',
                        (nxt, str(guild_id), int(story_id), str(player_id)))
             return nxt
+        _grant_coins_in_tx(db, guild_id, story_id, player_id, coins)
         db.execute('''UPDATE rp_story_progress
                       SET status='completed',completed_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP
                       WHERE guild_id=? AND story_id=? AND player_id=?''',
@@ -193,7 +234,7 @@ class PlayView(discord.ui.View):
             nxt = advance(self.guild_id, self.story_id, self.player_id, self.segment_no, selected)
             if nxt is None:
                 await interaction.response.edit_message(
-                    content='🏁 **劇情攻略完成！**\n已保存通關紀錄。此版本僅開放無獎勵劇情；獎勵系統會於後續整合。',
+                    content='🏁 **劇情攻略完成！**\n已保存通關紀錄；如有設定金幣獎勵，已一次性發放至玩家錢包。',
                     view=None)
                 return
             part = get_segment(self.story_id, nxt)
@@ -283,6 +324,37 @@ class StoryPlay(commands.Cog):
         from modules.story_builder import init_db as init_story_db
         init_story_db()
         init_db()
+
+    @app_commands.command(name='劇情條件設定', description='群主設定前置劇情與一次性金幣獎勵')
+    @app_commands.guild_only()
+    @app_commands.describe(劇情編號='目標劇情編號', 前置劇情='前置劇情 ID，以半形逗號分隔，留空則不限制', 金幣獎勵='0 表示不發放金幣')
+    async def configure(self, interaction: discord.Interaction, 劇情編號: int, 前置劇情: str = '', 金幣獎勵: int = 0):
+        if not interaction.guild or interaction.guild.owner_id != interaction.user.id:
+            return await reply_error(interaction, '僅伺服器群主可以設定劇情條件。')
+        try:
+            if 金幣獎勵 < 0 or 金幣獎勵 > 1000000:
+                raise ValueError('金幣獎勵需介於 0～1,000,000。')
+            needed = [int(x.strip()) for x in 前置劇情.split(',') if x.strip()]
+            if len(needed) > 20 or len(set(needed)) != len(needed) or any(x <= 0 for x in needed) or 劇情編號 in needed:
+                raise ValueError('前置劇情清單不合法。')
+            with transaction() as db:
+                target = db.execute('SELECT status,kind,character_id FROM rp_stories WHERE guild_id=? AND id=?', (str(interaction.guild_id), 劇情編號)).fetchone()
+                if not target:
+                    raise ValueError('找不到這篇劇情。')
+                if target['kind'] != 'side':
+                    raise ValueError('主線觸發規則尚未決定；目前僅能設定個人支線劇情。')
+                if target['status'] != 'draft':
+                    raise ValueError('請先將劇情改回草稿，再修改條件與獎勵。')
+                if needed:
+                    marks = ','.join('?' for _ in needed)
+                    count = db.execute(f'SELECT COUNT(*) FROM rp_stories WHERE guild_id=? AND id IN ({marks})', (str(interaction.guild_id), *needed)).fetchone()[0]
+                    if count != len(needed):
+                        raise ValueError('部分前置劇情不存在於本伺服器。')
+                db.execute('UPDATE rp_stories SET prerequisite_json=?, rewards_json=?, updated_at=CURRENT_TIMESTAMP WHERE guild_id=? AND id=?',
+                           (json.dumps({'completed_story_ids': needed}), json.dumps({'coins': 金幣獎勵} if 金幣獎勵 else []), str(interaction.guild_id), 劇情編號))
+            await interaction.response.send_message(f'✅ 劇情 #{劇情編號} 的條件與獎勵已設定。\n前置劇情：{needed or "無"}\n首次通關金幣：{金幣獎勵}', ephemeral=True)
+        except (ValueError, sqlite3.Error) as exc:
+            await reply_error(interaction, exc)
 
     @app_commands.command(name='劇情', description='在角色專屬論壇開始或繼續攻略劇情')
     @app_commands.guild_only()
