@@ -637,6 +637,313 @@ def require_store_purchase_location(conn, guild_id, item):
             + (f"\n商店連結：{url}" if url else "")
         )
 
+# ==========================================
+# 🎖️ 稱號商城折扣整合
+# ==========================================
+
+def achievement_checkout_price(
+    conn,
+    guild_id,
+    character_id,
+    item,
+    quantity,
+):
+    """在既有商城交易內計算稱號優惠。
+
+    不開啟第二筆資料庫交易。
+    不改變庫存及付款流程。
+    未建立稱號資料表時維持原價。
+    """
+
+    import json
+    from datetime import datetime, timezone
+    from decimal import Decimal, ROUND_FLOOR
+
+    original = int(item["price"]) * int(quantity)
+
+    if original <= 0:
+        return original, None, 0
+
+    required = (
+        "rp_character_achievements",
+        "rp_achievement_definitions",
+        "rp_title_equipment",
+        "rp_title_wear_history",
+    )
+
+    tables = {
+        row["name"]
+        for row in conn.execute(
+            """
+            SELECT name
+            FROM sqlite_master
+            WHERE type='table'
+            """
+        ).fetchall()
+    }
+
+    if not set(required).issubset(tables):
+        return original, None, 0
+
+    now = datetime.now(timezone.utc)
+
+    def parse_time(value):
+        if not value:
+            return None
+
+        result = datetime.fromisoformat(str(value))
+
+        if result.tzinfo is None:
+            result = result.replace(tzinfo=timezone.utc)
+
+        return result.astimezone(timezone.utc)
+
+    def applicable(discount, store_code):
+        scope = discount.get("scope", "all")
+
+        target = discount.get(
+            "target",
+            discount.get("target_id"),
+        )
+
+        if scope == "all":
+            return True
+
+        if not target:
+            return False
+
+        target = str(target)
+
+        if scope == "category":
+            return str(item["category"]) == target
+
+        if scope == "brand":
+            # 此專案版 shop_products 沒有保證
+            # 存在品牌 ID 欄位，不應猜測品牌。
+            return (
+                "brand_id" in item.keys()
+                and item["brand_id"] is not None
+                and str(item["brand_id"]) == target
+            )
+
+        if scope == "shop":
+            return (
+                store_code is not None
+                and store_code == target
+            )
+
+        if scope == "faction":
+            # 官方商城不能假冒陣營商城。
+            return False
+
+        if scope == "event":
+            return (
+                "event_id" in item.keys()
+                and item["event_id"] is not None
+                and str(item["event_id"]) == target
+            )
+
+        return False
+
+    def get_rate(discount):
+        try:
+            if "percent_off" in discount:
+                percent = Decimal(
+                    str(discount["percent_off"])
+                )
+                rate = (
+                    Decimal("100") - percent
+                ) / Decimal("100")
+
+            elif "discount_percent" in discount:
+                percent = Decimal(
+                    str(discount["discount_percent"])
+                )
+                rate = (
+                    Decimal("100") - percent
+                ) / Decimal("100")
+
+            else:
+                rate = Decimal(
+                    str(discount.get("rate", 1))
+                )
+
+            if (
+                not rate.is_finite()
+                or rate <= 0
+                or rate > 1
+            ):
+                return None
+
+            return rate
+
+        except Exception:
+            return None
+
+    def active(discount, row):
+        activation = discount.get(
+            "activation",
+            "equipped",
+        )
+
+        if activation == "owned":
+            started = parse_time(row["obtained_at"])
+
+        elif activation == "equipped":
+            if not bool(row["equipped"]):
+                return False
+
+            started = parse_time(
+                row["first_activated_at"]
+            )
+
+            if started is None:
+                return False
+
+            # 必須在結帳當下有正式穿戴紀錄。
+            history = conn.execute(
+                """
+                SELECT 1
+                FROM rp_title_wear_history
+                WHERE guild_id=?
+                  AND character_id=?
+                  AND achievement_id=?
+                  AND worn_from <= ?
+                  AND (
+                      worn_until IS NULL
+                      OR worn_until > ?
+                  )
+                LIMIT 1
+                """,
+                (
+                    str(guild_id),
+                    int(character_id),
+                    int(row["achievement_id"]),
+                    now.isoformat(timespec="seconds"),
+                    now.isoformat(timespec="seconds"),
+                ),
+            ).fetchone()
+
+            if history is None:
+                return False
+
+        else:
+            return False
+
+        if started is None or now < started:
+            return False
+
+        duration = discount.get(
+            "duration_hours",
+            168,
+        )
+
+        if duration is None or duration == "permanent":
+            return True
+
+        try:
+            from datetime import timedelta
+
+            hours = int(duration)
+
+            if hours <= 0:
+                return False
+
+            return now < (
+                started + timedelta(hours=hours)
+            )
+
+        except (TypeError, ValueError, OverflowError):
+            return False
+
+    rows = conn.execute(
+        """
+        SELECT
+            d.id AS achievement_id,
+            d.code,
+            d.name,
+            d.effect_json,
+            a.obtained_at,
+            COALESCE(e.equipped, 0) AS equipped,
+            e.first_activated_at
+        FROM rp_character_achievements a
+        JOIN rp_achievement_definitions d
+          ON d.id=a.achievement_id
+         AND d.guild_id=a.guild_id
+        LEFT JOIN rp_title_equipment e
+          ON e.guild_id=a.guild_id
+         AND e.character_id=a.character_id
+         AND e.achievement_id=a.achievement_id
+        WHERE a.guild_id=?
+          AND a.character_id=?
+          AND d.enabled=1
+        """,
+        (
+            str(guild_id),
+            int(character_id),
+        ),
+    ).fetchall()
+
+    best_rate = Decimal("1")
+    best_title = None
+    store_code = get_product_store_code(item)
+
+    for row in rows:
+        try:
+            effect = json.loads(row["effect_json"])
+        except (TypeError, ValueError):
+            continue
+
+        if not isinstance(effect, dict):
+            continue
+
+        discounts = []
+
+        # 舊稱號格式：揮金如土九折。
+        if effect.get("type") == "shop_discount":
+            discounts.append(effect)
+
+        # 新稱號格式：可同時有每日加成與折扣。
+        extras = effect.get("discounts", [])
+
+        if isinstance(extras, list):
+            discounts.extend(
+                entry
+                for entry in extras
+                if isinstance(entry, dict)
+                and entry.get("type") == "shop_discount"
+            )
+
+        for discount in discounts:
+            if not applicable(discount, store_code):
+                continue
+
+            if not active(discount, row):
+                continue
+
+            rate = get_rate(discount)
+
+            if rate is None:
+                continue
+
+            if rate < best_rate:
+                best_rate = rate
+                best_title = str(row["name"])
+
+    final_price = int(
+        (
+            Decimal(original) * best_rate
+        ).to_integral_value(rounding=ROUND_FLOOR)
+    )
+
+    discount_amount = original - final_price
+
+    return (
+        final_price,
+        best_title,
+        discount_amount,
+    )
+
 
 def buy(
     actor,
@@ -702,7 +1009,18 @@ def buy(
                 "商品庫存不足。"
             )
 
-        total = item["price"] * quantity
+
+        # 🎖️ 先依稱號計算真正應付金額。
+        total, discount_title, saved_money = (
+            achievement_checkout_price(
+                conn,
+                actor.guild_id,
+                character_id,
+                item,
+                quantity,
+            )
+        )
+
 
         wallet = get_or_create_account(
             conn,
@@ -768,11 +1086,19 @@ def buy(
             quantity,
         )
 
+        if saved_money > 0:
+            return (
+                f"🛍️ 購買成功："
+                f"{item['name']} ×{quantity}\n"
+                f"🎖️ 使用稱號：{discount_title}\n"
+                f"💰 實際支付：{total:,} 金幣\n"
+                f"✨ 本次優惠：{saved_money:,} 金幣"
+            )
+
         return (
             f"購買成功：{item['name']} ×{quantity}，"
             f"支付 {total:,} 金幣。"
         )
-
 
 def gift(
     actor,
