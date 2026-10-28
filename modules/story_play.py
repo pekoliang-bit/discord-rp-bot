@@ -1,4 +1,3 @@
-
 """Discord RP｜玩家互動劇情（/劇情）。
 
 依賴：
@@ -401,7 +400,10 @@ def validate_episode_layout(db, story_id):
     )
 
     if not episodes:
-        return []
+        raise ValueError(
+            "目前條件尚未齊全：這篇個人攻略劇情尚未建立任何回目。"
+            "請官方先設定第一回及起始段落，再開放玩家攻略。"
+        )
 
     if (
         episodes[0]["start_segment"] != 1
