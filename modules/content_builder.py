@@ -1,4 +1,3 @@
-
 """Discord RP｜官方內容建立中心 V2。
 
 由 /官方 進入。
@@ -71,6 +70,7 @@ SPECIALIZED_TYPES = frozenset({
     "lottery",
     "npc",
     "achievement",
+    "event",
     "tags",
     "prize",
 })
@@ -866,6 +866,17 @@ async def open_specialized_manager(
         await i.response.edit_message(
             content=content,
             view=AwardsAdminView(i, page),
+        )
+        return True
+
+    if selected == "event":
+        from modules.event_project_manager import EventAdminView, is_event_admin
+        if not is_event_admin(i):
+            await tell(i, "僅群主或正式活動管理員可使用活動管理中心。")
+            return True
+        await i.response.edit_message(
+            content="🎪 **活動企劃管理**\n玩家透過 `/活動企劃` 提交，正式管理員使用 `/活動企劃審核`；臨時主辦只能管理自己通過的活動。",
+            view=EventAdminView(i),
         )
         return True
 
