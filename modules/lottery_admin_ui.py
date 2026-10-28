@@ -1,3 +1,4 @@
+
 """官方抽獎獎單按鈕管理 UI。沿用 modules.lottery_threads 資料表。"""
 from __future__ import annotations
 
@@ -5,7 +6,7 @@ import sqlite3
 import discord
 from discord.ext import commands
 from core.database import get_connection, transaction
-from modules.lottery_threads import init_lottery_db
+from modules.lottery_threads import init_lottery_db, create_list_with_prizes
 
 
 def allowed(i: discord.Interaction) -> bool:
@@ -27,30 +28,36 @@ def get_list(gid: int, name: str):
 def list_text(gid: int):
     with get_connection() as db:
         rows = db.execute('''SELECT l.id,l.name,l.enabled,COUNT(p.id) AS prize_types,
-          COALESCE(SUM(p.remaining),0) AS remaining
+          COALESCE(SUM(p.remaining),0) AS remaining,
+          COALESCE(SUM(p.unlimited),0) AS unlimited_count
           FROM rp_lottery_lists l LEFT JOIN rp_lottery_prizes p ON p.lottery_id=l.id
           WHERE l.guild_id=? GROUP BY l.id ORDER BY l.id DESC LIMIT 25''', (str(gid),)).fetchall()
     if not rows:
         return '目前尚無抽獎獎單。'
-    return '\n'.join(f"#{r['id']}｜{r['name']}｜{'啟用' if r['enabled'] else '停用'}｜獎品種類 {r['prize_types']}｜剩餘 {r['remaining']} 份" for r in rows)
+    return '\n'.join(f"#{r['id']}｜{r['name']}｜{'啟用' if r['enabled'] else '停用'}｜獎品種類 {r['prize_types']}｜剩餘 {r['remaining']} 份＋不限量 {r['unlimited_count']} 種" for r in rows)
 
 
-class CreateLottery(discord.ui.Modal, title='🎟️ 建立抽獎獎單'):
-    name = discord.ui.TextInput(label='獎單名稱（需與討論串／帖子名稱相同）', max_length=100)
+class CreateLottery(discord.ui.Modal, title='🎟️ 建立獎單與獎品'):
+    name = discord.ui.TextInput(label='獎單名稱（對應討論串名稱）', max_length=100)
+    prizes = discord.ui.TextInput(
+        label='獎品清單：每行一種，數字為限量',
+        style=discord.TextStyle.paragraph,
+        max_length=4000,
+        placeholder='香水 10\n限定懷錶\n金幣500 5',
+    )
 
     async def on_submit(self, i):
         if not allowed(i):
             return await reply(i, '⛔ 只有群主能建立獎單。')
-        name = str(self.name.value).strip()
-        if not name:
-            return await reply(i, '⚠️ 獎單名稱不可留空。')
         try:
-            init_lottery_db()
-            with transaction() as db:
-                db.execute('INSERT INTO rp_lottery_lists(guild_id,name,created_by) VALUES(?,?,?)', (str(i.guild_id), name, str(i.user.id)))
+            count = create_list_with_prizes(
+                i.guild_id, i.user.id, str(self.name.value), str(self.prizes.value)
+            )
         except sqlite3.IntegrityError:
-            return await reply(i, '⚠️ 已有同名獎單，請改用獎品設定。')
-        await reply(i, f'✅ 已建立「{discord.utils.escape_mentions(name)}」。請繼續新增獎品。')
+            return await reply(i, '⚠️ 已有同名獎單。')
+        except (ValueError, sqlite3.Error) as exc:
+            return await reply(i, f'⚠️ {exc}')
+        await reply(i, f'✅ 已建立「{discord.utils.escape_mentions(str(self.name.value).strip())}」，包含 {count} 種獎品。')
 
 
 class AddLotteryPrize(discord.ui.Modal, title='🎁 新增獎單獎品'):
@@ -97,9 +104,9 @@ class LotteryDetail(discord.ui.Modal, title='🔎 查看獎單獎品'):
         if row is None:
             return await reply(i, '此獎單尚未建立')
         with get_connection() as db:
-            prizes = db.execute('SELECT name,prize_type,amount,remaining FROM rp_lottery_prizes WHERE lottery_id=? ORDER BY id', (row['id'],)).fetchall()
+            prizes = db.execute('SELECT name,prize_type,amount,remaining,unlimited FROM rp_lottery_prizes WHERE lottery_id=? ORDER BY id', (row['id'],)).fetchall()
         lines = [f"🎟️ {discord.utils.escape_mentions(row['name'])}｜{'啟用' if row['enabled'] else '停用'}"]
-        lines.extend(f"• {discord.utils.escape_mentions(p['name'])}｜{'金幣 '+str(p['amount']) if p['prize_type']=='money' else '禮物待兌換'}｜剩餘 {p['remaining']}" for p in prizes)
+        lines.extend(f"• {discord.utils.escape_mentions(p['name'])}｜{'金幣 '+str(p['amount']) if p['prize_type']=='money' else '禮物待兌換'}｜剩餘 {'不限量' if p['unlimited'] else p['remaining']}" for p in prizes)
         await reply(i, '\n'.join(lines) if prizes else '此獎單尚未設定獎品。')
 
 
@@ -117,8 +124,6 @@ class ToggleLottery(discord.ui.Modal, title='⚙️ 開啟／關閉獎單'):
         with transaction() as db:
             cur = db.execute('UPDATE rp_lottery_lists SET enabled=? WHERE guild_id=? AND name=?', (1 if state == '啟用' else 0, str(i.guild_id), name))
         await reply(i, f'✅ 「{discord.utils.escape_mentions(name)}」已{state}。' if cur.rowcount else '此獎單尚未建立')
-
-
 
 
 # ===== 商城商品綁定與中獎查帳 =====
@@ -255,13 +260,9 @@ class LotteryAdminView(discord.ui.View):
             return False
         return True
 
-    @discord.ui.button(label='🎟️ 建立獎單', style=discord.ButtonStyle.primary, row=0)
+    @discord.ui.button(label='🎟️ 建立獎單＋獎品', style=discord.ButtonStyle.primary, row=0)
     async def create(self, i, b):
         await i.response.send_modal(CreateLottery())
-
-    @discord.ui.button(label='🎁 新增獎品', style=discord.ButtonStyle.success, row=0)
-    async def prize(self, i, b):
-        await i.response.send_modal(AddLotteryPrize())
 
     @discord.ui.button(label='📋 獎單清單', style=discord.ButtonStyle.secondary, row=1)
     async def listing(self, i, b):
