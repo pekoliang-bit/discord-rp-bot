@@ -48,6 +48,23 @@ LOG = logging.getLogger(__name__)
 TIMEOUT = 900
 PAGE_SIZE = 25
 
+# 特殊管制數值：不可由玩家自行配點
+RESTRICTED_INITIAL_STATS = frozenset({
+    "影響指數",
+})
+
+
+def ensure_no_restricted_points(points):
+    """防止舊草稿或其他流程寫入禁止配點的數值。"""
+    for name in RESTRICTED_INITIAL_STATS:
+        value = points.get(name, 0)
+
+        if type(value) is not int or value != 0:
+            raise InvalidState(
+                f"「{name}」只能透過系統或指定獎勵取得，"
+                "創角時不可自行配點。"
+            )
+
 MAIN_SKILLS = (
     "演繹",
     "舞蹈",
