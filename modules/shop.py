@@ -1,4 +1,3 @@
-
 """Discord RP 官方商城主程式。
 
 功能：
@@ -1892,7 +1891,7 @@ class Shop(commands.Cog):
     async def shop(
         self,
         interaction: discord.Interaction,
-        角色編號: int,
+        角色編號: str,
         黑卡商城: bool = False,
         商品分類: str = "",
     ):
@@ -1913,12 +1912,14 @@ class Shop(commands.Cog):
             actor = Actor.from_interaction(
                 interaction
             )
+            from modules.economy import resolve_actor_character
+            character_id = resolve_actor_character(actor, 角色編號)
 
             with get_connection() as conn:
                 require_character(
                     conn,
                     actor,
-                    角色編號,
+                    character_id,
                 )
 
             code = (
@@ -1935,7 +1936,7 @@ class Shop(commands.Cog):
             if code and code in valid_stores:
                 content, view = make_store_screen(
                     actor,
-                    角色編號,
+                    character_id,
                     code,
                     0,
                 )
@@ -1945,18 +1946,18 @@ class Shop(commands.Cog):
                     black_allowed = has_black_access(
                         conn,
                         interaction.guild_id,
-                        角色編號,
+                        character_id,
                     )
 
                 content = home_text(
-                    角色編號,
+                    character_id,
                     interaction.guild_id,
                     black_allowed,
                 )
 
                 view = ShopHome(
                     interaction.user.id,
-                    角色編號,
+                    character_id,
                     False,
                     "",
                     interaction.guild_id,
