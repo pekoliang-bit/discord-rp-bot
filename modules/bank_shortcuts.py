@@ -1,4 +1,3 @@
-
 """Discord RP 銀行快捷指令。
 
 正式指令：
@@ -156,13 +155,18 @@ def resolve_character(actor, selected_id=None):
                     "選定要操作的角色。"
                 )
 
-        for character in characters:
-            if int(character["id"]) == int(selected_id):
-                return character
+        query = str(selected_id).strip()
+        if query.isdecimal():
+            matches = [c for c in characters if int(c["id"]) == int(query)]
+        else:
+            matches = [c for c in characters if str(c["name"]).strip() == query]
+        if len(matches) == 1:
+            return matches[0]
+        if len(matches) > 1:
+            raise InvalidState("角色名稱重複，請使用角色編號指定。")
 
     raise PermissionDenied(
-        "目前角色已失效，或不是你的正式原創角色。"
-        "請重新使用 /角色切換。"
+        "找不到這個本人持有且已啟用的原創角色，請確認角色名稱或編號。"
     )
 
 
@@ -203,6 +207,7 @@ class BankShortcuts(commands.Cog):
     @app_commands.guild_only()
     @app_commands.describe(
         金額="欲存入的金幣數量",
+        角色="付款角色編號或完整名稱（多角色玩家建議填寫）",
     )
     async def deposit(
         self,
@@ -210,6 +215,7 @@ class BankShortcuts(commands.Cog):
         金額: app_commands.Range[
             int, 1, 1000000000000000
         ],
+        角色: str | None = None,
     ):
         try:
             actor = Actor.from_interaction(
@@ -219,6 +225,7 @@ class BankShortcuts(commands.Cog):
             character = await asyncio.to_thread(
                 resolve_character,
                 actor,
+                角色,
             )
 
             await interaction.response.defer(
@@ -263,6 +270,7 @@ class BankShortcuts(commands.Cog):
     @app_commands.describe(
         收款角色編號="收款方的角色編號",
         金額="欲轉出的金幣數量",
+        付款角色="付款角色編號或完整名稱（多角色玩家建議填寫）",
     )
     async def transfer_money(
         self,
@@ -271,6 +279,7 @@ class BankShortcuts(commands.Cog):
         金額: app_commands.Range[
             int, 1, 1000000000000000
         ],
+        付款角色: str | None = None,
     ):
         try:
             actor = Actor.from_interaction(
@@ -280,6 +289,7 @@ class BankShortcuts(commands.Cog):
             sender = await asyncio.to_thread(
                 resolve_character,
                 actor,
+                付款角色,
             )
 
             receiver = await asyncio.to_thread(
