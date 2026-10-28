@@ -1,3 +1,4 @@
+
 """討論串／論壇帖子名稱對應獎單的抽獎模組。"""
 from __future__ import annotations
 
@@ -5,6 +6,7 @@ import random
 import sqlite3
 import logging
 import re
+import json
 
 import discord
 from discord import app_commands
@@ -46,6 +48,9 @@ def init_lottery_db():
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
             UNIQUE(guild_id,lottery_id,user_id)
         )""")
+        list_cols = {r["name"] for r in db.execute("PRAGMA table_info(rp_lottery_lists)")}
+        if "allowed_roles_json" not in list_cols:
+            db.execute("ALTER TABLE rp_lottery_lists ADD COLUMN allowed_roles_json TEXT NOT NULL DEFAULT '[]'")
         cols = {r["name"] for r in db.execute("PRAGMA table_info(rp_lottery_prizes)")}
         if "unlimited" not in cols:
             db.execute("ALTER TABLE rp_lottery_prizes ADD COLUMN unlimited INTEGER NOT NULL DEFAULT 0")
@@ -85,16 +90,17 @@ def parse_prize_lines(raw: str):
     return result
 
 
-def create_list_with_prizes(gid, uid, name, raw):
+def create_list_with_prizes(gid, uid, name, raw, role_ids=None):
     init_lottery_db()
     name = name.strip()
     if not 1 <= len(name) <= 100:
         raise ValueError("獎單名稱須為 1～100 字。")
     prizes = parse_prize_lines(raw)
+    role_ids = sorted({int(x) for x in (role_ids or [])})
     with transaction() as db:
         cur = db.execute(
-            "INSERT INTO rp_lottery_lists(guild_id,name,created_by) VALUES(?,?,?)",
-            (str(gid), name, str(uid)),
+            "INSERT INTO rp_lottery_lists(guild_id,name,created_by,allowed_roles_json) VALUES(?,?,?,?)",
+            (str(gid), name, str(uid), json.dumps(role_ids)),
         )
         for title, kind, amount, count, unlimited in prizes:
             db.execute(
@@ -125,6 +131,27 @@ def find_list(gid, name):
         ).fetchone()
 
 
+def permitted_role_ids(lottery):
+    try:
+        values = json.loads(lottery["allowed_roles_json"] or "[]")
+        if not isinstance(values, list):
+            raise ValueError
+        return {int(x) for x in values}
+    except (KeyError, ValueError, TypeError):
+        raise ValueError("獎單身分組設定異常，請通知群主。")
+
+
+def set_lottery_roles(gid, lottery_name, role_ids):
+    roles = sorted({int(x) for x in role_ids})
+    with transaction() as db:
+        changed = db.execute(
+            "UPDATE rp_lottery_lists SET allowed_roles_json=? WHERE guild_id=? AND name=?",
+            (json.dumps(roles), str(gid), lottery_name.strip()),
+        )
+        if changed.rowcount != 1:
+            raise ValueError("此獎單尚未建立")
+
+
 def make_draw(gid, uid, thread_id, list_id):
     """原子化選取獎品／扣庫存／記錄。相同使用者不能重抽。"""
     with transaction() as db:
@@ -134,6 +161,13 @@ def make_draw(gid, uid, thread_id, list_id):
         ).fetchone()
         if existing:
             return dict(existing), False
+
+        active = db.execute(
+            "SELECT 1 FROM rp_lottery_lists WHERE id=? AND guild_id=? AND enabled=1",
+            (int(list_id), str(gid)),
+        ).fetchone()
+        if active is None:
+            raise ValueError('此獎單尚未建立')
 
         prizes = db.execute(
             """SELECT id,remaining,unlimited FROM rp_lottery_prizes
@@ -324,6 +358,21 @@ class LotteryCog(commands.Cog):
         if lottery is None:
             return await tell(i, '此獎單尚未建立')
 
+        try:
+            allowed_roles = permitted_role_ids(lottery)
+            member = i.user
+            if allowed_roles:
+                # 權限由 Discord 即時身分組決定；擁有任一指定組即可抽。
+                if not isinstance(member, discord.Member):
+                    member = await i.guild.fetch_member(i.user.id)
+                member_roles = {role.id for role in member.roles}
+                if not (allowed_roles & member_roles):
+                    return await tell(i, '⛔ 你沒有這張獎單允許的抽獎身分組。')
+        except discord.HTTPException:
+            return await tell(i, '⚠️ 無法確認你的身分組，請稍後再試。')
+        except ValueError as exc:
+            return await tell(i, f'⚠️ {exc}')
+
         await i.response.defer(ephemeral=True, thinking=True)
 
         try:
@@ -335,10 +384,13 @@ class LotteryCog(commands.Cog):
             )
             item = draw_detail(draw['id'])
 
+            if item is None:
+                raise ValueError('找不到中獎紀錄，請聯絡官方。')
+
             if item['state'] == 'done':
                 return await tell(
                     i,
-                    f'🎟️ 你已抽過此獎單，獎品是：{item["prize_name"]}。',
+                    f'🎟️ 你已抽過此獎單，獎品是：{discord.utils.escape_mentions(item["prize_name"])}。',
                 )
 
             if item['prize_type'] == 'money':
@@ -371,7 +423,7 @@ class LotteryCog(commands.Cog):
                 i,
                 (
                     f'🎉 抽中「{item["prize_name"]}」！'
-                    '已保存中獎紀錄，待官方兌換。'
+                    '已保存中獎紀錄；請使用 `/抽獎紀錄` 查詢領取狀態。'
                 ),
             )
 
