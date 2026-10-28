@@ -72,6 +72,7 @@ SPECIALIZED_TYPES = frozenset({
     "npc",
     "achievement",
     "tags",
+    "prize",
 })
 
 
@@ -848,6 +849,25 @@ async def open_specialized_manager(
 
     回傳 True 表示已處理。
     """
+
+    # ======================================
+    # 獎項／榮譽專屬管理（沿用既有 zz_awards）
+    # ======================================
+
+    if selected == "prize":
+        from modules.zz_awards import (
+            init_tables as init_award_tables,
+            listing as award_listing,
+            AwardsAdminView,
+        )
+
+        init_award_tables()
+        content, page, _ = award_listing(i.guild_id)
+        await i.response.edit_message(
+            content=content,
+            view=AwardsAdminView(i, page),
+        )
+        return True
 
     if selected == "tags":
         from modules.tag_admin_ui import (
