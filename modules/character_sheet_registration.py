@@ -183,7 +183,7 @@ class CharacterSheetRegistration(commands.Cog):
         except (ValueError, PermissionError, sqlite3.Error, discord.HTTPException) as exc:
             await interaction.followup.send(f"⚠️ {exc}", ephemeral=True)
 
-    @app_commands.command(name="玩家NPC修改", description="修改本人玩家 NPC 的角色單連結")
+    @app_commands.command(name="玩家npc修改", description="修改本人玩家 NPC 的角色單連結")
     @app_commands.guild_only()
     async def modify(self, interaction: discord.Interaction):
         await interaction.response.send_modal(ModifyNPCModal())
