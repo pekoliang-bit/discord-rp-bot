@@ -1,11 +1,19 @@
 
-"""角色單訊息登記：斜線指令與 Discord 訊息「應用程式」選單。
+"""Discord RP｜角色單訊息連結登記與標籤庫整合。
 
-角色 owner_id 永遠依原始角色單訊息作者
-（群主可指定代發的實際玩家），
-registered_by 則記錄實際執行登記者。
+支援：
+- /角色單登記
+- Discord 訊息應用程式選單：登記角色單
+- /玩家npc修改
+- 官方標籤庫初始標籤選擇
 
-既有原創角色只允許綁定已核准資料。
+角色歸屬依原始訊息作者或群主指定的實際擁有者，
+registered_by 僅記錄執行登記的使用者。
+
+依賴：
+- core.database
+- modules.tag_library
+- modules.tag_selection_ui
 """
 
 from __future__ import annotations
@@ -28,6 +36,11 @@ LINK_RE = re.compile(
     r"/channels/(\d+)/(\d+)/(\d+)/?"
 )
 
+TAG_FIELD_RE = re.compile(
+    r"(?:^|\n)\s*(?:標籤|角色標籤)"
+    r"\s*[：:]\s*([^\n]+)"
+)
+
 VALID_TYPES = {
     "player": "原創角色",
     "player_npc": "玩家 NPC",
@@ -36,13 +49,15 @@ VALID_TYPES = {
 
 
 # ==========================================
-# 資料庫
+# 資料庫初始化
 # ==========================================
 
 def initialize():
     with transaction() as db:
+
         db.execute("""
-            CREATE TABLE IF NOT EXISTS character_sheet_links (
+            CREATE TABLE IF NOT EXISTS
+            character_sheet_links (
                 guild_id TEXT NOT NULL,
                 character_id INTEGER NOT NULL,
                 message_id TEXT NOT NULL,
@@ -52,26 +67,45 @@ def initialize():
                 updated_at TEXT NOT NULL
                     DEFAULT CURRENT_TIMESTAMP,
 
-                PRIMARY KEY (guild_id, character_id),
-                UNIQUE (guild_id, message_id),
+                PRIMARY KEY (
+                    guild_id,
+                    character_id
+                ),
 
-                FOREIGN KEY (guild_id, character_id)
-                    REFERENCES characters(guild_id, id)
+                UNIQUE (
+                    guild_id,
+                    message_id
+                ),
+
+                FOREIGN KEY (
+                    guild_id,
+                    character_id
+                )
+                REFERENCES characters(
+                    guild_id,
+                    id
+                )
             )
         """)
 
         db.execute("""
             CREATE INDEX IF NOT EXISTS
             idx_character_sheet_links_channel
-            ON character_sheet_links(guild_id, channel_id)
+            ON character_sheet_links(
+                guild_id,
+                channel_id
+            )
         """)
 
 
 # ==========================================
-# Discord 訊息連結讀取
+# Discord 訊息連結
 # ==========================================
 
-def parse_link(guild_id: int, raw: str):
+def parse_link(
+    guild_id: int,
+    raw: str,
+):
     url = urlsplit(raw.strip())
 
     if (
@@ -90,7 +124,9 @@ def parse_link(guild_id: int, raw: str):
             "請提供有效的 Discord 訊息連結。"
         )
 
-    match = LINK_RE.fullmatch(url.path)
+    match = LINK_RE.fullmatch(
+        url.path
+    )
 
     if (
         not match
@@ -112,7 +148,7 @@ async def fetch_sheet(
 ):
     if interaction.guild is None:
         raise ValueError(
-            "只能在伺服器內登記。"
+            "只能在伺服器內登記角色單。"
         )
 
     channel_id, message_id = parse_link(
@@ -121,28 +157,36 @@ async def fetch_sheet(
     )
 
     try:
-        channel = interaction.guild.get_channel_or_thread(
-            channel_id
+        channel = (
+            interaction.guild.get_channel_or_thread(
+                channel_id
+            )
         )
 
         if channel is None:
-            channel = await interaction.guild.fetch_channel(
-                channel_id
+            channel = (
+                await interaction.guild.fetch_channel(
+                    channel_id
+                )
             )
 
         if (
             not isinstance(
                 channel,
-                (discord.TextChannel, discord.Thread),
+                (
+                    discord.TextChannel,
+                    discord.Thread,
+                ),
             )
-            or channel.guild.id != interaction.guild_id
+            or channel.guild.id
+            != interaction.guild_id
         ):
             raise ValueError(
-                "角色單必須是本伺服器的文字訊息"
-                "或論壇帖子訊息。"
+                "角色單必須來自本伺服器的"
+                "文字頻道或討論串。"
             )
 
-        msg = await channel.fetch_message(
+        message = await channel.fetch_message(
             message_id
         )
 
@@ -151,37 +195,184 @@ async def fetch_sheet(
         discord.NotFound,
     ) as exc:
         raise ValueError(
-            "讀不到原始角色單訊息，"
-            "請確認連結、權限與訊息是否存在。"
+            "無法讀取原始角色單訊息。"
+            "請檢查訊息連結與機器人權限。"
         ) from exc
 
-    return channel, msg
+    return channel, message
 
 
 async def validate_sheet(
     interaction: discord.Interaction,
     url: str,
 ):
-    """相容舊介面：確認原始訊息作者。"""
+    """保留舊模組呼叫時的相容性。"""
 
-    channel, msg = await fetch_sheet(
+    channel, message = await fetch_sheet(
         interaction,
         url,
     )
 
-    if msg.author.id not in (
-        interaction.user.id,
-        interaction.guild.owner_id,
+    if (
+        message.author.id
+        not in (
+            interaction.user.id,
+            interaction.guild.owner_id,
+        )
+        and interaction.user.id
+        != interaction.guild.owner_id
     ):
         raise PermissionError(
-            "只能登記自己或群主張貼的角色單。"
+            "只能登記自己的角色單，"
+            "群主可以代為登記。"
         )
 
-    return channel, msg
+    return channel, message
 
 
 # ==========================================
-# 角色登記核心
+# 標籤解析
+# ==========================================
+
+def parse_sheet_tags(
+    text: str,
+):
+    """僅讀取原始訊息中明確標示的標籤欄位。
+
+    範例：
+    標籤：溫文爾雅、才華橫溢
+
+    不從角色故事或背景描述擅自推測標籤。
+    """
+
+    match = TAG_FIELD_RE.search(
+        text or ""
+    )
+
+    if match is None:
+        return []
+
+    raw = match.group(1).strip()
+
+    values = re.split(
+        r"[、,，/／;；]+",
+        raw,
+    )
+
+    result = []
+
+    for value in values:
+        name = value.strip()
+
+        if name and name not in result:
+            result.append(name)
+
+    return result
+
+
+def check_sheet_tags(
+    guild_id,
+    sheet_text,
+    kind,
+):
+    """回傳標籤檢查結果與提示。"""
+
+    from modules.tag_library import (
+        tags,
+        initial_limit,
+    )
+
+    declared = parse_sheet_tags(
+        sheet_text
+    )
+
+    valid_names = {
+        str(row["name"])
+        for row in tags(guild_id)
+    }
+
+    limit = initial_limit(kind)
+
+    known = [
+        name for name in declared
+        if name in valid_names
+    ]
+
+    unknown = [
+        name for name in declared
+        if name not in valid_names
+    ]
+
+    notices = []
+
+    if unknown:
+        notices.append(
+            "未收錄標籤："
+            + "、".join(unknown)
+        )
+
+    if len(declared) > limit:
+        notices.append(
+            f"初始標籤最多只能選 {limit} 個。"
+        )
+
+    if not declared:
+        notices.append(
+            "角色單沒有填寫標籤，"
+            "請從官方標籤庫選擇。"
+        )
+
+    if not notices:
+        notices.append(
+            "請確認官方標籤庫中的初始標籤。"
+        )
+
+    return {
+        "declared": declared,
+        "known": known,
+        "unknown": unknown,
+        "limit": limit,
+        "notice": "\n".join(notices),
+    }
+
+
+async def open_tag_selection(
+    interaction: discord.Interaction,
+    character_id: int,
+    kind: str,
+    owner_id: int,
+    sheet_text: str,
+):
+    """登記完成後開啟標籤選單。"""
+
+    from modules.tag_selection_ui import (
+        show_tag_picker,
+    )
+
+    result = check_sheet_tags(
+        interaction.guild_id,
+        sheet_text,
+        kind,
+    )
+
+    is_owner = (
+        interaction.guild is not None
+        and interaction.user.id
+        == interaction.guild.owner_id
+    )
+
+    await show_tag_picker(
+        interaction,
+        character_id,
+        kind,
+        owner_id,
+        force=is_owner,
+        notice=result["notice"],
+    )
+
+
+# ==========================================
+# 核心登記
 # ==========================================
 
 def register_sheet(
@@ -198,14 +389,16 @@ def register_sheet(
     character_owner_id: int | None = None,
 ):
     """
-    user_id：
-        執行登記的人
+    user_id:
+        執行登記的人。
 
-    owner_id：
-        伺服器群主
+    owner_id:
+        Discord 伺服器群主。
 
-    character_owner_id：
-        角色真正擁有者
+    character_owner_id:
+        角色真正擁有者。
+
+    三者不能混為一談。
     """
 
     if kind not in VALID_TYPES:
@@ -229,32 +422,50 @@ def register_sheet(
     )
 
     server_owner = str(owner_id)
-    is_admin = actor == server_owner
 
-    if kind == "official_npc" and not is_admin:
+    is_admin = (
+        actor == server_owner
+    )
+
+    if (
+        kind == "official_npc"
+        and not is_admin
+    ):
         raise PermissionError(
             "只有群主可以登記官方 NPC。"
         )
 
-    if not is_admin and real_owner != actor:
+    if (
+        not is_admin
+        and real_owner != actor
+    ):
         raise PermissionError(
             "玩家只能替自己登記角色。"
         )
 
-    if kind == "player" and character_id is None:
+    if (
+        kind == "player"
+        and character_id is None
+    ):
         raise ValueError(
-            "原創角色請填寫已通過二審的角色編號。"
+            "原創角色請填寫"
+            "已通過二審的角色編號。"
         )
 
-    if kind != "player" and character_id is not None:
+    if (
+        kind != "player"
+        and character_id is not None
+    ):
         raise ValueError(
             "新 NPC 不必填寫既有角色編號。"
         )
 
     with transaction() as db:
+
         db.execute(
             """
-            INSERT OR IGNORE INTO guilds(guild_id)
+            INSERT OR IGNORE
+            INTO guilds(guild_id)
             VALUES (?)
             """,
             (str(guild_id),),
@@ -273,16 +484,19 @@ def register_sheet(
             ),
         ).fetchone()
 
-        if linked is not None and (
-            character_id is None
-            or int(linked["character_id"]) != int(character_id)
-        ):
-            raise ValueError(
-                "這則角色單訊息已經登記其他角色，"
-                "不能重複登記。"
-            )
+        if linked is not None:
+            if (
+                character_id is None
+                or int(linked["character_id"])
+                != int(character_id)
+            ):
+                raise ValueError(
+                    "這則角色單訊息已經登記其他角色，"
+                    "不能重複登記。"
+                )
 
         if kind == "player":
+
             row = db.execute(
                 """
                 SELECT
@@ -296,14 +510,15 @@ def register_sheet(
                 """,
                 (
                     str(guild_id),
-                    character_id,
+                    int(character_id),
                 ),
             ).fetchone()
 
             if (
                 row is None
                 or row["character_type"] != "player"
-                or row["status"] not in (
+                or row["status"]
+                not in (
                     "approved",
                     "active",
                 )
@@ -315,12 +530,16 @@ def register_sheet(
 
             if str(row["owner_id"]) != real_owner:
                 raise PermissionError(
-                    "指定的玩家不是這個角色的"
-                    "原登記擁有者，無法更動歸屬。"
+                    "指定玩家不是這個角色原本的擁有者，"
+                    "無法更動歸屬。"
                 )
 
         else:
-            if kind == "player_npc" and not is_admin:
+
+            if (
+                kind == "player_npc"
+                and not is_admin
+            ):
                 other = db.execute(
                     """
                     SELECT id
@@ -343,7 +562,7 @@ def register_sheet(
                         "修改請使用 `/玩家npc修改`。"
                     )
 
-            cur = db.execute(
+            cursor = db.execute(
                 """
                 INSERT INTO characters (
                     guild_id,
@@ -362,7 +581,7 @@ def register_sheet(
                 ),
             )
 
-            character_id = cur.lastrowid
+            character_id = cursor.lastrowid
 
         db.execute(
             """
@@ -386,7 +605,7 @@ def register_sheet(
             """,
             (
                 str(guild_id),
-                character_id,
+                int(character_id),
                 str(message_id),
                 str(channel_id),
                 url,
@@ -398,7 +617,7 @@ def register_sheet(
 
 
 # ==========================================
-# 統一登記處理
+# 統一登記入口
 # ==========================================
 
 async def do_register(
@@ -415,42 +634,51 @@ async def do_register(
             "請在伺服器內操作。"
         )
 
-    admin = (
+    is_admin = (
         interaction.user.id
         == interaction.guild.owner_id
     )
 
-    if owner_override is not None and not admin:
+    if (
+        owner_override is not None
+        and not is_admin
+    ):
         raise PermissionError(
-            "只有群主可以指定代發角色單的實際擁有者。"
+            "只有群主可以指定"
+            "代發角色單的實際擁有者。"
         )
 
     if source_message is None:
-        channel, msg = await fetch_sheet(
+        channel, message = await fetch_sheet(
             interaction,
             url,
         )
 
     else:
-        msg = source_message
-        channel = msg.channel
+        message = source_message
+        channel = message.channel
 
         if (
-            msg.guild is None
-            or msg.guild.id != interaction.guild_id
+            message.guild is None
+            or message.guild.id
+            != interaction.guild_id
         ):
             raise ValueError(
                 "必須選擇本伺服器的角色單訊息。"
             )
 
-        url = msg.jump_url
+        url = message.jump_url
 
-    if msg.author.bot:
+    if message.author.bot:
         raise ValueError(
-            "不能以機器人的訊息作為角色單來源。"
+            "不能使用機器人訊息作為角色單。"
         )
 
-    if not admin and msg.author.id != interaction.user.id:
+    if (
+        not is_admin
+        and message.author.id
+        != interaction.user.id
+    ):
         raise PermissionError(
             "只能提交自己發布的角色單；"
             "群主可以代提交。"
@@ -459,15 +687,22 @@ async def do_register(
     true_owner = (
         owner_override.id
         if owner_override is not None
-        else msg.author.id
+        else message.author.id
     )
 
-    if not admin and true_owner != interaction.user.id:
+    if (
+        not is_admin
+        and true_owner
+        != interaction.user.id
+    ):
         raise PermissionError(
             "角色擁有者必須是玩家本人。"
         )
 
-    if kind == "official_npc" and not admin:
+    if (
+        kind == "official_npc"
+        and not is_admin
+    ):
         raise PermissionError(
             "只有群主可以建立官方 NPC。"
         )
@@ -479,7 +714,7 @@ async def do_register(
         kind,
         name,
         channel.id,
-        msg.id,
+        message.id,
         url,
         character_id,
         character_owner_id=true_owner,
@@ -488,18 +723,20 @@ async def do_register(
     return (
         new_id,
         true_owner,
-        msg.jump_url,
+        message.jump_url,
+        message.content or "",
     )
 
 
 # ==========================================
-# Discord 訊息選單登記
+# 訊息右鍵選單 Modal
 # ==========================================
 
 class RegisterMessageModal(
     discord.ui.Modal,
     title="登記這則角色單訊息",
 ):
+
     role_type = discord.ui.TextInput(
         label="類型：原創／玩家NPC／官方NPC",
         placeholder="玩家NPC",
@@ -553,9 +790,10 @@ class RegisterMessageModal(
                 str(self.role_type.value).strip()
             )
 
-            if not kind:
+            if kind is None:
                 raise ValueError(
-                    "類型請填：原創、玩家NPC 或 官方NPC。"
+                    "類型請填：原創、玩家NPC"
+                    " 或 官方NPC。"
                 )
 
             cid_text = str(
@@ -566,34 +804,42 @@ class RegisterMessageModal(
                 self.owner_field.value or ""
             ).strip()
 
-            cid = (
+            character_id = (
                 int(cid_text)
                 if cid_text
                 else None
             )
 
-            owner = None
+            selected_owner = None
 
             if owner_text:
                 if (
-                    interaction.user.id
+                    interaction.guild is None
+                    or interaction.user.id
                     != interaction.guild.owner_id
                 ):
                     raise PermissionError(
                         "只有群主能指定玩家 ID。"
                     )
 
-                owner = await interaction.guild.fetch_member(
-                    int(owner_text)
+                selected_owner = (
+                    await interaction.guild.fetch_member(
+                        int(owner_text)
+                    )
                 )
 
-            new_id, true_owner, link = await do_register(
+            (
+                new_id,
+                true_owner,
+                link,
+                sheet_text,
+            ) = await do_register(
                 interaction,
                 kind,
                 str(self.character_name.value),
                 self.message.jump_url,
-                cid,
-                owner,
+                character_id,
+                selected_owner,
                 self.message,
             )
 
@@ -603,9 +849,18 @@ class RegisterMessageModal(
                     f"角色編號：`{new_id}`\n"
                     f"角色擁有者：<@{true_owner}>\n"
                     f"角色單：{link}\n"
-                    "已審核資料無須再次審核。"
+                    "已核准資料不需再次審核。\n"
+                    "接下來請確認角色初始標籤。"
                 ),
                 ephemeral=True,
+            )
+
+            await open_tag_selection(
+                interaction,
+                new_id,
+                kind,
+                true_owner,
+                sheet_text,
             )
 
         except (
@@ -621,13 +876,14 @@ class RegisterMessageModal(
 
 
 # ==========================================
-# 修改玩家 NPC 角色單
+# 玩家 NPC 修改
 # ==========================================
 
 class ModifyNPCModal(
     discord.ui.Modal,
     title="修改玩家 NPC 角色單",
 ):
+
     new_link = discord.ui.TextInput(
         label="新角色單訊息連結",
         max_length=250,
@@ -643,17 +899,21 @@ class ModifyNPCModal(
         )
 
         try:
-            channel, msg = await fetch_sheet(
+            channel, message = await fetch_sheet(
                 interaction,
                 str(self.new_link.value),
             )
 
-            if msg.author.id != interaction.user.id:
+            if (
+                message.author.id
+                != interaction.user.id
+            ):
                 raise PermissionError(
                     "更新連結必須是自己發布的角色單。"
                 )
 
             with transaction() as db:
+
                 row = db.execute(
                     """
                     SELECT id
@@ -685,7 +945,7 @@ class ModifyNPCModal(
                     """,
                     (
                         str(interaction.guild_id),
-                        str(msg.id),
+                        str(message.id),
                     ),
                 ).fetchone()
 
@@ -695,7 +955,7 @@ class ModifyNPCModal(
                     != int(row["id"])
                 ):
                     raise ValueError(
-                        "此角色單訊息已綁定其他角色。"
+                        "此角色單已綁定其他角色。"
                     )
 
                 db.execute(
@@ -720,10 +980,10 @@ class ModifyNPCModal(
                     """,
                     (
                         str(interaction.guild_id),
-                        row["id"],
-                        str(msg.id),
+                        int(row["id"]),
+                        str(message.id),
                         str(channel.id),
-                        msg.jump_url,
+                        message.jump_url,
                         str(interaction.user.id),
                     ),
                 )
@@ -734,6 +994,14 @@ class ModifyNPCModal(
                     "的角色單連結已更新。"
                 ),
                 ephemeral=True,
+            )
+
+            await open_tag_selection(
+                interaction,
+                int(row["id"]),
+                "player_npc",
+                interaction.user.id,
+                message.content or "",
             )
 
         except (
@@ -749,10 +1017,12 @@ class ModifyNPCModal(
 
 
 # ==========================================
-# Cog 與 Discord 指令
+# Discord Cog
 # ==========================================
 
-class CharacterSheetRegistration(commands.Cog):
+class CharacterSheetRegistration(
+    commands.Cog
+):
 
     def __init__(
         self,
@@ -760,9 +1030,11 @@ class CharacterSheetRegistration(commands.Cog):
     ):
         self.bot = bot
 
-        self.message_command = app_commands.ContextMenu(
-            name="登記角色單",
-            callback=self.register_from_message,
+        self.message_command = (
+            app_commands.ContextMenu(
+                name="登記角色單",
+                callback=self.register_from_message,
+            )
         )
 
     async def cog_load(self):
@@ -790,12 +1062,10 @@ class CharacterSheetRegistration(commands.Cog):
             )
 
         if (
-            message.author.id not in (
-                interaction.user.id,
-                interaction.guild.owner_id,
-            )
-            and interaction.user.id
+            interaction.user.id
             != interaction.guild.owner_id
+            and message.author.id
+            != interaction.user.id
         ):
             return await interaction.response.send_message(
                 (
@@ -813,32 +1083,35 @@ class CharacterSheetRegistration(commands.Cog):
         name="角色單登記",
         description=(
             "用原始角色單訊息連結"
-            "登記已審核角色或 NPC"
+            "登記角色或 NPC"
         ),
     )
     @app_commands.guild_only()
     @app_commands.describe(
         類型="角色種類",
         角色名稱="角色名稱",
-        角色單連結="複製原始角色單訊息的連結",
-        角色編號="原創角色需填已通過二審的編號",
+        角色單連結=(
+            "複製原始角色單訊息的連結"
+        ),
+        角色編號=(
+            "原創角色需填已核准編號"
+        ),
         指定擁有者=(
-            "僅群主代發角色單時指定玩家；"
-            "平常留空"
+            "僅群主代發角色單時指定玩家"
         ),
     )
     @app_commands.choices(
         類型=[
             app_commands.Choice(
-                name="原創角色（綁定已審核角色）",
+                name="原創角色（已審核）",
                 value="player",
             ),
             app_commands.Choice(
-                name="玩家 NPC（每名玩家一隻）",
+                name="玩家 NPC",
                 value="player_npc",
             ),
             app_commands.Choice(
-                name="官方 NPC（僅群主）",
+                name="官方 NPC",
                 value="official_npc",
             ),
         ]
@@ -858,7 +1131,12 @@ class CharacterSheetRegistration(commands.Cog):
         )
 
         try:
-            new_id, true_owner, link = await do_register(
+            (
+                new_id,
+                true_owner,
+                link,
+                sheet_text,
+            ) = await do_register(
                 interaction,
                 類型.value,
                 角色名稱,
@@ -869,13 +1147,23 @@ class CharacterSheetRegistration(commands.Cog):
 
             await interaction.followup.send(
                 (
-                    f"✅ {VALID_TYPES[類型.value]}登記成功！\n"
+                    f"✅ {VALID_TYPES[類型.value]}"
+                    "登記成功！\n"
                     f"角色編號：`{new_id}`\n"
                     f"角色擁有者：<@{true_owner}>\n"
                     f"角色單：{link}\n"
-                    "已審核資料不需再次審核。"
+                    "已審核資料不需再次審核。\n"
+                    "接下來請確認角色初始標籤。"
                 ),
                 ephemeral=True,
+            )
+
+            await open_tag_selection(
+                interaction,
+                new_id,
+                類型.value,
+                true_owner,
+                sheet_text,
             )
 
         except (
@@ -891,7 +1179,10 @@ class CharacterSheetRegistration(commands.Cog):
 
     @app_commands.command(
         name="玩家npc修改",
-        description="修改本人玩家 NPC 的角色單訊息連結",
+        description=(
+            "修改自己的玩家 NPC "
+            "角色單訊息連結"
+        ),
     )
     @app_commands.guild_only()
     async def modify(
@@ -912,4 +1203,8 @@ async def setup(
 ):
     await bot.add_cog(
         CharacterSheetRegistration(bot)
+    )
+
+    LOG.info(
+        "角色單連結登記及標籤整合模組已載入。"
     )
