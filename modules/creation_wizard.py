@@ -1576,6 +1576,42 @@ class WizardView(OwnedView):
             )
 
     @discord.ui.button(
+        label="🏷️ 選擇初始標籤",
+        style=discord.ButtonStyle.secondary,
+        row=3,
+    )
+    async def choose_tags(
+        self,
+        interaction: discord.Interaction,
+        button: discord.ui.Button,
+    ):
+        try:
+            # 確認正在操作的是自己的角色草稿
+            row = draft(
+                self.actor,
+                self.character_id,
+            )
+
+            # 從正式標籤庫開啟角色標籤選單
+            from modules.tag_selection_ui import (
+                show_tag_picker,
+            )
+
+            await show_tag_picker(
+                interaction,
+                self.character_id,
+                row["character_type"],
+                row["owner_id"],
+            )
+
+        except Exception as exc:
+            await report(
+                interaction,
+                exc,
+                "選擇角色初始標籤",
+            )
+
+    @discord.ui.button(
         label="✏️ 修改基本資料",
         style=discord.ButtonStyle.secondary,
         row=3,
