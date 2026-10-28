@@ -1,4 +1,3 @@
-
 """Discord RP：統一玩家申請中心。
 
 正式指令：/玩家申請
@@ -711,6 +710,74 @@ class BlackConfirmView(OwnedView):
         )
 
 
+
+
+class EventApplicationView(discord.ui.View):
+    """玩家活動企劃：不額外註冊斜線指令。"""
+    def __init__(self, uid):
+        super().__init__(timeout=600)
+        self.uid = uid
+
+    async def interaction_check(self, interaction):
+        if interaction.user.id != self.uid:
+            await interaction.response.send_message("這不是你的申請面板。", ephemeral=True)
+            return False
+        return True
+
+    @discord.ui.button(label="建立企劃", style=discord.ButtonStyle.success)
+    async def new_project(self, interaction, button):
+        from modules.event_project_manager import ProjectModal
+        await interaction.response.send_modal(ProjectModal())
+
+    @discord.ui.button(label="補充企劃", style=discord.ButtonStyle.primary)
+    async def edit_project(self, interaction, button):
+        await interaction.response.send_modal(EventProjectNumberModal("edit"))
+
+    @discord.ui.button(label="送交審核", style=discord.ButtonStyle.primary)
+    async def submit_project(self, interaction, button):
+        await interaction.response.send_modal(EventProjectNumberModal("submit"))
+
+
+class EventProjectNumberModal(discord.ui.Modal, title="活動企劃案件操作"):
+    event_id = discord.ui.TextInput(label="活動企劃編號", max_length=12)
+
+    def __init__(self, mode):
+        super().__init__()
+        self.mode = mode
+
+    async def on_submit(self, interaction):
+        from modules.event_project_manager import (
+            fetch_event, DetailModal, submit_for_review,
+        )
+        try:
+            eid = int(str(self.event_id).strip())
+            if self.mode == "edit":
+                with get_connection() as db:
+                    event = fetch_event(db, interaction.guild_id, eid)
+                if (str(event["creator_id"]) != str(interaction.user.id)
+                    or event["status"] not in ("draft", "rejected")):
+                    raise PermissionError("只能補充自己的草稿或退件企劃。")
+                await interaction.response.send_modal(DetailModal(eid))
+            else:
+                submit_for_review(interaction.guild_id, interaction.user.id, eid)
+                await interaction.response.send_message(
+                    f"✅ 活動企劃 #{eid} 已送審。", ephemeral=True
+                )
+        except (ValueError, PermissionError, sqlite3.Error) as exc:
+            await interaction.response.send_message(f"⚠️ {exc}", ephemeral=True)
+
+
+class EventApplicationButton(discord.ui.Button):
+    def __init__(self):
+        super().__init__(label="🎪 玩家活動企劃", style=discord.ButtonStyle.secondary, row=2)
+
+    async def callback(self, interaction):
+        await interaction.response.send_message(
+            "🎪 **玩家活動企劃申請**\n建立草稿 → 補充設定 → 送交官方審核。",
+            view=EventApplicationView(interaction.user.id), ephemeral=True,
+        )
+
+
 class ApplicationHome(OwnedView):
     def __init__(
         self,
@@ -720,6 +787,7 @@ class ApplicationHome(OwnedView):
         super().__init__(actor)
 
         self.character_id = character_id
+        self.add_item(EventApplicationButton())
 
     @discord.ui.button(
         label="🏪 開設個人店鋪",
@@ -1103,8 +1171,10 @@ class PlayerApplications(commands.Cog):
                     (
                         "目前沒有可以使用的正式角色。\n"
                         "請先完成 /創角、"
-                        "雙階段審核及角色啟用。"
+                        "雙階段審核及角色啟用。\n"
+                        "活動企劃不需要正式角色也能提出。"
                     ),
+                    view=EventApplicationView(interaction.user.id),
                     ephemeral=True,
                 )
                 return
