@@ -37,6 +37,8 @@ from modules.loans import review_application as review_loan
 from modules.credit_cards import review_card
 from modules.black_card import review_black_card
 
+from modules.event_project_manager import is_event_admin
+
 LOG = logging.getLogger(__name__)
 
 PAGE_SIZE = 25
@@ -1096,6 +1098,106 @@ class DetailView(Guarded):
         )
 
 
+
+
+class EventReviewNumberModal(discord.ui.Modal, title="活動企劃審核"):
+    event_id = discord.ui.TextInput(label="企劃編號", max_length=12)
+    result = discord.ui.TextInput(label="結果：通過 或 駁回", max_length=2)
+    note = discord.ui.TextInput(label="審核意見", style=discord.TextStyle.paragraph, required=False, max_length=500)
+
+    async def on_submit(self, interaction):
+        from modules.event_project_manager import review, is_owner, sync_role
+        try:
+            if not is_event_admin(interaction):
+                raise PermissionError("需要正式活動管理權限。")
+            value = str(self.result).strip()
+            if value not in ("通過", "駁回"):
+                raise ValueError("結果只能填通過或駁回。")
+            eid = int(str(self.event_id).strip())
+            event = review(interaction.guild_id, interaction.user.id, eid,
+                           value == "通過", str(self.note), is_owner(interaction))
+            if value == "通過":
+                await sync_role(interaction, event["organizer_id"], True)
+            await interaction.response.send_message(f"✅ 活動企劃 #{eid} 已{value}。", ephemeral=True)
+        except (ValueError, PermissionError, sqlite3.Error) as exc:
+            await interaction.response.send_message(f"⚠️ {exc}", ephemeral=True)
+
+
+class EventReviewButtons(discord.ui.View):
+    def __init__(self, uid, include_legacy=False):
+        super().__init__(timeout=600)
+        self.uid = uid
+
+    async def interaction_check(self, interaction):
+        if interaction.user.id != self.uid or not is_event_admin(interaction):
+            await interaction.response.send_message("沒有活動審核權限。", ephemeral=True)
+            return False
+        return True
+
+    @discord.ui.button(label="活動企劃待審", style=discord.ButtonStyle.primary)
+    async def project_list(self, interaction, button):
+        with get_connection() as db:
+            rows = db.execute(
+                "SELECT id, title, creator_id FROM rp_event_projects WHERE guild_id=? AND status='submitted' ORDER BY id LIMIT 20",
+                (str(interaction.guild_id),)
+            ).fetchall()
+        message = "\n".join(
+            f"#{r['id']}｜{discord.utils.escape_mentions(r['title'][:50])}｜<@{r['creator_id']}>"
+            for r in rows
+        ) or "目前沒有待審活動企劃。"
+        await interaction.response.send_message(message[:1900], ephemeral=True,
+                                                allowed_mentions=discord.AllowedMentions.none())
+
+    @discord.ui.button(label="審核活動企劃", style=discord.ButtonStyle.success)
+    async def project_review(self, interaction, button):
+        await interaction.response.send_modal(EventReviewNumberModal())
+
+    @discord.ui.button(label="活動任務證明", style=discord.ButtonStyle.primary)
+    async def task_review(self, interaction, button):
+        await interaction.response.send_modal(EventTaskIdModal())
+
+
+class EventTaskIdModal(discord.ui.Modal, title="查看活動任務待審"):
+    event_id = discord.ui.TextInput(label="活動編號", max_length=12)
+
+    async def on_submit(self, interaction):
+        from modules.event_task_review_ui import ReviewPanel, eligible
+        from modules.event_project_manager import fetch_event
+        try:
+            eid = int(str(self.event_id).strip())
+            with get_connection() as db:
+                event = dict(fetch_event(db, interaction.guild_id, eid))
+            if not is_event_admin(interaction) or not eligible(interaction, event):
+                raise PermissionError("沒有審核此活動的權限。")
+            view = ReviewPanel(interaction, eid)
+            await interaction.response.send_message(
+                embed=view.make_embed(), view=view, ephemeral=True,
+                allowed_mentions=discord.AllowedMentions.none(),
+            )
+        except (ValueError, PermissionError, sqlite3.Error) as exc:
+            await interaction.response.send_message(f"⚠️ {exc}", ephemeral=True)
+
+
+class EventReviewOpen(discord.ui.Button):
+    def __init__(self):
+        super().__init__(label="🎪 活動審核", style=discord.ButtonStyle.primary, row=1)
+
+    async def callback(self, interaction):
+        if not is_event_admin(interaction):
+            await interaction.response.send_message("沒有活動審核權限。", ephemeral=True)
+            return
+        await interaction.response.send_message(
+            "🎪 **活動案件審核**", view=EventReviewButtons(interaction.user.id), ephemeral=True
+        )
+
+
+def make_review_home(actor, interaction):
+    view = Home(actor)
+    if is_event_admin(interaction):
+        view.add_item(EventReviewOpen())
+    return view
+
+
 class ReviewCenter(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -1110,6 +1212,11 @@ class ReviewCenter(commands.Cog):
         interaction: discord.Interaction,
     ):
         try:
+            # 活動管理員不必同時擁有角色/金融審核職務。
+            if is_event_admin(interaction) and not has_staff_permission(interaction, "reviewer"):
+                return await interaction.response.send_message(
+                    "🎪 **活動審核中心**", view=EventReviewButtons(interaction.user.id), ephemeral=True,
+                )
             actor = authorized(interaction)
 
             await interaction.response.send_message(
@@ -1119,7 +1226,7 @@ class ReviewCenter(commands.Cog):
                     "角色、店鋪、貸款、"
                     "信用卡或黑卡。"
                 ),
-                view=Home(actor),
+                view=make_review_home(actor, interaction),
                 ephemeral=True,
             )
 
