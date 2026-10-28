@@ -1208,10 +1208,7 @@ class AchievementPlayerCog(commands.Cog):
 # ==========================================
 
 async def setup(bot: commands.Bot):
-    await bot.add_cog(
-        AchievementPlayerCog(bot)
-    )
-
-    LOG.info(
-        "玩家稱號查看與穿戴介面已載入。"
-    )
+    # 稱號改由 /查看 → 背包 → 稱號 進入。
+    # 保留所有資料庫、查詢及 AchievementPlayerView 操作程式。
+    # 不加入 AchievementPlayerCog，以免註冊額外的 /稱號 全域指令。
+    LOG.info("玩家稱號管理已整合進背包（不註冊 /稱號）。")
