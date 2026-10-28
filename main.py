@@ -203,7 +203,7 @@ def discover_extensions() -> list[str]:
     for path in sorted(
         MODULES_DIR.glob("*.py")
     ):
-        if path.name.startswith("_"):
+        if path.name.startswith("_") or path.stem in {"test_character", "test_content_manager"}:
             continue
 
         extensions.append(
@@ -497,6 +497,10 @@ class RPBot(commands.Bot):
             self.loaded_modules.append(
                 extension
             )
+
+            # 在每個模組載入後清理舊入口，避免先撞上100條上限。
+            remove_character_legacy(self.tree)
+            remove_optional_legacy(self.tree)
 
         LOG.info(
             "成功載入 %d 個模組",
