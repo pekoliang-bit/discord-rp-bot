@@ -651,6 +651,141 @@ def accrue_daily(
         )
 
 
+class BankOperationModal(discord.ui.Modal):
+    """銀行面板操作：沿用既有交易與定存核心。"""
+
+    def __init__(self, view, operation):
+        titles = {
+            "deposit": "存入活期", "withdraw": "提領現金",
+            "transfer": "角色轉帳", "term": "建立定存",
+            "close": "定存提前解約",
+        }
+        super().__init__(title=titles[operation], timeout=300)
+        self.bank_view = view
+        self.operation = operation
+        if operation != "close":
+            self.amount = discord.ui.TextInput(
+                label="金額（金幣）", placeholder="請輸入正整數",
+                min_length=1, max_length=16,
+            )
+            self.add_item(self.amount)
+        if operation == "transfer":
+            self.recipient = discord.ui.TextInput(
+                label="收款角色編號", placeholder="例如 123",
+                min_length=1, max_length=16,
+            )
+            self.add_item(self.recipient)
+        elif operation == "term":
+            self.days = discord.ui.TextInput(
+                label="定存期限", placeholder="14 或 30",
+                min_length=2, max_length=2,
+            )
+            self.add_item(self.days)
+        elif operation == "close":
+            self.deposit_id = discord.ui.TextInput(
+                label="定存編號", placeholder="可在銀行帳戶列表查看",
+                min_length=1, max_length=16,
+            )
+            self.add_item(self.deposit_id)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        v = self.bank_view
+        if (interaction.guild_id != v.guild_id
+                or interaction.user.id != v.user_id):
+            await interaction.response.send_message(
+                "⛔ 這不是你的銀行操作面板。", ephemeral=True,
+            )
+            return
+        await interaction.response.defer(ephemeral=True, thinking=True)
+
+        def work():
+            actor = Actor.from_interaction(interaction)
+            character_access(actor, v.character_id)
+            if self.operation == "close":
+                did = int(self.deposit_id.value)
+                if did <= 0:
+                    raise ValueError("定存編號必須為正整數。")
+                done = settle_term(actor.guild_id, did, early=True, actor=actor)
+                return "✅ 定存已結算。" if done else "這筆定存已結清。"
+            amount = int(self.amount.value)
+            if amount <= 0:
+                raise ValueError("金額必須為正整數。")
+            if self.operation in ("deposit", "withdraw"):
+                bank_move(actor, v.character_id, amount, self.operation)
+                return f"✅ 銀行操作成功：{amount:,} 金幣。"
+            if self.operation == "transfer":
+                receiver = int(self.recipient.value)
+                result = free_transfer(actor, v.character_id, receiver, amount)
+                return (f"✅ 角色 #{v.character_id} → #{receiver}，"
+                        f"{amount:,} 金幣；交易編號：{result.transaction_id}")
+            if self.operation == "term":
+                days = int(self.days.value)
+                if days not in (14, 30):
+                    raise ValueError("定存僅提供 14 天或 30 天。")
+                did = create_term(actor, v.character_id, amount, days)
+                return f"✅ 定存 #{did} 已建立：{amount:,} 金幣／{days} 天。"
+            raise ValueError("不支援的銀行操作。")
+
+        try:
+            message = await asyncio.to_thread(work)
+        except (ValueError, EconomyError, PermissionDenied,
+                InvalidState, sqlite3.Error) as exc:
+            message = f"⚠️ {exc}"
+        except Exception:
+            LOG.exception("銀行面板操作失敗：%s", self.operation)
+            message = "⚠️ 銀行操作異常，請通知管理員查閱日誌。"
+        await interaction.followup.send(message[:1900], ephemeral=True)
+
+
+class BankAccountView(discord.ui.View):
+    """與指定角色綁定的銀行面板；無需更改全域目前角色。"""
+
+    def __init__(self, interaction: discord.Interaction, character_id: int):
+        super().__init__(timeout=600)
+        self.user_id = interaction.user.id
+        self.guild_id = interaction.guild_id
+        self.character_id = character_id
+
+    async def interaction_check(self, interaction: discord.Interaction):
+        if (interaction.guild_id != self.guild_id
+                or interaction.user.id != self.user_id):
+            await interaction.response.send_message(
+                "⛔ 請自行使用 /銀行 開啟帳戶。", ephemeral=True,
+            )
+            return False
+        try:
+            await asyncio.to_thread(
+                character_access, Actor.from_interaction(interaction),
+                self.character_id,
+            )
+        except (PermissionDenied, InvalidState) as exc:
+            await interaction.response.send_message(
+                f"⚠️ {exc}", ephemeral=True,
+            )
+            return False
+        return True
+
+    @discord.ui.button(label="存款", style=discord.ButtonStyle.primary, row=0)
+    async def deposit_button(self, interaction, button):
+        await interaction.response.send_modal(BankOperationModal(self, "deposit"))
+
+    @discord.ui.button(label="提款", style=discord.ButtonStyle.primary, row=0)
+    async def withdraw_button(self, interaction, button):
+        await interaction.response.send_modal(BankOperationModal(self, "withdraw"))
+
+    @discord.ui.button(label="轉帳", style=discord.ButtonStyle.secondary, row=0)
+    async def transfer_button(self, interaction, button):
+        await interaction.response.send_modal(BankOperationModal(self, "transfer"))
+
+    @discord.ui.button(label="建立定存", style=discord.ButtonStyle.success, row=1)
+    async def term_button(self, interaction, button):
+        await interaction.response.send_modal(BankOperationModal(self, "term"))
+
+    @discord.ui.button(label="定存解約", style=discord.ButtonStyle.danger, row=1)
+    async def close_button(self, interaction, button):
+        await interaction.response.send_modal(BankOperationModal(self, "close"))
+
+
 class Economy(commands.Cog):
 
     def __init__(self, bot):
@@ -833,10 +968,20 @@ class Economy(commands.Cog):
                 f"**定期存款**\n{terms}"
             )
 
-        await self.handle(
-            interaction,
-            work,
-        )
+        try:
+            actor = Actor.from_interaction(interaction)
+            selected_id = await asyncio.to_thread(
+                resolve_actor_character, actor, 角色編號,
+            )
+            content = await asyncio.to_thread(work)
+            await interaction.followup.send(
+                content[:1900],
+                view=BankAccountView(interaction, selected_id),
+                ephemeral=True,
+            )
+        except (ValueError, EconomyError, PermissionDenied,
+                InvalidState, sqlite3.Error) as exc:
+            await interaction.followup.send(f"⚠️ {exc}", ephemeral=True)
 
     @app_commands.command(
         name="存款",
