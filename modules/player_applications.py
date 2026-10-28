@@ -1,4 +1,3 @@
-
 """Discord RP：統一玩家申請中心。
 
 正式指令：/玩家申請
@@ -10,7 +9,7 @@
 - 黑卡 VIP 申請
 
 功能：
-- 自動辨識目前使用角色
+- 每次申請獨立選擇角色（不讀取舊的目前角色）
 - 多角色選擇與分頁
 - 角色所有權、正式啟用狀態驗證
 - 不需要手動輸入角色編號
@@ -19,7 +18,7 @@
 - 禁止其他 Discord 使用者操作私人選單
 - 防止一般的重複按鈕提交
 
-未實作的檢舉及其他申請，不建立假入口。
+舉報、物品與請假使用分類表單；路人轉換申請已取消。
 """
 
 from __future__ import annotations
@@ -40,7 +39,6 @@ from core.permissions import (
 )
 
 from modules.character_switch import (
-    get_current_character,
     list_available_characters,
 )
 
@@ -109,22 +107,6 @@ def owned_active_character(actor, character_id):
 
     return dict(row)
 
-
-def resolve_current(actor):
-    """取得目前角色，並再次檢查所有權。"""
-
-    character = get_current_character(
-        actor.guild_id,
-        actor.user_id,
-    )
-
-    if character is None:
-        return None
-
-    return owned_active_character(
-        actor,
-        character["id"],
-    )
 
 
 def list_characters(actor):
@@ -767,16 +749,12 @@ class EventProjectNumberModal(discord.ui.Modal, title="活動企劃案件操作"
             await interaction.response.send_message(f"⚠️ {exc}", ephemeral=True)
 
 
-class EventApplicationButton(discord.ui.Button):
-    def __init__(self):
-        super().__init__(label="🎪 玩家活動企劃", style=discord.ButtonStyle.secondary, row=2)
-
-    async def callback(self, interaction):
-        await interaction.response.send_message(
-            "🎪 **玩家活動企劃申請**\n建立草稿 → 補充設定 → 送交官方審核。",
-            view=EventApplicationView(interaction.user.id), ephemeral=True,
-        )
-
+class NoCharacterApplications(OwnedView):
+    """無角色的玩家仍可提交活動企劃與無角色類型申請。"""
+    def __init__(self, actor):
+        super().__init__(actor)
+        self.character_id = None
+        self.add_item(__import__("modules.application_extras", fromlist=["ApplicationKindSelect"]).ApplicationKindSelect())
 
 class ApplicationHome(OwnedView):
     def __init__(
@@ -787,7 +765,8 @@ class ApplicationHome(OwnedView):
         super().__init__(actor)
 
         self.character_id = character_id
-        self.add_item(EventApplicationButton())
+        from modules.application_extras import ApplicationKindSelect
+        self.add_item(ApplicationKindSelect())
 
     @discord.ui.button(
         label="🏪 開設個人店鋪",
@@ -1121,6 +1100,18 @@ class CharacterPicker(OwnedView):
         )
 
 
+    @discord.ui.button(
+        label="📨 無角色申請（舉報／請假／活動企劃）",
+        style=discord.ButtonStyle.secondary,
+        row=2,
+    )
+    async def general_without_character(self, interaction, button):
+        await interaction.response.edit_message(
+            content="📨 **通用玩家申請**\n選擇舉報、請假或活動企劃。需要角色的案件請先選擇正式角色。",
+            view=NoCharacterApplications(self.actor),
+        )
+
+
 class PlayerApplications(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -1139,28 +1130,6 @@ class PlayerApplications(commands.Cog):
                 interaction
             )
 
-            try:
-                character = await asyncio.to_thread(
-                    resolve_current,
-                    actor,
-                )
-
-            except InvalidState:
-                character = None
-
-            if character is not None:
-                await interaction.response.send_message(
-                    application_home_text(
-                        character
-                    ),
-                    view=ApplicationHome(
-                        actor,
-                        character["id"],
-                    ),
-                    ephemeral=True,
-                )
-                return
-
             characters = await asyncio.to_thread(
                 list_characters,
                 actor,
@@ -1174,7 +1143,7 @@ class PlayerApplications(commands.Cog):
                         "雙階段審核及角色啟用。\n"
                         "活動企劃不需要正式角色也能提出。"
                     ),
-                    view=EventApplicationView(interaction.user.id),
+                    view=NoCharacterApplications(actor),
                     ephemeral=True,
                 )
                 return
@@ -1182,8 +1151,7 @@ class PlayerApplications(commands.Cog):
             await interaction.response.send_message(
                 (
                     "🎭 **選擇申請角色**\n\n"
-                    "你有多名正式角色，"
-                    "請先選擇要使用的角色。"
+                    "請選擇本次申請使用的角色。"
                 ),
                 view=CharacterPicker(
                     actor,
