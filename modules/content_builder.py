@@ -66,7 +66,6 @@ TYPES = {
 # 這些類型必須進入真正的管理系統，
 # 不允許建立只有文字、沒有遊戲效果的假資料。
 SPECIALIZED_TYPES = frozenset({
-    "event",
     "story",
     "lottery",
     "npc",
@@ -854,16 +853,7 @@ async def open_specialized_manager(
     # ======================================
     # 獎項／榮譽專屬管理（沿用既有 zz_awards）
     # ======================================
-if selected == "event":
-    from modules.event_project_manager import (
-        EventAdminView,
-    )
 
-    await i.response.edit_message(
-        content="🎪 **官方活動企劃管理中心**",
-        view=EventAdminView(i),
-    )
-    return True
     if selected == "prize":
         from modules.zz_awards import (
             init_tables as init_award_tables,
