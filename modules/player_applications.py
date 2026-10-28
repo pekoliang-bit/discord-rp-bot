@@ -799,6 +799,56 @@ class ApplicationHome(OwnedView):
         self.add_item(ApplicationKindSelect())
 
     @discord.ui.button(
+        label="🏢 公司／品牌／集團",
+        style=discord.ButtonStyle.primary,
+        row=4,
+    )
+    async def business(self, interaction, button):
+        try:
+            owned_active_character(
+                self.actor,
+                self.character_id,
+            )
+        except (PermissionDenied, InvalidState) as exc:
+            return await send_error(interaction, exc)
+
+        from modules.company_business_ui import BusinessKindView
+
+        await interaction.response.send_message(
+            "請選擇商業申請類型。",
+            view=BusinessKindView(
+                self.actor,
+                self.character_id,
+            ),
+            ephemeral=True,
+        )
+
+    @discord.ui.button(
+        label="✅ 接受品牌代表",
+        style=discord.ButtonStyle.secondary,
+        row=4,
+    )
+    async def representative(self, interaction, button):
+        try:
+            owned_active_character(
+                self.actor,
+                self.character_id,
+            )
+        except (PermissionDenied, InvalidState) as exc:
+            return await send_error(interaction, exc)
+
+        from modules.company_business_ui import (
+            BrandRepresentativeAcceptModal,
+        )
+
+        await interaction.response.send_modal(
+            BrandRepresentativeAcceptModal(
+                self.actor,
+                self.character_id,
+            )
+        )
+
+    @discord.ui.button(
         label="🏪 開設個人店鋪",
         style=discord.ButtonStyle.primary,
         row=0,
