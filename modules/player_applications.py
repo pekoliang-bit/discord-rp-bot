@@ -1126,8 +1126,8 @@ class PlayerApplications(commands.Cog):
         self.bot = bot
 
     @app_commands.command(
-        name="玩家申請",
-        description="店鋪、貸款、信用卡與黑卡申請中心",
+        name="申請",
+        description="玩家申請、活動企劃、店鋪與金融申請",
     )
     @app_commands.guild_only()
     async def applications(
