@@ -1785,11 +1785,47 @@ class CharacterView(commands.Cog):
     async def view_character(
         self,
         interaction: discord.Interaction,
+        角色: str | None = None,
     ):
         try:
             actor = Actor.from_interaction(
                 interaction
             )
+
+            # 直接指定編號或完整名稱；不修改目前角色狀態。
+            if 角色 is not None and str(角色).strip():
+                keyword = str(角色).strip()
+                with get_connection() as conn:
+                    if keyword.isdecimal():
+                        rows = conn.execute(
+                            "SELECT * FROM characters WHERE guild_id=? AND id=?",
+                            (actor.guild_id, int(keyword)),
+                        ).fetchall()
+                    else:
+                        rows = conn.execute(
+                            "SELECT * FROM characters WHERE guild_id=? AND name=? COLLATE NOCASE ORDER BY id LIMIT 26",
+                            (actor.guild_id, keyword),
+                        ).fetchall()
+
+                allowed = [
+                    dict(row) for row in rows
+                    if can_see_character(actor, dict(row))
+                ]
+                if not allowed:
+                    raise InvalidState("找不到可查看的角色，請確認編號或完整名稱。")
+                if len(allowed) != 1:
+                    raise InvalidState("有多位角色使用相同名稱，請改用角色編號。")
+
+                character = allowed[0]
+                cid = int(character["id"])
+                await interaction.response.send_message(
+                    embed=make_character_embed(actor, cid),
+                    view=CharacterDetailView(
+                        actor, cid, get_category(character), keyword, 0,
+                    ),
+                    ephemeral=True,
+                )
+                return
 
             await interaction.response.send_message(
                 (
