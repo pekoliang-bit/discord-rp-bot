@@ -42,13 +42,16 @@ def init_db():
 
 def characters(gid):
     with get_connection() as db:
-        rows = db.execute("SELECT id,name,character_type FROM characters WHERE guild_id=? AND status IN ('approved','active') ORDER BY id DESC LIMIT 25",(str(gid),)).fetchall()
+        rows = db.execute("""SELECT id,name,character_type FROM characters
+            WHERE guild_id=? AND status IN ('approved','active')
+              AND character_type='official_npc'
+            ORDER BY id DESC LIMIT 25""", (str(gid),)).fetchall()
     return [dict(r) for r in rows]
 
 
 def story(gid,sid):
     with get_connection() as db:
-        row=db.execute('SELECT s.*,c.name AS character_name FROM rp_stories s JOIN characters c ON c.id=s.character_id AND c.guild_id=s.guild_id WHERE s.guild_id=? AND s.id=?',(str(gid),int(sid))).fetchone()
+        row=db.execute('SELECT s.*,c.name AS character_name,c.character_type AS character_type FROM rp_stories s JOIN characters c ON c.id=s.character_id AND c.guild_id=s.guild_id WHERE s.guild_id=? AND s.id=?',(str(gid),int(sid))).fetchone()
     if row is None: raise ValueError('找不到這篇劇情。')
     return dict(row)
 
@@ -67,8 +70,10 @@ def create_story(gid,uid,cid,kind,title):
     if kind not in ('main','side'): raise ValueError('劇情類型不正確。')
     if not 1<=len(title.strip())<=100:raise ValueError('標題需為 1～100 字。')
     with transaction() as db:
-        c=db.execute("SELECT id FROM characters WHERE guild_id=? AND id=? AND status IN ('approved','active')",(str(gid),int(cid))).fetchone()
-        if c is None:raise ValueError('角色不存在，或尚未通過二審。')
+        c=db.execute("""SELECT id FROM characters
+            WHERE guild_id=? AND id=? AND status IN ('approved','active')
+              AND character_type='official_npc'""",(str(gid),int(cid))).fetchone()
+        if c is None:raise ValueError('只有官方角色或已正式轉為官方角色的路人角色可以建立個人攻略劇情。')
         cur=db.execute('INSERT INTO rp_stories(guild_id,character_id,kind,title,creator_id) VALUES(?,?,?,?,?)',(str(gid),int(cid),kind,title.strip(),str(uid)))
         return cur.lastrowid
 
@@ -117,7 +122,9 @@ def validate(gid,sid):
 def set_status(gid,sid,status):
     if status not in ('draft','ready','archived'):raise ValueError('狀態不正確。')
     if status=='ready':
-        _,_,errors=validate(gid,sid)
+        row,_,errors=validate(gid,sid)
+        if row['character_type']!='official_npc':
+            errors.insert(0,'角色不是正式官方角色，無法開放個人攻略劇情。')
         if errors:raise ValueError('目前條件尚未齊全：\n'+'\n'.join(errors[:8]))
     with transaction() as db:
         result=db.execute('UPDATE rp_stories SET status=?,updated_at=CURRENT_TIMESTAMP WHERE guild_id=? AND id=?',(status,str(gid),int(sid)))
@@ -144,7 +151,7 @@ class CharacterPicker(discord.ui.Select):
     def __init__(self,gid,kind):
         chars=characters(gid);self.kind=kind
         options=[discord.SelectOption(label=f"#{r['id']} {r['name']}"[:100],value=str(r['id'])) for r in chars]
-        if not options:options=[discord.SelectOption(label='尚無已審核角色',value='none')]
+        if not options:options=[discord.SelectOption(label='尚無符合資格的官方角色',value='none')]
         super().__init__(placeholder='選擇要建立劇情的角色',options=options,disabled=not bool(chars))
     async def callback(self,i):
         if not owner(i):return await respond(i,'⛔ 僅群主可編輯。')
@@ -232,7 +239,7 @@ class StoryBuilderButton(discord.ui.Button):
     async def callback(self,i):
         if not owner(i):return await respond(i,'⛔ 僅群主可編輯劇情。')
         init_db()
-        await i.response.edit_message(content='📖 **角色劇情編輯器**\n建立主線／支線，編輯段落與分支；「就緒」不代表正式上線。',view=StoryBuilderView(i))
+        await i.response.edit_message(content='📖 **角色劇情編輯器**\n僅正式官方角色（含已轉正的路人角色）能建立個人攻略劇情。\n主線觸發規則將在所有系統完成後另行討論。',view=StoryBuilderView(i))
 
 
 async def setup(bot:commands.Bot):
