@@ -7,6 +7,7 @@
 - 貸款申請
 - 一般信用卡申請
 - 黑卡 VIP 申請
+- 公司設立、集團成立、公司銀行帳戶、公司職位應徵
 
 功能：
 - 每次申請獨立選擇角色（不讀取舊的目前角色）
@@ -46,6 +47,7 @@ from modules.player_shops import request_store
 from modules.loans import new_application
 from modules.credit_cards import apply_card
 from modules.black_card import apply_black_card
+from modules.company_workforce import apply_job
 
 LOG = logging.getLogger(__name__)
 
@@ -149,6 +151,9 @@ def application_home_text(character):
         "🏦 官方銀行貸款\n"
         "💳 一般信用卡\n"
         "🖤 黑卡 VIP\n\n"
+        "🏢 公司設立與集團成立\n"
+        "👔 公司職位應徵\n"
+        "🏦 公司銀行帳戶\n\n"
         "本次申請使用畫面顯示的角色，"
         "不必輸入角色編號。\n\n"
         "申請成功僅代表已送件，"
@@ -279,6 +284,31 @@ class SubmissionModal(discord.ui.Modal):
                 interaction,
                 exc,
             )
+
+
+class JobApplicationModal(SubmissionModal):
+    """所有職位應徵統一由 /申請 提交，沿用公司人事資料表。"""
+
+    def __init__(self, actor, character_id):
+        super().__init__(actor, character_id, "公司職位｜應徵申請")
+        self.company_id = discord.ui.TextInput(
+            label="已核准公司編號", required=True, max_length=100,
+            placeholder="填寫正式登記的公司編號",
+        )
+        self.add_item(self.company_id)
+
+    async def on_submit(self, interaction):
+        company_id = str(self.company_id.value).strip()
+        if not company_id:
+            return await send_error(interaction, ValueError("請填寫公司編號。"))
+
+        await self.execute(
+            interaction,
+            lambda: apply_job(
+                str(self.actor.guild_id), company_id,
+                str(self.actor.user_id), self.character_id,
+            ),
+        )
 
 
 class ShopModal(SubmissionModal):
