@@ -144,3 +144,25 @@ class EpisodeManageButton(discord.ui.Button):
         if not allowed(i):return await i.response.send_message('⛔ 僅群主可操作。',ephemeral=True)
         init_db()
         await i.response.edit_message(content='選擇要編輯回目的個人攻略劇情：',view=PickStoryView(i))
+
+# ==========================================
+# Discord 擴充模組載入入口
+# ==========================================
+
+async def setup(bot):
+    """
+    此模組提供劇情回目與獎勵管理介面。
+
+    介面由 story_builder.py 呼叫，
+    因此不需要重複註冊 Cog 或斜線指令。
+
+    保留此 setup 函式，讓 main.py
+    能正常透過 bot.load_extension() 載入。
+    """
+    import logging
+
+    logger = logging.getLogger(__name__)
+
+    logger.info(
+        "劇情回目與獎勵管理介面已載入。"
+    )
