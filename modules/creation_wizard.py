@@ -415,8 +415,19 @@ def finish_points(actor, character_id):
             "其中一項主攻。"
         )
 
+
     schema = schema_for(actor)
     points = points_of(settings)
+
+    # 從正式配點入口再次檢查。
+    # 舊草稿中的非法配點也不能通過。
+    ensure_no_restricted_points(points)
+
+    # 不讓影響指數消耗一般配點池。
+    points = {
+        **points,
+        "影響指數": 0,
+    }
 
     names = (
         schema["general"]
@@ -1135,12 +1146,23 @@ class PointsModal(SafeModal):
                         f"可配 {limit} 點。"
                     )
 
+
+                if name in RESTRICTED_INITIAL_STATS:
+                    if value != 0:
+                        raise ValueError(
+                            f"「{name}」禁止自行配點。"
+                            "只能透過系統規則或指定獎勵增加。"
+                        )
+
                 new[name] = value
+
 
             combined = {
                 **points_of(settings),
                 **new,
             }
+
+            ensure_no_restricted_points(combined)
 
             schema = schema_for(actor)
 
@@ -1348,6 +1370,27 @@ class PointSelect(discord.ui.Select):
 
         schema = schema_for(actor)
         self.groups = {}
+        
+        schema = schema_for(actor)
+
+        # 影響指數保留於角色屬性，
+        # 但從可操作的初始配點選單移除。
+        schema = {
+            **schema,
+            "general": [
+                name
+                for name in schema["general"]
+                if name not in RESTRICTED_INITIAL_STATS
+            ],
+            "talent": [
+                name
+                for name in schema["talent"]
+                if name not in RESTRICTED_INITIAL_STATS
+            ],
+        }
+
+        self.groups = {}
+
         options = []
 
         for pool, title in (
