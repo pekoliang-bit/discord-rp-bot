@@ -1,3 +1,4 @@
+
 """Discord RP 官方商城主程式。
 
 功能：
@@ -1834,6 +1835,106 @@ class ShopMenu(discord.ui.View):
         )
 
 
+
+# 商城角色選擇：不使用全域「目前角色」。
+def _shop_owned_characters(actor):
+    with get_connection() as conn:
+        rows = conn.execute(
+            "SELECT id, name FROM characters "
+            "WHERE guild_id=? AND owner_id=? AND status='active' "
+            "ORDER BY id",
+            (str(actor.guild_id), str(actor.user_id)),
+        ).fetchall()
+    return [(int(r["id"]), str(r["name"])) for r in rows]
+
+
+async def _open_shop_for_character(interaction, character_id, black=False, category=""):
+    from modules.zzz_shop_home import ShopHome, home_text, make_store_screen
+    actor = Actor.from_interaction(interaction)
+    with get_connection() as conn:
+        require_character(conn, actor, character_id)
+        black_allowed = has_black_access(conn, interaction.guild_id, character_id)
+    code = "B10" if black else str(category or "").strip().upper()
+    if code and code in {f"B{x:02}" for x in range(1, 11)}:
+        content, view = make_store_screen(actor, character_id, code, 0)
+    else:
+        content = home_text(character_id, interaction.guild_id, black_allowed)
+        view = ShopHome(interaction.user.id, character_id, False, "", interaction.guild_id)
+    if interaction.response.is_done():
+        await interaction.followup.send(content, view=view, ephemeral=True)
+    else:
+        await interaction.response.send_message(content, view=view, ephemeral=True)
+
+
+class ShopCharacterSelect(discord.ui.Select):
+    def __init__(self, parent, current):
+        options = [
+            discord.SelectOption(label=f"#{cid}｜{name}"[:100], value=str(cid))
+            for cid, name in current
+        ]
+        super().__init__(placeholder="選擇本次購物角色", options=options, row=0)
+        self.parent_view = parent
+
+    async def callback(self, interaction):
+        view = self.parent_view
+        try:
+            cid = int(self.values[0])
+            actor = Actor.from_interaction(interaction)
+            with get_connection() as conn:
+                require_character(conn, actor, cid)
+            # 編輯本次選角訊息，不修改其他指令的角色選擇。
+            await interaction.response.defer(ephemeral=True)
+            await _open_shop_for_character(interaction, cid, view.black, view.category)
+        except (ValueError, InvalidState, PermissionDenied, sqlite3.Error) as exc:
+            if interaction.response.is_done():
+                await interaction.followup.send(f"⚠️ {exc}", ephemeral=True)
+            else:
+                await interaction.response.send_message(f"⚠️ {exc}", ephemeral=True)
+
+
+class ShopCharacterPicker(discord.ui.View):
+    def __init__(self, interaction, characters, black=False, category=""):
+        super().__init__(timeout=600)
+        self.owner_id = interaction.user.id
+        self.guild_id = interaction.guild_id
+        self.characters = characters
+        self.black = black
+        self.category = category
+        self.page = 0
+        self.rebuild()
+
+    def rebuild(self):
+        for child in list(self.children):
+            if isinstance(child, ShopCharacterSelect):
+                self.remove_item(child)
+        page_rows = self.characters[self.page * 25:(self.page + 1) * 25]
+        self.add_item(ShopCharacterSelect(self, page_rows))
+        self.previous.disabled = self.page == 0
+        self.next_page.disabled = (self.page + 1) * 25 >= len(self.characters)
+
+    async def interaction_check(self, interaction):
+        if interaction.user.id != self.owner_id or interaction.guild_id != self.guild_id:
+            await interaction.response.send_message("⛔ 這不是你的角色選單。", ephemeral=True)
+            return False
+        return True
+
+    @discord.ui.button(label="上一頁", style=discord.ButtonStyle.secondary, row=1)
+    async def previous(self, interaction, button):
+        self.page -= 1
+        self.rebuild()
+        await interaction.response.edit_message(
+            content=f"🛍️ 請選擇購物角色（第 {self.page + 1} 頁）", view=self
+        )
+
+    @discord.ui.button(label="下一頁", style=discord.ButtonStyle.secondary, row=1)
+    async def next_page(self, interaction, button):
+        self.page += 1
+        self.rebuild()
+        await interaction.response.edit_message(
+            content=f"🛍️ 請選擇購物角色（第 {self.page + 1} 頁）", view=self
+        )
+
+
 class Shop(commands.Cog):
     """官方商城指令。"""
 
@@ -1886,99 +1987,40 @@ class Shop(commands.Cog):
 
     @app_commands.command(
         name="商城",
-        description="瀏覽並購買官方與玩家商店商品",
+        description="指定角色購物；不填角色則使用選單選擇",
     )
     async def shop(
         self,
         interaction: discord.Interaction,
-        角色編號: str,
+        角色編號: str = "",
         黑卡商城: bool = False,
         商品分類: str = "",
     ):
         if interaction.guild_id is None:
-            await interaction.response.send_message(
-                "請在伺服器內使用。",
-                ephemeral=True,
-            )
+            await interaction.response.send_message("請在伺服器內使用。", ephemeral=True)
             return
-
         try:
-            from modules.zzz_shop_home import (
-                ShopHome,
-                home_text,
-                make_store_screen,
-            )
-
-            actor = Actor.from_interaction(
-                interaction
-            )
-            from modules.economy import resolve_actor_character
-            character_id = resolve_actor_character(actor, 角色編號)
-
-            with get_connection() as conn:
-                require_character(
-                    conn,
-                    actor,
-                    character_id,
+            actor = Actor.from_interaction(interaction)
+            if str(角色編號).strip():
+                from modules.economy import resolve_actor_character
+                cid = resolve_actor_character(actor, 角色編號)
+                await _open_shop_for_character(interaction, cid, 黑卡商城, 商品分類)
+                return
+            characters = _shop_owned_characters(actor)
+            if not characters:
+                await interaction.response.send_message(
+                    "⚠️ 你目前沒有可用的已啟用角色。請先完成創角與審核。",
+                    ephemeral=True,
                 )
-
-            code = (
-                "B10"
-                if 黑卡商城
-                else 商品分類.strip().upper()
-            )
-
-            valid_stores = {
-                f"B{i:02}"
-                for i in range(1, 11)
-            }
-
-            if code and code in valid_stores:
-                content, view = make_store_screen(
-                    actor,
-                    character_id,
-                    code,
-                    0,
-                )
-
-            else:
-                with get_connection() as conn:
-                    black_allowed = has_black_access(
-                        conn,
-                        interaction.guild_id,
-                        character_id,
-                    )
-
-                content = home_text(
-                    character_id,
-                    interaction.guild_id,
-                    black_allowed,
-                )
-
-                view = ShopHome(
-                    interaction.user.id,
-                    character_id,
-                    False,
-                    "",
-                    interaction.guild_id,
-                )
-
+                return
+            picker = ShopCharacterPicker(interaction, characters, 黑卡商城, 商品分類)
             await interaction.response.send_message(
-                content,
-                view=view,
+                "🛍️ 請選擇本次購物角色（第 1 頁）",
+                view=picker,
                 ephemeral=True,
             )
-
-        except (
-            ValueError,
-            InvalidState,
-            PermissionDenied,
-            sqlite3.Error,
-        ) as exc:
-            await interaction.response.send_message(
-                f"⚠️ {exc}",
-                ephemeral=True,
-            )
+        except (ValueError, InvalidState, PermissionDenied, sqlite3.Error) as exc:
+            await interaction.response.send_message(f"⚠️ {exc}", ephemeral=True)
 
     @management.command(
         name="商城新增",
