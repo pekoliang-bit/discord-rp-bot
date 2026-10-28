@@ -1,3 +1,4 @@
+
 """Discord RP：統一玩家申請中心。
 
 正式指令：/玩家申請
@@ -41,7 +42,6 @@ from core.permissions import (
 from modules.character_switch import (
     get_current_character,
     list_available_characters,
-    set_current_character,
 )
 
 from modules.player_shops import request_store
@@ -167,7 +167,7 @@ def application_home_text(character):
         "🏦 官方銀行貸款\n"
         "💳 一般信用卡\n"
         "🖤 黑卡 VIP\n\n"
-        "系統會自動使用目前角色，"
+        "本次申請使用畫面顯示的角色，"
         "不必輸入角色編號。\n\n"
         "申請成功僅代表已送件，"
         "仍須等待官方審核。"
@@ -1016,10 +1016,10 @@ class CharacterSelect(discord.ui.Select):
                 self.actor,
             )
 
+            # 只選擇本次申請的角色，不修改其他模組的角色狀態。
             character = await asyncio.to_thread(
-                set_current_character,
-                actor.guild_id,
-                actor.user_id,
+                owned_active_character,
+                actor,
                 int(self.values[0]),
             )
 
