@@ -119,6 +119,130 @@ class ToggleLottery(discord.ui.Modal, title='⚙️ 開啟／關閉獎單'):
         await reply(i, f'✅ 「{discord.utils.escape_mentions(name)}」已{state}。' if cur.rowcount else '此獎單尚未建立')
 
 
+
+
+# ===== 商城商品綁定與中獎查帳 =====
+
+def recent_products(gid):
+    with get_connection() as db:
+        return db.execute(
+            """SELECT id,name FROM shop_products
+               WHERE guild_id=? AND active=1
+               ORDER BY id DESC LIMIT 25""",
+            (str(gid),),
+        ).fetchall()
+
+
+def lottery_gift_prizes(gid):
+    with get_connection() as db:
+        return db.execute(
+            """SELECT p.id, p.name, l.name AS lottery_name
+               FROM rp_lottery_prizes p
+               JOIN rp_lottery_lists l ON l.id=p.lottery_id
+               WHERE l.guild_id=? AND p.prize_type='gift'
+               ORDER BY p.id DESC LIMIT 25""",
+            (str(gid),),
+        ).fetchall()
+
+
+def draw_report(gid, only_unclaimed=False):
+    from modules.lottery_fulfillment import init_fulfillment_db
+    init_fulfillment_db()
+    with get_connection() as db:
+        rows = db.execute(
+            """SELECT d.id,d.user_id,d.state,l.name AS lottery_name,
+                      p.name AS prize_name,p.prize_type,
+                      b.product_id,deliv.character_id
+               FROM rp_lottery_draws d
+               JOIN rp_lottery_lists l ON l.id=d.lottery_id
+               JOIN rp_lottery_prizes p ON p.id=d.prize_id
+               LEFT JOIN rp_lottery_product_bindings b
+                 ON b.guild_id=d.guild_id AND b.prize_id=d.prize_id
+               LEFT JOIN rp_lottery_deliveries deliv
+                 ON deliv.guild_id=d.guild_id AND deliv.draw_id=d.id
+               WHERE d.guild_id=?
+                 AND (?=0 OR (p.prize_type='gift' AND deliv.draw_id IS NULL))
+               ORDER BY d.id DESC LIMIT 25""",
+            (str(gid), int(bool(only_unclaimed))),
+        ).fetchall()
+    if not rows:
+        return '沒有符合條件的中獎紀錄。'
+    lines = ['🎟️ '+('**待領取獎品（最近 25 筆）**' if only_unclaimed else '**中獎紀錄（最近 25 筆）**')]
+    for r in rows:
+        if r['prize_type']=='money':
+            status='已入帳' if r['state']=='done' else '待發放／待重試'
+        elif r['character_id'] is not None:
+            status=f"已領取至角色 #{r['character_id']}"
+        elif r['product_id'] is not None:
+            status='待玩家領取'
+        else:
+            status='待官方綁定商品／兌換'
+        lines.append(f"#{r['id']}｜<@{r['user_id']}>｜{discord.utils.escape_mentions(r['lottery_name'])}｜{discord.utils.escape_mentions(r['prize_name'])}｜{status}")
+    return '\n'.join(lines)[:1850]
+
+
+class BindProductSelect(discord.ui.Select):
+    def __init__(self, prize_id, gid):
+        self.prize_id=int(prize_id)
+        products=recent_products(gid)
+        choices=[discord.SelectOption(label=f"#{p['id']} {p['name']}"[:100],value=str(p['id'])) for p in products]
+        if not choices:
+            choices=[discord.SelectOption(label='沒有已上架的商城商品',value='none')]
+        super().__init__(placeholder='選擇要綁定的商城商品（最近 25 項）',options=choices,disabled=not bool(products))
+
+    async def callback(self,i):
+        if not allowed(i):
+            return await reply(i,'⛔ 僅群主可以綁定商品。')
+        from modules.lottery_fulfillment import bind_prize
+        try:
+            a,b=bind_prize(i.guild_id,i.user.id,self.prize_id,int(self.values[0]))
+        except (ValueError,sqlite3.Error) as exc:
+            return await reply(i,f'⚠️ {exc}')
+        await i.response.edit_message(content=f'✅ 獎品「{discord.utils.escape_mentions(a)}」已綁定商城商品「{discord.utils.escape_mentions(b)}」。',view=None)
+
+
+class BindProductView(discord.ui.View):
+    def __init__(self, i, prize_id):
+        super().__init__(timeout=300)
+        self.user_id=i.user.id
+        self.guild_id=i.guild_id
+        self.add_item(BindProductSelect(prize_id,i.guild_id))
+
+    async def interaction_check(self,i):
+        if i.user.id!=self.user_id or i.guild_id!=self.guild_id or not allowed(i):
+            await reply(i,'⛔ 此操作不屬於你。')
+            return False
+        return True
+
+
+class GiftPrizePicker(discord.ui.Select):
+    def __init__(self,gid):
+        prizes=lottery_gift_prizes(gid)
+        choices=[discord.SelectOption(label=f"#{p['id']} {p['name']}"[:100],description=p['lottery_name'][:100],value=str(p['id'])) for p in prizes]
+        if not choices:
+            choices=[discord.SelectOption(label='目前沒有禮物類型獎品',value='none')]
+        super().__init__(placeholder='先選要綁定的抽獎禮物（最近 25 項）',options=choices,disabled=not bool(prizes))
+
+    async def callback(self,i):
+        if not allowed(i):
+            return await reply(i,'⛔ 僅群主可以綁定商品。')
+        await i.response.edit_message(content='🛍️ 請選擇對應的商城商品：',view=BindProductView(i,int(self.values[0])))
+
+
+class GiftPrizePickerView(discord.ui.View):
+    def __init__(self,i):
+        super().__init__(timeout=300)
+        self.user_id=i.user.id
+        self.guild_id=i.guild_id
+        self.add_item(GiftPrizePicker(i.guild_id))
+
+    async def interaction_check(self,i):
+        if i.user.id!=self.user_id or i.guild_id!=self.guild_id or not allowed(i):
+            await reply(i,'⛔ 此操作不屬於你。')
+            return False
+        return True
+
+
 class LotteryAdminView(discord.ui.View):
     def __init__(self, i):
         super().__init__(timeout=600)
@@ -151,7 +275,21 @@ class LotteryAdminView(discord.ui.View):
     async def toggle(self, i, b):
         await i.response.send_modal(ToggleLottery())
 
-    @discord.ui.button(label='↩️ 返回內容建立', style=discord.ButtonStyle.secondary, row=2)
+    @discord.ui.button(label='🛍️ 綁定商城商品', style=discord.ButtonStyle.primary, row=2)
+    async def bind_product(self, i, b):
+        from modules.lottery_fulfillment import init_fulfillment_db
+        init_fulfillment_db()
+        await i.response.send_message('🎁 選擇要綁定的禮物獎品：',view=GiftPrizePickerView(i),ephemeral=True)
+
+    @discord.ui.button(label='📜 中獎名單', style=discord.ButtonStyle.secondary, row=2)
+    async def winners(self, i, b):
+        await reply(i,draw_report(i.guild_id))
+
+    @discord.ui.button(label='📦 未領獎清單', style=discord.ButtonStyle.secondary, row=2)
+    async def unclaimed(self, i, b):
+        await reply(i,draw_report(i.guild_id,True))
+
+    @discord.ui.button(label='↩️ 返回內容建立', style=discord.ButtonStyle.secondary, row=3)
     async def back(self, i, b):
         from modules.content_builder import ContentView
         await i.response.edit_message(content='✍️ **內容建立中心**', view=ContentView(i))
