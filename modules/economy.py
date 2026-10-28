@@ -128,6 +128,34 @@ def character_access(actor, character_id):
     return row
 
 
+
+def resolve_actor_character(actor, identifier):
+    """解析角色編號或完整名稱；不更改玩家的全域角色狀態。"""
+    value = str(identifier).strip()
+    if not value:
+        raise ValueError("請輸入角色編號或完整名稱。")
+    if value.isdecimal():
+        cid = int(value)
+        character_access(actor, cid)
+        return cid
+    with get_connection() as conn:
+        rows = conn.execute(
+            "SELECT id FROM characters WHERE guild_id=? AND name=? AND status='active'",
+            (actor.guild_id, value),
+        ).fetchall()
+    valid = []
+    for row in rows:
+        try:
+            character_access(actor, int(row['id']))
+        except (PermissionDenied, InvalidState):
+            continue
+        valid.append(int(row['id']))
+    if not valid:
+        raise ValueError("找不到可操作的已啟用角色，請檢查編號或完整名稱。")
+    if len(valid) > 1:
+        raise ValueError("角色名稱重複，請改用角色編號。")
+    return valid[0]
+
 def target_character(guild_id, character_id):
     """確認收款角色存在並已啟用。"""
 
@@ -736,7 +764,7 @@ class Economy(commands.Cog):
     async def bank(
         self,
         interaction: discord.Interaction,
-        角色編號: int,
+        角色編號: str,
     ):
         await interaction.response.defer(
             ephemeral=True
@@ -747,22 +775,19 @@ class Economy(commands.Cog):
                 interaction
             )
 
-            character_access(
-                actor,
-                角色編號,
-            )
+            character_id = resolve_actor_character(actor, 角色編號)
 
             cash = get_balance(
                 actor.guild_id,
                 "character",
-                角色編號,
+                character_id,
                 "wallet",
             )
 
             savings = get_balance(
                 actor.guild_id,
                 "character",
-                角色編號,
+                character_id,
                 "bank",
             )
 
@@ -779,7 +804,7 @@ class Economy(commands.Cog):
                     """,
                     (
                         actor.guild_id,
-                        角色編號,
+                        character_id,
                     ),
                 ).fetchall()
 
@@ -801,7 +826,7 @@ class Economy(commands.Cog):
             )
 
             return (
-                f"🏦 **角色 #{角色編號} 銀行**\n"
+                f"🏦 **角色 #{character_id} 銀行**\n"
                 f"現金：{cash:,}\n"
                 f"活期存款：{savings:,}\n"
                 f"目前年利率：{rate}\n"
