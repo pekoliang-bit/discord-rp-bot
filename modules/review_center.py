@@ -1,4 +1,3 @@
-
 """Discord RP 統一審核中心。
 
 正式指令：/審核
@@ -1193,6 +1192,8 @@ class EventReviewOpen(discord.ui.Button):
 
 def make_review_home(actor, interaction):
     view = Home(actor)
+    from modules.application_extras import OpenGeneralReview
+    view.add_item(OpenGeneralReview())
     if is_event_admin(interaction):
         view.add_item(EventReviewOpen())
     return view
