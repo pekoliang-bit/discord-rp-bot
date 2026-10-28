@@ -636,6 +636,10 @@ def make_character_embed(
         except ValueError:
             pass
 
+    if category == "extra":
+        from modules.npc_likes import count as extra_like_count
+        embed.add_field(name="💗 路人人氣", value=f"{extra_like_count(actor.guild_id, character_id)} 人喜歡", inline=False)
+
     embed.add_field(
         name="📋 基本資料",
         value=(
@@ -1739,6 +1743,11 @@ class CharacterDetailView(discord.ui.View):
         self.private_button.disabled=not can_see_private(actor,character)
         self.asset_detail_button.disabled=not can_see_private(actor,character)
         if not self.is_own_character:self.inventory_button.disabled=True
+        self.like_button.disabled = category != 'extra'
+        if category == 'extra':
+            from modules.npc_likes import liked
+            self.like_button.label = '💗 已喜歡・取消' if liked(actor.guild_id, character_id, actor.user_id) else '🤍 喜歡這個路人'
+
     async def interaction_check(self,interaction):
         actor=Actor.from_interaction(interaction)
         if actor.user_id!=self.actor.user_id or actor.guild_id!=self.actor.guild_id:
@@ -1766,6 +1775,21 @@ class CharacterDetailView(discord.ui.View):
     @discord.ui.button(label='🏆 成就榮譽',style=discord.ButtonStyle.secondary,row=1)
     async def awards_button(self,interaction,button):
         await PanelSubView(self,'awards').show(interaction,'awards')
+    @discord.ui.button(label='🤍 喜歡這個路人',style=discord.ButtonStyle.secondary,row=2)
+    async def like_button(self,interaction,button):
+        actor=Actor.from_interaction(interaction)
+        try:
+            character=get_character(actor,self.character_id)
+            if get_category(character) != 'extra':
+                raise ValueError('這不是路人角色。')
+            from modules.npc_likes import toggle
+            active, n=toggle(actor.guild_id,self.character_id,actor.user_id)
+            button.label='💗 已喜歡・取消' if active else '🤍 喜歡這個路人'
+            await interaction.response.edit_message(
+                content=None,embed=make_character_embed(actor,self.character_id),view=self)
+        except (ValueError,sqlite3.Error,InvalidState,PermissionDenied) as exc:
+            await interaction.response.send_message(f'⚠️ {exc}',ephemeral=True)
+
     @discord.ui.button(label='⬅️ 返回',style=discord.ButtonStyle.secondary,row=2)
     async def back(self,interaction,button):
         result=find_characters(self.actor,self.category,self.keyword,self.page)
