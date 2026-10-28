@@ -1,30 +1,14 @@
 
-"""Discord RP｜官方內容建立中心。
-
-功能：
-- 官方內容草稿建立、編輯、發布與下架
-- 劇情管理入口
-- 抽獎管理入口
-- 官方 NPC 管理入口
-- 商品企劃、獎項、活動、成就、世界觀、任務草稿
-- 返回官方管理中心
-
-正式的角色、劇情與抽獎資料由各自模組管理。
-本模組的 official_contents 只保存一般官方內容草稿。
-"""
+"""內容建立中心：草稿、編輯、發布、下架；由 /官方 進入。"""
 
 from __future__ import annotations
 
-import logging
 import sqlite3
 
 import discord
 from discord.ext import commands
 
 from core.database import transaction, get_connection
-
-
-LOG = logging.getLogger(__name__)
 
 
 TYPES = {
@@ -37,11 +21,12 @@ TYPES = {
     "achievement": "🎖️ 成就稱號",
     "world": "🌍 世界觀",
     "mission": "📜 任務",
+    "tags": "🏷️ 標籤庫",
 }
 
 
 # ==========================================
-# 資料庫初始化
+# 資料庫
 # ==========================================
 
 def init_db():
@@ -53,97 +38,71 @@ def init_db():
                 kind TEXT NOT NULL,
                 title TEXT NOT NULL,
                 body TEXT NOT NULL,
-
                 status TEXT NOT NULL DEFAULT 'draft'
-                    CHECK(
-                        status IN (
-                            'draft',
-                            'published',
-                            'archived'
-                        )
-                    ),
-
+                    CHECK(status IN ('draft', 'published', 'archived')),
                 creator_id TEXT NOT NULL,
                 editor_id TEXT NOT NULL,
-
                 message_id TEXT,
                 channel_id TEXT,
-
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                 updated_at TEXT DEFAULT CURRENT_TIMESTAMP
             )
         """)
 
         db.execute("""
-            CREATE INDEX IF NOT EXISTS
-            idx_official_contents
-            ON official_contents(
-                guild_id,
-                status,
-                id
-            )
+            CREATE INDEX IF NOT EXISTS idx_official_contents
+            ON official_contents(guild_id, status, id)
         """)
 
 
 # ==========================================
-# 權限與工具
+# 權限
 # ==========================================
 
-def owner(i: discord.Interaction) -> bool:
+def owner(i):
     return bool(
         i.guild
         and i.user.id == i.guild.owner_id
     )
 
 
-def safe_text(value) -> str:
-    return discord.utils.escape_mentions(str(value))
-
-
-async def tell(
-    i: discord.Interaction,
-    message: str,
-):
+async def tell(i, message):
     if i.response.is_done():
         await i.followup.send(
-            message[:1900],
-            ephemeral=True,
+            str(message)[:1900],
+            ephemeral=True
         )
     else:
         await i.response.send_message(
-            message[:1900],
-            ephemeral=True,
+            str(message)[:1900],
+            ephemeral=True
         )
 
 
 # ==========================================
-# 草稿資料操作
+# 官方內容資料操作
 # ==========================================
 
-def create(
-    gid,
-    uid,
-    kind,
-    title,
-    body,
-):
+def create(gid, uid, kind, title, body):
     init_db()
 
     if kind not in TYPES:
-        raise ValueError("未知內容類型。")
+        raise ValueError("未知內容類型")
+
+    # 專屬管理模組不得誤存為一般草稿
+    if kind in ("story", "lottery", "npc", "tags"):
+        raise ValueError(
+            "這個類型請使用專屬管理介面建立。"
+        )
 
     title = title.strip()
     body = body.strip()
 
     if not 1 <= len(title) <= 100:
-        raise ValueError(
-            "標題必須為 1～100 字。"
-        )
+        raise ValueError("標題需為 1～100 字")
 
     if not 1 <= len(body) <= 3500:
-        raise ValueError(
-            "內容必須為 1～3500 字。"
-        )
+        raise ValueError("內容需為 1～3500 字")
 
     with transaction() as db:
         cur = db.execute(
@@ -168,7 +127,7 @@ def create(
             ),
         )
 
-        return int(cur.lastrowid)
+        return cur.lastrowid
 
 
 def list_items(gid):
@@ -177,11 +136,7 @@ def list_items(gid):
     with get_connection() as db:
         rows = db.execute(
             """
-            SELECT
-                id,
-                kind,
-                title,
-                status
+            SELECT id, kind, title, status
             FROM official_contents
             WHERE guild_id=?
             ORDER BY id DESC
@@ -191,23 +146,23 @@ def list_items(gid):
         ).fetchall()
 
     if not rows:
-        return "目前沒有官方內容草稿。"
+        return "目前沒有內容。"
 
-    status_names = {
-        "draft": "草稿",
-        "published": "已發布",
-        "archived": "已下架",
-    }
+    lines = []
 
-    return "\n".join(
-        (
+    for r in rows:
+        title = discord.utils.escape_mentions(
+            str(r["title"][:35])
+        )
+
+        lines.append(
             f"#{r['id']}｜"
             f"{TYPES.get(r['kind'], r['kind'])}｜"
-            f"{safe_text(r['title'][:35])}｜"
-            f"{status_names.get(r['status'], r['status'])}"
+            f"{title}｜"
+            f"{r['status']}"
         )
-        for r in rows
-    )
+
+    return "\n".join(lines)
 
 
 def read(gid, cid):
@@ -218,53 +173,36 @@ def read(gid, cid):
             """
             SELECT *
             FROM official_contents
-            WHERE guild_id=?
-              AND id=?
+            WHERE guild_id=? AND id=?
             """,
-            (
-                str(gid),
-                int(cid),
-            ),
+            (str(gid), int(cid)),
         ).fetchone()
 
     if row is None:
-        raise ValueError(
-            "找不到這筆官方內容。"
-        )
+        raise ValueError("找不到這筆內容")
 
     return dict(row)
 
 
-def update(
-    gid,
-    uid,
-    cid,
-    title,
-    body,
-):
+def update(gid, uid, cid, title, body):
     row = read(gid, cid)
 
     if row["status"] != "draft":
         raise ValueError(
-            "只有草稿可以編輯；"
-            "已發布內容須先下架。"
+            "只有草稿可編輯；請先下架後再修改"
         )
 
     title = title.strip()
     body = body.strip()
 
     if not 1 <= len(title) <= 100:
-        raise ValueError(
-            "標題必須為 1～100 字。"
-        )
+        raise ValueError("標題需為 1～100 字")
 
     if not 1 <= len(body) <= 3500:
-        raise ValueError(
-            "內容必須為 1～3500 字。"
-        )
+        raise ValueError("內容需為 1～3500 字")
 
     with transaction() as db:
-        cur = db.execute(
+        db.execute(
             """
             UPDATE official_contents
             SET
@@ -285,11 +223,6 @@ def update(
             ),
         )
 
-        if cur.rowcount != 1:
-            raise ValueError(
-                "草稿狀態已變更，請重新操作。"
-            )
-
 
 def set_status(
     gid,
@@ -299,17 +232,11 @@ def set_status(
     channel_id=None,
     message_id=None,
 ):
-    if status not in (
-        "draft",
-        "published",
-        "archived",
-    ):
-        raise ValueError(
-            "內容狀態錯誤。"
-        )
+    if status not in ("draft", "published", "archived"):
+        raise ValueError("狀態錯誤")
 
     with transaction() as db:
-        cur = db.execute(
+        db.execute(
             """
             UPDATE official_contents
             SET
@@ -318,35 +245,27 @@ def set_status(
                 channel_id=?,
                 message_id=?,
                 updated_at=CURRENT_TIMESTAMP
-            WHERE guild_id=?
-              AND id=?
+            WHERE guild_id=? AND id=?
             """,
             (
                 status,
                 str(uid),
                 (
                     str(channel_id)
-                    if channel_id is not None
-                    else None
+                    if channel_id else None
                 ),
                 (
                     str(message_id)
-                    if message_id is not None
-                    else None
+                    if message_id else None
                 ),
                 str(gid),
                 int(cid),
             ),
         )
 
-        if cur.rowcount != 1:
-            raise ValueError(
-                "找不到這筆官方內容。"
-            )
-
 
 # ==========================================
-# 建立新內容草稿
+# 建立草稿
 # ==========================================
 
 class NewContent(
@@ -369,14 +288,11 @@ class NewContent(
         super().__init__()
         self.kind = kind
 
-    async def on_submit(
-        self,
-        i: discord.Interaction,
-    ):
+    async def on_submit(self, i):
         if not owner(i):
             return await tell(
                 i,
-                "⛔ 僅限群主建立官方內容。",
+                "僅限群主。"
             )
 
         try:
@@ -388,24 +304,19 @@ class NewContent(
                 str(self.details.value),
             )
 
-            message = (
-                f"✅ 已建立"
-                f"{TYPES[self.kind]}草稿 #{cid}。\n"
-                "可從內容管理功能進行編輯及發布。"
+            msg = (
+                f"✅ 已建立草稿 #{cid}。"
+                "可從「內容管理」發布。"
             )
 
-        except (
-            ValueError,
-            sqlite3.Error,
-        ) as exc:
-            LOG.exception("建立官方內容草稿失敗")
-            message = f"⚠️ {exc}"
+        except (ValueError, sqlite3.Error) as e:
+            msg = f"⚠️ {e}"
 
-        await tell(i, message)
+        await tell(i, msg)
 
 
 # ==========================================
-# 編輯內容草稿
+# 編輯草稿
 # ==========================================
 
 class EditContent(
@@ -429,34 +340,28 @@ class EditContent(
         max_length=3500,
     )
 
-    async def on_submit(
-        self,
-        i: discord.Interaction,
-    ):
+    async def on_submit(self, i):
         if not owner(i):
             return await tell(
                 i,
-                "⛔ 僅限群主修改。",
+                "僅限群主。"
             )
 
         try:
             update(
                 i.guild_id,
                 i.user.id,
-                int(str(self.cid.value)),
+                int(self.cid.value),
                 str(self.heading.value),
                 str(self.details.value),
             )
 
-            message = "✅ 草稿修改成功。"
+            msg = "✅ 草稿修改成功。"
 
-        except (
-            ValueError,
-            sqlite3.Error,
-        ) as exc:
-            message = f"⚠️ {exc}"
+        except (ValueError, sqlite3.Error) as e:
+            msg = f"⚠️ {e}"
 
-        await tell(i, message)
+        await tell(i, msg)
 
 
 # ==========================================
@@ -484,56 +389,44 @@ class PublishContent(
         max_length=22,
     )
 
-    async def on_submit(
-        self,
-        i: discord.Interaction,
-    ):
+    async def on_submit(self, i):
         if not owner(i):
             return await tell(
                 i,
-                "⛔ 僅限群主發布或下架。",
+                "僅限群主。"
             )
 
         await i.response.defer(
-            ephemeral=True,
+            ephemeral=True
         )
 
         try:
-            cid = int(str(self.cid.value).strip())
-            record = read(i.guild_id, cid)
+            cid = int(self.cid.value)
+            r = read(i.guild_id, cid)
+            act = str(self.action.value).strip()
 
-            action = str(
-                self.action.value
-            ).strip()
-
-            if action == "下架":
-
-                if record["status"] != "published":
-                    raise ValueError(
-                        "只有已發布的內容可以下架。"
-                    )
-
-                # 不自動刪除原始 Discord 訊息。
+            if act == "下架":
+                # 僅更新資料庫狀態。
+                # 不自動刪除原本的 Discord 訊息。
                 set_status(
                     i.guild_id,
                     i.user.id,
                     cid,
                     "archived",
-                    record["channel_id"],
-                    record["message_id"],
+                    r["channel_id"],
+                    r["message_id"],
                 )
 
-                message = (
-                    "✅ 已將內容標記為下架。\n"
-                    "原 Discord 訊息仍然保留，"
-                    "如需刪除請自行處理。"
+                msg = (
+                    "✅ 已標記下架。"
+                    "原頻道訊息仍保留，"
+                    "需人工刪除。"
                 )
 
-            elif action == "發布":
-
-                if record["status"] != "draft":
+            elif act == "發布":
+                if r["status"] != "draft":
                     raise ValueError(
-                        "只有草稿可以發布。"
+                        "只有草稿能發布"
                     )
 
                 channel_text = str(
@@ -542,49 +435,48 @@ class PublishContent(
 
                 if not channel_text.isdigit():
                     raise ValueError(
-                        "請輸入正確的發布頻道 ID。"
+                        "請填寫有效的發布頻道 ID"
                     )
 
-                channel = await i.guild.fetch_channel(
+                target = await i.guild.fetch_channel(
                     int(channel_text)
                 )
 
                 if (
                     not isinstance(
-                        channel,
+                        target,
                         (
                             discord.TextChannel,
                             discord.Thread,
                         ),
                     )
-                    or channel.guild.id != i.guild_id
+                    or target.guild.id != i.guild_id
                 ):
                     raise ValueError(
-                        "必須指定本伺服器的"
-                        "文字頻道或討論串。"
+                        "需要本伺服器可發言的"
+                        "文字頻道或討論串"
                     )
 
-                title = safe_text(
-                    record["title"]
+                title = discord.utils.escape_mentions(
+                    r["title"]
                 )
 
-                body = safe_text(
-                    record["body"]
+                body = discord.utils.escape_mentions(
+                    r["body"]
                 )
 
                 content = (
-                    f"**{TYPES[record['kind']]}｜"
-                    f"{title}**\n\n{body}"
+                    f"**{TYPES.get(r['kind'], r['kind'])}"
+                    f"｜{title}**\n\n{body}"
                 )
 
                 if len(content) > 2000:
                     raise ValueError(
-                        "發布內容超過 Discord "
-                        "單則訊息 2000 字限制，"
-                        "請縮短內容。"
+                        "內容超過 Discord "
+                        "單則訊息 2000 字限制"
                     )
 
-                sent = await channel.send(
+                sent = await target.send(
                     content,
                     allowed_mentions=(
                         discord.AllowedMentions.none()
@@ -596,30 +488,29 @@ class PublishContent(
                     i.user.id,
                     cid,
                     "published",
-                    channel.id,
+                    target.id,
                     sent.id,
                 )
 
-                message = (
-                    f"✅ 已發布內容 #{cid} "
-                    f"至 {channel.mention}。"
+                msg = (
+                    f"✅ 已發布 #{cid} "
+                    f"到 {target.mention}"
                 )
 
             else:
                 raise ValueError(
-                    "操作只能輸入「發布」或「下架」。"
+                    "操作只能輸入「發布」或「下架」"
                 )
 
         except (
             ValueError,
             discord.HTTPException,
             sqlite3.Error,
-        ) as exc:
-            LOG.exception("官方內容發布／下架失敗")
-            message = f"⚠️ {exc}"
+        ) as e:
+            msg = f"⚠️ {e}"
 
         await i.followup.send(
-            message[:1900],
+            msg[:1900],
             ephemeral=True,
         )
 
@@ -628,78 +519,62 @@ class PublishContent(
 # 內容類型下拉選單
 # ==========================================
 
-class ContentTypeSelect(
-    discord.ui.Select,
-):
+class ContentTypeSelect(discord.ui.Select):
 
     def __init__(self):
-        options = [
-            discord.SelectOption(
-                label=name,
-                value=key,
-            )
-            for key, name in TYPES.items()
-        ]
-
         super().__init__(
             placeholder="選擇要建立的內容類型",
-            options=options,
+            options=[
+                discord.SelectOption(
+                    label=name,
+                    value=key,
+                )
+                for key, name in TYPES.items()
+            ],
             row=0,
         )
 
-    async def callback(
-        self,
-        i: discord.Interaction,
-    ):
+    async def callback(self, i):
         if not owner(i):
             return await tell(
                 i,
-                "⛔ 僅限群主管理官方內容。",
+                "僅限群主建立。"
             )
 
         selected = self.values[0]
 
         # ==================================
-        # 抽獎管理
+        # 🏷️ 官方標籤庫
         # ==================================
 
-        if selected == "lottery":
-            from modules.lottery_admin_ui import (
-                LotteryAdminView,
-            )
+        if selected == "tags":
+            from modules.tag_admin_ui import TagAdminView
 
             await i.response.edit_message(
                 content=(
-                    "🎟️ **抽獎獎單管理**\n"
-                    "建立獎單及多行獎品、"
-                    "選擇可抽獎身分組、"
-                    "查看中獎與領獎紀錄。"
+                    "🏷️ **官方標籤庫管理**\n"
+                    "可建立、查詢、修改、"
+                    "啟用及停用角色標籤。"
                 ),
+                view=TagAdminView(i),
+            )
+            return
+
+        # ==================================
+        # 🎟️ 抽獎管理
+        # ==================================
+
+        if selected == "lottery":
+            from modules.lottery_admin_ui import LotteryAdminView
+
+            await i.response.edit_message(
+                content="🎟️ **抽獎獎單管理**",
                 view=LotteryAdminView(i),
             )
             return
 
         # ==================================
-        # 劇情編輯器
-        # ==================================
-
-        if selected == "story":
-            from modules.story_builder import (
-                StoryBuilderView,
-            )
-
-            await i.response.edit_message(
-                content=(
-                    "📖 **角色劇情編輯器**\n"
-                    "管理章節、回目、"
-                    "分支與劇情獎勵。"
-                ),
-                view=StoryBuilderView(i),
-            )
-            return
-
-        # ==================================
-        # 官方 NPC 管理中心
+        # 👑 官方 NPC 管理
         # ==================================
 
         if selected == "npc":
@@ -709,42 +584,45 @@ class ContentTypeSelect(
 
             await i.response.edit_message(
                 content=(
-                    "👑 **官方 NPC 管理中心**\n\n"
-                    "可查看所有已登記的官方 NPC，"
-                    "修改名稱及管理啟用狀態。\n\n"
-                    "新增 NPC 請先透過"
-                    " `/角色單登記` "
-                    "提交原始角色單訊息連結。\n"
-                    "群主可以代為登記，"
-                    "但不會因此改變角色擁有者。"
+                    "👑 **官方 NPC 管理**\n"
+                    "新角色請先用 "
+                    "`/角色單登記` 登記。"
                 ),
                 view=OfficialNpcView(i),
             )
             return
 
         # ==================================
-        # 其他官方內容
+        # 📖 角色劇情管理
         # ==================================
 
-        # 目前尚未有專屬管理模組的類型，
-        # 繼續使用官方內容草稿功能。
+        if selected == "story":
+            from modules.story_builder import (
+                StoryBuilderView,
+            )
+
+            await i.response.edit_message(
+                content="📖 **角色劇情編輯器**",
+                view=StoryBuilderView(i),
+            )
+            return
+
+        # ==================================
+        # 其他類型使用草稿編輯器
+        # ==================================
+
         await i.response.send_modal(
             NewContent(selected)
         )
 
 
 # ==========================================
-# 官方內容建立主面板
+# 內容建立中心主介面
 # ==========================================
 
-class ContentView(
-    discord.ui.View,
-):
+class ContentView(discord.ui.View):
 
-    def __init__(
-        self,
-        i: discord.Interaction,
-    ):
+    def __init__(self, i):
         super().__init__(
             timeout=600
         )
@@ -757,9 +635,7 @@ class ContentView(
         )
 
         # 劇情快捷按鈕
-        from modules.story_builder import (
-            StoryBuilderButton,
-        )
+        from modules.story_builder import StoryBuilderButton
 
         self.add_item(
             StoryBuilderButton()
@@ -774,10 +650,7 @@ class ContentView(
             LotteryAdminButton()
         )
 
-    async def interaction_check(
-        self,
-        i: discord.Interaction,
-    ):
+    async def interaction_check(self, i):
         if (
             i.user.id != self.user_id
             or i.guild_id != self.guild_id
@@ -785,10 +658,7 @@ class ContentView(
         ):
             await tell(
                 i,
-                (
-                    "⛔ 這不是你的管理面板，"
-                    "或你的權限不足。"
-                ),
+                "這不是你的管理面板或權限不足。",
             )
             return False
 
@@ -831,9 +701,7 @@ class ContentView(
         row=2,
     )
     async def back(self, i, button):
-        from modules.official_center import (
-            OfficialHome,
-        )
+        from modules.official_center import OfficialHome
 
         await i.response.edit_message(
             content="🏛️ **官方管理中心**",
@@ -842,12 +710,10 @@ class ContentView(
 
 
 # ==========================================
-# 官方中心入口按鈕
+# 官方中心入口
 # ==========================================
 
-class ContentButton(
-    discord.ui.Button,
-):
+class ContentButton(discord.ui.Button):
 
     def __init__(self):
         super().__init__(
@@ -856,37 +722,26 @@ class ContentButton(
             row=3,
         )
 
-    async def callback(
-        self,
-        i: discord.Interaction,
-    ):
+    async def callback(self, i):
         if not owner(i):
             return await tell(
                 i,
-                "⛔ 只有群主可以管理官方內容。",
+                "只有群主可以建立官方內容。",
             )
 
         await i.response.edit_message(
             content=(
-                "✍️ **內容建立中心**\n\n"
-                "請選擇要管理的內容類型。\n"
-                "劇情、抽獎與官方 NPC "
-                "使用專屬管理介面。\n"
-                "其他內容可先建立草稿。"
+                "✍️ **內容建立中心**\n"
+                "選擇類型建立草稿，"
+                "或管理既有內容。"
             ),
             view=ContentView(i),
         )
 
 
 # ==========================================
-# Discord 模組載入入口
+# 模組載入入口
 # ==========================================
 
-async def setup(
-    bot: commands.Bot,
-):
+async def setup(bot: commands.Bot):
     init_db()
-
-    LOG.info(
-        "官方內容建立中心已載入。"
-    )
