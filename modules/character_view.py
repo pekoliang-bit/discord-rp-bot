@@ -402,39 +402,50 @@ def read_attributes(actor, character_id):
 
 
 def read_tracking(actor, character_id):
-    get_character(actor, character_id)
+    """原追蹤數值 + 尚未搬入原表的稱號獎勵。
 
-    empty = {
+    rp_reward_metrics 目前只存統一獎勵核心發出的增量，
+    不覆寫角色既有追蹤資料。
+    """
+    get_character(actor, character_id)
+    result = {
         "loyal_fans": 0,
         "active_antis": 0,
         "public_awareness": 0,
     }
-
-    try:
-        with get_connection() as conn:
+    with get_connection() as conn:
+        tables = {
+            row["name"]
+            for row in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' "
+                "AND name IN ('character_system_tracking', 'rp_reward_metrics')"
+            ).fetchall()
+        }
+        if "character_system_tracking" in tables:
             row = conn.execute(
-                """
-                SELECT
-                    loyal_fans,
-                    active_antis,
-                    public_awareness
-                FROM character_system_tracking
-                WHERE guild_id = ?
-                  AND character_id = ?
-                """,
-                (
-                    actor.guild_id,
-                    character_id,
-                ),
+                """SELECT loyal_fans, active_antis, public_awareness
+                   FROM character_system_tracking
+                   WHERE guild_id=? AND character_id=?""",
+                (str(actor.guild_id), int(character_id)),
             ).fetchone()
+            if row is not None:
+                for key in result:
+                    result[key] = int(row[key] or 0)
 
-    except sqlite3.OperationalError as exc:
-        if "no such table" not in str(exc):
-            raise
-
-        return empty
-
-    return dict(row) if row else empty
+        if "rp_reward_metrics" in tables:
+            rows = conn.execute(
+                """SELECT metric, value FROM rp_reward_metrics
+                   WHERE guild_id=? AND character_id=?
+                     AND subject_character_id=0
+                     AND metric IN ('粉絲', '大眾認知度')""",
+                (str(actor.guild_id), int(character_id)),
+            ).fetchall()
+            for row in rows:
+                if row["metric"] == "粉絲":
+                    result["loyal_fans"] += int(row["value"] or 0)
+                elif row["metric"] == "大眾認知度":
+                    result["public_awareness"] += int(row["value"] or 0)
+    return result
 
 
 def read_money_assets(actor, character_id):
@@ -1331,20 +1342,58 @@ def _panel_inventory(actor,cid,page=0):
     return ('\n\n'.join(lines[page*7:page*7+7]) or '目前背包沒有官方商城物品。')+f'\n\n第 {page+1}/{last+1} 頁',last
 
 
-def _panel_awards(actor,cid):
+def _panel_awards(actor, cid):
+    """同時顯示舊版榮譽與新稱號系統的取得／穿戴紀錄。"""
+    titles, honors = [], []
     with get_connection() as db:
-        if not _panel_table(db,'rp_award_grants'):
-            return '目前尚無稱號與獎項。'
-        rows=db.execute("""SELECT d.kind,d.name,d.rewards_json FROM rp_award_grants g
-           JOIN rp_award_definitions d ON d.guild_id=g.guild_id AND d.id=g.definition_id
-           WHERE g.guild_id=? AND g.character_id=? AND g.revoked=0 ORDER BY g.granted_at DESC LIMIT 30""",
-           (str(actor.guild_id),cid)).fetchall()
-    titles=[];honors=[]
-    for r in rows:
-        data=safe_json(r['rewards_json']);title=data.get('title') or (r['name'] if r['kind']=='title' else '')
-        if title:titles.append(str(title))
-        if r['kind']=='honor':honors.append(r['name'])
-    return f"🌟 **獲得稱號**\n{', '.join(titles) or '尚無'}\n\n🏆 **獲得獎項**\n"+('\n'.join(honors[:20]) or '尚無')
+        if _panel_table(db, 'rp_award_grants') and _panel_table(db, 'rp_award_definitions'):
+            rows = db.execute(
+                """SELECT d.kind, d.name, d.rewards_json
+                   FROM rp_award_grants g
+                   JOIN rp_award_definitions d
+                     ON d.guild_id=g.guild_id AND d.id=g.definition_id
+                   WHERE g.guild_id=? AND g.character_id=? AND g.revoked=0
+                   ORDER BY g.granted_at DESC LIMIT 30""",
+                (str(actor.guild_id), int(cid)),
+            ).fetchall()
+            for r in rows:
+                data = safe_json(r['rewards_json'])
+                title = data.get('title') or (r['name'] if r['kind'] == 'title' else '')
+                if title:
+                    titles.append(str(title))
+                if r['kind'] == 'honor':
+                    honors.append(str(r['name']))
+
+        if _panel_table(db, 'rp_character_achievements') and _panel_table(db, 'rp_achievement_definitions'):
+            rows = db.execute(
+                """SELECT d.name, d.code,
+                          COALESCE(e.equipped, 0) AS equipped,
+                          a.reward_state
+                   FROM rp_character_achievements a
+                   JOIN rp_achievement_definitions d
+                     ON d.id=a.achievement_id AND d.guild_id=a.guild_id
+                   LEFT JOIN rp_title_equipment e
+                     ON e.guild_id=a.guild_id
+                    AND e.character_id=a.character_id
+                    AND e.achievement_id=a.achievement_id
+                   WHERE a.guild_id=? AND a.character_id=?
+                   ORDER BY a.obtained_at DESC, d.id DESC LIMIT 50""",
+                (str(actor.guild_id), int(cid)),
+            ).fetchall()
+            for r in rows:
+                suffix = '（穿戴中）' if bool(r['equipped']) else ''
+                if r['reward_state'] != 'done':
+                    suffix += '（部分獎勵待發）'
+                titles.append(str(r['name']) + suffix)
+
+    # 相同名稱的稱號避免重複顯示。
+    titles = list(dict.fromkeys(titles))
+    title_lines = '\n'.join('• ' + t for t in titles[:40]) or '尚無'
+    honor_lines = '\n'.join('• ' + h for h in honors[:20]) or '尚無'
+    return (
+        '🌟 **獲得稱號**\n' + title_lines
+        + '\n\n🏆 **獲得獎項**\n' + honor_lines
+    )
 
 
 def _panel_career(actor,cid,mode,page=0):
