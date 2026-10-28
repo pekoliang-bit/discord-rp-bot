@@ -1,4 +1,3 @@
-
 """Discord RP｜商品使用次數管理。
 
 檔案：modules/item_admin.py
@@ -432,10 +431,6 @@ class ItemAdmin(commands.Cog):
 
 
 async def setup(bot: commands.Bot):
-    await bot.add_cog(
-        ItemAdmin(bot)
-    )
-
-    LOG.info(
-        "商品使用次數管理系統已載入。"
-    )
+    # 只初始化商品使用次數資料表，不再註冊 /商品次數。
+    await asyncio.to_thread(durability.init_durability_tables)
+    LOG.info("商品使用次數後端已載入（不註冊獨立指令）。")
