@@ -1,23 +1,21 @@
 
-"""Discord RP｜稱號效果系統 V2。
+"""Discord RP｜稱號效果系統 V3。
 
 功能：
-1. 首次穿戴後每滿 24 小時結算，最多七次。
-2. 卸下不暫停計時，不重新計算期限。
-3. 結算時沒有穿戴，該輪永久錯過。
-4. 相同日期、相同數值類型只保留最高加成。
-5. 隨機加成排除影響指數和追蹤數據。
-6. 支援稱號自訂商城折扣。
-7. 折扣範圍包括全商城、分類、品牌、
-   指定商店、陣營商店與活動商品。
-8. 多種折扣同時適用時只取最高優惠。
-9. 支援穿戴生效及取得即生效。
-10. 支援限時或永久折扣。
+1. 首次穿戴後每滿24小時結算，最多七次。
+2. 卸下不暫停計時、不重新計算期限。
+3. 到期當下未穿戴，該輪永久錯過。
+4. 同一天、同數值只取最高加成。
+5. 已領取較低加成時，只補發差額。
+6. 全部每日數值透過 core.stat_rewards 發放。
+7. 隨機加成禁止影響指數及追蹤數據。
+8. 保留所有通用商城折扣與期限規則。
+9. 多種折扣只取最高優惠，不疊乘。
+10. 支援取得生效、穿戴生效及永久折扣。
 
-重要：
-此模組提供折扣計算函式。
-商城必須在扣款前呼叫該函式，
-折扣才會真正生效。
+部署注意：
+不要同時載入舊版 achievement_daily_metrics.py，
+否則兩個結算器會競爭處理相同資料。
 """
 
 from __future__ import annotations
@@ -25,22 +23,18 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-import sqlite3
+from threading import RLock
 
-from datetime import (
-    datetime,
-    timedelta,
-    timezone,
-)
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal, ROUND_FLOOR
 
 from discord.ext import commands
 
-from core.database import (
-    get_connection,
-    transaction,
+from core.database import get_connection, transaction
+from core.stat_rewards import (
+    init_db as init_stat_rewards,
+    grant_stats,
 )
-
 from modules.achievement_core import (
     init_db as init_core,
 )
@@ -50,10 +44,11 @@ LOG = logging.getLogger(__name__)
 
 MAX_CYCLES = 7
 DEFAULT_DURATION_HOURS = 168
+SETTLEMENT_LOCK = RLock()
 
 
 # ==========================================
-# 正式屬性
+# 正式數值名稱
 # ==========================================
 
 ATTRIBUTE_NAMES = {
@@ -63,10 +58,18 @@ ATTRIBUTE_NAMES = {
     "pr": "公關",
     "appearance": "容貌",
     "intelligence": "才智",
+    "fans": "粉絲",
+    "recognition": "大眾認知度",
 }
 
-# 隨機加成不包含影響指數、
-# 粉絲或大眾認知度等追蹤數據。
+EXTERNAL_STATS = {
+    "fans",
+    "recognition",
+}
+
+SUPPORTED_DAILY_STATS = set(ATTRIBUTE_NAMES)
+
+# 隨機池特別排除影響指數與追蹤數據。
 RANDOM_POOL = (
     "heat",
     "business_value",
@@ -74,16 +77,6 @@ RANDOM_POOL = (
     "pr",
     "appearance",
     "intelligence",
-)
-
-EXTERNAL_STATS = {
-    "fans",
-    "recognition",
-}
-
-SUPPORTED_DAILY_STATS = (
-    set(ATTRIBUTE_NAMES)
-    | EXTERNAL_STATS
 )
 
 SUPPORTED_DISCOUNT_SCOPES = {
@@ -108,18 +101,12 @@ def parse_time(value):
     if isinstance(value, datetime):
         result = value
     else:
-        result = datetime.fromisoformat(
-            str(value)
-        )
+        result = datetime.fromisoformat(str(value))
 
     if result.tzinfo is None:
-        result = result.replace(
-            tzinfo=timezone.utc
-        )
+        result = result.replace(tzinfo=timezone.utc)
 
-    return result.astimezone(
-        timezone.utc
-    )
+    return result.astimezone(timezone.utc)
 
 
 def iso(value):
@@ -134,10 +121,9 @@ def iso(value):
 
 def init_db():
     init_core()
+    init_stat_rewards()
 
     with transaction() as db:
-
-        # 每個稱號各自七輪的紀錄。
         db.execute("""
             CREATE TABLE IF NOT EXISTS
             rp_title_effect_cycles (
@@ -147,10 +133,7 @@ def init_db():
                 cycle_number INTEGER NOT NULL,
                 due_at TEXT NOT NULL,
                 state TEXT NOT NULL
-                    CHECK(state IN (
-                        'missed',
-                        'queued'
-                    )),
+                    CHECK(state IN ('missed', 'queued')),
                 processed_at TEXT NOT NULL
                     DEFAULT CURRENT_TIMESTAMP,
 
@@ -163,8 +146,6 @@ def init_db():
             )
         """)
 
-        # 每個日期、每個數值類型
-        # 實際已入帳的最高總量。
         db.execute("""
             CREATE TABLE IF NOT EXISTS
             rp_title_daily_paid (
@@ -172,8 +153,7 @@ def init_db():
                 character_id INTEGER NOT NULL,
                 cycle_key TEXT NOT NULL,
                 stat_key TEXT NOT NULL,
-                paid_amount INTEGER NOT NULL
-                    DEFAULT 0,
+                paid_amount INTEGER NOT NULL DEFAULT 0,
 
                 PRIMARY KEY (
                     guild_id,
@@ -186,7 +166,7 @@ def init_db():
 
 
 # ==========================================
-# 指定時刻穿戴判定
+# 穿戴歷史檢查
 # ==========================================
 
 def worn_at(
@@ -202,7 +182,6 @@ def worn_at(
         """
         SELECT 1
         FROM rp_title_wear_history
-
         WHERE guild_id=?
           AND character_id=?
           AND achievement_id=?
@@ -211,7 +190,6 @@ def worn_at(
               worn_until IS NULL
               OR worn_until > ?
           )
-
         LIMIT 1
         """,
         (
@@ -227,7 +205,7 @@ def worn_at(
 
 
 # ==========================================
-# 固定隨機結果
+# 固定隨機選擇
 # ==========================================
 
 def deterministic_choice(
@@ -258,13 +236,11 @@ def deterministic_choice(
         "big",
     )
 
-    return options[
-        number % len(options)
-    ]
+    return options[number % len(options)]
 
 
 # ==========================================
-# 計算單次每日效果
+# 每日效果計算
 # ==========================================
 
 def calculate_daily_effect(
@@ -274,16 +250,10 @@ def calculate_daily_effect(
     cycle_number,
     definition,
 ):
-    effect_type = definition.get(
-        "type",
-        "none",
-    )
+    effect_type = definition.get("type", "none")
 
     if effect_type == "daily":
-        values = definition.get(
-            "stats",
-            {},
-        )
+        values = definition.get("stats", {})
 
         if not isinstance(values, dict):
             return {}
@@ -301,10 +271,7 @@ def calculate_daily_effect(
         return result
 
     if effect_type == "random_daily":
-        amount = definition.get(
-            "amount",
-            0,
-        )
+        amount = definition.get("amount", 0)
 
         if (
             type(amount) is not int
@@ -317,18 +284,18 @@ def calculate_daily_effect(
             RANDOM_POOL,
         )
 
-        if not isinstance(
-            requested,
-            (list, tuple),
-        ):
+        if not isinstance(requested, (list, tuple)):
             return {}
 
-        excluded = set(
-            definition.get(
-                "exclude",
-                [],
-            )
-        )
+        raw_excluded = definition.get("exclude", [])
+
+        if not isinstance(
+            raw_excluded,
+            (list, tuple, set),
+        ):
+            raw_excluded = []
+
+        excluded = set(raw_excluded)
 
         options = [
             key
@@ -348,16 +315,13 @@ def calculate_daily_effect(
         if selected is None:
             return {}
 
-        return {
-            selected: amount
-        }
+        return {selected: amount}
 
-    # 折扣稱號不產生每日數值獎勵。
     return {}
 
 
 # ==========================================
-# 同日只取最高數值
+# 同日只保留最高獎勵
 # ==========================================
 
 def record_best_daily(
@@ -369,22 +333,25 @@ def record_best_daily(
     amount,
     achievement_id,
 ):
+    if stat_key not in SUPPORTED_DAILY_STATS:
+        return False
+
+    if type(amount) is not int or amount <= 0:
+        return False
+
+    gid = str(guild_id)
+    cid = int(character_id)
+
     row = db.execute(
         """
         SELECT granted_amount
         FROM rp_title_daily_claims
-
         WHERE guild_id=?
           AND character_id=?
           AND cycle_key=?
           AND stat_key=?
         """,
-        (
-            str(guild_id),
-            int(character_id),
-            date_key,
-            stat_key,
-        ),
+        (gid, cid, date_key, stat_key),
     ).fetchone()
 
     if row is None:
@@ -399,49 +366,48 @@ def record_best_daily(
                 source_achievement_id,
                 state
             )
-
             VALUES (?, ?, ?, ?, ?, ?, 'pending')
             """,
             (
-                str(guild_id),
-                int(character_id),
+                gid,
+                cid,
                 date_key,
                 stat_key,
-                int(amount),
+                amount,
                 int(achievement_id),
             ),
         )
-        return
+        return True
 
     if int(row["granted_amount"]) >= amount:
-        return
+        return False
 
     db.execute(
         """
         UPDATE rp_title_daily_claims
-
         SET granted_amount=?,
             source_achievement_id=?,
             state='pending'
-
         WHERE guild_id=?
           AND character_id=?
           AND cycle_key=?
           AND stat_key=?
         """,
         (
-            int(amount),
+            amount,
             int(achievement_id),
-            str(guild_id),
-            int(character_id),
+            gid,
+            cid,
             date_key,
             stat_key,
         ),
     )
 
+    return True
+
 
 # ==========================================
-# 建立已到期的每日輪次
+# 建立到期輪次
 # ==========================================
 
 def queue_due_cycles(
@@ -452,10 +418,7 @@ def queue_due_cycles(
 ):
     init_db()
 
-    moment = parse_time(
-        now or utc_now()
-    )
-
+    moment = parse_time(now or utc_now())
     gid = str(guild_id)
 
     result = {
@@ -465,7 +428,6 @@ def queue_due_cycles(
     }
 
     with transaction() as db:
-
         query = """
             SELECT
                 e.character_id,
@@ -486,34 +448,32 @@ def queue_due_cycles(
         params = [gid]
 
         if character_id is not None:
-            query += (
-                " AND e.character_id=?"
-            )
-            params.append(
-                int(character_id)
-            )
+            query += " AND e.character_id=?"
+            params.append(int(character_id))
 
-        rows = db.execute(
-            query,
-            params,
-        ).fetchall()
+        rows = db.execute(query, params).fetchall()
 
         for row in rows:
-            cid = int(
-                row["character_id"]
-            )
-
-            aid = int(
-                row["achievement_id"]
-            )
+            cid = int(row["character_id"])
+            aid = int(row["achievement_id"])
 
             first = parse_time(
                 row["first_activated_at"]
             )
 
-            effect = json.loads(
-                row["effect_json"]
-            )
+            try:
+                effect = json.loads(
+                    row["effect_json"] or "{}"
+                )
+            except (ValueError, TypeError):
+                LOG.warning(
+                    "稱號效果 JSON 錯誤：%s",
+                    aid,
+                )
+                continue
+
+            if not isinstance(effect, dict):
+                continue
 
             if effect.get("type") not in (
                 "daily",
@@ -521,10 +481,7 @@ def queue_due_cycles(
             ):
                 continue
 
-            for cycle in range(
-                1,
-                MAX_CYCLES + 1,
-            ):
+            for cycle in range(1, MAX_CYCLES + 1):
                 due = first + timedelta(
                     hours=cycle * 24
                 )
@@ -541,12 +498,7 @@ def queue_due_cycles(
                       AND achievement_id=?
                       AND cycle_number=?
                     """,
-                    (
-                        gid,
-                        cid,
-                        aid,
-                        cycle,
-                    ),
+                    (gid, cid, aid, cycle),
                 ).fetchone()
 
                 if existing is not None:
@@ -621,7 +573,267 @@ def queue_due_cycles(
 
 
 # ==========================================
-# 發放待處理每日加成
+# 讀取單筆待發加成
+# ==========================================
+
+def read_daily_claim(
+    guild_id,
+    character_id,
+    cycle_key,
+    stat_key,
+):
+    with get_connection() as db:
+        claim = db.execute(
+            """
+            SELECT granted_amount, state
+            FROM rp_title_daily_claims
+            WHERE guild_id=?
+              AND character_id=?
+              AND cycle_key=?
+              AND stat_key=?
+            """,
+            (
+                str(guild_id),
+                int(character_id),
+                str(cycle_key),
+                str(stat_key),
+            ),
+        ).fetchone()
+
+        if claim is None:
+            return None
+
+        paid = db.execute(
+            """
+            SELECT paid_amount
+            FROM rp_title_daily_paid
+            WHERE guild_id=?
+              AND character_id=?
+              AND cycle_key=?
+              AND stat_key=?
+            """,
+            (
+                str(guild_id),
+                int(character_id),
+                str(cycle_key),
+                str(stat_key),
+            ),
+        ).fetchone()
+
+    return {
+        "target": int(claim["granted_amount"]),
+        "state": claim["state"],
+        "previous": (
+            int(paid["paid_amount"])
+            if paid is not None
+            else 0
+        ),
+    }
+
+
+# ==========================================
+# 保存已發最高金額
+# ==========================================
+
+def save_daily_paid(
+    db,
+    guild_id,
+    character_id,
+    cycle_key,
+    stat_key,
+    target,
+):
+    db.execute(
+        """
+        INSERT INTO rp_title_daily_paid (
+            guild_id,
+            character_id,
+            cycle_key,
+            stat_key,
+            paid_amount
+        )
+        VALUES (?, ?, ?, ?, ?)
+
+        ON CONFLICT (
+            guild_id,
+            character_id,
+            cycle_key,
+            stat_key
+        )
+
+        DO UPDATE SET
+            paid_amount=MAX(
+                paid_amount,
+                excluded.paid_amount
+            )
+        """,
+        (
+            str(guild_id),
+            int(character_id),
+            str(cycle_key),
+            str(stat_key),
+            int(target),
+        ),
+    )
+
+
+# ==========================================
+# 單筆每日獎勵發放
+# ==========================================
+
+def settle_one_daily(
+    guild_id,
+    character_id,
+    cycle_key,
+    stat_key,
+):
+    """以差額方式發放每日最高獎勵。
+
+    例如：
+    原本最高10，已領10。
+    後來最高改為20，只補發10。
+
+    每次差額獨立使用固定 source_id，
+    即使發獎後、標記前中斷，也能安全重試。
+
+    本函式使用程序內鎖。
+    正式部署請維持單一結算程序，
+    避免多個 Railway 副本同時結算。
+    """
+
+    if stat_key not in ATTRIBUTE_NAMES:
+        return "skipped"
+
+    gid = str(guild_id)
+    cid = int(character_id)
+    cycle_key = str(cycle_key)
+
+    with SETTLEMENT_LOCK:
+        claim = read_daily_claim(
+            gid,
+            cid,
+            cycle_key,
+            stat_key,
+        )
+
+        if claim is None:
+            return "skipped"
+
+        if claim["state"] != "pending":
+            return "already_done"
+
+        target = claim["target"]
+        previous = claim["previous"]
+
+        if target < 0 or previous < 0:
+            raise ValueError(
+                "每日加成金額不可為負數。"
+            )
+
+        delta = max(0, target - previous)
+
+        if delta > 0:
+            source_id = (
+                f"title_daily:"
+                f"{gid}:"
+                f"{cid}:"
+                f"{cycle_key}:"
+                f"{stat_key}:"
+                f"{previous}:"
+                f"{target}"
+            )
+
+            # 此處由統一核心保護所有數值。
+            # 每日加成不允許影響指數。
+            #
+            # 固定與隨機結果均已在
+            # calculate_daily_effect 內驗證
+            # 可發放數值清單。
+            grant_stats(
+                gid,
+                cid,
+                {
+                    ATTRIBUTE_NAMES[stat_key]: delta
+                },
+                source="system_rule",
+                source_id=source_id,
+                reason=(
+                    f"稱號每日效果 "
+                    f"{cycle_key} "
+                    f"{ATTRIBUTE_NAMES[stat_key]}"
+                    f" +{delta}"
+                ),
+                random=False,
+                purchased=False,
+            )
+
+        # 發放成功後才更新已發記錄。
+        # 若此前機器人中斷，下次以相同
+        # source_id 重試，不會重複入帳。
+        with transaction() as db:
+            current = db.execute(
+                """
+                SELECT granted_amount, state
+                FROM rp_title_daily_claims
+                WHERE guild_id=?
+                  AND character_id=?
+                  AND cycle_key=?
+                  AND stat_key=?
+                """,
+                (
+                    gid,
+                    cid,
+                    cycle_key,
+                    stat_key,
+                ),
+            ).fetchone()
+
+            if current is None:
+                return "changed"
+
+            save_daily_paid(
+                db,
+                gid,
+                cid,
+                cycle_key,
+                stat_key,
+                target,
+            )
+
+            # 若結算期間出現更高額獎勵，
+            # 保留 pending，下次補足差額。
+            if (
+                current["state"] == "pending"
+                and int(current["granted_amount"])
+                <= target
+            ):
+                db.execute(
+                    """
+                    UPDATE rp_title_daily_claims
+                    SET state='done'
+                    WHERE guild_id=?
+                      AND character_id=?
+                      AND cycle_key=?
+                      AND stat_key=?
+                      AND state='pending'
+                      AND granted_amount<=?
+                    """,
+                    (
+                        gid,
+                        cid,
+                        cycle_key,
+                        stat_key,
+                        target,
+                    ),
+                )
+
+                return "done"
+
+        return "changed"
+
+
+# ==========================================
+# 批次發放
 # ==========================================
 
 def grant_pending_daily(
@@ -644,9 +856,7 @@ def grant_pending_daily(
             character_id,
             cycle_key,
             stat_key
-
         FROM rp_title_daily_claims
-
         WHERE guild_id=?
           AND state='pending'
     """
@@ -654,12 +864,15 @@ def grant_pending_daily(
     params = [gid]
 
     if character_id is not None:
-        query += (
-            " AND character_id=?"
-        )
-        params.append(
-            int(character_id)
-        )
+        query += " AND character_id=?"
+        params.append(int(character_id))
+
+    query += """
+        ORDER BY
+            character_id,
+            cycle_key,
+            stat_key
+    """
 
     with get_connection() as db:
         rows = db.execute(
@@ -668,193 +881,51 @@ def grant_pending_daily(
         ).fetchall()
 
     for item in rows:
-        cid = int(
-            item["character_id"]
-        )
-
-        date_key = item[
-            "cycle_key"
-        ]
-
-        stat_key = item[
-            "stat_key"
-        ]
-
-        # 粉絲與大眾認知度留給
-        # 追蹤數據適配器處理。
-        if stat_key not in ATTRIBUTE_NAMES:
-            result["pending"].append(
-                (
-                    cid,
-                    date_key,
-                    stat_key,
-                )
-            )
-            continue
+        cid = int(item["character_id"])
+        date_key = item["cycle_key"]
+        stat_key = item["stat_key"]
 
         try:
-            with transaction() as db:
-
-                claim = db.execute(
-                    """
-                    SELECT
-                        granted_amount,
-                        state
-
-                    FROM rp_title_daily_claims
-
-                    WHERE guild_id=?
-                      AND character_id=?
-                      AND cycle_key=?
-                      AND stat_key=?
-                    """,
-                    (
-                        gid,
-                        cid,
-                        date_key,
-                        stat_key,
-                    ),
-                ).fetchone()
-
-                if (
-                    claim is None
-                    or claim["state"] != "pending"
-                ):
-                    continue
-
-                paid = db.execute(
-                    """
-                    SELECT paid_amount
-
-                    FROM rp_title_daily_paid
-
-                    WHERE guild_id=?
-                      AND character_id=?
-                      AND cycle_key=?
-                      AND stat_key=?
-                    """,
-                    (
-                        gid,
-                        cid,
-                        date_key,
-                        stat_key,
-                    ),
-                ).fetchone()
-
-                previous = (
-                    int(paid["paid_amount"])
-                    if paid
-                    else 0
-                )
-
-                target = int(
-                    claim["granted_amount"]
-                )
-
-                delta = max(
-                    0,
-                    target - previous,
-                )
-
-                if delta > 0:
-                    db.execute(
-                        """
-                        INSERT INTO attributes (
-                            guild_id,
-                            character_id,
-                            name,
-                            value
-                        )
-                        VALUES (?, ?, ?, ?)
-
-                        ON CONFLICT (
-                            guild_id,
-                            character_id,
-                            name
-                        )
-
-                        DO UPDATE SET
-                            value=value+excluded.value,
-                            version=version+1
-                        """,
-                        (
-                            gid,
-                            cid,
-                            ATTRIBUTE_NAMES[
-                                stat_key
-                            ],
-                            delta,
-                        ),
-                    )
-
-                db.execute(
-                    """
-                    INSERT INTO rp_title_daily_paid (
-                        guild_id,
-                        character_id,
-                        cycle_key,
-                        stat_key,
-                        paid_amount
-                    )
-
-                    VALUES (?, ?, ?, ?, ?)
-
-                    ON CONFLICT (
-                        guild_id,
-                        character_id,
-                        cycle_key,
-                        stat_key
-                    )
-
-                    DO UPDATE SET
-                        paid_amount=excluded.paid_amount
-                    """,
-                    (
-                        gid,
-                        cid,
-                        date_key,
-                        stat_key,
-                        target,
-                    ),
-                )
-
-                db.execute(
-                    """
-                    UPDATE rp_title_daily_claims
-                    SET state='done'
-
-                    WHERE guild_id=?
-                      AND character_id=?
-                      AND cycle_key=?
-                      AND stat_key=?
-                    """,
-                    (
-                        gid,
-                        cid,
-                        date_key,
-                        stat_key,
-                    ),
-                )
-
-            result["done"].append(
-                (
-                    cid,
-                    date_key,
-                    stat_key,
-                )
+            outcome = settle_one_daily(
+                gid,
+                cid,
+                date_key,
+                stat_key,
             )
 
-        except sqlite3.Error as exc:
+            if outcome == "done":
+                result["done"].append(
+                    (cid, date_key, stat_key)
+                )
+            else:
+                result["pending"].append(
+                    (cid, date_key, stat_key)
+                )
+
+        except Exception as exc:
             LOG.exception(
-                "每日稱號加成發放失敗"
+                "稱號每日加成結算失敗："
+                "guild=%s character=%s "
+                "date=%s stat=%s",
+                gid,
+                cid,
+                date_key,
+                stat_key,
             )
 
-            result["errors"].append(
-                str(exc)
-            )
+            result["errors"].append({
+                "character_id": cid,
+                "cycle_key": date_key,
+                "stat_key": stat_key,
+                "error": str(exc),
+            })
 
     return result
 
+
+# ==========================================
+# 執行完整結算
+# ==========================================
 
 def settle_daily_effects(
     guild_id,
@@ -880,33 +951,15 @@ def settle_daily_effects(
 
 
 # ==========================================
-# 通用折扣資料解析
+# 通用商城折扣解析
+# 以下保留 V2 的折扣功能
 # ==========================================
 
 def extract_discounts(effect):
-    """兼容兩種折扣資料格式。
+    """支援舊格式與新版多折扣格式。"""
 
-    舊版：
-        {"type":"shop_discount","rate":0.9}
-
-    新版：
-        {
-            "type":"daily",
-            "stats":{"heat":10},
-            "discounts":[
-                {
-                    "type":"shop_discount",
-                    "percent_off":20,
-                    "scope":"category",
-                    "target":"clothing",
-                    "duration_hours":168,
-                    "activation":"equipped"
-                }
-            ]
-        }
-
-    一個稱號可以同時有每日效果與折扣。
-    """
+    if not isinstance(effect, dict):
+        return []
 
     result = []
 
@@ -931,30 +984,18 @@ def extract_discounts(effect):
 
 
 def discount_multiplier(discount):
-    """把折扣設定轉為商品付款倍率。"""
+    """將折扣轉換為付款倍率。"""
 
-    if "percent_off" in discount:
+    for key in (
+        "percent_off",
+        "discount_percent",
+    ):
+        if key not in discount:
+            continue
+
         try:
             percent = Decimal(
-                str(discount["percent_off"])
-            )
-        except Exception:
-            return None
-
-        if not (
-            Decimal("0") <= percent
-            < Decimal("100")
-        ):
-            return None
-
-        return (
-            Decimal("100") - percent
-        ) / Decimal("100")
-
-    if "discount_percent" in discount:
-        try:
-            percent = Decimal(
-                str(discount["discount_percent"])
+                str(discount[key])
             )
         except Exception:
             return None
@@ -1055,7 +1096,7 @@ def discount_matches(
 
 
 # ==========================================
-# 折扣期限與生效條件
+# 折扣有效期限
 # ==========================================
 
 def discount_is_active(
@@ -1067,19 +1108,7 @@ def discount_is_active(
     equipped,
     historical_equipped,
 ):
-    """判斷折扣在指定時間是否有效。
-
-    equipped：
-        必須穿戴。
-        限時效果從首次穿戴起算。
-
-    owned：
-        取得後即生效。
-        限時效果從取得時起算。
-
-    permanent：
-        不設定到期時間。
-    """
+    """支援取得生效、穿戴生效及永久折扣。"""
 
     activation = discount.get(
         "activation",
@@ -1117,8 +1146,10 @@ def discount_is_active(
         DEFAULT_DURATION_HOURS,
     )
 
-    # None 或 permanent 代表永久。
-    if duration is None or duration == "permanent":
+    if (
+        duration is None
+        or duration == "permanent"
+    ):
         return True
 
     try:
@@ -1137,7 +1168,7 @@ def discount_is_active(
 
 
 # ==========================================
-# 計算角色適用折扣
+# 取得角色最佳商城折扣
 # ==========================================
 
 def get_shop_discount_detail(
@@ -1152,19 +1183,7 @@ def get_shop_discount_detail(
     faction_id=None,
     event_id=None,
 ):
-    """取得符合條件的最大折扣。
-
-    返回：
-        {
-            "rate": Decimal("0.8"),
-            "percent_off": 20,
-            "title": "購物狂歡",
-            "code": "event:shopping_festival"
-        }
-
-    注意：
-    折扣取最大優惠，不連乘疊加。
-    """
+    """折扣只取最高優惠，不疊加。"""
 
     init_db()
 
@@ -1183,7 +1202,6 @@ def get_shop_discount_detail(
     }
 
     with get_connection() as db:
-
         rows = db.execute(
             """
             SELECT
@@ -1191,12 +1209,9 @@ def get_shop_discount_detail(
                 d.code,
                 d.name,
                 d.effect_json,
-
                 a.obtained_at,
-
                 COALESCE(e.equipped, 0)
                     AS equipped,
-
                 e.first_activated_at
 
             FROM rp_character_achievements a
@@ -1214,17 +1229,13 @@ def get_shop_discount_detail(
               AND a.character_id=?
               AND d.enabled=1
             """,
-            (
-                gid,
-                cid,
-            ),
+            (gid, cid),
         ).fetchall()
 
         for row in rows:
-
             try:
                 effect = json.loads(
-                    row["effect_json"]
+                    row["effect_json"] or "{}"
                 )
             except (TypeError, ValueError):
                 continue
@@ -1252,7 +1263,6 @@ def get_shop_discount_detail(
                 )
 
             for discount in discounts:
-
                 if not discount_matches(
                     discount,
                     shop_type=shop_type,
@@ -1283,7 +1293,6 @@ def get_shop_discount_detail(
                 if rate is None:
                     continue
 
-                # 折扣倍率越小，優惠越高。
                 if rate < best["rate"]:
                     best = {
                         "rate": rate,
@@ -1298,7 +1307,7 @@ def get_shop_discount_detail(
 
 
 # ==========================================
-# 與舊商城相容的倍率函式
+# 舊商城倍率接口
 # ==========================================
 
 def get_shop_discount(
@@ -1313,8 +1322,6 @@ def get_shop_discount(
     faction_id=None,
     event_id=None,
 ):
-    """回傳折扣付款倍率，例如 0.8。"""
-
     detail = get_shop_discount_detail(
         guild_id,
         character_id,
@@ -1333,7 +1340,7 @@ def get_shop_discount(
 
 
 # ==========================================
-# 計算實際付款金額
+# 計算商城實付價格
 # ==========================================
 
 def calculate_discounted_price(
@@ -1349,12 +1356,6 @@ def calculate_discounted_price(
     faction_id=None,
     event_id=None,
 ):
-    """原價乘上最優惠倍率後，無條件捨去小數。
-
-    此函式只計算價格。
-    不執行扣款、發貨或修改訂單。
-    """
-
     if (
         type(original_price) is not int
         or original_price < 0
@@ -1388,12 +1389,13 @@ def calculate_discounted_price(
 
 
 # ==========================================
-# 模組載入
+# Discord 模組載入
 # ==========================================
 
 async def setup(bot: commands.Bot):
     init_db()
 
     LOG.info(
-        "稱號每日效果與通用折扣系統已載入。"
+        "稱號每日效果 V3 與通用折扣"
+        "系統已載入。"
     )
