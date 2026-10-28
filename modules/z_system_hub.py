@@ -19,6 +19,7 @@ MENU = {
     "tags": "🏷️ 標籤庫",
     "characters": "🎭 全服角色名單",
     "awards": "🏆 公開獎項圖鑑",
+    "extra_likes": "💗 路人人氣排行榜",
 }
 GUIDES = {
     "角色與背包": "使用 `/創角` 建立角色；使用 `/查看` 查閱角色資料、背包、稱號與裝備。各功能逐步支援直接指定角色編號或姓名。",
@@ -47,6 +48,9 @@ def escape(value, limit=130):
 
 
 def query_rows(gid, section):
+    if section == "extra_likes":
+        from modules.npc_likes import leaderboard
+        return leaderboard(gid)
     if section.startswith("event_"):
         status = section.split("_", 1)[1]
         sql = """SELECT id,title,description,capacity,channel_id,status
@@ -145,7 +149,7 @@ class OverviewView(discord.ui.View):
     def rebuild(self):
         self.clear_items()
         self.add_item(OverviewSelect(self.section))
-        if self.section in ("characters", "awards") or self.section.startswith("event_"):
+        if self.section in ("characters", "awards", "extra_likes") or self.section.startswith("event_"):
             try:
                 rows = query_rows(self.guild_id, self.section)
                 visible = rows[self.page*PAGE_SIZE:(self.page+1)*PAGE_SIZE]
@@ -201,6 +205,10 @@ class OverviewView(discord.ui.View):
                 ch = f"<# {r['channel_id']}>".replace("# ", "#") if r.get("channel_id") and str(r['channel_id']).isdigit() else "未設定"
                 value = f"{escape(r['description'], 160)}\n上限：{r['capacity']} 人｜頻道：{ch}"
                 embed.add_field(name=f"#{r['id']}｜{escape(r['title'], 90)}", value=value[:1024], inline=False)
+            elif self.section == "extra_likes":
+                rank = self.page * PAGE_SIZE + len(embed.fields) + 1
+                embed.add_field(name=f"#{rank}｜{escape(r['name'],80)}",
+                                value=f"💗 {r['hearts']} 人喜歡｜角色 #{r['id']}",inline=False)
             elif self.section == "tags":
                 embed.add_field(name=f"#{r['id']}｜{escape(r['name'],85)}",
                                 value=f"分類：{escape(r['category'],60)}", inline=False)
@@ -246,6 +254,11 @@ class OverviewView(discord.ui.View):
                     f"活動獎勵：{escape(event['rewards_text'],160)}\n"
                     f"稱號獎勵：{escape(event['title_reward_text'],120)}\n"
                     f"已通過：{counts.get('accepted',0)}｜審核中：{counts.get('pending',0)}")
+        if self.section == "extra_likes":
+            return (f"路人：{escape(r['name'],100)}\n"
+                    f"編號：#{r['id']}\n"
+                    f"目前人氣：💗 {r['hearts']}\n"
+                    "前往 `/查看` → 路人角色，可按愛心或取消。")
         if self.section == "characters":
             return (f"角色編號：{escape(r.get('public_code') or r['id'],50)}\n"
                     f"角色名稱：{escape(r['name'],100)}\n"
