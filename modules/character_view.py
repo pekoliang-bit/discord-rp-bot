@@ -1653,6 +1653,38 @@ class PanelSubView(discord.ui.View):
                 await show_player(interaction, self.parent)
             redeem_btn.callback = open_redeem
             self.add_item(redeem_btn)
+            title_btn = discord.ui.Button(
+                label='🎖️ 稱號', style=discord.ButtonStyle.secondary, row=1
+            )
+            async def open_titles(interaction):
+                try:
+                    from modules.achievement_player_ui import (
+                        AchievementPlayerView, ensure_character_access,
+                        seed_fixed_titles, escape,
+                    )
+                    cid = self.parent.character_id
+                    character = ensure_character_access(interaction, cid)
+                    seed_fixed_titles(interaction.guild_id)
+                    view = AchievementPlayerView(interaction, cid)
+                    await interaction.response.edit_message(
+                        content=(f"角色：**{escape(character['name'])}**\n\n"
+                                 + view.render()),
+                        embed=None,
+                        view=view,
+                    )
+                except (ValueError, PermissionError, sqlite3.Error) as exc:
+                    if interaction.response.is_done():
+                        await interaction.followup.send(f'⚠️ {exc}', ephemeral=True)
+                    else:
+                        await interaction.response.send_message(f'⚠️ {exc}', ephemeral=True)
+                except Exception:
+                    LOG.exception('背包開啟稱號管理失敗')
+                    if interaction.response.is_done():
+                        await interaction.followup.send('⚠️ 稱號介面無法開啟。', ephemeral=True)
+                    else:
+                        await interaction.response.send_message('⚠️ 稱號介面無法開啟。', ephemeral=True)
+            title_btn.callback = open_titles
+            self.add_item(title_btn)
         if mode=='awards':
             for label,kind in [('成就','works'),('榮譽','endorsement')]:
                 btn=discord.ui.Button(label=label,style=discord.ButtonStyle.secondary,row=0)
