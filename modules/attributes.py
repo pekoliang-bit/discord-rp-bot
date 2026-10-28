@@ -8,8 +8,15 @@
 其他屬性基礎20
 沒有副賽道
 
-本模組只保留核心功能。
+特殊規則：
+- 影響指數為特殊管制數值。
+- 創角時不允許玩家自行分配影響指數。
+- 影響指數初始基礎值固定為20。
+- 只能透過系統正式規則或指定獎勵增加。
+- 不得透過隨機加成、商城購買或付費配點取得。
+
 玩家從 /創角 配點，從 /查看 查看屬性。
+本模組負責初始配點與草稿寫入。
 """
 
 from __future__ import annotations
@@ -20,6 +27,7 @@ import logging
 from discord.ext import commands
 
 from core.database import transaction
+
 from core.permissions import (
     Actor,
     InvalidState,
@@ -31,13 +39,29 @@ from core.attribute_validation import (
     calculate_values,
 )
 
+
 LOG = logging.getLogger(__name__)
+
+
+# ==========================================
+# 基本設定
+# ==========================================
 
 POOL_POINTS = 500
 CREATE_CAP = 150
+
 BASE_NORMAL = 20
 BASE_MAIN = 35
 BONUS_MAIN = 30
+
+RESTRICTED_INITIAL_STATS = frozenset({
+    "影響指數",
+})
+
+
+# ==========================================
+# 正式十三項屬性
+# ==========================================
 
 DEFAULT_GENERAL_ATTRIBUTES = [
     "流量熱度",
@@ -59,6 +83,10 @@ DEFAULT_TALENT_ATTRIBUTES = [
 ]
 
 
+# ==========================================
+# 預設屬性清單
+# ==========================================
+
 def default_schema():
     return {
         "general": list(
@@ -71,7 +99,12 @@ def default_schema():
     }
 
 
+# ==========================================
+# 官方屬性清單驗證
+# ==========================================
+
 def validate_schema(schema):
+
     if not isinstance(schema, dict):
         raise InvalidState(
             "官方屬性資料格式錯誤。"
@@ -95,8 +128,7 @@ def validate_schema(schema):
     if (
         len(set(names)) != 13
         or not all(
-            isinstance(x, str)
-            and x.strip()
+            isinstance(x, str) and x.strip()
             for x in names
         )
     ):
@@ -104,15 +136,28 @@ def validate_schema(schema):
             "十三項屬性名稱有重複或空白。"
         )
 
-    if not set(MAIN_SKILLS).issubset(set(talent)):
+    if not set(MAIN_SKILLS).issubset(
+        set(talent)
+    ):
         raise InvalidState(
             "藝能池必須包含五項主攻技能。"
+        )
+
+    # 影響指數必須保留在一般池。
+    if "影響指數" not in general:
+        raise InvalidState(
+            "一般屬性池必須包含影響指數。"
         )
 
     return schema
 
 
+# ==========================================
+# 讀取官方屬性清單
+# ==========================================
+
 def load_schema(conn, guild_id):
+
     row = conn.execute(
         """
         SELECT data_json
@@ -133,6 +178,7 @@ def load_schema(conn, guild_id):
         schema = json.loads(
             row["data_json"]
         )
+
     except (ValueError, TypeError) as exc:
         raise InvalidState(
             "官方屬性設定無法讀取。"
@@ -141,7 +187,12 @@ def load_schema(conn, guild_id):
     return validate_schema(schema)
 
 
+# ==========================================
+# 確保有預設官方屬性設定
+# ==========================================
+
 def ensure_default_schema(conn, guild_id):
+
     row = conn.execute(
         """
         SELECT id
@@ -174,8 +225,13 @@ def ensure_default_schema(conn, guild_id):
             record_type,
             data_json
         )
-        VALUES (?, 'attributes', 'system',
-                'official_schema', ?)
+        VALUES (
+            ?,
+            'attributes',
+            'system',
+            'official_schema',
+            ?
+        )
         """,
         (
             str(guild_id),
@@ -187,11 +243,64 @@ def ensure_default_schema(conn, guild_id):
     )
 
 
+# ==========================================
+# 特殊管制配點驗證
+# ==========================================
+
+def validate_restricted_points(
+    general,
+    talent,
+):
+    """防止玩家自行分配影響指數。
+
+    這裡檢查的是額外配點，不是最終值。
+    最終初始值仍由系統給予20。
+    """
+
+    for name in RESTRICTED_INITIAL_STATS:
+
+        general_value = general.get(
+            name,
+            0,
+        )
+
+        talent_value = talent.get(
+            name,
+            0,
+        )
+
+        if (
+            type(general_value) is not int
+            or general_value != 0
+        ):
+            raise InvalidState(
+                f"「{name}」禁止自行配點。"
+                "請將額外點數設定為0。"
+            )
+
+        if (
+            type(talent_value) is not int
+            or talent_value != 0
+        ):
+            raise InvalidState(
+                f"「{name}」禁止自行配點。"
+                "請將額外點數設定為0。"
+            )
+
+
+# ==========================================
+# 解析配點資料
+# ==========================================
+
 def parse_allocation(raw, names):
-    """支援 JSON 或按順序輸入的整數字串。"""
+    """支援 JSON 或按官方順序輸入的整數字串。
+
+    一般池仍須包含影響指數欄位，
+    但影響指數只能填0。
+    """
 
     if isinstance(raw, dict):
-        result = raw
+        result = dict(raw)
 
     elif isinstance(raw, str):
         raw = raw.strip()
@@ -199,10 +308,12 @@ def parse_allocation(raw, names):
         if raw.startswith("{"):
             try:
                 result = json.loads(raw)
+
             except json.JSONDecodeError as exc:
                 raise ValueError(
                     "配點 JSON 格式錯誤。"
                 ) from exc
+
         else:
             values = [
                 item.strip()
@@ -222,9 +333,13 @@ def parse_allocation(raw, names):
                 result = dict(
                     zip(
                         names,
-                        [int(x) for x in values],
+                        [
+                            int(x)
+                            for x in values
+                        ],
                     )
                 )
+
             except ValueError as exc:
                 raise ValueError(
                     "配點必須是整數。"
@@ -245,28 +360,55 @@ def parse_allocation(raw, names):
             "配點項目與官方清單不同。"
         )
 
+    # 輸入階段就阻止違規配點。
+    for name in RESTRICTED_INITIAL_STATS:
+
+        if name not in result:
+            continue
+
+        value = result[name]
+
+        if (
+            type(value) is not int
+            or value != 0
+        ):
+            raise ValueError(
+                f"「{name}」不能自行分配點數。"
+                "請填寫0。"
+            )
+
     return result
 
+
+# ==========================================
+# 計算初始屬性
+# ==========================================
 
 def calculate_initial(
     schema,
     main,
     *args,
 ):
-    """計算初始數值。
+    """計算初始十三項屬性。
 
     正式呼叫：
         calculate_initial(
-            schema, main, general, talent
+            schema,
+            main,
+            general,
+            talent
         )
 
-    亦接受舊呼叫形狀：
+    保留舊呼叫方式：
         calculate_initial(
-            schema, main, None, general, talent
+            schema,
+            main,
+            None,
+            general,
+            talent
         )
 
-    舊版副賽道若仍有值則拒絕，
-    避免默默套用錯誤的加成。
+    不接受舊版副賽道。
     """
 
     schema = validate_schema(schema)
@@ -282,21 +424,51 @@ def calculate_initial(
                 "新版角色沒有副賽道，"
                 "請更新創角畫面。"
             )
+
     else:
         raise TypeError(
             "calculate_initial 參數數量不正確。"
         )
 
+    if (
+        not isinstance(general, dict)
+        or not isinstance(talent, dict)
+    ):
+        raise ValueError(
+            "配點資料必須是字典。"
+        )
+
+    # 正式計算前再次檢查。
+    validate_restricted_points(
+        general,
+        talent,
+    )
+
     try:
-        return calculate_values(
+        values = calculate_values(
             schema,
             main,
             general,
             talent,
         )
-    except InvalidState as exc:
-        raise ValueError(str(exc)) from exc
 
+    except InvalidState as exc:
+        raise ValueError(
+            str(exc)
+        ) from exc
+
+    # 影響指數初始值只能由系統提供。
+    if values.get("影響指數") != BASE_NORMAL:
+        raise ValueError(
+            "影響指數初始值必須維持20。"
+        )
+
+    return values
+
+
+# ==========================================
+# 儲存草稿初始配點
+# ==========================================
 
 def allocate_initial(
     actor: Actor,
@@ -304,15 +476,11 @@ def allocate_initial(
     main: str,
     *args,
 ):
-    """儲存草稿的初始十三項屬性。
+    """儲存草稿的正式初始十三項屬性。
 
-    正式呼叫：
-        allocate_initial(
-            actor, character_id,
-            main, general_raw, talent_raw
-        )
-
-    保留舊呼叫形狀，但不接受舊副賽道值。
+    玩家不能替他人配點。
+    僅允許未送審草稿。
+    初始配點不得增加影響指數。
     """
 
     if len(args) == 2:
@@ -323,7 +491,8 @@ def allocate_initial(
 
         if secondary not in (None, ""):
             raise ValueError(
-                "副賽道已取消，請重新選擇主攻。"
+                "副賽道已取消，"
+                "請重新選擇主攻。"
             )
 
     else:
@@ -332,6 +501,11 @@ def allocate_initial(
         )
 
     with transaction() as conn:
+
+        # ----------------------------------
+        # 讀取角色
+        # ----------------------------------
+
         character = conn.execute(
             """
             SELECT *
@@ -348,7 +522,7 @@ def allocate_initial(
         if (
             character is None
             or str(character["owner_id"])
-            != actor.user_id
+            != str(actor.user_id)
             or character["character_type"]
             != "player"
         ):
@@ -361,6 +535,10 @@ def allocate_initial(
                 "正式角色不能重新分配初始點數。"
             )
 
+        # ----------------------------------
+        # 官方屬性設定
+        # ----------------------------------
+
         ensure_default_schema(
             conn,
             actor.guild_id,
@@ -371,15 +549,36 @@ def allocate_initial(
             actor.guild_id,
         )
 
+        # ----------------------------------
+        # 一般池配點
+        # ----------------------------------
+
         general = parse_allocation(
             general_raw,
             schema["general"],
         )
 
+        # ----------------------------------
+        # 藝能池配點
+        # ----------------------------------
+
         talent = parse_allocation(
             talent_raw,
             schema["talent"],
         )
+
+        # ----------------------------------
+        # 影響指數特殊限制
+        # ----------------------------------
+
+        validate_restricted_points(
+            general,
+            talent,
+        )
+
+        # ----------------------------------
+        # 初始屬性計算
+        # ----------------------------------
 
         values = calculate_initial(
             schema,
@@ -388,31 +587,72 @@ def allocate_initial(
             talent,
         )
 
+        if values.get(
+            "影響指數"
+        ) != BASE_NORMAL:
+            raise InvalidState(
+                "影響指數初始值必須為20。"
+            )
+
+        # ----------------------------------
+        # 讀取角色原設定
+        # ----------------------------------
+
         try:
             settings = json.loads(
                 character["settings_json"] or "{}"
             )
+
         except (TypeError, ValueError):
             raise InvalidState(
                 "角色設定資料已損壞。"
             )
 
+        if not isinstance(settings, dict):
+            raise InvalidState(
+                "角色設定資料格式錯誤。"
+            )
+
+        # ----------------------------------
+        # 保存主攻技能
+        # ----------------------------------
+
         settings["main_track"] = main
 
-        # 舊草稿可能仍保留副賽道。
-        # 不會刪除草稿，但新版配點須清除舊加成。
-        settings.pop("secondary_track", None)
-        settings.pop("wizard_secondary", None)
+        # 清理舊版副賽道資料。
+        settings.pop(
+            "secondary_track",
+            None,
+        )
+
+        settings.pop(
+            "wizard_secondary",
+            None,
+        )
+
+        # ----------------------------------
+        # 保存屬性版本
+        # ----------------------------------
 
         settings["attribute_schema_version"] = (
             schema["version"]
         )
+
+        # ----------------------------------
+        # 保存初始配點紀錄
+        # ----------------------------------
 
         settings["initial_allocation"] = {
             "general": general,
             "talent": talent,
         }
 
+        # ----------------------------------
+        # 更新十三項初始屬性
+        # ----------------------------------
+
+        # 此操作僅允許草稿。
+        # 不會覆蓋已啟用角色後續獲得的獎勵。
         conn.execute(
             """
             DELETE FROM attributes
@@ -445,6 +685,10 @@ def allocate_initial(
                 ),
             )
 
+        # ----------------------------------
+        # 更新角色設定
+        # ----------------------------------
+
         conn.execute(
             """
             UPDATE characters
@@ -463,6 +707,10 @@ def allocate_initial(
                 character_id,
             ),
         )
+
+        # ----------------------------------
+        # 審計紀錄
+        # ----------------------------------
 
         conn.execute(
             """
@@ -486,11 +734,23 @@ def allocate_initial(
                         "general": general,
                         "talent": talent,
                         "values": values,
+                        "restricted_stats": {
+                            "影響指數": {
+                                "allocated": 0,
+                                "initial_value": (
+                                    BASE_NORMAL
+                                ),
+                            }
+                        },
                     },
                     ensure_ascii=False,
                 ),
             ),
         )
+
+        # ----------------------------------
+        # 回傳配點結果
+        # ----------------------------------
 
         return {
             "values": values,
@@ -503,16 +763,27 @@ def allocate_initial(
         }
 
 
+# ==========================================
+# Discord 屬性模組
+# ==========================================
+
 class Attributes(commands.Cog):
-    """屬性核心。
+    """正式屬性核心。
 
     不另外註冊測試用斜線指令。
-    創角和查看系統負責玩家操作介面。
+    玩家從 /創角 配點，
+    從 /查看 查看屬性。
     """
 
     def __init__(self, bot):
         self.bot = bot
 
 
+# ==========================================
+# 模組載入
+# ==========================================
+
 async def setup(bot: commands.Bot):
-    await bot.add_cog(Attributes(bot))
+    await bot.add_cog(
+        Attributes(bot)
+    )
