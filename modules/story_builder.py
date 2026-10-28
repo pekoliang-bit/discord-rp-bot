@@ -1,3 +1,4 @@
+
 """角色互動劇情編輯器：獨立模組，供 /官方 → 內容建立 調用。"""
 from __future__ import annotations
 
@@ -212,6 +213,8 @@ class StoryIdModal(discord.ui.Modal,title='劇情檢視／狀態管理'):
 class StoryBuilderView(discord.ui.View):
     def __init__(self,i):
         super().__init__(timeout=600);self.uid=i.user.id;self.gid=i.guild_id
+        from modules.story_episode_ui import EpisodeManageButton
+        self.add_item(EpisodeManageButton())
     async def interaction_check(self,i):
         if i.user.id!=self.uid or i.guild_id!=self.gid or not owner(i):
             await respond(i,'⛔ 此面板不屬於你。');return False
