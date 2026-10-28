@@ -65,6 +65,7 @@ def available_stories(guild_id, channel_id):
             JOIN characters c ON c.guild_id=s.guild_id AND c.id=s.character_id
             WHERE f.guild_id=? AND (f.forum_id=? OR f.story_id=?)
               AND s.status='ready' AND c.status IN ('approved','active')
+              AND c.character_type='official_npc'
             ORDER BY CASE s.kind WHEN 'main' THEN 0 ELSE 1 END, s.id
         """, (str(guild_id), str(channel_id), str(channel_id))).fetchall()
     return [dict(x) for x in rows]
@@ -72,8 +73,10 @@ def available_stories(guild_id, channel_id):
 
 def get_story(guild_id, story_id):
     with get_connection() as db:
-        row = db.execute("""SELECT id,title,status,prerequisite_json,rewards_json FROM rp_stories
-                            WHERE guild_id=? AND id=?""", (str(guild_id), int(story_id))).fetchone()
+        row = db.execute("""SELECT s.id,s.title,s.status,s.prerequisite_json,s.rewards_json
+                            FROM rp_stories s JOIN characters c ON c.guild_id=s.guild_id AND c.id=s.character_id
+                            WHERE s.guild_id=? AND s.id=? AND c.character_type='official_npc'
+                              AND c.status IN ('approved','active')""", (str(guild_id), int(story_id))).fetchone()
     if row is None or row['status'] != 'ready':
         raise ValueError('劇情已取消公開或不存在。')
     result = dict(row)
