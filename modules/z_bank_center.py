@@ -1,4 +1,3 @@
-
 """Discord RP：統一互動式銀行中心。
 
 正式入口：/銀行
@@ -549,14 +548,7 @@ class BankView(discord.ui.View):
                 0,
             )
             self.add_action(
-                "📈 建立定存",
-                "term",
-                1,
-            )
-            self.add_action(
-                "📤 定存解約",
-                "close_term",
-                1,
+                "📈 定存事務", "term_menu", 1,
             )
         else:
             self.add_action(
@@ -584,13 +576,16 @@ class BankView(discord.ui.View):
         )
 
         async def callback(interaction):
-            await interaction.response.send_modal(
-                BankModal(
-                    self.actor,
-                    self.character_id,
-                    action,
+            if action == "term_menu":
+                await interaction.response.send_message(
+                    "📈 **定存事務**\n請選擇建立定存或定存解約。",
+                    view=TermBusinessView(self.actor, self.character_id),
+                    ephemeral=True,
                 )
-            )
+            else:
+                await interaction.response.send_modal(
+                    BankModal(self.actor, self.character_id, action)
+                )
 
         button.callback = callback
         self.add_item(button)
@@ -660,9 +655,9 @@ class BankView(discord.ui.View):
             )
 
     @discord.ui.button(
-        label="💳 貸款／信用卡／黑卡",
+        label="📋 申辦進度",
         style=discord.ButtonStyle.secondary,
-        row=2,
+        row=1,
     )
     async def finance(
         self,
@@ -708,10 +703,9 @@ class BankView(discord.ui.View):
 
             await interaction.followup.send(
                 content,
-                view=BankView(
+                view=FinanceRepaymentView(
                     actor,
                     self.character_id,
-                    1,
                 ),
                 ephemeral=True,
             )
@@ -820,6 +814,56 @@ from modules.player_applications import (
 )
 
 
+class FinanceRepaymentView(discord.ui.View):
+    def __init__(self, actor, character_id):
+        super().__init__(timeout=900)
+        self.actor = actor
+        self.character_id = character_id
+        for label, action in (
+            ("💳 信用卡繳款", "card"),
+            ("🏦 貸款還款", "loan"),
+        ):
+            button = discord.ui.Button(label=label, style=discord.ButtonStyle.primary)
+            async def handle(interaction, action=action):
+                try:
+                    verify(interaction, self.actor, self.character_id)
+                    await interaction.response.send_modal(
+                        BankModal(self.actor, self.character_id, action)
+                    )
+                except Exception as exc:
+                    await show_error(interaction, exc)
+            button.callback = handle
+            self.add_item(button)
+
+
+class TermBusinessView(discord.ui.View):
+    """定存建立及解約的共同入口。"""
+    def __init__(self, actor, character_id):
+        super().__init__(timeout=900)
+        self.actor = actor
+        self.character_id = character_id
+
+    async def interaction_check(self, interaction):
+        try:
+            verify(interaction, self.actor, self.character_id)
+            return True
+        except Exception as exc:
+            await show_error(interaction, exc)
+            return False
+
+    @discord.ui.button(label="📈 建立定存", style=discord.ButtonStyle.success)
+    async def create_term(self, interaction, button):
+        await interaction.response.send_modal(
+            BankModal(self.actor, self.character_id, "term")
+        )
+
+    @discord.ui.button(label="📤 定存解約", style=discord.ButtonStyle.danger)
+    async def close_term(self, interaction, button):
+        await interaction.response.send_modal(
+            BankModal(self.actor, self.character_id, "close_term")
+        )
+
+
 class BankViewV2(BankView):
     """在原有銀行面板上增加第二階段入口。"""
 
@@ -835,31 +879,10 @@ class BankViewV2(BankView):
             page,
         )
 
-        self.add_extra_button(
-            "🏦 申請貸款",
-            self.open_loan_application,
-            row=3,
-        )
-
-        self.add_extra_button(
-            "💳 申請信用卡",
-            self.open_credit_application,
-            row=3,
-        )
-
-        self.add_extra_button(
-            "🖤 申請黑卡",
-            self.open_black_application,
-            row=3,
-        )
-
-        self.add_extra_button(
-            "📜 個人交易紀錄",
-            self.open_history,
-            row=4,
-            style=discord.ButtonStyle.secondary,
-        )
-
+        if page == 0:
+            self.add_extra_button(
+                "📜 交易紀錄", self.open_history, row=1,
+            )
     def add_extra_button(
         self,
         label,
