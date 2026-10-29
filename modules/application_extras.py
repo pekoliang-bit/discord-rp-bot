@@ -24,7 +24,14 @@ LOG = logging.getLogger(__name__)
 CATEGORIES = {
     "report": "🚨 舉報／申訴",
     "item": "📦 物品申請",
+    "item_create": "🧰 新增物品申請",
     "company_bank": "🏦 公司銀行帳號申請",
+    "shop_bank": "🏪 店鋪銀行帳號申請",
+    "role_retire": "🎭 原創角色刪除／退場申請",
+    "npc_resign": "👤 NPC 辭演申請",
+    "npc_switch": "🔄 NPC 更換飾演申請",
+    "cp_register": "💕 CP 關係登記申請",
+    "location_add": "📍 新增地點申請",
     "leave": "📅 請假申請",
 }
 
@@ -58,6 +65,25 @@ FORM_FIELDS = {
         ("請假期間需要暫停的義務", 300, False),
         ("代理人或補充說明（選填）", 500, False),
     ],
+}
+
+# 詳細申請表單規格尚待正式討論。先統一收件與審核，
+# 不在核准時直接刪角、換 NPC、創建物品或地點、開立帳戶。
+_GENERAL_FORM = [
+    ("申請主題／對象編號", 150, False),
+    ("申請內容及原因", 1500, True),
+    ("相關證明或連結（選填）", 500, False),
+]
+for _category in (
+    "item_create", "shop_bank", "role_retire", "npc_resign",
+    "npc_switch", "cp_register", "location_add",
+):
+    FORM_FIELDS[_category] = list(_GENERAL_FORM)
+
+# 申請者需用自己的已啟用角色提出的案件。
+CHARACTER_REQUIRED = {
+    "item", "item_create", "role_retire", "npc_resign",
+    "npc_switch", "cp_register", "shop_bank",
 }
 
 
@@ -680,13 +706,10 @@ class ApplicationKindSelect(
                 )
             )
 
-        if (
-            kind == "item"
-            and v.character_id is None
-        ):
+        if kind in CHARACTER_REQUIRED and v.character_id is None:
             return await say(
                 i,
-                "物品申請需選擇已啟用的角色。"
+                "這類申請需先選擇自己的已啟用角色。"
             )
 
         await i.response.send_modal(
