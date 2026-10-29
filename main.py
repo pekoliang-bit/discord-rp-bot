@@ -349,7 +349,7 @@ def remove_character_legacy(tree):
 
         if not isinstance(
             command,
-            app_commands.Command,
+            (app_commands.Command, app_commands.Group),
         ):
             continue
 
