@@ -780,7 +780,7 @@ class EventProjectNumberModal(discord.ui.Modal, title="活動企劃案件操作"
 
 
 class NoCharacterApplications(OwnedView):
-    """無角色的玩家仍可提交活動企劃與無角色類型申請。"""
+    """無角色玩家可提出舉報、地點及活動等無角色申請。"""
     def __init__(self, actor):
         super().__init__(actor)
         self.character_id = None
@@ -1181,13 +1181,13 @@ class CharacterPicker(OwnedView):
 
 
     @discord.ui.button(
-        label="📨 無角色申請（舉報／請假／活動企劃）",
+        label="📨 無角色申請（舉報／地點／活動等）",
         style=discord.ButtonStyle.secondary,
         row=2,
     )
     async def general_without_character(self, interaction, button):
         await interaction.response.edit_message(
-            content="📨 **通用玩家申請**\n選擇舉報、請假或活動企劃。需要角色的案件請先選擇正式角色。",
+            content="📨 **通用玩家申請**\n可選擇舉報、地點新增、請假或活動企劃；角色退場、NPC 與 CP 等案件須先選擇正式角色。所有申請都由 /審核 處理。",
             view=NoCharacterApplications(self.actor),
         )
 
@@ -1198,7 +1198,7 @@ class PlayerApplications(commands.Cog):
 
     @app_commands.command(
         name="申請",
-        description="玩家申請、活動企劃、店鋪與金融申請",
+        description="玩家各類申請統一入口，案件送交 /審核",
     )
     @app_commands.guild_only()
     async def applications(
@@ -1221,7 +1221,7 @@ class PlayerApplications(commands.Cog):
                         "目前沒有可以使用的正式角色。\n"
                         "請先完成 /創角、"
                         "雙階段審核及角色啟用。\n"
-                        "活動企劃不需要正式角色也能提出。"
+                        "舉報、地點新增及活動企劃等申請無需正式角色。"
                     ),
                     view=NoCharacterApplications(actor),
                     ephemeral=True,
