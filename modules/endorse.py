@@ -57,8 +57,8 @@ def offer(guild_id, business_id, actor_id, character_id, tier, fee, contract_typ
     gid, bid, uid, cid = str(guild_id), str(business_id).strip(), str(actor_id), int(character_id)
     tier, fee = int(tier), int(fee)
     contract_type, market, series, note = [str(x).strip() for x in (contract_type, market, series, note)]
-    if contract_type not in {"單次", "短期", "長期"}:
-        raise ValueError("合約類型只能填「單次／短期／長期」。")
+    if contract_type not in {"單次", "短期", "中期", "長期"}:
+        raise ValueError("合約類型只能填「單次／短期／中期／長期」。")
     if not market or len(market) > 60 or len(series) > 60 or len(note) > 250:
         raise ValueError("市場必填，市場及系列最多60字、備註最多250字。")
     if tier < 1 or tier > 10 or fee < 0:
