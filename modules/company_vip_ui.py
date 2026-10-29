@@ -9,10 +9,12 @@ from __future__ import annotations
 
 import asyncio
 import sqlite3
+import re
 
 import discord
 
 from core.database import get_connection
+from modules.world_terms import organization_terms
 from modules.company_business import has_permission
 from modules.company_vip import (
     check_free_item,
@@ -22,6 +24,18 @@ from modules.company_vip import (
     reserve_free_item,
     set_vip_tier,
 )
+
+
+def _world_display(guild_id, message: str) -> str:
+    """只轉換使用者可見文字，不變更資料庫欄位或內部識別值。"""
+    labels = organization_terms(guild_id)
+    replacements = {
+        "公司": labels["company"],
+        "品牌": labels["brand"],
+        "集團": labels["group"],
+        "金幣": labels["currency"],
+    }
+    return re.sub(r"公司|品牌|集團|金幣", lambda m: replacements[m.group()], message)
 
 
 def manageable_vip_businesses(guild_id, user_id):
@@ -86,7 +100,7 @@ def vip_overview(guild_id, business_id):
 
     lines = [
         f"💎 **{title}｜VIP 管理**",
-        f"公司編號：`{business_id}`",
+        f"{organization_terms(guild_id)['company']}編號：`{business_id}`",
         f"會員總數：{count:,} 人",
         "",
         "**目前等級設定**",
@@ -106,7 +120,7 @@ def vip_overview(guild_id, business_id):
 
             lines.append(
                 f"LV.{tier['level']} {tier['title']}"
-                f"｜累積 {tier['required_spending']:,} 金幣"
+                f"｜累積 {tier['required_spending']:,} {organization_terms(guild_id)['currency']}"
                 f"｜折扣 {discount}%"
                 f"{free_item}"
             )
@@ -183,7 +197,7 @@ class SetVIPTierModal(VIPOwnedModal):
         )
 
         self.spending = discord.ui.TextInput(
-            label="累積消費門檻（金幣）",
+            label="累積消費門檻（依世界觀貨幣單位）",
             placeholder="例如：100000",
             max_length=15,
         )
