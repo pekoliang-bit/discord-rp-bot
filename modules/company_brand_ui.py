@@ -1,4 +1,3 @@
-
 """品牌管理互動面板。
 
 從 /公司 進入。
@@ -14,6 +13,7 @@ import sqlite3
 import discord
 
 from core.database import get_connection
+from modules.world_terms import term
 
 from modules.company_brand_progress import (
     BRAND_LEVELS,
@@ -640,13 +640,13 @@ class BrandManagementButton(discord.ui.Button):
 
         if not view.brands:
             return await interaction.response.send_message(
-                "你目前沒有持有或獲授權管理的品牌。",
+                f"你目前沒有持有或獲授權管理的{term(guild_id, 'brand')}。",
                 ephemeral=True,
             )
 
         await interaction.response.send_message(
-            "🏷️ **品牌管理中心**\n"
-            "請選擇要管理的品牌。",
+            f"🏷️ **{term(guild_id, 'brand')}管理中心**\n"
+            f"請選擇要管理的{term(guild_id, 'brand')}。",
             view=view,
             ephemeral=True,
         )
