@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import re
 import sqlite3
 
@@ -950,6 +951,18 @@ class CompanyPanel(discord.ui.View):
         self.gid = str(gid)
         self.is_owner = is_owner
 
+        # 不擁有公司但獲得招募／工作審核授權的管理者，也要看得到入口。
+        with get_connection() as db:
+            rows = db.execute(
+                """SELECT permissions FROM rp_business_managers
+                   WHERE guild_id = ? AND user_id = ? AND status = 'active'""",
+                (self.gid, self.uid),
+            ).fetchall()
+        can_review = is_owner or any(
+            bool({"recruit", "work_review"} & set(json.loads(row["permissions"] or "[]")))
+            for row in rows
+        )
+
         # 財務、品牌與 VIP 都有獨立授權判斷；非持有人但獲授權的
         # 管理者也必須能從同一個 /公司 面板進入。
         from modules.company_treasury_ui import CompanyTreasuryButton
@@ -964,14 +977,14 @@ class CompanyPanel(discord.ui.View):
             button.row = 3
             self.add_item(button)
 
-        if is_owner:
-
-            owner_actions = (
-                (
-                    "⚙️ 職位設定",
-                    PositionModal,
-                    discord.ButtonStyle.primary,
-                ),
+        if is_owner or can_review:
+            owner_actions = []
+            if is_owner:
+                owner_actions.append((
+                    "⚙️ 職位設定", PositionModal, discord.ButtonStyle.primary,
+                ))
+            if can_review:
+                owner_actions.extend((
                 (
                     "📋 待審清單",
                     OwnerLookupModal,
@@ -982,7 +995,7 @@ class CompanyPanel(discord.ui.View):
                     ReviewModal,
                     discord.ButtonStyle.success,
                 ),
-            )
+                ))
 
             for label, modal_class, style in owner_actions:
 
@@ -1006,7 +1019,8 @@ class CompanyPanel(discord.ui.View):
                 button.callback = owner_callback
                 self.add_item(button)
 
-            # 管理層相關功能
+        if is_owner:
+            # 任命與授權變更只由負責人操作。
             manager_actions = (
                 (
                     "👥 任命管理層",
