@@ -1,0 +1,652 @@
+"""公司金庫 Discord 操作介面。
+
+正式入口：/公司 → 金庫管理
+
+提供：
+- 多公司選擇
+- 查看餘額和最近異動
+- 公司／角色轉帳
+- 持有人設定管理層單筆支出上限
+
+不新增獨立 Slash Command。
+"""
+
+from __future__ import annotations
+
+import asyncio
+import sqlite3
+
+import discord
+
+from core.database import get_connection
+from modules.company_business import has_permission
+from modules.company_treasury import (
+    finance_summary,
+    initialize_treasury,
+    set_manager_spending_limit,
+    transfer_treasury,
+)
+
+
+def manageable_finance_businesses(guild_id, user_id):
+    initialize_treasury()
+
+    with get_connection() as db:
+        rows = db.execute("""
+            SELECT business_id, name, kind, owner_id
+            FROM rp_business_entities
+            WHERE guild_id = ?
+              AND status = 'active'
+            ORDER BY name
+        """, (str(guild_id),)).fetchall()
+
+        result = []
+
+        for row in rows:
+            authorized = (
+                row["owner_id"] == str(user_id)
+                or has_permission(
+                    db,
+                    str(guild_id),
+                    row["business_id"],
+                    str(user_id),
+                    "finance",
+                )
+            )
+
+            if authorized:
+                result.append({
+                    "business_id": row["business_id"],
+                    "name": row["name"],
+                    "kind": row["kind"],
+                    "is_owner": (
+                        row["owner_id"] == str(user_id)
+                    ),
+                })
+
+        return result
+
+
+async def _respond(interaction, operation):
+    await interaction.response.defer(ephemeral=True)
+
+    try:
+        result = await asyncio.to_thread(operation)
+
+    except (
+        ValueError,
+        PermissionError,
+        sqlite3.Error,
+    ) as exc:
+        result = f"⚠️ {exc}"
+
+    except Exception:
+        result = (
+            "⚠️ 財務操作失敗，請查看機器人紀錄。"
+            "本次操作結果請以正式帳本為準。"
+        )
+
+    await interaction.followup.send(
+        str(result)[:1900],
+        ephemeral=True,
+    )
+
+
+class FinanceModal(discord.ui.Modal):
+    def __init__(self, user_id, guild_id, business_id, title):
+        super().__init__(title=title, timeout=600)
+
+        self.user_id = str(user_id)
+        self.guild_id = str(guild_id)
+        self.business_id = str(business_id)
+
+    async def run_operation(self, interaction, operation):
+        if (
+            str(interaction.user.id) != self.user_id
+            or str(interaction.guild_id) != self.guild_id
+        ):
+            return await interaction.response.send_message(
+                "這不是你的財務操作表單。",
+                ephemeral=True,
+            )
+
+        await _respond(interaction, operation)
+
+
+class TreasuryTransferModal(FinanceModal):
+    def __init__(self, user_id, guild_id, business_id):
+        super().__init__(
+            user_id,
+            guild_id,
+            business_id,
+            "公司資金調度",
+        )
+
+        self.target_type = discord.ui.TextInput(
+            label="收款類型：公司／角色",
+            placeholder="例如：公司",
+            max_length=5,
+        )
+
+        self.target_id = discord.ui.TextInput(
+            label="收款公司編號或角色編號",
+            max_length=100,
+        )
+
+        self.amount = discord.ui.TextInput(
+            label="轉帳金額（金幣）",
+            placeholder="例如：50000",
+            max_length=15,
+        )
+
+        self.reason = discord.ui.TextInput(
+            label="支出用途",
+            placeholder="例如：支付品牌宣傳費用",
+            max_length=300,
+        )
+
+        self.confirm = discord.ui.TextInput(
+            label="輸入「確認轉帳」",
+            max_length=10,
+        )
+
+        for item in (
+            self.target_type,
+            self.target_id,
+            self.amount,
+            self.reason,
+            self.confirm,
+        ):
+            self.add_item(item)
+
+    async def on_submit(self, interaction):
+        if self.confirm.value.strip() != "確認轉帳":
+            return await interaction.response.send_message(
+                "未確認轉帳，沒有扣款。",
+                ephemeral=True,
+            )
+
+        selected_type = self.target_type.value.strip()
+
+        type_mapping = {
+            "公司": "organization",
+            "角色": "character",
+        }
+
+        if selected_type not in type_mapping:
+            return await interaction.response.send_message(
+                "收款類型請填寫「公司」或「角色」。",
+                ephemeral=True,
+            )
+
+        try:
+            amount = int(self.amount.value)
+        except ValueError:
+            return await interaction.response.send_message(
+                "金額必須是整數。",
+                ephemeral=True,
+            )
+
+        # Discord 互動 ID 作為交易唯一鍵。
+        # 重複處理同一提交時不會重複扣款。
+        transaction_key = (
+            f"company-finance-ui:{interaction.id}"
+        )
+
+        await self.run_operation(
+            interaction,
+            lambda: transfer_treasury(
+                self.guild_id,
+                self.business_id,
+                self.user_id,
+                type_mapping[selected_type],
+                self.target_id.value.strip(),
+                amount,
+                self.reason.value.strip(),
+                unique_key=transaction_key,
+            ),
+        )
+
+
+class SpendingLimitModal(FinanceModal):
+    def __init__(self, user_id, guild_id, business_id):
+        super().__init__(
+            user_id,
+            guild_id,
+            business_id,
+            "管理層支出上限設定",
+        )
+
+        self.manager = discord.ui.TextInput(
+            label="管理層 Discord 玩家 ID",
+            placeholder="請填數字 ID",
+            max_length=25,
+        )
+
+        self.amount = discord.ui.TextInput(
+            label="單筆支出上限（金幣）",
+            placeholder="例如：100000",
+            max_length=15,
+        )
+
+        self.confirm = discord.ui.TextInput(
+            label="輸入「確認授權」",
+            max_length=10,
+        )
+
+        for item in (
+            self.manager,
+            self.amount,
+            self.confirm,
+        ):
+            self.add_item(item)
+
+    async def on_submit(self, interaction):
+        if self.confirm.value.strip() != "確認授權":
+            return await interaction.response.send_message(
+                "未確認授權，沒有修改管理層額度。",
+                ephemeral=True,
+            )
+
+        try:
+            manager_id = int(
+                self.manager.value.strip()
+            )
+
+            amount = int(
+                self.amount.value.strip()
+            )
+
+        except ValueError:
+            return await interaction.response.send_message(
+                "玩家 ID 與金額必須是整數。",
+                ephemeral=True,
+            )
+
+        await self.run_operation(
+            interaction,
+            lambda: set_manager_spending_limit(
+                self.guild_id,
+                self.business_id,
+                self.user_id,
+                str(manager_id),
+                amount,
+            ),
+        )
+
+
+class TreasuryDetailView(discord.ui.View):
+    def __init__(
+        self,
+        user_id,
+        guild_id,
+        business_id,
+        is_owner,
+    ):
+        super().__init__(timeout=600)
+
+        self.user_id = str(user_id)
+        self.guild_id = str(guild_id)
+        self.business_id = str(business_id)
+        self.is_owner = bool(is_owner)
+
+        # 只有持有人看到管理層額度設定按鈕。
+        if self.is_owner:
+            self.add_item(
+                OwnerSpendingLimitButton()
+            )
+
+    async def interaction_check(self, interaction):
+        if (
+            str(interaction.user.id) != self.user_id
+            or str(interaction.guild_id) != self.guild_id
+        ):
+            await interaction.response.send_message(
+                "這不是你的財務管理面板。",
+                ephemeral=True,
+            )
+            return False
+
+        companies = await asyncio.to_thread(
+            manageable_finance_businesses,
+            self.guild_id,
+            self.user_id,
+        )
+
+        allowed = {
+            item["business_id"]: item
+            for item in companies
+        }
+
+        if self.business_id not in allowed:
+            await interaction.response.send_message(
+                "你已失去此公司的財務管理權限。",
+                ephemeral=True,
+            )
+            return False
+
+        return True
+
+    @discord.ui.button(
+        label="💸 資金調度",
+        style=discord.ButtonStyle.primary,
+        row=0,
+    )
+    async def transfer(self, interaction, button):
+        await interaction.response.send_modal(
+            TreasuryTransferModal(
+                self.user_id,
+                self.guild_id,
+                self.business_id,
+            )
+        )
+
+    @discord.ui.button(
+        label="🔄 更新金庫",
+        style=discord.ButtonStyle.secondary,
+        row=0,
+    )
+    async def refresh(self, interaction, button):
+        try:
+            content = await asyncio.to_thread(
+                finance_summary,
+                self.guild_id,
+                self.business_id,
+                self.user_id,
+            )
+        except (
+            ValueError,
+            PermissionError,
+            sqlite3.Error,
+        ) as exc:
+            return await interaction.response.send_message(
+                f"⚠️ {exc}",
+                ephemeral=True,
+            )
+
+        await interaction.response.edit_message(
+            content=content,
+            view=self,
+        )
+
+    @discord.ui.button(
+        label="↩️ 返回公司選擇",
+        style=discord.ButtonStyle.secondary,
+        row=2,
+    )
+    async def back(self, interaction, button):
+        companies = await asyncio.to_thread(
+            manageable_finance_businesses,
+            self.guild_id,
+            self.user_id,
+        )
+
+        await interaction.response.edit_message(
+            content=(
+                "🏦 **公司財務管理中心**\n"
+                "請先選擇公司或品牌。"
+            ),
+            view=TreasuryCompanyView(
+                self.user_id,
+                self.guild_id,
+                companies,
+                page=0,
+            ),
+        )
+
+
+class OwnerSpendingLimitButton(discord.ui.Button):
+    def __init__(self):
+        super().__init__(
+            label="🔐 管理層額度",
+            style=discord.ButtonStyle.secondary,
+            row=1,
+        )
+
+    async def callback(self, interaction):
+        view = self.view
+
+        # 按下時重新確認持有人身分。
+        companies = await asyncio.to_thread(
+            manageable_finance_businesses,
+            view.guild_id,
+            view.user_id,
+        )
+
+        current = next(
+            (
+                item for item in companies
+                if item["business_id"] == view.business_id
+            ),
+            None,
+        )
+
+        if not current or not current["is_owner"]:
+            return await interaction.response.send_message(
+                "只有現任公司持有人可以設定支出上限。",
+                ephemeral=True,
+            )
+
+        await interaction.response.send_modal(
+            SpendingLimitModal(
+                view.user_id,
+                view.guild_id,
+                view.business_id,
+            )
+        )
+
+
+class TreasuryCompanySelect(discord.ui.Select):
+    def __init__(self, companies):
+        options = []
+
+        for item in companies:
+            options.append(
+                discord.SelectOption(
+                    label=item["name"][:100],
+                    value=item["business_id"],
+                    description=(
+                        f"{item['kind']}｜"
+                        f"{item['business_id']}"
+                    )[:100],
+                )
+            )
+
+        super().__init__(
+            placeholder="選擇公司或品牌",
+            min_values=1,
+            max_values=1,
+            options=options,
+            row=0,
+        )
+
+    async def callback(self, interaction):
+        parent = self.view
+        business_id = self.values[0]
+
+        companies = await asyncio.to_thread(
+            manageable_finance_businesses,
+            parent.guild_id,
+            parent.user_id,
+        )
+
+        selected = next(
+            (
+                item for item in companies
+                if item["business_id"] == business_id
+            ),
+            None,
+        )
+
+        if not selected:
+            return await interaction.response.send_message(
+                "你沒有這間公司的財務權限。",
+                ephemeral=True,
+            )
+
+        try:
+            content = await asyncio.to_thread(
+                finance_summary,
+                parent.guild_id,
+                business_id,
+                parent.user_id,
+            )
+        except (
+            ValueError,
+            PermissionError,
+            sqlite3.Error,
+        ) as exc:
+            return await interaction.response.send_message(
+                f"⚠️ {exc}",
+                ephemeral=True,
+            )
+
+        await interaction.response.edit_message(
+            content=content,
+            view=TreasuryDetailView(
+                parent.user_id,
+                parent.guild_id,
+                business_id,
+                selected["is_owner"],
+            ),
+        )
+
+
+class TreasuryPageButton(discord.ui.Button):
+    def __init__(self, direction, disabled=False):
+        self.direction = direction
+
+        super().__init__(
+            label=(
+                "⬅️ 上一頁"
+                if direction < 0
+                else "下一頁 ➡️"
+            ),
+            style=discord.ButtonStyle.secondary,
+            disabled=disabled,
+            row=1,
+        )
+
+    async def callback(self, interaction):
+        view = self.view
+
+        companies = await asyncio.to_thread(
+            manageable_finance_businesses,
+            view.guild_id,
+            view.user_id,
+        )
+
+        page = max(
+            0,
+            min(
+                view.page + self.direction,
+                max(0, (len(companies) - 1) // 25),
+            ),
+        )
+
+        await interaction.response.edit_message(
+            content=(
+                "🏦 **公司財務管理中心**\n"
+                f"第 {page + 1} 頁，"
+                f"共 {len(companies)} 間可管理公司。"
+            ),
+            view=TreasuryCompanyView(
+                view.user_id,
+                view.guild_id,
+                companies,
+                page,
+            ),
+        )
+
+
+class TreasuryCompanyView(discord.ui.View):
+    def __init__(
+        self,
+        user_id,
+        guild_id,
+        companies,
+        page=0,
+    ):
+        super().__init__(timeout=600)
+
+        self.user_id = str(user_id)
+        self.guild_id = str(guild_id)
+        self.page = int(page)
+
+        start = self.page * 25
+        current = companies[start:start + 25]
+
+        if current:
+            self.add_item(
+                TreasuryCompanySelect(current)
+            )
+
+        if len(companies) > 25:
+            self.add_item(
+                TreasuryPageButton(
+                    -1,
+                    disabled=self.page <= 0,
+                )
+            )
+
+            self.add_item(
+                TreasuryPageButton(
+                    1,
+                    disabled=(
+                        start + 25 >= len(companies)
+                    ),
+                )
+            )
+
+    async def interaction_check(self, interaction):
+        if (
+            str(interaction.user.id) != self.user_id
+            or str(interaction.guild_id) != self.guild_id
+        ):
+            await interaction.response.send_message(
+                "這不是你的公司財務面板。",
+                ephemeral=True,
+            )
+            return False
+
+        return True
+
+
+class CompanyTreasuryButton(discord.ui.Button):
+    """供現有 /公司 面板使用。"""
+
+    def __init__(self):
+        super().__init__(
+            label="🏦 金庫管理",
+            style=discord.ButtonStyle.secondary,
+        )
+
+    async def callback(self, interaction):
+        companies = await asyncio.to_thread(
+            manageable_finance_businesses,
+            str(interaction.guild_id),
+            str(interaction.user.id),
+        )
+
+        if not companies:
+            return await interaction.response.send_message(
+                "目前沒有可管理財務的公司或品牌。",
+                ephemeral=True,
+            )
+
+        await interaction.response.send_message(
+            (
+                "🏦 **公司財務管理中心**\n"
+                "請選擇要操作的公司或品牌。"
+            ),
+            view=TreasuryCompanyView(
+                str(interaction.user.id),
+                str(interaction.guild_id),
+                companies,
+            ),
+            ephemeral=True,
+        )
+
+
+async def setup(bot):
+    initialize_treasury()
