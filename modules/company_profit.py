@@ -9,6 +9,7 @@ from __future__ import annotations
 import sqlite3
 
 from core.database import account_balance, get_connection
+from modules.world_terms import term
 from modules.company_treasury import (
     _finance_permission,
     _treasury_account,
@@ -71,16 +72,18 @@ def profit_overview(guild_id, business_id, actor_id):
         net_sales = max(0, sales - refunds)
         estimated = net_sales - salary_spent - expense_spent
         account_text = f"{bank_balance:,}" if bank_balance is not None else "尚未開戶"
+        company = term(gid, "company")
+        currency = term(gid, "currency")
         return (
-            f"📊 **公司財務核對｜{bid}**\n"
-            f"銷售統計：{sales:,} 金幣\n"
-            f"退款統計：{refunds:,} 金幣\n"
-            f"淨銷售額（統計）：{net_sales:,} 金幣\n"
-            f"已核發薪資：{salary_spent:,} 金幣\n"
-            f"其他已標記支出：{expense_spent:,} 金幣\n"
-            f"試算餘額（未完成成本歸集）：{estimated:,} 金幣\n"
-            f"公司銀行實際餘額：{account_text} 金幣\n"
-            f"公司金庫實際餘額：{treasury:,} 金幣\n\n"
+            f"📊 **{company}財務核對｜{bid}**\n"
+            f"銷售統計：{sales:,} {currency}\n"
+            f"退款統計：{refunds:,} {currency}\n"
+            f"淨銷售額（統計）：{net_sales:,} {currency}\n"
+            f"已核發薪資：{salary_spent:,} {currency}\n"
+            f"其他已標記支出：{expense_spent:,} {currency}\n"
+            f"試算餘額（未完成成本歸集）：{estimated:,} {currency}\n"
+            f"{company}銀行實際餘額：{account_text} {currency}\n"
+            f"{company}金庫實際餘額：{treasury:,} {currency}\n\n"
             "⚠️ 銷售統計不等於銀行入帳；試算額不可直接分潤。"
             "待商城收款、退款與成本來源核對後，才會開放正式淨利潤結算。"
         )
