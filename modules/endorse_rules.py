@@ -42,7 +42,7 @@ def title_history(guild_id, character_id):
             c.contract_type,c.market,c.series,c.fee,c.status,c.decided_at
             FROM rp_endorsement_contracts c
             LEFT JOIN rp_business_entities b ON b.guild_id=c.guild_id AND b.business_id=c.business_id
-            WHERE c.guild_id=? AND c.character_id=? AND c.status IN ('active','ended')
+            WHERE c.guild_id=? AND c.character_id=? AND c.status IN ('active','ended','expired')
             ORDER BY c.tier DESC,c.decided_at DESC,c.id DESC""", (gid, cid)).fetchall()
     return [dict(row) for row in rows]
 
