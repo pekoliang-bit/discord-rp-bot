@@ -1,4 +1,3 @@
-
 """集中申請擴充：案件儲存、玩家表單、審核面板。
 
 不額外註冊 Slash 指令。
@@ -7,6 +6,7 @@
 from __future__ import annotations
 
 import logging
+import json
 import sqlite3
 
 import discord
@@ -28,6 +28,7 @@ CATEGORIES = {
     "company_bank": "🏦 公司銀行帳號申請",
     "shop_bank": "🏪 店鋪銀行帳號申請",
     "role_retire": "🎭 原創角色刪除／退場申請",
+    "character_edit": "📝 原創角色資料修改申請",
     "npc_resign": "👤 NPC 辭演申請",
     "npc_switch": "🔄 NPC 更換飾演申請",
     "cp_register": "💕 CP 關係登記申請",
@@ -80,9 +81,205 @@ for _category in (
 ):
     FORM_FIELDS[_category] = list(_GENERAL_FORM)
 
+# 角色資料修改採一次填寫、一次送出；不用逐欄位開啟表單。
+FORM_FIELDS["character_edit"] = [
+    ("每行一項：欄位名稱：修改後內容", 4000, True),
+]
+
+CHARACTER_EDIT_FIELDS = {
+    "name": "名字", "stage_name": "藝名", "languages": "擅長語言",
+    "appearance_aura": "外貌氣質", "private_personality": "性格",
+    "occupation": "職業", "age": "年齡", "experience_years": "資歷",
+    "gender": "性別", "sexual_orientation": "性向",
+    "nationality": "國籍", "education": "學歷",
+    "main_track": "主攻技能", "biography": "生平簡述",
+}
+DIRECT_CHARACTER_FIELDS = {"name", "stage_name", "languages", "appearance_aura"}
+SENSITIVE_CHARACTER_FIELDS = set(CHARACTER_EDIT_FIELDS) - DIRECT_CHARACTER_FIELDS
+
+
+def character_field_value(character, settings, key):
+    if key in ("name", "age", "occupation"):
+        return character[key]
+    return settings.get(key, "")
+
+
+def character_edit_template(character):
+    """可直接帶入模態表單的完整原值，玩家只需改動相應行。"""
+    settings = json.loads(character["settings_json"] or "{}")
+    if not isinstance(settings, dict):
+        settings = {}
+    lines = []
+    for key, label in CHARACTER_EDIT_FIELDS.items():
+        if key == "biography" and character["character_type"] != "player":
+            continue
+        value = str(character_field_value(character, settings, key) or "").replace("\n", " ")
+        lines.append(f"{label}：{value}")
+    return "\n".join(lines)
+
+
+def parse_character_changes(raw):
+    """把同一份表單轉成欄位變更，拒絕未知或重複的欄位。"""
+    aliases = {
+        "主攻技能": "main_track", "主攻賽道": "main_track",
+        "藝名": "stage_name", "藝名或稱號": "stage_name", "國籍": "nationality",
+        "出身": "nationality", "生平": "biography",
+        "國籍或出身": "nationality", "生平簡述": "biography",
+        "語言": "languages", "私下性格": "private_personality",
+    }
+    aliases.update({label: key for key, label in CHARACTER_EDIT_FIELDS.items()})
+
+    result = {}
+    for line in raw.splitlines():
+        if not line.strip():
+            continue
+        key_text, sep, value = line.partition("：")
+        if not sep:
+            key_text, sep, value = line.partition(":")
+        key_text, value = key_text.strip(), value.strip()
+        if not sep:
+            raise ValueError("每行請使用「欄位名稱：修改後內容」格式。")
+        if key_text in ("陣營", "所屬陣營", "陣營歸屬"):
+            raise ValueError("陣營變更將由獨立申請處理，請先移除該行。")
+        key = aliases.get(key_text)
+        if key not in CHARACTER_EDIT_FIELDS:
+            raise ValueError(f"不支援直接修改「{key_text}」，請確認欄位名稱。")
+        if key in result:
+            raise ValueError(f"「{key_text}」出現重複修改。")
+        result[key] = value
+    if not result:
+        raise ValueError("請至少填寫一項修改。")
+    return result
+
+
+def submit_character_changes(db, guild_id, user_id, character_id, raw):
+    """一般修改立即生效；重大修改僅寫入待審案件。"""
+    from modules.profile import validate_field
+
+    character = db.execute(
+        "SELECT * FROM characters WHERE guild_id=? AND id=? AND owner_id=? "
+        "AND status='active' AND character_type IN ('player','player_npc')",
+        (str(guild_id), int(character_id), str(user_id)),
+    ).fetchone()
+    if character is None:
+        raise PermissionError("只有自己的已啟用原創角色或玩家 NPC 可修改資料。")
+
+    parsed = parse_character_changes(raw)
+    settings = json.loads(character["settings_json"] or "{}")
+    if not isinstance(settings, dict):
+        settings = {}
+    ordinary, sensitive = {}, {}
+    for key, value in parsed.items():
+        if key == "biography" and character["character_type"] != "player":
+            raise ValueError("玩家 NPC 的生平不能由玩家修改。")
+        current = str(character_field_value(character, settings, key) or "").strip()
+        if value == current:
+            continue
+        if not value:
+            raise ValueError(f"「{CHARACTER_EDIT_FIELDS[key]}」不可清空；未修改請保留原值。")
+        normalized = validate_field(key, value, character["age"]) if key in {
+            "name", "stage_name", "languages", "occupation", "age", "experience_years",
+            "gender", "nationality", "education", "main_track", "biography",
+        } else value
+        if isinstance(normalized, str) and len(normalized) > (2000 if key == "biography" else 500):
+            raise ValueError(f"「{CHARACTER_EDIT_FIELDS[key]}」內容過長。")
+        if key == "private_personality" and character["character_type"] == "player":
+            # 只有可量化為小幅文字調整的原創角色性格可以即時更新。
+            import difflib
+            ratio = difflib.SequenceMatcher(None, current, value).ratio()
+            small = ratio >= 0.85 and abs(len(value) - len(current)) <= 100
+            target = ordinary if small else sensitive
+        else:
+            target = ordinary if key in DIRECT_CHARACTER_FIELDS else sensitive
+        target[key] = normalized
+
+    if not ordinary and not sensitive:
+        raise ValueError("內容與原資料完全相同，無需送出修改。")
+    proposed_age = int(sensitive.get("age", character["age"]))
+    proposed_exp = int(sensitive.get("experience_years", settings.get("experience_years") or 0))
+    if proposed_exp > max(0, proposed_age - 5):
+        raise ValueError("修改後的資歷不得超過年齡減五年。")
+    if sensitive:
+        # 重大變更的資料不直接覆蓋正式角色檔案。
+        db.execute(
+            "INSERT INTO rp_general_applications "
+            "(guild_id,user_id,character_id,kind,title,details,reference) "
+            "VALUES (?,?,?,?,?,?,?)",
+            (str(guild_id), str(user_id), int(character_id), "character_edit",
+             f"角色 #{character_id} 重大資料修改", json.dumps(sensitive, ensure_ascii=False), ""),
+        )
+
+    applied_count = len(ordinary)
+    if ordinary:
+        columns = []
+        params = []
+        if "name" in ordinary:
+            columns.append("name=?")
+            params.append(ordinary.pop("name"))
+        settings.update(ordinary)
+        columns.append("settings_json=?")
+        params.append(json.dumps(settings, ensure_ascii=False))
+        columns.append("version=version+1")
+        db.execute(
+            f"UPDATE characters SET {', '.join(columns)} "
+            "WHERE guild_id=? AND id=? AND owner_id=? AND status='active'",
+            (*params, str(guild_id), int(character_id), str(user_id)),
+        )
+    return applied_count, len(sensitive)
+
+
+def apply_approved_character_changes(db, application):
+    """審核核准後才更新重大文字欄位。"""
+    from modules.creation_wizard import MAIN_SKILLS
+    from modules.profile import validate_field
+
+    changes = json.loads(application["details"])
+    if not isinstance(changes, dict) or not changes or not set(changes) <= SENSITIVE_CHARACTER_FIELDS:
+        raise ValueError("重大修改案件格式不正確。")
+    character = db.execute(
+        "SELECT * FROM characters WHERE guild_id=? AND id=? AND owner_id=? "
+        "AND character_type IN ('player','player_npc') AND status='active'",
+        (application["guild_id"], application["character_id"], application["user_id"]),
+    ).fetchone()
+    if character is None:
+        raise ValueError("角色已不存在、退場或轉移，無法套用修改。")
+    age = validate_field("age", str(changes.get("age", character["age"])), character["age"])
+    settings = json.loads(character["settings_json"] or "{}")
+    if not isinstance(settings, dict):
+        settings = {}
+    experience = int(changes.get("experience_years", settings.get("experience_years") or 0))
+    if experience > max(0, age - 5):
+        raise ValueError("新年齡與現有資歷不符，請先調整資歷。")
+    updates, params = [], []
+    if "age" in changes:
+        updates.append("age=?")
+        params.append(age)
+    if "occupation" in changes:
+        updates.append("occupation=?")
+        params.append(validate_field("occupation", str(changes["occupation"]), age))
+    if "main_track" in changes:
+        main = str(changes["main_track"]).strip()
+        if main not in MAIN_SKILLS:
+            raise ValueError("主攻技能不在允許的賽道清單內。")
+        if main == settings.get("secondary_track"):
+            raise ValueError("新主攻技能不得與副修技能相同。")
+        settings["main_track"] = main
+    if "biography" in changes and character["character_type"] != "player":
+        raise ValueError("玩家 NPC 的生平不可更改。")
+    for key, value in changes.items():
+        if key not in {"age", "occupation", "main_track"}:
+            settings[key] = validate_field(key, str(value), age) if key == "experience_years" else value
+    updates.append("settings_json=?")
+    params.append(json.dumps(settings, ensure_ascii=False))
+    updates.append("version=version+1")
+    db.execute(
+        f"UPDATE characters SET {', '.join(updates)} WHERE guild_id=? AND id=?",
+        (*params, application["guild_id"], application["character_id"]),
+    )
+
 # 申請者需用自己的已啟用角色提出的案件。
 CHARACTER_REQUIRED = {
-    "item", "item_create", "role_retire", "npc_resign",
+    "item", "item_create", "role_retire", "character_edit", "npc_resign",
     "npc_switch", "cp_register", "shop_bank",
 }
 
@@ -465,10 +662,26 @@ class ApplicationModal(discord.ui.Modal):
                 or "可留空" in label
             )
 
+            default_text = None
+            if kind == "character_edit" and character_id is not None:
+                with get_connection() as db:
+                    current = db.execute(
+                        "SELECT * FROM characters WHERE guild_id=? AND id=? AND owner_id=?",
+                        (str(i.guild_id), int(character_id), str(i.user.id)),
+                    ).fetchone()
+                if current is not None:
+                    full_template = character_edit_template(current)
+                    if len(full_template) <= 4000:
+                        default_text = full_template
             field = discord.ui.TextInput(
                 label=label,
                 max_length=max_length,
                 required=not optional,
+                default=default_text,
+                placeholder=(
+                    "每行一項，例如：藝名：新藝名。不可修改數值或陣營。"
+                    if kind == "character_edit" else None
+                ),
                 style=(
                     discord.TextStyle.paragraph
                     if paragraph
@@ -499,12 +712,29 @@ class ApplicationModal(discord.ui.Modal):
                 for f in self.fields
             ]
 
-            title = values[0]
+            if self.kind == "character_edit":
+                if self.character_id is None:
+                    raise ValueError("請先從 /查看 選擇自己的原創角色。")
+                with transaction() as db:
+                    applied, queued = submit_character_changes(
+                        db, self.gid, self.uid, self.character_id, values[0]
+                    )
+                return await say(
+                    i, f"✅ 修改已提交：{applied} 項一般資料已直接更新；"
+                    f"{queued} 項重大變更已送交 /審核。陣營請另行申請。"
+                )
+
+            title = (
+                f"角色 #{self.character_id} 資料修改"
+                if self.kind == "character_edit"
+                else values[0]
+            )
 
             if not title:
-                raise ValueError(
-                    "請填寫申請主題。"
-                )
+                raise ValueError("請填寫申請內容。")
+
+            if self.kind == "character_edit" and not values[0]:
+                raise ValueError("請先寫完要修改的內容。")
 
             details = "\n".join(
                 f"【{f.label}】{value}"
@@ -597,7 +827,7 @@ class ApplicationModal(discord.ui.Modal):
                         self.kind,
                         title,
                         details,
-                        values[-1],
+                        "" if self.kind == "character_edit" else values[-1],
                     ),
                 )
 
@@ -658,6 +888,7 @@ class ApplicationKindSelect(
                 value=k,
             )
             for k, v in CATEGORIES.items()
+            if k != "character_edit"  # 僅由 /查看 的本人角色面板提出
         ]
 
         super().__init__(
@@ -995,6 +1226,9 @@ class GeneralReviewView(
                         "公司帳戶開戶後端尚未完成："
                         "不得僅憑核准案件建立假帳戶。"
                     )
+
+                if accepted and r["kind"] == "character_edit":
+                    apply_approved_character_changes(db, r)
 
                 if (
                     not owner(i)
