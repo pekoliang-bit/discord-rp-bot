@@ -1548,12 +1548,6 @@ class AdminToolsView(ManagementView):
                 True,
             ),
             (
-                "兌換審核",
-                "modules.redeem_ui",
-                "RedeemManageButton",
-                True,
-            ),
-            (
                 "場景商店",
                 "modules.scene_shops",
                 "SceneShopButton",
@@ -1561,7 +1555,7 @@ class AdminToolsView(ManagementView):
             ),
         ]
 
-        for label, module_name, class_name, owner_only in tools:
+        for index, (label, module_name, class_name, owner_only) in enumerate(tools):
             if owner_only and not self.owner:
                 continue
 
@@ -1571,8 +1565,8 @@ class AdminToolsView(ManagementView):
                     class_name,
                 )
 
-                # 管理中心按鈕統一配置到前兩列。
-                button.row = None
+                # 固定排列：商城/金幣、內容/場景，返回獨立一排。
+                button.row = index // 2
                 self.add_item(button)
 
             except (
@@ -1590,7 +1584,7 @@ class AdminToolsView(ManagementView):
     @discord.ui.button(
         label="🏠 返回官方首頁",
         style=discord.ButtonStyle.secondary,
-        row=4,
+        row=2,
     )
     async def back(self, interaction, button):
         await interaction.response.edit_message(
@@ -1612,7 +1606,6 @@ def management_text(view):
     if view.owner:
         lines.extend([
             "✍️ 內容建立：劇情、活動、獎項等",
-            "🎁 兌換審核：特殊道具兌換",
             "🏪 場景商店：餐廳、診所、酒店等",
         ])
 
@@ -1664,7 +1657,7 @@ def official_home_text(interaction):
         lines.extend([
             "",
             "👑 **群主管理權限**",
-            "人員、商城、金幣、內容、兌換及場景商店。",
+            "人員、商城、金幣、內容及場景商店。",
         ])
 
     elif is_management_user(interaction):
@@ -1826,5 +1819,5 @@ async def setup(bot: commands.Bot):
 
     LOG.info(
         "官方管理中心已載入：人員申請、審核、"
-        "商城、金幣、內容、兌換及場景商店。"
+        "商城、金幣、內容及場景商店。"
     )
