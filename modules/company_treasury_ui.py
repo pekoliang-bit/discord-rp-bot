@@ -20,6 +20,7 @@ import discord
 
 from core.database import get_connection
 from modules.company_business import has_permission
+from modules.company_profit import profit_overview
 from modules.company_treasury import (
     company_bank_summary,
     finance_summary,
@@ -410,6 +411,15 @@ class TreasuryDetailView(discord.ui.View):
     async def payroll(self, interaction, button):
         await interaction.response.send_modal(
             PayrollModal(self.user_id, self.guild_id, self.business_id)
+        )
+
+    @discord.ui.button(label="📊 財務核對", style=discord.ButtonStyle.secondary, row=1)
+    async def profit(self, interaction, button):
+        await _respond(
+            interaction,
+            lambda: profit_overview(
+                self.guild_id, self.business_id, self.user_id,
+            ),
         )
 
     @discord.ui.button(
