@@ -1,4 +1,3 @@
-
 """公司員工系統：應徵、工作認證、經驗與各職位升遷方式。
 
 與 rp_approved_company_authorizations 共用正式公司登記。
@@ -190,6 +189,27 @@ def owner(db, gid, company, uid):
     if str(row["original_applicant_id"]) != uid:
         raise PermissionError(
             "只有已登記的公司負責人可設定職位或審核。"
+        )
+
+
+def personnel_permission(db, gid, company, uid, permission):
+    """舊公司持有人或新公司持有人／被授權管理者的人事權限。"""
+    try:
+        owner(db, gid, company, uid)
+        return
+    except PermissionError:
+        pass
+
+    from modules.company_business import has_permission
+
+    try:
+        permitted = has_permission(db, gid, company, uid, permission)
+    except (ValueError, KeyError, sqlite3.OperationalError):
+        permitted = False
+
+    if not permitted:
+        raise PermissionError(
+            "你沒有這間公司的相應人事審核權限。"
         )
 
 
@@ -462,11 +482,12 @@ def review_application(
                 "找不到待審應徵。"
             )
 
-        owner(
+        personnel_permission(
             db,
             gid,
             row["company_id"],
             uid,
+            "recruit",
         )
 
         if str(row["applicant_id"]) == str(uid):
@@ -735,11 +756,12 @@ def review_work(
                 "工作不存在或已審核，不能重複領取經驗。"
             )
 
-        owner(
+        personnel_permission(
             db,
             gid,
             record["company_id"],
             uid,
+            "work_review",
         )
 
         if str(record["submitted_by"]) == str(uid):
@@ -866,11 +888,12 @@ def review_promotion(
                 "找不到待審升職。"
             )
 
-        owner(
+        personnel_permission(
             db,
             gid,
             row["company_id"],
             uid,
+            "work_review",
         )
 
         employee = db.execute(
@@ -1042,13 +1065,6 @@ def pending_reviews(gid, company, uid):
 
     with get_connection() as db:
 
-        owner(
-            db,
-            gid,
-            company,
-            uid,
-        )
-
         sections = []
 
         review_tables = (
@@ -1070,6 +1086,11 @@ def pending_reviews(gid, company, uid):
         )
 
         for table, label, extra in review_tables:
+            permission = "recruit" if label == "應徵" else "work_review"
+            try:
+                personnel_permission(db, gid, company, uid, permission)
+            except PermissionError:
+                continue
 
             rows = db.execute(
                 f"""
@@ -1329,6 +1350,162 @@ class CompanyWorkforce(commands.Cog):
                 薪資,
             ),
         )
+
+    @company.command(
+        name="職位",
+        description="查看公司職位、經驗門檻和待審數",
+    )
+    async def jobs(
+        self,
+        interaction: discord.Interaction,
+        公司編號: str,
+    ):
+
+        await self.run(
+            interaction,
+            lambda: overview(
+                str(interaction.guild_id),
+                公司編號,
+            ),
+        )
+
+    @company.command(
+        name="待審",
+        description="公司負責人查看應徵、工作與升職審核編號",
+    )
+    async def pending(
+        self,
+        interaction: discord.Interaction,
+        公司編號: str,
+    ):
+
+        await self.run(
+            interaction,
+            lambda: pending_reviews(
+                str(interaction.guild_id),
+                公司編號,
+                str(interaction.user.id),
+            ),
+        )
+
+    @company.command(
+        name="應徵審核",
+        description="公司負責人核准或拒絕應徵",
+    )
+    async def hiring(
+        self,
+        interaction: discord.Interaction,
+        申請編號: int,
+        錄取: bool,
+    ):
+
+        await self.run(
+            interaction,
+            lambda: review_application(
+                str(interaction.guild_id),
+                str(interaction.user.id),
+                申請編號,
+                錄取,
+            ),
+        )
+
+    @company.command(
+        name="工作提交",
+        description="提交工作與認證紀錄，審核後取得 EXP",
+    )
+    async def submit(
+        self,
+        interaction: discord.Interaction,
+        公司編號: str,
+        角色編號: int,
+        工作內容: str,
+        證明連結: str = "",
+    ):
+
+        await self.run(
+            interaction,
+            lambda: submit_work(
+                str(interaction.guild_id),
+                公司編號,
+                str(interaction.user.id),
+                角色編號,
+                工作內容,
+                證明連結,
+            ),
+        )
+
+    @company.command(
+        name="工作審核",
+        description="公司負責人審核工作並發放職位 EXP",
+    )
+    async def work_review(
+        self,
+        interaction: discord.Interaction,
+        工作編號: int,
+        通過: bool,
+    ):
+
+        await self.run(
+            interaction,
+            lambda: review_work(
+                str(interaction.guild_id),
+                str(interaction.user.id),
+                工作編號,
+                通過,
+            ),
+        )
+
+    @company.command(
+        name="升職審核",
+        description="核准需人工批准的升職申請",
+    )
+    async def promotion(
+        self,
+        interaction: discord.Interaction,
+        升職編號: int,
+        通過: bool,
+    ):
+
+        await self.run(
+            interaction,
+            lambda: review_promotion(
+                str(interaction.guild_id),
+                str(interaction.user.id),
+                升職編號,
+                通過,
+            ),
+        )
+
+    @company.command(
+        name="我的工作",
+        description="查看自己角色在指定公司的職位與 EXP",
+    )
+    async def my_job(
+        self,
+        interaction: discord.Interaction,
+        公司編號: str,
+        角色編號: int,
+    ):
+
+        await self.run(
+            interaction,
+            lambda: personal_status(
+                str(interaction.guild_id),
+                公司編號,
+                str(interaction.user.id),
+                角色編號,
+            ),
+        )
+
+
+async def setup(bot):
+
+    await asyncio.to_thread(initialize)
+
+    await bot.add_cog(
+        CompanyWorkforce()
+    )
+
 
     @company.command(
         name="職位",
