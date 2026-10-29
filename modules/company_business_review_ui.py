@@ -14,6 +14,7 @@ import discord
 from core.database import get_connection, transaction
 from modules.company_business import approve_application, initialize
 from modules.official_center import has_staff_permission
+from modules.world_terms import organization_terms
 
 LOG = logging.getLogger(__name__)
 PAGE_SIZE = 20
@@ -42,16 +43,18 @@ def fetch_cases(guild_id, page):
 
 
 class CaseSelect(discord.ui.Select):
-    def __init__(self, rows):
+    def __init__(self, rows, guild_id):
+        terms = organization_terms(guild_id)
+        kinds = {"company": terms["company"], "brand": terms["brand"], "group": terms["group"]}
         options = [
             discord.SelectOption(
-                label=f"#{r['id']} {KIND_NAMES.get(r['kind'], r['kind'])}｜{r['name']}"[:100],
+                label=f"#{r['id']} {kinds.get(r['kind'], r['kind'])}｜{r['name']}"[:100],
                 description=f"{r['category']}｜啟動資金 {r['required_capital']:,}"[:100],
                 value=str(r["id"]),
             ) for r in rows
         ]
         super().__init__(
-            placeholder="選擇公司／品牌／集團待審案件",
+            placeholder="選擇待審商業申請",
             options=options or [discord.SelectOption(label="沒有待審案件", value="none")],
             disabled=not options,
             row=0,
@@ -86,12 +89,14 @@ class BusinessReviewView(discord.ui.View):
         for child in list(self.children):
             if isinstance(child, CaseSelect):
                 self.remove_item(child)
-        self.add_item(CaseSelect(self.rows))
+        self.add_item(CaseSelect(self.rows, self.guild_id))
         self.previous.disabled = self.page == 0
         self.next_page.disabled = len(self.rows) < PAGE_SIZE
         self.approve.disabled = self.reject.disabled = self.selected is None
 
     def content(self):
+        terms = organization_terms(self.guild_id)
+        kinds = {"company": terms["company"], "brand": terms["brand"], "group": terms["group"]}
         if self.selected is not None:
             with get_connection() as db:
                 case = db.execute(
@@ -102,19 +107,19 @@ class BusinessReviewView(discord.ui.View):
             if case is not None:
                 safe = discord.utils.escape_mentions
                 return (
-                    f"🏢 **{KIND_NAMES.get(case['kind'], case['kind'])}申請 #{case['id']}**\n"
+                    f"🏢 **{kinds.get(case['kind'], case['kind'])}申請 #{case['id']}**\n"
                     f"申請人：<@{case['applicant_id']}>｜持有人角色：#{case['owner_character_id']}\n"
                     f"名稱：{safe(case['name'])}\n"
                     f"分類：{safe(case['category'])}｜產業：{safe(case['industry'])}\n"
                     f"地區：{safe(case['region'])}\n"
                     f"說明：{safe(case['description'])[:650]}\n"
-                    f"母公司：{safe(str(case['parent_id'] or '無'))}\n"
-                    f"品牌代表角色：{case['representative_character_id'] or '未指定'}\n"
+                    f"母{terms['company']}：{safe(str(case['parent_id'] or '無'))}\n"
+                    f"{terms['brand']}代表角色：{case['representative_character_id'] or '未指定'}\n"
                     f"出資來源：{safe(case['funding_source'])}\n"
-                    f"啟動資金：**{case['required_capital']:,} 金幣**\n\n"
+                    f"啟動資金：**{case['required_capital']:,} {terms['currency']}**\n\n"
                     "核准時將由系統重新檢查資格與資金，扣款後正式建立。"
                 )[:1900]
-        return f"🏢 **公司／品牌／集團審核**｜第 {self.page + 1} 頁\n本頁待審 {len(self.rows)} 筆。"
+        return f"🏢 **{terms['company']}／{terms['brand']}／{terms['group']}審核**｜第 {self.page + 1} 頁\n本頁待審 {len(self.rows)} 筆。"
 
     async def render(self, interaction):
         self.refresh_rows()
