@@ -201,7 +201,30 @@ def _auxiliary(attrs, tracking, level, levels=LEVELS):
     return clamp(score)
 
 
-def score_for(level, attrs, tracking, skill_value, days_stale=0, *, levels=LEVELS, disabled=frozenset()):
+def status_weights(config, level):
+    """五個評分構面，缺省沿用娛樂圈既有權重。"""
+    default = (0.50, 0.15, 0.10, 0.15, 0.10) if level >= 19 else (
+        0.35, 0.20, 0.15, 0.15, 0.15
+    )
+    rules = config.get("status_weights", {}) if isinstance(config, dict) else {}
+    if not isinstance(rules, dict):
+        return default
+    group = rules.get("lv19_20" if level >= 19 else "lv1_18", {})
+    if not isinstance(group, dict):
+        return default
+    keys = ("influence", "heat", "commercial", "professional", "auxiliary")
+    try:
+        raw = [float(group.get(key, default[i])) for i, key in enumerate(keys)]
+    except (TypeError, ValueError, OverflowError):
+        return default
+    import math
+    if not all(math.isfinite(v) and v >= 0 for v in raw) or sum(raw) <= 0 or raw[0] <= 0:
+        return default
+    total = sum(raw)
+    return tuple(v / total for v in raw)
+
+
+def score_for(level, attrs, tracking, skill_value, days_stale=0, *, levels=LEVELS, disabled=frozenset(), config=None):
     _, _, heat_min, commercial_min, influence_min = levels[level - 1]
     heat, commercial, influence = (attrs.get("流量熱度", 0), attrs.get("商業價值", 0), attrs.get("影響指數", 0))
     hard_pass = (("流量熱度" in disabled or heat >= heat_min) and ("商業價值" in disabled or commercial >= commercial_min) and influence >= influence_min)
@@ -211,10 +234,7 @@ def score_for(level, attrs, tracking, skill_value, days_stale=0, *, levels=LEVEL
     # 無技能養成歷史時，平衡分先以中性值處理；後續由技能模組提供精確成長資料。
     professional = 0.5 * ability + 0.3 * growth + 0.2 * 50
     aux = _auxiliary(attrs, tracking, level, levels)
-    if level >= 19:
-        weights = (0.50, 0.15, 0.10, 0.15, 0.10)
-    else:
-        weights = (0.35, 0.20, 0.15, 0.15, 0.15)
+    weights = status_weights(config, level)
     values = (normalized(influence, influence_min), 100 if "流量熱度" in disabled else normalized(heat, heat_min), 100 if "商業價值" in disabled else normalized(commercial, commercial_min), professional, aux)
     score = sum(w * v for w, v in zip(weights, values))
     return round(score, 2), hard_pass
@@ -276,7 +296,7 @@ def review_character(guild_id, character_id, *, now=None):
             maintenance = 100
             state["warning_active"] = 0
             messages.append(f"🚨 影響指數不足：地位立即下降至 LV{level} {levels[level-1][1]}。")
-        score, hard_pass = score_for(level, attrs, tracking, skill_value, stale_days, levels=levels, disabled=disabled)
+        score, hard_pass = score_for(level, attrs, tracking, skill_value, stale_days, levels=levels, disabled=disabled, config=config)
         other_ok = ("流量熱度" in disabled or attrs.get("流量熱度", 0) >= levels[level-1][2]) and ("商業價值" in disabled or attrs.get("商業價值", 0) >= levels[level-1][3]) and score >= 80
         if not other_ok and level > 1:
             if not state["warning_active"]:
@@ -288,7 +308,7 @@ def review_character(guild_id, character_id, *, now=None):
                     level -= 1
                     maintenance = 100
                     messages.append(f"📉 地位下降至 LV{level} {levels[level-1][1]}。")
-                    score, hard_pass = score_for(level, attrs, tracking, skill_value, stale_days, levels=levels, disabled=disabled)
+                    score, hard_pass = score_for(level, attrs, tracking, skill_value, stale_days, levels=levels, disabled=disabled, config=config)
                     if hard_pass and score >= 80:
                         break
         else:
@@ -300,7 +320,7 @@ def review_character(guild_id, character_id, *, now=None):
         # 預設不可跳級：僅評估下一級，且每次晉升至少相隔24小時。
         # 下一級若停用則停止晉升，不越過該級。
         if level < 20 and not state["warning_active"] and (not promotion_at or now - promotion_at >= timedelta(hours=24)):
-            next_score, next_ok = score_for(level + 1, attrs, tracking, skill_value, stale_days, levels=levels, disabled=disabled)
+            next_score, next_ok = score_for(level + 1, attrs, tracking, skill_value, stale_days, levels=levels, disabled=disabled, config=config)
             next_rule = config.get("status_levels", {}).get(str(level + 1), {})
             next_enabled = not (isinstance(next_rule, dict) and next_rule.get("enabled") is False)
             if next_enabled and next_ok and next_score >= 80:
