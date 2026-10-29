@@ -272,7 +272,7 @@ def review_character(guild_id, character_id, *, now=None):
         # 影響指數優先：直接降至影響門檻所允許的最高地位。
         influence = attrs.get("影響指數", 0)
         if influence < levels[level - 1][4]:
-            level = max(i for i in range(1, level + 1) if influence >= levels[i - 1][4])
+            level = max((i for i in range(1, level + 1) if influence >= levels[i - 1][4]), default=1)
             maintenance = 100
             state["warning_active"] = 0
             messages.append(f"🚨 影響指數不足：地位立即下降至 LV{level} {levels[level-1][1]}。")
@@ -297,6 +297,8 @@ def review_character(guild_id, character_id, *, now=None):
             state["warning_active"] = 0
             maintenance = 100
         promotion_at = parse_time(state["last_promotion"])
+        # 預設不可跳級：僅評估下一級，且每次晉升至少相隔24小時。
+        # 下一級若停用則停止晉升，不越過該級。
         if level < 20 and not state["warning_active"] and (not promotion_at or now - promotion_at >= timedelta(hours=24)):
             next_score, next_ok = score_for(level + 1, attrs, tracking, skill_value, stale_days, levels=levels, disabled=disabled)
             next_rule = config.get("status_levels", {}).get(str(level + 1), {})
