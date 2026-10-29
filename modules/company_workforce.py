@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import sqlite3
+import re
 
 import discord
 from discord import app_commands
@@ -17,6 +18,8 @@ from core.database import (
     get_connection,
     transaction,
 )
+
+from modules.world_terms import organization_terms
 
 from modules.application_extras import (
     init_db as init_company_authorizations,
@@ -1303,8 +1306,20 @@ class CompanyWorkforce(commands.Cog):
         ) as exc:
             result = f"⚠️ {exc}"
 
+        message = str(result)
+        if interaction.guild_id is not None:
+            labels = organization_terms(interaction.guild_id)
+            message = re.sub(
+                r"公司|集團|品牌|陣營|職位",
+                lambda m: {
+                    "公司": labels["company"], "集團": labels["group"],
+                    "品牌": labels["brand"], "陣營": labels["faction"],
+                    "職位": labels["position"],
+                }[m.group()],
+                message,
+            )
         await interaction.followup.send(
-            str(result)[:1900],
+            message[:1900],
             ephemeral=True,
         )
 
