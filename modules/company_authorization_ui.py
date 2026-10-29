@@ -1,4 +1,3 @@
-
 """公司登記與銀行申請代理人管理。
 
 只有群主能操作。
@@ -11,6 +10,8 @@ import logging
 import sqlite3
 
 import discord
+
+from modules.world_terms import term
 
 from modules.application_extras import (
     init_db,
@@ -55,6 +56,11 @@ class CompanyRegisterModal(
         required=True,
     )
 
+    def __init__(self, guild_id):
+        super().__init__(title=f"登記已核准{term(guild_id, 'company')}")
+        self.company_id.label = f"正式{term(guild_id, 'company')}編號"[:45]
+        self.applicant_id.label = f"原{term(guild_id, 'company')}申請人 Discord ID"[:45]
+
     async def on_submit(self, i):
         try:
             require_owner(i)
@@ -85,7 +91,7 @@ class CompanyRegisterModal(
 
             await say(
                 i,
-                f"✅ 公司 {company} 已登記。\n"
+                f"✅ {term(i.guild_id, 'company')} {company} 已登記。\n"
                 f"原申請人：<@{applicant}>\n"
                 "此操作不會自動建立銀行帳號。",
             )
@@ -115,14 +121,12 @@ class ProxyModal(discord.ui.Modal):
         required=True,
     )
 
-    def __init__(self, active: bool):
+    def __init__(self, active: bool, guild_id):
+        company = term(guild_id, "company")
         super().__init__(
-            title=(
-                "設定公司銀行申請代理人"
-                if active
-                else "撤銷公司銀行申請代理人"
-            ),
+            title=f"{'設定' if active else '撤銷'}{company}銀行申請代理人"[:45],
         )
+        self.company_id.label = f"正式{company}編號"[:45]
         self.active = active
 
     async def on_submit(self, i):
@@ -159,7 +163,7 @@ class ProxyModal(discord.ui.Modal):
 
             await say(
                 i,
-                f"✅ 公司 {company}\n"
+                f"✅ {term(i.guild_id, 'company')} {company}\n"
                 f"代理人：<@{proxy}>\n"
                 f"狀態：{action}\n\n"
                 "這項代理權僅適用於"
@@ -185,6 +189,8 @@ class CompanyAuthorizationView(discord.ui.View):
 
         self.owner_id = i.user.id
         self.guild_id = i.guild_id
+        company = term(i.guild_id, "company")
+        self.register.label = f"🏢 登記{company}"[:80]
 
     async def interaction_check(self, i):
         if (
@@ -207,7 +213,7 @@ class CompanyAuthorizationView(discord.ui.View):
     )
     async def register(self, i, button):
         await i.response.send_modal(
-            CompanyRegisterModal()
+            CompanyRegisterModal(i.guild_id)
         )
 
     @discord.ui.button(
@@ -216,7 +222,7 @@ class CompanyAuthorizationView(discord.ui.View):
     )
     async def grant(self, i, button):
         await i.response.send_modal(
-            ProxyModal(True)
+            ProxyModal(True, i.guild_id)
         )
 
     @discord.ui.button(
@@ -225,7 +231,7 @@ class CompanyAuthorizationView(discord.ui.View):
     )
     async def revoke(self, i, button):
         await i.response.send_modal(
-            ProxyModal(False)
+            ProxyModal(False, i.guild_id)
         )
 
 
@@ -243,13 +249,14 @@ class OpenCompanyAuthorization(discord.ui.Button):
         except PermissionError as exc:
             return await say(i, str(exc))
 
+        company = term(i.guild_id, "company")
         await i.response.send_message(
-            "🏢 **公司登記與授權管理**\n\n"
-            "可登記已正式核准的公司、"
+            f"🏢 **{company}登記與授權管理**\n\n"
+            f"可登記已正式核准的{company}、"
             "指定銀行申請代理人，"
             "或撤銷代理資格。\n\n"
-            "請先核實原公司成立紀錄，"
-            "再填入公司編號與 Discord ID。",
+            f"請先核實原{company}成立紀錄，"
+            f"再填入{company}編號與 Discord ID。",
             view=CompanyAuthorizationView(i),
             ephemeral=True,
             allowed_mentions=discord.AllowedMentions.none(),
