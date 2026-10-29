@@ -1049,6 +1049,56 @@ WORLD_CATEGORIES = [
 WORLD_LABELS = dict((value, label) for label, value in WORLD_CATEGORIES)
 
 
+class WorldRuleModal(discord.ui.Modal):
+    """結構化數值／地位設定；僅保存設定，不直接改動玩家資料。"""
+    def __init__(self, category):
+        super().__init__(title="數值設定" if category == "stats" else "地位設定")
+        self.category = category
+        self.rule_id = discord.ui.TextInput(label="數值代碼／地位等級", placeholder="例如 流量熱度 或 12", max_length=60)
+        self.display_name = discord.ui.TextInput(label="顯示名稱", max_length=80)
+        self.enabled = discord.ui.TextInput(label="啟用（是／否）", default="是", max_length=5)
+        self.minimum = discord.ui.TextInput(label="最低值／熱度門檻", required=False, max_length=20)
+        self.maximum = discord.ui.TextInput(label="最高值／商業價值門檻", required=False, max_length=20)
+        for field in (self.rule_id, self.display_name, self.enabled, self.minimum, self.maximum):
+            self.add_item(field)
+
+    async def on_submit(self, interaction):
+        if not owner(interaction):
+            return await tell(interaction, "⛔ 只有群主可以修改世界觀。")
+        key = self.rule_id.value.strip()
+        name = self.display_name.value.strip()
+        flag = self.enabled.value.strip().lower()
+        if flag not in ("是", "否", "true", "false"):
+            return await tell(interaction, "請在啟用欄填寫「是」或「否」。")
+        if not key or not name:
+            return await tell(interaction, "代碼與名稱不可為空。")
+        enabled = flag in ("是", "true")
+        try:
+            lower = int(self.minimum.value) if self.minimum.value.strip() else 0
+            upper = int(self.maximum.value) if self.maximum.value.strip() else None
+        except ValueError:
+            return await tell(interaction, "數值與門檻必須填寫整數。")
+        if lower < 0 or (upper is not None and upper < 0):
+            return await tell(interaction, "數值不可為負數。")
+        if self.category == "stats":
+            if upper is not None and upper < lower:
+                return await tell(interaction, "最高值不可小於最低值。")
+            rule = {"name": name, "enabled": enabled, "min": lower, "max": upper}
+        else:
+            if not key.isdecimal() or not 1 <= int(key) <= 20:
+                return await tell(interaction, "地位等級請填 1～20。")
+            rule = {"name": name, "enabled": enabled, "heat_min": lower,
+                    "commercial_min": upper if upper is not None else 0}
+        data = world_get(interaction.guild_id)
+        data.setdefault(self.category, {})[key] = rule
+        data.setdefault("overrides", {})[self.category + "." + key] = True
+        world_save(interaction.guild_id, data)
+        await interaction.response.send_message(
+            f"✅ 已保存「{name}」的世界觀設定。既有玩家數值不變；實際計算串接仍需啟用。",
+            ephemeral=True,
+        )
+
+
 class WorldCategoryView(discord.ui.View):
     """先進入分類頁，再編輯，避免直接彈出難懂的 JSON 表單。"""
     def __init__(self, i, category):
@@ -1064,7 +1114,7 @@ class WorldCategoryView(discord.ui.View):
 
     @discord.ui.button(label="✏️ 新增／修改設定", style=discord.ButtonStyle.primary)
     async def edit(self, i, button):
-        await i.response.send_modal(WorldEditModal(self.category))
+        await i.response.send_modal(WorldRuleModal(self.category) if self.category in ("stats", "status_levels") else WorldEditModal(self.category))
 
     @discord.ui.button(label="◀️ 返回世界觀設定", style=discord.ButtonStyle.secondary)
     async def back(self, i, button):
