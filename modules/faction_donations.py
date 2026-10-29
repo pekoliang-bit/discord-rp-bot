@@ -1,97 +1,79 @@
 
-"""Discord RP 陣營供奉系統。
-
-檔案位置：modules/faction_donations.py
-
-功能：
-- 驗證角色擁有者與陣營歸屬
-- 驗證供奉金額
-- 防止同一請求重複扣款
-- 透過既有經濟系統扣除角色錢包
-- 增加陣營共用經費
-- 記錄個人貢獻與積分
-
-不建立獨立斜線指令。
-所有操作由 /陣營 介面呼叫。
-"""
+"""陣營供奉：扣款、入池、積分、防重複紀錄同一交易。"""
 
 from __future__ import annotations
 
-from core.database import (
-    transaction,
-    get_or_create_account,
-)
-
-from core.economy import (
-    _payment,
-    EconomyError,
-)
-
+from core.database import transaction, get_or_create_account
+from core.economy import _payment, EconomyError
 from modules import faction_core
 
 
-MAX_DONATION = 10**15
+def _initialize(db):
+    db.execute("""
+        CREATE TABLE IF NOT EXISTS faction_payment_links (
+            guild_id TEXT NOT NULL,
+            request_key TEXT NOT NULL,
+            faction_ledger_id INTEGER NOT NULL,
+            economy_transaction_id INTEGER NOT NULL,
+            PRIMARY KEY(guild_id, request_key),
+            UNIQUE(guild_id, economy_transaction_id),
+            UNIQUE(guild_id, faction_ledger_id)
+        )
+    """)
 
 
-def donate(
-    guild_id,
-    character_id,
-    user_id,
-    amount,
-    request_id,
-):
-    """執行角色供奉。
+def donate(guild_id, character_id, user_id, amount, request_id):
+    if type(amount) is not int or not 1 <= amount <= 10**15:
+        raise ValueError("供奉金額必須是合法正整數。")
 
-    同一 request_id 只能成功處理一次。
-
-    注意：
-    此函式依賴既有經濟系統的交易介面。
-    部署前必須確認 core.economy._payment
-    及 core.database.get_or_create_account
-    的實際函式簽名相容。
-    """
+    request_id = str(request_id).strip()
+    if not request_id or len(request_id) > 100:
+        raise ValueError("交易編號不合法。")
 
     gid = faction_core.ensure_guild(guild_id)
+    key = f"faction:offering:{gid}:{request_id}"
 
-    if type(amount) is not int:
-        raise ValueError(
-            "供奉金額必須為整數。"
-        )
+    if len(key) > 200:
+        raise ValueError("交易編號過長。")
 
-    if not 1 <= amount <= MAX_DONATION:
-        raise ValueError(
-            "供奉金額必須介於 1 至 10^15 金幣。"
-        )
-
-    if not str(request_id).strip():
-        raise ValueError(
-            "交易編號不可為空。"
-        )
-
-    key = (
-        f"faction:offering:"
-        f"{gid}:{request_id}"
-    )
+    cid = int(character_id)
 
     with transaction() as db:
+        _initialize(db)
 
-        # 1. 驗證角色
-
-        character = db.execute(
-            """
+        # 優先檢查重複請求，避免重複扣款。
+        previous = db.execute("""
             SELECT
-                owner_id,
-                status,
-                character_type
+                l.faction_id,
+                l.character_id,
+                l.amount,
+                l.points
+            FROM faction_payment_links p
+            JOIN faction_ledger l
+              ON l.id = p.faction_ledger_id
+            WHERE p.guild_id = ?
+              AND p.request_key = ?
+        """, (gid, key)).fetchone()
+
+        if previous:
+            if (
+                int(previous["character_id"]) != cid
+                or int(previous["amount"]) != amount
+            ):
+                raise ValueError("交易編號已被其他供奉使用。")
+
+            return {
+                "duplicated": True,
+                "amount": amount,
+                "points": int(previous["points"]),
+            }
+
+        # 驗證角色身分。
+        character = db.execute("""
+            SELECT owner_id, status, character_type
             FROM characters
-            WHERE guild_id = ?
-              AND id = ?
-            """,
-            (
-                gid,
-                int(character_id),
-            ),
-        ).fetchone()
+            WHERE guild_id = ? AND id = ?
+        """, (gid, cid)).fetchone()
 
         if (
             not character
@@ -99,122 +81,44 @@ def donate(
             or character["status"] != "active"
             or character["character_type"] != "player"
         ):
-            raise ValueError(
-                "只能以自己已啟用的原創角色供奉。"
-            )
+            raise ValueError("只能以自己已啟用的原創角色供奉。")
 
-        # 2. 取得角色所屬陣營
-
-        member = db.execute(
-            """
+        member = db.execute("""
             SELECT faction_id
             FROM faction_members
-            WHERE guild_id = ?
-              AND character_id = ?
-            """,
-            (
-                gid,
-                int(character_id),
-            ),
-        ).fetchone()
+            WHERE guild_id = ? AND character_id = ?
+        """, (gid, cid)).fetchone()
 
         if not member:
-            raise ValueError(
-                "角色尚未加入陣營。"
-            )
+            raise ValueError("角色尚未加入陣營。")
 
-        faction_id = int(member["faction_id"])
+        fid = int(member["faction_id"])
 
-        # 3. 檢查是否已經完成相同交易
-
-        old = db.execute(
-            """
-            SELECT
-                faction_id,
-                character_id,
-                amount,
-                points
-            FROM faction_ledger
-            WHERE guild_id = ?
-              AND memo = ?
-              AND source = 'offering'
-            """,
-            (
-                gid,
-                key,
-            ),
-        ).fetchone()
-
-        if old:
-
-            if (
-                int(old["faction_id"]) != faction_id
-                or int(old["character_id"])
-                    != int(character_id)
-                or int(old["amount"]) != amount
-            ):
-                raise ValueError(
-                    "交易編號已被其他供奉占用。"
-                )
-
-            return {
-                "duplicated": True,
-                "points": int(old["points"]),
-                "amount": amount,
-            }
-
-        # 4. 取得角色錢包帳戶
-
+        # 使用原本的角色錢包及組織金庫。
         sender = get_or_create_account(
-            db,
-            gid,
-            "character",
-            str(character_id),
-            "wallet",
+            db, gid, "character", str(cid), "wallet"
         )
-
-        # 5. 取得陣營金庫帳戶
-
         receiver = get_or_create_account(
-            db,
-            gid,
-            "organization",
-            f"faction:{faction_id}",
-            "treasury",
+            db, gid, "organization",
+            f"faction:{fid}", "treasury"
         )
-
-        # 6. 執行錢包轉帳
-        # 由既有經濟系統檢查餘額。
 
         payment = _payment(
-            db,
-            gid,
-            key,
-            sender,
-            receiver,
-            amount,
-            "陣營供奉",
+            db, gid, key, sender, receiver,
+            amount, "陣營供奉"
         )
 
         if payment.duplicated:
             raise EconomyError(
                 "付款已存在但缺少陣營流水，"
-                "請聯絡管理員核對。"
+                "已停止入帳，請管理員核對。"
             )
 
-        # 7. 取得當前結算期
+        # 計算本期有效個人貢獻。
+        period = faction_core._roll(db, gid)
 
-        period = faction_core._roll(
-            db,
-            gid,
-        )
-
-        # 8. 計算角色本期既有有效貢獻
-
-        previous = db.execute(
-            """
-            SELECT
-                COALESCE(SUM(amount), 0) AS total
+        row = db.execute("""
+            SELECT COALESCE(SUM(amount), 0) AS total
             FROM faction_ledger
             WHERE guild_id = ?
               AND faction_id = ?
@@ -226,43 +130,28 @@ def donate(
                   'personal_award',
                   'sponsor_personal'
               )
-            """,
-            (
-                gid,
-                faction_id,
-                int(character_id),
-                period,
-            ),
-        ).fetchone()
+        """, (gid, fid, cid, period)).fetchone()
 
-        before = int(previous["total"])
+        before = int(row["total"])
 
-        # 每累計滿 100 金幣獲得 1 積分
+        # 小額供奉可以累計滿 100 金幣換算積分。
         points = (
             (before + amount) // 100
             - before // 100
         )
 
-        # 9. 增加陣營共用經費
-
-        db.execute(
-            """
+        # 更新陣營經費池。
+        updated = db.execute("""
             UPDATE faction_groups
             SET pool = pool + ?
-            WHERE guild_id = ?
-              AND id = ?
-            """,
-            (
-                amount,
-                gid,
-                faction_id,
-            ),
-        )
+            WHERE guild_id = ? AND id = ?
+        """, (amount, gid, fid))
 
-        # 10. 記錄供奉流水
+        if updated.rowcount != 1:
+            raise ValueError("陣營不存在，供奉已取消。")
 
-        db.execute(
-            """
+        # 建立陣營流水。
+        cursor = db.execute("""
             INSERT INTO faction_ledger (
                 guild_id,
                 faction_id,
@@ -274,21 +163,29 @@ def donate(
                 memo
             )
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                gid,
-                faction_id,
-                int(character_id),
-                "offering",
-                amount,
-                points,
-                period,
-                key,
-            ),
-        )
+        """, (
+            gid, fid, cid, "offering",
+            amount, points, period, key
+        ))
+
+        # 綁定經濟系統交易與陣營流水。
+        db.execute("""
+            INSERT INTO faction_payment_links (
+                guild_id,
+                request_key,
+                faction_ledger_id,
+                economy_transaction_id
+            )
+            VALUES (?, ?, ?, ?)
+        """, (
+            gid,
+            key,
+            cursor.lastrowid,
+            payment.transaction_id,
+        ))
 
         return {
             "duplicated": False,
-            "points": points,
             "amount": amount,
+            "points": points,
         }
