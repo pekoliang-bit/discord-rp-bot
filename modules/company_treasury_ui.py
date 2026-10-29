@@ -21,8 +21,10 @@ import discord
 from core.database import get_connection
 from modules.company_business import has_permission
 from modules.company_treasury import (
+    company_bank_summary,
     finance_summary,
     initialize_treasury,
+    move_company_bank,
     set_manager_spending_limit,
     transfer_treasury,
 )
@@ -111,6 +113,36 @@ class FinanceModal(discord.ui.Modal):
             )
 
         await _respond(interaction, operation)
+
+
+class CompanyBankMoveModal(FinanceModal):
+    def __init__(self, user_id, guild_id, business_id, direction):
+        self.direction = direction
+        super().__init__(
+            user_id, guild_id, business_id,
+            "公司銀行存款" if direction == "deposit" else "公司銀行提款",
+        )
+        self.amount = discord.ui.TextInput(
+            label="金額（金幣）", max_length=15, placeholder="例如：50000",
+        )
+        self.confirm = discord.ui.TextInput(
+            label="輸入「確認存款」或「確認提款」", max_length=6,
+        )
+        self.add_item(self.amount)
+        self.add_item(self.confirm)
+
+    async def on_submit(self, interaction):
+        expected = "確認存款" if self.direction == "deposit" else "確認提款"
+        if str(self.confirm.value).strip() != expected:
+            return await interaction.response.send_message("未輸入正確確認文字，操作已取消。", ephemeral=True)
+        await self.run_operation(
+            interaction,
+            lambda: move_company_bank(
+                self.guild_id, self.business_id, self.user_id,
+                self.direction, self.amount.value,
+                f"company-bank-move:{interaction.id}",
+            ),
+        )
 
 
 class TreasuryTransferModal(FinanceModal):
@@ -326,6 +358,25 @@ class TreasuryDetailView(discord.ui.View):
             return False
 
         return True
+
+    @discord.ui.button(label="🏦 銀行帳戶", style=discord.ButtonStyle.secondary, row=0)
+    async def bank_details(self, interaction, button):
+        await _respond(
+            interaction,
+            lambda: company_bank_summary(self.guild_id, self.business_id, self.user_id),
+        )
+
+    @discord.ui.button(label="📥 存入銀行", style=discord.ButtonStyle.success, row=1)
+    async def bank_deposit(self, interaction, button):
+        await interaction.response.send_modal(
+            CompanyBankMoveModal(self.user_id, self.guild_id, self.business_id, "deposit")
+        )
+
+    @discord.ui.button(label="📤 銀行提款", style=discord.ButtonStyle.secondary, row=1)
+    async def bank_withdraw(self, interaction, button):
+        await interaction.response.send_modal(
+            CompanyBankMoveModal(self.user_id, self.guild_id, self.business_id, "withdraw")
+        )
 
     @discord.ui.button(
         label="💸 資金調度",
