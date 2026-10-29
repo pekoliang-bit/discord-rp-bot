@@ -1,3 +1,4 @@
+
 """公司、品牌、集團的獨立金庫與資金調度。
 
 整合既有 accounts / ledger_transactions / ledger_entries。
