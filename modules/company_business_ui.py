@@ -1,4 +1,3 @@
-
 """公司／品牌／集團申請介面，供原本的玩家申請中心呼叫。"""
 
 from __future__ import annotations
@@ -6,6 +5,8 @@ from __future__ import annotations
 import asyncio
 
 import discord
+
+from modules.world_terms import organization_terms
 
 from modules.company_business import (
     COMPANY_CAPITAL,
@@ -69,7 +70,10 @@ class BusinessApplyModal(discord.ui.Modal):
             "group": "直接申請集團",
         }
 
-        super().__init__(title=titles[kind])
+        labels = organization_terms(actor.guild_id)
+        names = {"company": labels["company"], "brand": labels["brand"], "group": labels["group"]}
+        title = {"company": "創立", "brand": "創立", "group": "申請"}[kind] + names[kind]
+        super().__init__(title=title[:45])
 
         self.actor = actor
         self.character_id = character_id
@@ -200,7 +204,7 @@ class BusinessApplyModal(discord.ui.Modal):
         await interaction.followup.send(
             f"✅ 商業申請 #{application_number} 已保存，等待官方審核。\n"
             f"核准後才會扣除 {capital:,} 金幣並核發正式編號。\n"
-            "目前尚未扣款或成立公司。",
+            f"目前尚未扣款或成立{organization_terms(self.actor.guild_id)['company']}。",
             ephemeral=True,
         )
 
@@ -218,10 +222,11 @@ class BusinessCategorySelect(discord.ui.Select):
         else:
             choices = {"直接申請集團": 10_000_000}
 
+        labels = organization_terms(actor.guild_id)
         options = [
             discord.SelectOption(
-                label=name,
-                description=f"啟動資金 {capital:,} 金幣",
+                label=(f"直接申請{labels['group']}" if kind == "group" else name)[:100],
+                description=f"啟動資金 {capital:,} {labels['currency']}",
                 value=name,
             )
             for name, capital in choices.items()
@@ -271,6 +276,15 @@ class BusinessKindView(discord.ui.View):
 
         self.actor = actor
         self.character_id = character_id
+        labels = organization_terms(actor.guild_id)
+        for item in self.children:
+            if isinstance(item, discord.ui.Button):
+                if item.label == "創立公司":
+                    item.label = f"創立{labels['company']}"[:80]
+                elif item.label == "創立品牌":
+                    item.label = f"創立{labels['brand']}"[:80]
+                elif item.label == "直接申請集團":
+                    item.label = f"直接申請{labels['group']}"[:80]
 
     async def interaction_check(self, interaction):
         if (
@@ -291,7 +305,7 @@ class BusinessKindView(discord.ui.View):
     )
     async def company(self, interaction, button):
         await interaction.response.send_message(
-            "選擇公司類型",
+            f"選擇{organization_terms(self.actor.guild_id)['company']}類型",
             view=BusinessCategoryView(
                 self.actor,
                 self.character_id,
@@ -306,7 +320,7 @@ class BusinessKindView(discord.ui.View):
     )
     async def brand(self, interaction, button):
         await interaction.response.send_message(
-            "選擇品牌初始等級",
+            f"選擇{organization_terms(self.actor.guild_id)['brand']}初始等級",
             view=BusinessCategoryView(
                 self.actor,
                 self.character_id,
@@ -321,7 +335,7 @@ class BusinessKindView(discord.ui.View):
     )
     async def group(self, interaction, button):
         await interaction.response.send_message(
-            "確認集團啟動資金",
+            f"確認{organization_terms(self.actor.guild_id)['group']}啟動資金",
             view=BusinessCategoryView(
                 self.actor,
                 self.character_id,
