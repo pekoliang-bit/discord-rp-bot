@@ -1099,12 +1099,58 @@ class WorldRuleModal(discord.ui.Modal):
         )
 
 
+class WorldStatusWeightsModal(discord.ui.Modal):
+    """以百分比設定地位五項權重；預設逐級晉升，不開放跳級。"""
+    KEYS = ("influence", "heat", "commercial", "professional", "auxiliary")
+    LABELS = ("影響指數 %", "流量熱度 %", "商業價值 %", "專業實力 %", "綜合輔助表現 %")
+
+    def __init__(self, guild_id, group):
+        super().__init__(title="地位評分權重｜" + ("LV1～18" if group == "lv1_18" else "LV19～20"))
+        self.group = group
+        defaults = (35, 20, 15, 15, 15) if group == "lv1_18" else (50, 15, 10, 15, 10)
+        saved = world_get(guild_id).get("status_weights", {}).get(group, {})
+        self.inputs = []
+        for index, (key, label) in enumerate(zip(self.KEYS, self.LABELS)):
+            raw = saved.get(key, defaults[index] / 100) if isinstance(saved, dict) else defaults[index] / 100
+            field = discord.ui.TextInput(label=label, default=str(round(float(raw) * 100, 4)), max_length=12)
+            self.add_item(field)
+            self.inputs.append(field)
+
+    async def on_submit(self, interaction):
+        if not owner(interaction):
+            return await tell(interaction, "⛔ 只有群主可以修改地位權重。")
+        import math
+        try:
+            numbers = [float(field.value.strip()) for field in self.inputs]
+        except ValueError:
+            return await tell(interaction, "請填入有效百分比數字。")
+        if any(not math.isfinite(v) or v < 0 or v > 100 for v in numbers):
+            return await tell(interaction, "每項權重必須在 0～100% 之間。")
+        if abs(sum(numbers) - 100) > 0.001:
+            return await tell(interaction, "五項權重合計必須等於 100%。")
+        if numbers[0] <= 0:
+            return await tell(interaction, "影響指數的評分權重必須大於 0%，且晉升門檻始終強制檢查。")
+        data = world_get(interaction.guild_id)
+        data.setdefault("status_weights", {})[self.group] = {
+            key: value / 100 for key, value in zip(self.KEYS, numbers)
+        }
+        data.setdefault("overrides", {})["status_weights." + self.group] = True
+        world_save(interaction.guild_id, data)
+        await interaction.response.send_message(
+            "✅ 地位權重已儲存。晉升仍預設逐級進行，每次最多升一級，不能跳級。",
+            ephemeral=True,
+        )
+
+
 class WorldCategoryView(discord.ui.View):
     """先進入分類頁，再編輯，避免直接彈出難懂的 JSON 表單。"""
     def __init__(self, i, category):
         super().__init__(timeout=600)
         self.uid, self.gid = i.user.id, i.guild_id
         self.category = category
+        if category != "status_levels":
+            self.remove_item(self.low_weights)
+            self.remove_item(self.high_weights)
 
     async def interaction_check(self, i):
         if i.user.id != self.uid or i.guild_id != self.gid or not owner(i):
@@ -1115,6 +1161,18 @@ class WorldCategoryView(discord.ui.View):
     @discord.ui.button(label="✏️ 新增／修改設定", style=discord.ButtonStyle.primary)
     async def edit(self, i, button):
         await i.response.send_modal(WorldRuleModal(self.category) if self.category in ("stats", "status_levels") else WorldEditModal(self.category))
+
+    @discord.ui.button(label="⚖️ LV1～18 權重", style=discord.ButtonStyle.secondary, row=1)
+    async def low_weights(self, i, button):
+        if self.category != "status_levels":
+            return await tell(i, "請先進入地位設定。")
+        await i.response.send_modal(WorldStatusWeightsModal(i.guild_id, "lv1_18"))
+
+    @discord.ui.button(label="⚖️ LV19～20 權重", style=discord.ButtonStyle.secondary, row=1)
+    async def high_weights(self, i, button):
+        if self.category != "status_levels":
+            return await tell(i, "請先進入地位設定。")
+        await i.response.send_modal(WorldStatusWeightsModal(i.guild_id, "lv19_20"))
 
     @discord.ui.button(label="◀️ 返回世界觀設定", style=discord.ButtonStyle.secondary)
     async def back(self, i, button):
