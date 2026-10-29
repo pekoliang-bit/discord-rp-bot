@@ -19,10 +19,24 @@ from __future__ import annotations
 
 import json
 import sqlite3
+import re
 import time
 
 from core.database import get_connection
+from modules.world_terms import organization_terms
 from modules.company_business import initialize, has_permission
+
+
+def _world_display(guild_id, message: str) -> str:
+    """只轉換使用者可見文字，不變更資料庫欄位或內部識別值。"""
+    labels = organization_terms(guild_id)
+    replacements = {
+        "公司": labels["company"],
+        "品牌": labels["brand"],
+        "集團": labels["group"],
+        "金幣": labels["currency"],
+    }
+    return re.sub(r"公司|品牌|集團|金幣", lambda m: replacements[m.group()], message)
 
 
 MAX_DISCOUNT = 50
@@ -497,7 +511,7 @@ def record_purchase(
     message = (
         f"✅ 交易已計入 VIP 消費。\n"
         f"角色 #{character_id}\n"
-        f"有效累積消費：{new_spending:,} 金幣\n"
+        f"有效累積消費：{new_spending:,} {organization_terms(guild_id)['currency']}\n"
         f"目前 VIP LV.{new_level}"
     )
 
