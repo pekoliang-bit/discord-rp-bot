@@ -1775,6 +1775,20 @@ class CharacterDetailView(discord.ui.View):
     @discord.ui.button(label='🏆 成就榮譽',style=discord.ButtonStyle.secondary,row=1)
     async def awards_button(self,interaction,button):
         await PanelSubView(self,'awards').show(interaction,'awards')
+    @discord.ui.button(label='📝 修改資料送審',style=discord.ButtonStyle.primary,row=2)
+    async def edit_request_button(self,interaction,button):
+        try:
+            character = get_character(Actor.from_interaction(interaction), self.character_id)
+            if not is_owner(self.actor, character) or get_category(character) != 'original':
+                raise PermissionDenied('只有原創角色本人可以從此處提出資料修改申請。')
+            if character['status'] != 'active':
+                raise InvalidState('只有已啟用的原創角色可以從此處提出修改申請。')
+            from modules.application_extras import ApplicationModal
+            await interaction.response.send_modal(
+                ApplicationModal(interaction, 'character_edit', self.character_id)
+            )
+        except (ValueError, sqlite3.Error, PermissionDenied, InvalidState) as exc:
+            await interaction.response.send_message(f'⚠️ {exc}', ephemeral=True)
     @discord.ui.button(label='🤍 喜歡這個路人',style=discord.ButtonStyle.secondary,row=2)
     async def like_button(self,interaction,button):
         actor=Actor.from_interaction(interaction)
