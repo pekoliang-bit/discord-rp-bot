@@ -705,3 +705,10 @@ def reserve_free_item(
         "目前狀態：待商品系統發放。\n"
         "這筆登記不會直接新增背包物品。"
     )
+
+
+async def setup(bot):
+    """Discord 擴充模組入口；保留原有 VIP 會員計算函式。"""
+    import asyncio
+
+    await asyncio.to_thread(initialize_vip)
