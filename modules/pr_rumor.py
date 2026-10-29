@@ -13,6 +13,7 @@ from modules.company_business import _entity, has_permission, initialize as init
 SETTLE_SECONDS = 72 * 3600
 PLAYER_SOURCES = {"玩家", "造謠"}
 ALL_SOURCES = {"系統", "條件", "玩家", "造謠"}
+RUMOR_CATEGORIES = ("戀情", "商業", "工作", "人際", "私生活", "其他")
 
 
 def initialize():
@@ -37,6 +38,86 @@ def initialize():
         )""")
         db.execute("""CREATE INDEX IF NOT EXISTS idx_company_rumors_due
             ON rp_company_rumors(status,settle_at)""")
+        # 新表與既有案件並存；不刪除或改寫任何歷史傳聞。
+        db.execute("""CREATE TABLE IF NOT EXISTS rp_rumor_category_consent (
+            guild_id TEXT NOT NULL, character_id INTEGER NOT NULL,
+            category TEXT NOT NULL, enabled INTEGER NOT NULL DEFAULT 1,
+            updated_at INTEGER NOT NULL,
+            PRIMARY KEY(guild_id,character_id,category)
+        )""")
+        db.execute("""CREATE TABLE IF NOT EXISTS rp_rumor_case_meta (
+            guild_id TEXT NOT NULL, rumor_id INTEGER NOT NULL,
+            category TEXT NOT NULL DEFAULT '其他',
+            rule_version INTEGER NOT NULL DEFAULT 1,
+            visibility TEXT NOT NULL DEFAULT 'public',
+            PRIMARY KEY(guild_id,rumor_id)
+        )""")
+        db.execute("""CREATE TABLE IF NOT EXISTS rp_rumor_actions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, guild_id TEXT NOT NULL,
+            rumor_id INTEGER NOT NULL, character_id INTEGER NOT NULL,
+            actor_id TEXT NOT NULL, action_type TEXT NOT NULL,
+            resource_type TEXT, resource_amount INTEGER NOT NULL DEFAULT 0,
+            result_json TEXT, created_at INTEGER NOT NULL
+        )""")
+        db.execute("""CREATE TABLE IF NOT EXISTS rp_rumor_evidence (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, guild_id TEXT NOT NULL,
+            rumor_id INTEGER NOT NULL, holder_character_id INTEGER NOT NULL,
+            evidence_type TEXT NOT NULL, credibility TEXT NOT NULL DEFAULT '低',
+            authentic INTEGER NOT NULL DEFAULT 1, disclosed INTEGER NOT NULL DEFAULT 0,
+            created_at INTEGER NOT NULL
+        )""")
+        db.execute("""CREATE TABLE IF NOT EXISTS rp_rumor_investigations (
+            guild_id TEXT NOT NULL, rumor_id INTEGER NOT NULL,
+            character_id INTEGER NOT NULL, progress INTEGER NOT NULL DEFAULT 0,
+            attempts INTEGER NOT NULL DEFAULT 0,
+            PRIMARY KEY(guild_id,rumor_id,character_id)
+        )""")
+        db.execute("""CREATE TABLE IF NOT EXISTS rp_rumor_police_cases (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, guild_id TEXT NOT NULL,
+            rumor_id INTEGER NOT NULL, reporter_character_id INTEGER NOT NULL,
+            status TEXT NOT NULL DEFAULT 'investigating',
+            created_at INTEGER NOT NULL, finished_at INTEGER
+        )""")
+        db.execute("""CREATE TABLE IF NOT EXISTS rp_rumor_case_links (
+            guild_id TEXT NOT NULL, parent_id INTEGER NOT NULL,
+            child_id INTEGER NOT NULL, reason TEXT,
+            PRIMARY KEY(guild_id,parent_id,child_id)
+        )""")
+        db.execute("""CREATE TABLE IF NOT EXISTS rp_rumor_settlement_ledger (
+            guild_id TEXT NOT NULL, rumor_id INTEGER NOT NULL,
+            settlement_type TEXT NOT NULL, recipient_id TEXT NOT NULL,
+            reward_json TEXT NOT NULL, created_at INTEGER NOT NULL,
+            PRIMARY KEY(guild_id,rumor_id,settlement_type,recipient_id)
+        )""")
+
+
+def rumor_allowed(db, guild_id, character_id, category):
+    """所有來源都應呼叫的授權檢查；未設定時沿用預設允許。"""
+    if category not in RUMOR_CATEGORIES:
+        raise ValueError("未知傳聞分類。")
+    gid, cid = str(guild_id), int(character_id)
+    general = db.execute("SELECT enabled FROM rp_rumor_optout WHERE guild_id=? AND character_id=?", (gid, cid)).fetchone()
+    if general and not general["enabled"]:
+        return False
+    specific = db.execute("""SELECT enabled FROM rp_rumor_category_consent
+        WHERE guild_id=? AND character_id=? AND category=?""", (gid, cid, category)).fetchone()
+    return not specific or bool(specific["enabled"])
+
+
+def set_category_consent(guild_id, actor_id, character_id, category, enabled):
+    initialize()
+    gid, cid = str(guild_id), int(character_id)
+    if category not in RUMOR_CATEGORIES:
+        raise ValueError("未知傳聞分類。")
+    with transaction() as db:
+        owner = db.execute("SELECT owner_id FROM characters WHERE guild_id=? AND id=?", (gid, cid)).fetchone()
+        if not owner or str(owner["owner_id"]) != str(actor_id):
+            raise PermissionError("只有角色持有人可以修改傳聞分類授權。")
+        db.execute("""INSERT INTO rp_rumor_category_consent
+            (guild_id,character_id,category,enabled,updated_at) VALUES (?,?,?,?,?)
+            ON CONFLICT(guild_id,character_id,category) DO UPDATE SET
+            enabled=excluded.enabled,updated_at=excluded.updated_at""",
+            (gid, cid, category, int(bool(enabled)), int(time.time())))
 
 
 def set_consent(guild_id, actor_id, character_id, enabled):
@@ -53,12 +134,14 @@ def set_consent(guild_id, actor_id, character_id, enabled):
     return f"已{'開啟' if enabled else '關閉'}角色 #{cid} 的傳聞參與授權。"
 
 
-def create_rumor(guild_id, actor_id, business_id, character_id, source_type, title, description):
+def create_rumor(guild_id, actor_id, business_id, character_id, source_type, title, description, category="其他"):
     initialize()
     gid, uid, bid, cid = str(guild_id), str(actor_id), str(business_id).strip(), int(character_id)
     source_type, title, description = str(source_type).strip(), str(title).strip(), str(description).strip()
     if source_type not in PLAYER_SOURCES:
         raise ValueError("玩家只能選擇「玩家」或「造謠」來源；系統／條件事件由程式觸發。")
+    if category not in RUMOR_CATEGORIES:
+        raise ValueError("未知傳聞分類。")
     if not (1 <= len(title) <= 80 and 1 <= len(description) <= 500):
         raise ValueError("標題需 1～80 字，內容需 1～500 字。")
     with transaction() as db:
@@ -68,14 +151,16 @@ def create_rumor(guild_id, actor_id, business_id, character_id, source_type, tit
         row = db.execute("SELECT id,status FROM characters WHERE guild_id=? AND id=?", (gid, cid)).fetchone()
         if not row or row["status"] != "active":
             raise ValueError("只能對已啟用角色建立傳聞。")
-        preference = db.execute("SELECT enabled FROM rp_rumor_optout WHERE guild_id=? AND character_id=?", (gid, cid)).fetchone()
-        if preference and not preference["enabled"]:
-            raise PermissionError("這個角色已關閉玩家傳聞授權。")
+        if not rumor_allowed(db, gid, cid, category):
+            raise PermissionError("這個角色已拒絕該類型的傳聞。")
         now = int(time.time())
         cur = db.execute("""INSERT INTO rp_company_rumors
             (guild_id,business_id,character_id,source_type,creator_id,title,description,created_at,settle_at)
             VALUES (?,?,?,?,?,?,?,?,?)""",
             (gid, bid, cid, source_type, uid, title, description, now, now + SETTLE_SECONDS))
+        db.execute("""INSERT INTO rp_rumor_case_meta
+            (guild_id,rumor_id,category,rule_version) VALUES (?,?,?,1)""",
+            (gid, cur.lastrowid, category))
     return f"✅ 傳聞案件 #{cur.lastrowid} 已建立，將於 72 小時後結案。"
 
 
