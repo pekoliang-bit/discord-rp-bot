@@ -20,6 +20,7 @@ import discord
 
 from core.database import get_connection
 from modules.company_business import has_permission
+from modules.world_terms import organization_terms
 from modules.company_profit import profit_overview
 from modules.company_treasury import (
     company_bank_summary,
@@ -478,8 +479,8 @@ class TreasuryDetailView(discord.ui.View):
 
         await interaction.response.edit_message(
             content=(
-                "🏦 **公司財務管理中心**\n"
-                "請先選擇公司或品牌。"
+                f"🏦 **{organization_terms(self.guild_id)['company']}財務管理中心**\n"
+                f"請先選擇{organization_terms(self.guild_id)['company']}或{organization_terms(self.guild_id)['brand']}。"
             ),
             view=TreasuryCompanyView(
                 self.user_id,
@@ -641,9 +642,9 @@ class TreasuryPageButton(discord.ui.Button):
 
         await interaction.response.edit_message(
             content=(
-                "🏦 **公司財務管理中心**\n"
+                f"🏦 **{organization_terms(view.guild_id)['company']}財務管理中心**\n"
                 f"第 {page + 1} 頁，"
-                f"共 {len(companies)} 間可管理公司。"
+                f"共 {len(companies)} 間可管理{organization_terms(view.guild_id)['company']}。"
             ),
             view=TreasuryCompanyView(
                 view.user_id,
@@ -725,14 +726,14 @@ class CompanyTreasuryButton(discord.ui.Button):
 
         if not companies:
             return await interaction.response.send_message(
-                "目前沒有可管理財務的公司或品牌。",
+                f"目前沒有可管理財務的{organization_terms(interaction.guild_id)['company']}或{organization_terms(interaction.guild_id)['brand']}。",
                 ephemeral=True,
             )
 
         await interaction.response.send_message(
             (
-                "🏦 **公司財務管理中心**\n"
-                "請選擇要操作的公司或品牌。"
+                f"🏦 **{organization_terms(interaction.guild_id)['company']}財務管理中心**\n"
+                f"請選擇要操作的{organization_terms(interaction.guild_id)['company']}或{organization_terms(interaction.guild_id)['brand']}。"
             ),
             view=TreasuryCompanyView(
                 str(interaction.user.id),
