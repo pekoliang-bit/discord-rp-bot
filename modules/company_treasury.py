@@ -1,4 +1,3 @@
-
 """公司、品牌、集團的獨立金庫與資金調度。
 
 整合既有 accounts / ledger_transactions / ledger_entries。
@@ -17,6 +16,8 @@ from __future__ import annotations
 import json
 import time
 import uuid
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from core.database import (
     account_balance,
@@ -73,6 +74,93 @@ def initialize_treasury():
                 guild_id, business_id, created_at
             )
         """)
+
+        db.execute("""
+            CREATE TABLE IF NOT EXISTS rp_company_payroll (
+                guild_id TEXT NOT NULL,
+                business_id TEXT NOT NULL,
+                character_id INTEGER NOT NULL,
+                pay_period TEXT NOT NULL,
+                amount INTEGER NOT NULL CHECK(amount > 0),
+                paid_by TEXT NOT NULL,
+                reference_key TEXT NOT NULL,
+                paid_at INTEGER NOT NULL,
+                PRIMARY KEY (guild_id, business_id, character_id, pay_period)
+            )
+        """)
+
+
+def pay_employee_salary(guild_id, business_id, actor_id, character_id):
+    """手動核發當月薪資：公司銀行扣款、角色錢包入帳，單月只准一次。"""
+    from modules.company_workforce import initialize as initialize_workforce
+    from modules.application_extras import init_db as initialize_applications
+
+    initialize_workforce()
+    initialize_applications()
+    initialize_treasury()
+    gid, bid, uid = str(guild_id), str(business_id), str(actor_id)
+    cid = int(character_id)
+    period = datetime.now(ZoneInfo("Asia/Taipei")).strftime("%Y-%m")
+    reference = f"company-payroll:{gid}:{bid}:{cid}:{period}"
+
+    with transaction() as db:
+        if not _finance_permission(db, gid, bid, uid):
+            raise PermissionError("你沒有公司財務付款權限。")
+
+        employee = db.execute("""
+            SELECT p.salary, c.owner_id
+            FROM company_employees e
+            JOIN company_job_positions p ON p.guild_id=e.guild_id
+                 AND p.company_id=e.company_id AND p.rank=e.rank
+            JOIN characters c ON c.guild_id=e.guild_id AND c.id=e.character_id
+            WHERE e.guild_id=? AND e.company_id=? AND e.character_id=?
+              AND e.status='active'
+        """, (gid, bid, cid)).fetchone()
+        if not employee:
+            raise ValueError("員工不存在、已離職，或尚未設定對應職位。")
+        amount = int(employee["salary"])
+        if amount <= 0:
+            raise ValueError("此職位的薪資尚未設定為正數。")
+
+        existing = db.execute("""
+            SELECT 1 FROM rp_company_payroll
+            WHERE guild_id=? AND business_id=? AND character_id=? AND pay_period=?
+        """, (gid, bid, cid, period)).fetchone()
+        if existing:
+            return f"ℹ️ 角色 #{cid} 的 {period} 薪資已發放，不會重複扣款。"
+
+        if not _is_owner(db, gid, bid, uid):
+            limit = _manager_limit(db, gid, bid, uid)
+            if limit <= 0 or amount > limit:
+                raise PermissionError("未設定管理者單筆支出額度，或薪資超過額度。")
+
+        bank = db.execute("""
+            SELECT account_id FROM rp_company_bank_accounts
+            WHERE guild_id=? AND company_id=?
+        """, (gid, bid)).fetchone()
+        if not bank:
+            raise ValueError("公司尚未通過銀行開戶申請，無法發薪。")
+        receiver = get_or_create_account(db, gid, "character", str(cid), "wallet")
+        result = _payment(
+            db, gid, reference, int(bank["account_id"]), receiver, amount,
+            f"公司 {bid}｜{period} 薪資｜角色 #{cid}",
+        )
+        if result.duplicated:
+            return "ℹ️ 這筆薪資已經入帳，不會重複支付。"
+
+        db.execute("""
+            INSERT INTO rp_company_payroll
+            (guild_id,business_id,character_id,pay_period,amount,paid_by,reference_key,paid_at)
+            VALUES (?,?,?,?,?,?,?,?)
+        """, (gid, bid, cid, period, amount, uid, reference, int(time.time())))
+        db.execute("""
+            INSERT INTO rp_company_finance_audit
+            (guild_id,business_id,actor_id,action,reference_key,amount,
+             target_type,target_id,note,created_at)
+            VALUES (?,?,?,?,?,?,?,?,?,?)
+        """, (gid, bid, uid, "payroll", reference, amount,
+              "character", str(cid), f"{period} 薪資", int(time.time())))
+    return f"✅ 已支付 {period} 薪資 {amount:,} 金幣至角色 #{cid} 的錢包。"
 
 
 def _entity(db, guild_id, business_id):
