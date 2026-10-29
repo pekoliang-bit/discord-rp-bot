@@ -48,6 +48,53 @@ ENDORSEMENT_MAX_TIER = (1, 1, 1, 2, 2, 3, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 9, 9,
 ENDORSEMENT_MIN_FEE = tuple(15000 * 2 ** i for i in range(10))
 
 
+
+def world_status_rules(guild_id):
+    """讀取此伺服器已保存的世界觀設定；無設定時使用既有規則。"""
+    try:
+        with get_connection() as db:
+            row = db.execute(
+                "SELECT config_json FROM world_configs WHERE guild_id=?",
+                (str(guild_id),)
+            ).fetchone()
+        data = json.loads(row[0]) if row else {}
+        return data if isinstance(data, dict) else {}
+    except (ValueError, TypeError):
+        LOG.warning("Invalid world config for guild %s", guild_id)
+        return {}
+    except Exception as exc:
+        if "no such table" not in str(exc).lower():
+            LOG.exception("Cannot load world status settings")
+        return {}
+
+
+def effective_levels(guild_id):
+    """只覆寫名稱、熱度及商業價值門檻；影響指數維持特殊管制。"""
+    config = world_status_rules(guild_id)
+    overrides = config.get("status_levels", {})
+    if not isinstance(overrides, dict):
+        return LEVELS
+    result = []
+    for lv, name, heat, commercial, influence in LEVELS:
+        rule = overrides.get(str(lv), {})
+        if isinstance(rule, dict) and rule.get("enabled", True):
+            name = str(rule.get("name") or name)[:80]
+            for field, old in (("heat_min", heat), ("commercial_min", commercial)):
+                raw = rule.get(field, old)
+                if isinstance(raw, int) and not isinstance(raw, bool) and raw >= 0:
+                    if field == "heat_min":
+                        heat = raw
+                    else:
+                        commercial = raw
+        result.append((lv, name, heat, commercial, influence))
+    return tuple(result)
+
+
+def enabled_stat(guild_id, key):
+    rules = world_status_rules(guild_id).get("stats", {})
+    rule = rules.get(key, {}) if isinstance(rules, dict) else {}
+    return rule.get("enabled", True) is not False if isinstance(rule, dict) else True
+
 def utcnow():
     return datetime.now(timezone.utc)
 
@@ -126,13 +173,13 @@ def _main_skill(character, attrs):
     return key, attrs.get(key, 0)
 
 
-def _auxiliary(attrs, tracking, level):
+def _auxiliary(attrs, tracking, level, levels=LEVELS):
     # 參考值是可調的評分基準，不會改動玩家屬性或創角上限。
     fans = max(0, int(tracking.get("loyal_fans") or 0))
     antis = max(0, int(tracking.get("active_antis") or 0))
     anti_score = 100.0 * fans / max(1, fans + antis)
     score = (
-        0.15 * normalized(fans, max(100, LEVELS[level - 1][2] * 10))
+        0.15 * normalized(fans, max(100, levels[level - 1][2] * 10))
         + 0.10 * anti_score
         + 0.15 * normalized(attrs.get("路人緣", 0), max(100, level * 50))
         + 0.15 * normalized(attrs.get("公關", 0), max(100, level * 50))
@@ -146,21 +193,21 @@ def _auxiliary(attrs, tracking, level):
     return clamp(score)
 
 
-def score_for(level, attrs, tracking, skill_value, days_stale=0):
+def score_for(level, attrs, tracking, skill_value, days_stale=0, *, levels=LEVELS, disabled=frozenset()):
     _, _, heat_min, commercial_min, influence_min = LEVELS[level - 1]
     heat, commercial, influence = (attrs.get("流量熱度", 0), attrs.get("商業價值", 0), attrs.get("影響指數", 0))
-    hard_pass = heat >= heat_min and commercial >= commercial_min and influence >= influence_min
+    hard_pass = (("流量熱度" in disabled or heat >= heat_min) and ("商業價值" in disabled or commercial >= commercial_min) and influence >= influence_min)
     professional_target = max(35, level * 25)
     ability = normalized(skill_value, professional_target)
     growth = 100 if days_stale < 14 or ability >= 100 else 0
     # 無技能養成歷史時，平衡分先以中性值處理；後續由技能模組提供精確成長資料。
     professional = 0.5 * ability + 0.3 * growth + 0.2 * 50
-    aux = _auxiliary(attrs, tracking, level)
+    aux = _auxiliary(attrs, tracking, level, levels)
     if level >= 19:
         weights = (0.50, 0.15, 0.10, 0.15, 0.10)
     else:
         weights = (0.35, 0.20, 0.15, 0.15, 0.15)
-    values = (normalized(influence, influence_min), normalized(heat, heat_min), normalized(commercial, commercial_min), professional, aux)
+    values = (normalized(influence, influence_min), 100 if "流量熱度" in disabled else normalized(heat, heat_min), 100 if "商業價值" in disabled else normalized(commercial, commercial_min), professional, aux)
     score = sum(w * v for w, v in zip(weights, values))
     return round(score, 2), hard_pass
 
@@ -205,18 +252,23 @@ def review_character(guild_id, character_id, *, now=None):
         stale_days = max(0, (now - changed_at).days)
         level = max(1, min(20, int(state["level"])))
         original_level = level
+        levels = effective_levels(guild_id)
+        disabled = frozenset(
+            key for key in ("流量熱度", "商業價值")
+            if not enabled_stat(guild_id, key)
+        )
         maintenance = float(state["maintenance"])
         last_review = parse_time(state["last_review"]) or now
         elapsed_days = max(0, int((now - last_review).total_seconds() // 86400))
         # 影響指數優先：直接降至影響門檻所允許的最高地位。
         influence = attrs.get("影響指數", 0)
-        if influence < LEVELS[level - 1][4]:
-            level = max(i for i in range(1, level + 1) if influence >= LEVELS[i - 1][4])
+        if influence < levels[level - 1][4]:
+            level = max(i for i in range(1, level + 1) if influence >= levels[i - 1][4])
             maintenance = 100
             state["warning_active"] = 0
-            messages.append(f"🚨 影響指數不足：地位立即下降至 LV{level} {LEVELS[level-1][1]}。")
-        score, hard_pass = score_for(level, attrs, tracking, skill_value, stale_days)
-        other_ok = attrs.get("流量熱度", 0) >= LEVELS[level-1][2] and attrs.get("商業價值", 0) >= LEVELS[level-1][3] and score >= 80
+            messages.append(f"🚨 影響指數不足：地位立即下降至 LV{level} {levels[level-1][1]}。")
+        score, hard_pass = score_for(level, attrs, tracking, skill_value, stale_days, levels=levels, disabled=disabled)
+        other_ok = ("流量熱度" in disabled or attrs.get("流量熱度", 0) >= levels[level-1][2]) and ("商業價值" in disabled or attrs.get("商業價值", 0) >= levels[level-1][3]) and score >= 80
         if not other_ok and level > 1:
             if not state["warning_active"]:
                 messages.append(f"⚠️ 地位維持提醒：目前 LV{level} 未達維持條件，每滿24小時扣除30%維持進度。")
@@ -226,8 +278,8 @@ def review_character(guild_id, character_id, *, now=None):
                 if maintenance <= 0 and level > 1:
                     level -= 1
                     maintenance = 100
-                    messages.append(f"📉 地位下降至 LV{level} {LEVELS[level-1][1]}。")
-                    score, hard_pass = score_for(level, attrs, tracking, skill_value, stale_days)
+                    messages.append(f"📉 地位下降至 LV{level} {levels[level-1][1]}。")
+                    score, hard_pass = score_for(level, attrs, tracking, skill_value, stale_days, levels=levels, disabled=disabled)
                     if hard_pass and score >= 80:
                         break
         else:
@@ -237,11 +289,11 @@ def review_character(guild_id, character_id, *, now=None):
             maintenance = 100
         promotion_at = parse_time(state["last_promotion"])
         if level < 20 and not state["warning_active"] and (not promotion_at or now - promotion_at >= timedelta(hours=24)):
-            next_score, next_ok = score_for(level + 1, attrs, tracking, skill_value, stale_days)
+            next_score, next_ok = score_for(level + 1, attrs, tracking, skill_value, stale_days, levels=levels, disabled=disabled)
             if next_ok and next_score >= 80:
                 level += 1
                 state["last_promotion"] = now.isoformat()
-                messages.append(f"🌟 地位晉升至 LV{level} {LEVELS[level-1][1]}（綜合評分 {next_score}）。")
+                messages.append(f"🌟 地位晉升至 LV{level} {levels[level-1][1]}（綜合評分 {next_score}）。")
         if skill_name and stale_days >= 14 and not state["stagnation_notified_at"]:
             messages.append(f"📋 專業成長提醒：主攻「{skill_name}」已連續{stale_days}天沒有提升。")
             state["stagnation_notified_at"] = now.isoformat()
