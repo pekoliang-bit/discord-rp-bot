@@ -1,4 +1,3 @@
-
 """品牌熱度、營業額及自動升級核心。"""
 
 from __future__ import annotations
@@ -12,6 +11,7 @@ from discord.ext import commands, tasks
 
 from core.database import get_connection, transaction
 from modules.company_business import _maybe_auto_group
+from modules.world_terms import term
 
 
 TAIPEI = ZoneInfo("Asia/Taipei")
@@ -613,7 +613,7 @@ def check_upgrade(guild_id, brand_id, *, check_date=None):
                         str(brand_id),
                         "upgrade",
                         (
-                            f"🎉 品牌「{brand['name']}」"
+                            f"🎉 {term(guild_id, 'brand')}「{brand['name']}」"
                             f"已從{current_level}升級為{next_level}！"
                         ),
                     ),
