@@ -49,10 +49,16 @@ ENDORSEMENT_MIN_FEE = tuple(15000 * 2 ** i for i in range(10))
 
 
 
-def world_status_rules(guild_id):
+def world_status_rules(guild_id, db=None):
     """讀取此伺服器已保存的世界觀設定；無設定時使用既有規則。"""
     try:
-        with get_connection() as db:
+        if db is None:
+            with get_connection() as connection:
+                row = connection.execute(
+                    "SELECT config_json FROM world_configs WHERE guild_id=?",
+                    (str(guild_id),)
+                ).fetchone()
+        else:
             row = db.execute(
                 "SELECT config_json FROM world_configs WHERE guild_id=?",
                 (str(guild_id),)
@@ -68,9 +74,9 @@ def world_status_rules(guild_id):
         return {}
 
 
-def effective_levels(guild_id):
+def effective_levels(guild_id, config=None):
     """只覆寫名稱、熱度及商業價值門檻；影響指數維持特殊管制。"""
-    config = world_status_rules(guild_id)
+    config = config if config is not None else world_status_rules(guild_id)
     overrides = config.get("status_levels", {})
     if not isinstance(overrides, dict):
         return LEVELS
@@ -90,8 +96,10 @@ def effective_levels(guild_id):
     return tuple(result)
 
 
-def enabled_stat(guild_id, key):
-    rules = world_status_rules(guild_id).get("stats", {})
+def enabled_stat(guild_id, key, config=None):
+    if key == "影響指數":
+        return True  # 特殊管制數值不可透過一般數值開關停用
+    rules = (config if config is not None else world_status_rules(guild_id)).get("stats", {})
     rule = rules.get(key, {}) if isinstance(rules, dict) else {}
     return rule.get("enabled", True) is not False if isinstance(rule, dict) else True
 
@@ -194,7 +202,7 @@ def _auxiliary(attrs, tracking, level, levels=LEVELS):
 
 
 def score_for(level, attrs, tracking, skill_value, days_stale=0, *, levels=LEVELS, disabled=frozenset()):
-    _, _, heat_min, commercial_min, influence_min = LEVELS[level - 1]
+    _, _, heat_min, commercial_min, influence_min = levels[level - 1]
     heat, commercial, influence = (attrs.get("流量熱度", 0), attrs.get("商業價值", 0), attrs.get("影響指數", 0))
     hard_pass = (("流量熱度" in disabled or heat >= heat_min) and ("商業價值" in disabled or commercial >= commercial_min) and influence >= influence_min)
     professional_target = max(35, level * 25)
@@ -252,10 +260,11 @@ def review_character(guild_id, character_id, *, now=None):
         stale_days = max(0, (now - changed_at).days)
         level = max(1, min(20, int(state["level"])))
         original_level = level
-        levels = effective_levels(guild_id)
+        config = world_status_rules(guild_id, db=db)
+        levels = effective_levels(guild_id, config=config)
         disabled = frozenset(
             key for key in ("流量熱度", "商業價值")
-            if not enabled_stat(guild_id, key)
+            if not enabled_stat(guild_id, key, config=config)
         )
         maintenance = float(state["maintenance"])
         last_review = parse_time(state["last_review"]) or now
@@ -290,7 +299,9 @@ def review_character(guild_id, character_id, *, now=None):
         promotion_at = parse_time(state["last_promotion"])
         if level < 20 and not state["warning_active"] and (not promotion_at or now - promotion_at >= timedelta(hours=24)):
             next_score, next_ok = score_for(level + 1, attrs, tracking, skill_value, stale_days, levels=levels, disabled=disabled)
-            if next_ok and next_score >= 80:
+            next_rule = config.get("status_levels", {}).get(str(level + 1), {})
+            next_enabled = not (isinstance(next_rule, dict) and next_rule.get("enabled") is False)
+            if next_enabled and next_ok and next_score >= 80:
                 level += 1
                 state["last_promotion"] = now.isoformat()
                 messages.append(f"🌟 地位晉升至 LV{level} {levels[level-1][1]}（綜合評分 {next_score}）。")
