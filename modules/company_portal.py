@@ -1,4 +1,3 @@
-
 """/公司 身分入口；公司人事與陣營完全分離。"""
 
 from __future__ import annotations
@@ -949,6 +948,20 @@ class CompanyPanel(discord.ui.View):
         self.uid = str(uid)
         self.gid = str(gid)
         self.is_owner = is_owner
+
+        # 財務、品牌與 VIP 都有獨立授權判斷；非持有人但獲授權的
+        # 管理者也必須能從同一個 /公司 面板進入。
+        from modules.company_treasury_ui import CompanyTreasuryButton
+        from modules.company_brand_ui import BrandManagementButton
+        from modules.company_vip_ui import CompanyVIPButton
+
+        for button in (
+            CompanyTreasuryButton(),
+            BrandManagementButton(),
+            CompanyVIPButton(),
+        ):
+            button.row = 3
+            self.add_item(button)
 
         if is_owner:
 
