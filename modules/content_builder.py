@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import logging
 import sqlite3
+import json
 
 import discord
 from discord.ext import commands
@@ -969,6 +970,265 @@ async def open_specialized_manager(
 
 
 # ==========================================
+# 世界觀設定：獨立伺服器配置
+# ==========================================
+
+WORLD_DEFAULT = {
+    "template": "entertainment", "template_version": 1,
+    "world_name": "現代娛樂圈", "background": "",
+    "features": {"bank": True, "shop": True, "company": True, "faction": True, "rumor": True},
+    "channels": {}, "terms": {"company": "公司", "group": "集團", "currency": "金幣"},
+    "stats": {}, "status_levels": {}, "company_rules": {}, "detail_rules": {},
+    "categories": {}, "permissions": {}, "overrides": {},
+}
+
+def world_init():
+    with transaction() as db:
+        db.execute("""CREATE TABLE IF NOT EXISTS world_configs (
+            guild_id TEXT PRIMARY KEY, config_json TEXT NOT NULL,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP)""")
+        db.execute("""CREATE TABLE IF NOT EXISTS world_template_updates (
+            guild_id TEXT PRIMARY KEY, pending_version INTEGER NOT NULL,
+            notice TEXT NOT NULL, created_at TEXT DEFAULT CURRENT_TIMESTAMP)""")
+
+def world_get(gid):
+    world_init()
+    with get_connection() as db:
+        row = db.execute("SELECT config_json FROM world_configs WHERE guild_id=?", (str(gid),)).fetchone()
+    if not row:
+        return json.loads(json.dumps(WORLD_DEFAULT, ensure_ascii=False))
+    value = json.loads(row[0])
+    return {**json.loads(json.dumps(WORLD_DEFAULT, ensure_ascii=False)), **value}
+
+def world_save(gid, data):
+    world_init()
+    with transaction() as db:
+        db.execute("""INSERT INTO world_configs(guild_id,config_json) VALUES (?,?)
+            ON CONFLICT(guild_id) DO UPDATE SET config_json=excluded.config_json,
+            updated_at=CURRENT_TIMESTAMP""", (str(gid), json.dumps(data, ensure_ascii=False)))
+
+class WorldEditModal(discord.ui.Modal):
+    def __init__(self, category, field=None):
+        super().__init__(title="世界觀設定"[:45])
+        self.category = category
+        self.field = field
+        self.key_input = discord.ui.TextInput(label="設定鍵名", default=field or "", max_length=100)
+        self.value_input = discord.ui.TextInput(label="設定內容（文字、數字、true/false 或 JSON）", style=discord.TextStyle.paragraph, max_length=2000)
+        self.add_item(self.key_input)
+        self.add_item(self.value_input)
+
+    async def on_submit(self, i):
+        if not owner(i):
+            return await tell(i, "⛔ 僅限群主修改世界觀。")
+        data = world_get(i.guild_id)
+        key = str(self.key_input).strip()
+        raw = str(self.value_input).strip()
+        if not key:
+            return await tell(i, "設定鍵名不可為空。")
+        try:
+            value = json.loads(raw)
+        except json.JSONDecodeError:
+            value = raw
+        if self.category == "root":
+            if key not in ("world_name", "background"):
+                return await tell(i, "世界背景只能修改 world_name 或 background。")
+            data[key] = value
+        else:
+            data.setdefault(self.category, {})[key] = value
+            data.setdefault("overrides", {})[self.category + "." + key] = True
+        world_save(i.guild_id, data)
+        await i.response.edit_message(content="🌍 **世界觀設定**\n設定已保存。", view=WorldSettingsView(i))
+
+WORLD_CATEGORIES = [
+    ("🌐 世界背景", "root"), ("🔘 功能開關", "features"),
+    ("🔗 頻道連結", "channels"), ("✏️ 用詞自訂", "terms"),
+    ("📊 數值設定", "stats"), ("🎖️ 地位設定", "status_levels"),
+    ("🏢 公司與組織", "company_rules"), ("⚙️ 細項規則", "detail_rules"),
+    ("🗂️ 分類管理", "categories"), ("🔐 權限設定", "permissions"),
+]
+WORLD_LABELS = dict((value, label) for label, value in WORLD_CATEGORIES)
+
+
+class WorldCategoryView(discord.ui.View):
+    """先進入分類頁，再編輯，避免直接彈出難懂的 JSON 表單。"""
+    def __init__(self, i, category):
+        super().__init__(timeout=600)
+        self.uid, self.gid = i.user.id, i.guild_id
+        self.category = category
+
+    async def interaction_check(self, i):
+        if i.user.id != self.uid or i.guild_id != self.gid or not owner(i):
+            await tell(i, "⛔ 無權操作此設定面板。")
+            return False
+        return True
+
+    @discord.ui.button(label="✏️ 新增／修改設定", style=discord.ButtonStyle.primary)
+    async def edit(self, i, button):
+        await i.response.send_modal(WorldEditModal(self.category))
+
+    @discord.ui.button(label="◀️ 返回世界觀設定", style=discord.ButtonStyle.secondary)
+    async def back(self, i, button):
+        await i.response.edit_message(
+            content=world_summary(i.guild_id), view=WorldSettingsView(i)
+        )
+
+
+def world_summary(gid):
+    data = world_get(gid)
+    with get_connection() as db:
+        pending = db.execute(
+            "SELECT pending_version FROM world_template_updates WHERE guild_id=?",
+            (str(gid),)
+        ).fetchone()
+    version = data.get("template_version", 1)
+    suffix = f"\\n🔔 可更新至 v{pending[0]}（須群主確認）" if pending and pending[0] > version else ""
+    return (
+        f"🌍 **世界觀設定**\\n"
+        f"名稱：{data.get('world_name', '未命名')}\\n"
+        f"模板：{data.get('template', 'custom')} · v{version}"
+        f"{suffix}\\n請從下拉選單選擇要管理的分類。"
+    )
+
+
+class WorldSettingsView(discord.ui.View):
+    def __init__(self, i):
+        super().__init__(timeout=600)
+        self.uid, self.gid = i.user.id, i.guild_id
+        options = [
+            discord.SelectOption(label=label, value=category)
+            for label, category in WORLD_CATEGORIES
+        ]
+        select = discord.ui.Select(
+            placeholder="選擇世界觀設定類別", options=options, row=0
+        )
+        async def selected(interaction):
+            category = select.values[0]
+            data = world_get(interaction.guild_id)
+            value = data if category == "root" else data.get(category, {})
+            preview = json.dumps(value, ensure_ascii=False, indent=2)
+            if len(preview) > 1300:
+                preview = preview[:1300] + "…"
+            await interaction.response.edit_message(
+                content=f"{WORLD_LABELS[category]}\\n```json\\n{preview}\\n```",
+                view=WorldCategoryView(interaction, category),
+            )
+        select.callback = selected
+        self.add_item(select)
+
+    async def interaction_check(self, i):
+        if i.user.id != self.uid or i.guild_id != self.gid or not owner(i):
+            await tell(i, "⛔ 無權操作此設定面板。")
+            return False
+        return True
+
+    @discord.ui.button(label="🎬 套用娛樂圈預設", style=discord.ButtonStyle.primary, row=1)
+    async def preset(self, i, button):
+        await i.response.edit_message(
+            content="套用娛樂圈預設？既有自訂設定與玩家資料將保留。",
+            view=WorldPresetConfirmView(i),
+        )
+
+    @discord.ui.button(label="🔔 模板更新", style=discord.ButtonStyle.secondary, row=1)
+    async def updates(self, i, button):
+        world_init()
+        with get_connection() as db:
+            pending = db.execute(
+                "SELECT pending_version, notice FROM world_template_updates WHERE guild_id=?",
+                (str(i.guild_id),)
+            ).fetchone()
+        current = world_get(i.guild_id).get("template_version", 1)
+        if not pending or pending[0] <= current:
+            await tell(i, "目前沒有待確認的世界觀模板更新。")
+            return
+        await i.response.edit_message(
+            content=f"🔔 **娛樂圈模板更新預覽**\\n目前：v{current} → 新版：v{pending[0]}\\n"
+                    f"{pending[1]}\\n\\n更新不會直接刪除玩家資料，已自訂項目保留。",
+            view=WorldUpdateConfirmView(i, pending[0]),
+        )
+
+    @discord.ui.button(label="◀️ 返回內容建立", style=discord.ButtonStyle.secondary, row=2)
+    async def back(self, i, button):
+        await i.response.edit_message(content="✍️ **內容建立中心**", view=ContentView(i))
+
+
+class WorldUpdateConfirmView(discord.ui.View):
+    def __init__(self, i, version):
+        super().__init__(timeout=300)
+        self.uid, self.gid, self.version = i.user.id, i.guild_id, version
+
+    async def interaction_check(self, i):
+        if i.user.id != self.uid or i.guild_id != self.gid or not owner(i):
+            await tell(i, "⛔ 僅群主可確認更新。")
+            return False
+        return True
+
+    @discord.ui.button(label="確認更新", style=discord.ButtonStyle.success)
+    async def apply(self, i, button):
+        with transaction() as db:
+            pending = db.execute(
+                "SELECT pending_version FROM world_template_updates WHERE guild_id=?",
+                (str(i.guild_id),)
+            ).fetchone()
+            if not pending or pending[0] != self.version:
+                await tell(i, "更新版本已變更，請重新開啟更新預覽。")
+                return
+        data = world_get(i.guild_id)
+        # 不憑空套用未知規則；此版本只在模板更新內容已發布時確認版本。
+        data["template_version"] = self.version
+        world_save(i.guild_id, data)
+        with transaction() as db:
+            db.execute(
+                "DELETE FROM world_template_updates WHERE guild_id=? AND pending_version=?",
+                (str(i.guild_id), self.version)
+            )
+        await i.response.edit_message(
+            content="✅ 已確認模板版本。既有自訂設定保留。",
+            view=WorldSettingsView(i),
+        )
+
+    @discord.ui.button(label="暫不更新／返回", style=discord.ButtonStyle.secondary)
+    async def back(self, i, button):
+        await i.response.edit_message(
+            content=world_summary(i.guild_id), view=WorldSettingsView(i)
+        )
+
+
+class WorldPresetConfirmView(discord.ui.View):
+    def __init__(self, i):
+        super().__init__(timeout=300)
+        self.uid, self.gid = i.user.id, i.guild_id
+
+    async def interaction_check(self, i):
+        if i.user.id != self.uid or i.guild_id != self.gid or not owner(i):
+            await tell(i, "⛔ 無權操作。")
+            return False
+        return True
+
+    @discord.ui.button(label="確認套用", style=discord.ButtonStyle.success)
+    async def apply(self, i, button):
+        old = world_get(i.guild_id)
+        new = json.loads(json.dumps(WORLD_DEFAULT, ensure_ascii=False))
+        for category in ("features", "channels", "terms", "stats", "status_levels",
+                         "company_rules", "detail_rules", "categories", "permissions"):
+            new[category].update(old.get(category, {}))
+        new["overrides"] = old.get("overrides", {})
+        for field in ("world_name", "background"):
+            if old.get(field) and old.get(field) != WORLD_DEFAULT.get(field):
+                new[field] = old[field]
+        world_save(i.guild_id, new)
+        await i.response.edit_message(
+            content="✅ 已套用娛樂圈設定模板（保留既有自訂）。",
+            view=WorldSettingsView(i),
+        )
+
+    @discord.ui.button(label="取消並返回", style=discord.ButtonStyle.secondary)
+    async def back(self, i, button):
+        await i.response.edit_message(
+            content=world_summary(i.guild_id), view=WorldSettingsView(i)
+        )
+
+
+# ==========================================
 # 內容類型選單
 # ==========================================
 
@@ -1005,6 +1265,10 @@ class ContentTypeSelect(
             )
 
             if handled:
+                return
+
+            if selected == "world":
+                await i.response.edit_message(content="🌍 **世界觀設定**\n每個伺服器獨立保存；模板後續更新須群主確認。", view=WorldSettingsView(i))
                 return
 
             # 其餘類型走官方內容草稿系統。
