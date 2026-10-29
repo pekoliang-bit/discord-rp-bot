@@ -513,3 +513,10 @@ def finance_summary(guild_id, business_id, actor_id):
                 )
 
     return "\n".join(lines)[:1900]
+
+
+async def setup(bot):
+    """Discord 擴充模組入口；保留既有金庫函式供公司面板呼叫。"""
+    import asyncio
+
+    await asyncio.to_thread(initialize_treasury)
