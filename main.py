@@ -340,11 +340,6 @@ def remove_character_legacy(tree):
         CHARACTER_LEGACY_MAP.items()
     ):
         if replacement not in names:
-            LOG.warning(
-                "保留 /%s：替代指令 /%s 尚未註冊",
-                old_name,
-                replacement,
-            )
             continue
 
         command = tree.get_command(old_name)
@@ -356,10 +351,6 @@ def remove_character_legacy(tree):
             command,
             app_commands.Command,
         ):
-            LOG.warning(
-                "保留 /%s：不是一般斜線指令",
-                old_name,
-            )
             continue
 
         result = tree.remove_command(
@@ -370,16 +361,6 @@ def remove_character_legacy(tree):
         if result is not None:
             removed.append(old_name)
 
-            LOG.info(
-                "已停用舊角色指令 /%s → /%s",
-                old_name,
-                replacement,
-            )
-
-    LOG.info(
-        "第一批舊角色指令停用數：%d",
-        len(removed),
-    )
 
     return removed
 
@@ -405,11 +386,6 @@ def remove_optional_legacy(tree):
     for name, replacement in BANK_LEGACY_MAP.items():
 
         if replacement not in names:
-            LOG.warning(
-                "保留 /%s：替代入口 /%s 尚未註冊",
-                name,
-                replacement,
-            )
             continue
 
         command = tree.get_command(name)
@@ -428,18 +404,34 @@ def remove_optional_legacy(tree):
         if old is not None:
             removed.append(name)
 
-            LOG.info(
-                "已停用銀行舊指令 /%s → /%s",
-                name,
-                replacement,
-            )
 
-    LOG.info(
-        "銀行舊入口停用 %d 條：%s",
-        len(removed),
-        "、".join(removed) or "無",
-    )
+    return removed
 
+
+def remove_requested_legacy(tree):
+    """載入途中靜默清理指定舊入口，避免碰到斜線指令上限。"""
+    from modules.zzz_legacy_cleanup import destination_of, PROTECTED
+
+    names = {
+        command.name
+        for command in tree.get_commands()
+    }
+    removed = []
+    for name in tuple(names):
+        if name in PROTECTED:
+            continue
+        destination = destination_of(name)
+        if not destination:
+            continue
+        if destination == "申請" and destination not in names:
+            destination = "玩家申請"
+        if destination not in names:
+            continue
+        if tree.remove_command(
+            name,
+            type=discord.AppCommandType.chat_input,
+        ) is not None:
+            removed.append(name)
     return removed
 
 
@@ -495,8 +487,13 @@ class RPBot(commands.Bot):
             )
 
             # 在每個模組載入後清理舊入口，避免先撞上100條上限。
-            remove_character_legacy(self.tree)
-            remove_optional_legacy(self.tree)
+            for name in (
+                remove_character_legacy(self.tree)
+                + remove_optional_legacy(self.tree)
+                + remove_requested_legacy(self.tree)
+            ):
+                if name not in self.hidden_legacy:
+                    self.hidden_legacy.append(name)
 
         LOG.info(
             "成功載入 %d 個模組",
@@ -504,17 +501,13 @@ class RPBot(commands.Bot):
         )
 
         # 所有功能模組載入後再清理舊指令。
-        self.hidden_legacy = (
-            remove_character_legacy(
-                self.tree
-            )
-        )
-
-        self.hidden_legacy.extend(
-            remove_optional_legacy(
-                self.tree
-            )
-        )
+        for name in (
+            remove_character_legacy(self.tree)
+            + remove_optional_legacy(self.tree)
+            + remove_requested_legacy(self.tree)
+        ):
+            if name not in self.hidden_legacy:
+                self.hidden_legacy.append(name)
 
         self.command_report = audit_commands(
             self.tree
