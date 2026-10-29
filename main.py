@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 from collections import Counter
 from pathlib import Path
 
@@ -53,6 +54,23 @@ LOG = logging.getLogger("discord_rp_bot")
 
 BASE_DIR = Path(__file__).resolve().parent
 MODULES_DIR = BASE_DIR / "modules"
+
+
+def get_legacy_sync_guild_ids():
+    """取得明確授權清理的伺服器 ID，不自動碰觸其他伺服器。"""
+    raw = os.getenv("LEGACY_SYNC_GUILD_IDS", "").strip()
+    if not raw:
+        return []
+    ids = []
+    for item in raw.replace("，", ",").split(","):
+        item = item.strip()
+        if not item:
+            continue
+        if not item.isdecimal() or int(item) <= 0:
+            raise ValueError("LEGACY_SYNC_GUILD_IDS 必須是以逗號分隔的 Discord 伺服器數字 ID。")
+        if int(item) not in ids:
+            ids.append(int(item))
+    return ids
 
 
 # ==================================================
@@ -408,8 +426,8 @@ def remove_optional_legacy(tree):
     return removed
 
 
-def remove_requested_legacy(tree):
-    """載入途中靜默清理指定舊入口，避免碰到斜線指令上限。"""
+def remove_requested_legacy(tree, *, allow_groups=False):
+    """一般指令可逐步清理；群組必須等相依模組全部載入後清理。"""
     from modules.zzz_legacy_cleanup import destination_of, PROTECTED
 
     names = {
@@ -422,6 +440,9 @@ def remove_requested_legacy(tree):
             continue
         destination = destination_of(name)
         if not destination:
+            continue
+        command = tree.get_command(name)
+        if isinstance(command, app_commands.Group) and not allow_groups:
             continue
         if destination == "申請" and destination not in names:
             destination = "玩家申請"
@@ -504,7 +525,7 @@ class RPBot(commands.Bot):
         for name in (
             remove_character_legacy(self.tree)
             + remove_optional_legacy(self.tree)
-            + remove_requested_legacy(self.tree)
+            + remove_requested_legacy(self.tree, allow_groups=True)
         ):
             if name not in self.hidden_legacy:
                 self.hidden_legacy.append(name)
@@ -530,31 +551,28 @@ class RPBot(commands.Bot):
             len(synced_global),
         )
 
-        # 測試伺服器同步
+        # 測試伺服器及明確指定的伺服器同步。
+        # Discord 的全域指令同步不會移除先前留下的 guild-scoped 指令。
         test_guild_id = get_test_guild_id()
+        target_ids = get_legacy_sync_guild_ids()
+        if test_guild_id is not None and test_guild_id not in target_ids:
+            target_ids.append(test_guild_id)
 
-        if test_guild_id is not None:
-            guild = discord.Object(
-                id=test_guild_id
-            )
-
-            self.tree.copy_global_to(
-                guild=guild
-            )
-
-            synced_guild = await self.tree.sync(
-                guild=guild
-            )
-
+        for guild_id in target_ids:
+            guild = discord.Object(id=guild_id)
+            # 注意：會以目前正式全域指令取代此伺服器舊的專用指令。
+            # 清空本地 scope，避免累積以前的 guild-scoped 指令。
+            self.tree.clear_commands(guild=guild)
+            self.tree.copy_global_to(guild=guild)
+            synced_guild = await self.tree.sync(guild=guild)
             LOG.info(
-                "已同步測試伺服器 %s：%d 條頂層指令",
-                test_guild_id,
-                len(synced_guild),
+                "已清理並同步伺服器 %s：%d 條頂層指令",
+                guild_id, len(synced_guild),
             )
 
-        else:
+        if not target_ids:
             LOG.info(
-                "未設定 TEST_GUILD_ID；"
+                "未設定 TEST_GUILD_ID / LEGACY_SYNC_GUILD_IDS；"
                 "不覆寫其他伺服器專用指令。"
             )
 
