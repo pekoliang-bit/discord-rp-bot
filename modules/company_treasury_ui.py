@@ -25,6 +25,7 @@ from modules.company_treasury import (
     finance_summary,
     initialize_treasury,
     move_company_bank,
+    pay_employee_salary,
     set_manager_spending_limit,
     transfer_treasury,
 )
@@ -141,6 +142,33 @@ class CompanyBankMoveModal(FinanceModal):
                 self.guild_id, self.business_id, self.user_id,
                 self.direction, self.amount.value,
                 f"company-bank-move:{interaction.id}",
+            ),
+        )
+
+
+class PayrollModal(FinanceModal):
+    def __init__(self, user_id, guild_id, business_id):
+        super().__init__(user_id, guild_id, business_id, "核發本月員工薪資")
+        self.character_id = discord.ui.TextInput(
+            label="收薪員工角色編號", max_length=20,
+            placeholder="填寫正式角色編號，例如 123",
+        )
+        self.confirm = discord.ui.TextInput(
+            label="請輸入「確認發薪」", max_length=8,
+        )
+        self.add_item(self.character_id)
+        self.add_item(self.confirm)
+
+    async def on_submit(self, interaction):
+        if str(self.confirm.value).strip() != "確認發薪":
+            return await interaction.response.send_message(
+                "未輸入確認文字，薪資未發放。", ephemeral=True,
+            )
+        await self.run_operation(
+            interaction,
+            lambda: pay_employee_salary(
+                self.guild_id, self.business_id, self.user_id,
+                self.character_id.value,
             ),
         )
 
@@ -376,6 +404,12 @@ class TreasuryDetailView(discord.ui.View):
     async def bank_withdraw(self, interaction, button):
         await interaction.response.send_modal(
             CompanyBankMoveModal(self.user_id, self.guild_id, self.business_id, "withdraw")
+        )
+
+    @discord.ui.button(label="💰 發放薪資", style=discord.ButtonStyle.success, row=1)
+    async def payroll(self, interaction, button):
+        await interaction.response.send_modal(
+            PayrollModal(self.user_id, self.guild_id, self.business_id)
         )
 
     @discord.ui.button(
