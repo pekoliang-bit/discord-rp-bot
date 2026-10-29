@@ -29,6 +29,8 @@ import logging
 import sqlite3
 
 import discord
+
+from modules.world_terms import organization_terms
 from discord import app_commands
 from discord.ext import commands
 
@@ -797,6 +799,10 @@ class ApplicationHome(OwnedView):
         self.character_id = character_id
         from modules.application_extras import ApplicationKindSelect
         self.add_item(ApplicationKindSelect())
+        labels = organization_terms(actor.guild_id)
+        for item in self.children:
+            if isinstance(item, discord.ui.Button) and item.label == "🏢 公司／品牌／集團":
+                item.label = f"🏢 {labels['company']}／{labels['brand']}／{labels['group']}"[:80]
 
     @discord.ui.button(
         label="🏢 公司／品牌／集團",
