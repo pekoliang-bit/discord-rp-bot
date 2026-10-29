@@ -1,4 +1,3 @@
-
 """/公司 身分入口；公司人事與陣營完全分離。"""
 
 from __future__ import annotations
@@ -13,6 +12,7 @@ from discord import app_commands
 from discord.ext import commands
 
 from core.database import get_connection
+from modules.world_terms import term, organization_terms
 
 from modules.company_workforce import (
     apply_job,
@@ -184,11 +184,8 @@ def company_context(gid: str, uid: str):
             (gid, uid),
         ).fetchall()
 
-        kind_names = {
-            "company": "公司",
-            "brand": "品牌",
-            "group": "集團",
-        }
+        terms = organization_terms(gid)
+        kind_names = {key: terms[key] for key in ("company", "brand", "group")}
 
         new_owned_ids = {
             row["business_id"]
@@ -241,7 +238,7 @@ def company_context(gid: str, uid: str):
             )
 
             employee_lines.append(
-                f"**我管理的公司／品牌**：{managed_text}"
+                f"**我管理的{terms['company']}／{terms['brand']}**：{managed_text}"
             )
 
         owned_businesses = (
@@ -1127,6 +1124,7 @@ class CompanyPanel(discord.ui.View):
             content=panel_text(
                 owned,
                 employees,
+                interaction.guild_id,
             )[:1900],
             view=CompanyPanel(
                 self.uid,
@@ -1154,13 +1152,26 @@ class CompanyPanel(discord.ui.View):
 # 面板文字
 # ============================================================
 
-def panel_text(owned, employees):
+def panel_text(owned, employees, guild_id=None):
+    """只替換面板顯示詞，不修改斜線指令、資料庫類型或玩家資料。"""
+    labels = organization_terms(guild_id) if guild_id is not None else {
+        "company": "公司", "brand": "品牌", "group": "集團",
+        "faction": "陣營", "position": "職位",
+    }
+    def display(message):
+        # 避免連續替換造成自訂名稱被二次改寫。
+        import re
+        mapping = {"公司": labels["company"], "品牌": labels["brand"],
+                   "集團": labels["group"], "陣營": labels["faction"],
+                   "職位": labels["position"]}
+        return re.sub("公司|品牌|集團|陣營|職位", lambda match: mapping[match.group()], message)
+
 
     if owned:
 
         company_list = "、".join(owned)
 
-        return (
+        return display((
             "🏢 **公司營運中心**\n"
             f"你持有的正式公司／品牌／集團：{company_list}\n"
             "可管理職位、待審案件與人事，"
@@ -1169,9 +1180,9 @@ def panel_text(owned, employees):
             "**我的任職公司與累積經驗**\n"
             f"{employees or '目前沒有任職公司。'}\n\n"
             "注意：公司僱傭身分不會改變任何陣營身分。"
-        )
+        ))
 
-    return (
+    return display((
         "👔 **玩家公司中心**\n"
         "可應徵、辭職、提交工作，"
         "並查看所屬公司與職位進度。\n"
@@ -1180,7 +1191,7 @@ def panel_text(owned, employees):
         f"{employees or '目前沒有任職公司。'}\n\n"
         "EXP 一律累加，升職和辭職都不會歸零。\n"
         "公司任職不代表加入該公司陣營。"
-    )
+    ))
 
 
 # ============================================================
@@ -1217,6 +1228,7 @@ class CompanyPortal(commands.Cog):
             panel_text(
                 owned,
                 employees,
+                interaction.guild_id,
             )[:1900],
             view=CompanyPanel(
                 str(interaction.user.id),
