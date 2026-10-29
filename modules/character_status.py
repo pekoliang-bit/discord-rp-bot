@@ -103,7 +103,16 @@ def _tracking(db, guild_id, character_id):
         return {"loyal_fans": 0, "active_antis": 0, "public_awareness": 0}
     row = db.execute("""SELECT loyal_fans, active_antis, public_awareness
         FROM character_system_tracking WHERE guild_id=? AND character_id=?""", (str(guild_id), character_id)).fetchone()
-    return dict(row) if row else {"loyal_fans": 0, "active_antis": 0, "public_awareness": 0}
+    result = dict(row) if row else {"loyal_fans": 0, "active_antis": 0, "public_awareness": 0}
+    award_table = db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='rp_award_grants'").fetchone()
+    if award_table:
+        result["award_count"] = db.execute(
+            "SELECT COUNT(*) AS n FROM rp_award_grants WHERE guild_id=? AND character_id=? AND revoked=0",
+            (str(guild_id), character_id),
+        ).fetchone()["n"]
+    else:
+        result["award_count"] = 0
+    return result
 
 
 def _main_skill(character, attrs):
@@ -130,8 +139,7 @@ def _auxiliary(attrs, tracking, level):
         + 0.15 * normalized(tracking.get("public_awareness", 0), max(100, level * 100))
         + 0.10 * normalized(max((attrs.get(k, 0) for k in ("歌唱", "舞蹈", "演繹", "主持", "綜藝")), default=0), max(100, level * 30))
         + 0.05 * normalized(attrs.get("個人才藝", 0), max(100, level * 20))
-        # 尚未連接正式作品／獎項資料表，先以中性值 50 評分，絕不偽造獎項。
-        + 0.10 * 50
+        + 0.10 * normalized(tracking.get("award_count", 0), max(1, level // 3))
         + 0.025 * normalized(attrs.get("容貌", 0), 100)
         + 0.025 * normalized(attrs.get("才智", 0), 100)
     )
