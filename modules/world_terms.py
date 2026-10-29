@@ -44,3 +44,6 @@ def term(guild_id: int | str, key: str) -> str:
     if key not in DEFAULT_TERMS:
         raise KeyError(f"Unknown world term: {key}")
     return organization_terms(guild_id)[key]
+async def setup(bot):
+    """世界觀稱呼讀取器，不需要註冊獨立指令。"""
+    pass
