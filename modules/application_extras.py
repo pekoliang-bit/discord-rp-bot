@@ -1,4 +1,3 @@
-
 """集中申請擴充：案件儲存、玩家表單、審核面板。
 
 不額外註冊 Slash 指令。
@@ -34,6 +33,7 @@ CATEGORIES = {
     "npc_switch": "🔄 NPC 更換飾演申請",
     "cp_register": "💕 CP 關係登記申請",
     "location_add": "📍 新增地點申請",
+    "faction_change": "🏳️ 角色陣營變更申請",
     "leave": "📅 請假申請",
 }
 
@@ -78,7 +78,7 @@ _GENERAL_FORM = [
 ]
 for _category in (
     "item_create", "shop_bank", "role_retire", "npc_resign",
-    "npc_switch", "cp_register", "location_add",
+    "npc_switch", "cp_register", "location_add", "faction_change",
 ):
     FORM_FIELDS[_category] = list(_GENERAL_FORM)
 
@@ -116,6 +116,28 @@ def character_edit_template(character):
             continue
         value = str(character_field_value(character, settings, key) or "").replace("\n", " ")
         lines.append(f"{label}：{value}")
+    return "\n".join(lines)
+
+
+def describe_character_review(db, application):
+    """官方審核時顯示變更前後的內容，避免只看 JSON。"""
+    changes = json.loads(application["details"])
+    if not isinstance(changes, dict) or not set(changes) <= SENSITIVE_CHARACTER_FIELDS:
+        return "⚠️ 申請資料格式不正確。"
+    character = db.execute(
+        "SELECT * FROM characters WHERE guild_id=? AND id=?",
+        (application["guild_id"], application["character_id"]),
+    ).fetchone()
+    if character is None:
+        return "⚠️ 原角色已不存在，無法套用修改。"
+    settings = json.loads(character["settings_json"] or "{}")
+    if not isinstance(settings, dict):
+        settings = {}
+    lines = []
+    for key, updated in changes.items():
+        label = CHARACTER_EDIT_FIELDS[key]
+        previous = str(character_field_value(character, settings, key) or "（空白）")
+        lines.append(f"【{label}】\n原：{previous[:150]}\n新：{str(updated)[:150]}")
     return "\n".join(lines)
 
 
@@ -178,7 +200,8 @@ def submit_character_changes(db, guild_id, user_id, character_id, raw):
             continue
         if not value:
             raise ValueError(f"「{CHARACTER_EDIT_FIELDS[key]}」不可清空；未修改請保留原值。")
-        normalized = validate_field(key, value, character["age"]) if key in {
+        proposed_age_for_validation = int(parsed.get("age", character["age"]))
+        normalized = validate_field(key, value, proposed_age_for_validation) if key in {
             "name", "stage_name", "languages", "occupation", "age", "experience_years",
             "gender", "nationality", "education", "main_track", "biography",
         } else value
@@ -281,7 +304,7 @@ def apply_approved_character_changes(db, application):
 # 申請者需用自己的已啟用角色提出的案件。
 CHARACTER_REQUIRED = {
     "item", "item_create", "role_retire", "character_edit", "npc_resign",
-    "npc_switch", "cp_register", "shop_bank",
+    "npc_switch", "cp_register", "shop_bank", "faction_change",
 }
 
 
@@ -1137,6 +1160,11 @@ class GeneralReviewView(
                 )
             ):
 
+                content_detail = (
+                    describe_character_review(db, r)
+                    if r["kind"] == "character_edit"
+                    else str(r["details"])
+                )
                 return (
                     f"🛡️ **案件 #{r['id']}｜"
                     f"{CATEGORIES.get(r['kind'], r['kind'])}**\n"
@@ -1145,7 +1173,7 @@ class GeneralReviewView(
                     f"標題："
                     f"{discord.utils.escape_mentions(r['title'])}\n"
                     f"內容："
-                    f"{discord.utils.escape_mentions(r['details'])[:1500]}\n"
+                    f"{discord.utils.escape_mentions(content_detail)[:1500]}\n"
                     f"附件／參照："
                     f"{discord.utils.escape_mentions(r['reference'])[:300]}"
                 )[:1950]
@@ -1214,7 +1242,7 @@ class GeneralReviewView(
                         "防止內容外洩。"
                     )
 
-                if r["kind"] == "company_bank":
+                if accepted and r["kind"] == "company_bank":
 
                     validate_company_bank_applicant(
                         db,
