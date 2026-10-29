@@ -977,7 +977,7 @@ WORLD_DEFAULT = {
     "template": "entertainment", "template_version": 1,
     "world_name": "現代娛樂圈", "background": "",
     "features": {"bank": True, "shop": True, "company": True, "faction": True, "rumor": True},
-    "channels": {}, "terms": {"company": "公司", "group": "集團", "currency": "金幣"},
+    "channels": {}, "terms": {"company": "公司", "group": "集團", "brand": "品牌", "faction": "陣營", "position": "職位", "currency": "金幣"},
     "stats": {}, "status_levels": {}, "company_rules": {}, "detail_rules": {},
     "categories": {}, "permissions": {}, "overrides": {},
 }
@@ -1142,6 +1142,40 @@ class WorldStatusWeightsModal(discord.ui.Modal):
         )
 
 
+class WorldOrganizationModal(discord.ui.Modal):
+    """安全編輯組織顯示用詞；不更動資料表、角色歸屬或公司編號。"""
+    def __init__(self, guild_id):
+        super().__init__(title="公司與組織稱呼設定")
+        terms = world_get(guild_id).get("terms", {})
+        self.company = discord.ui.TextInput(label="公司稱呼", default=str(terms.get("company", "公司")), max_length=30)
+        self.group = discord.ui.TextInput(label="集團稱呼", default=str(terms.get("group", "集團")), max_length=30)
+        self.brand = discord.ui.TextInput(label="品牌稱呼", default=str(terms.get("brand", "品牌")), max_length=30)
+        self.faction = discord.ui.TextInput(label="陣營稱呼", default=str(terms.get("faction", "陣營")), max_length=30)
+        self.position = discord.ui.TextInput(label="職位稱呼", default=str(terms.get("position", "職位")), max_length=30)
+        for item in (self.company, self.group, self.brand, self.faction, self.position):
+            self.add_item(item)
+
+    async def on_submit(self, interaction):
+        if not owner(interaction):
+            return await tell(interaction, "⛔ 僅限群主修改世界觀。")
+        terms = {"company": str(self.company).strip(), "group": str(self.group).strip(),
+                 "brand": str(self.brand).strip(), "faction": str(self.faction).strip(),
+                 "position": str(self.position).strip()}
+        if not all(terms.values()):
+            return await tell(interaction, "⛔ 稱呼不可留空。")
+        data = world_get(interaction.guild_id)
+        data.setdefault("terms", {}).update(terms)
+        overrides = data.setdefault("overrides", {})
+        for key in terms:
+            overrides["terms." + key] = True
+        world_save(interaction.guild_id, data)
+        await interaction.response.edit_message(
+            content="✅ 組織稱呼已儲存。現有資料與公司編號不變。\n"
+                    "提醒：其他功能須接入 world_terms.py 才會顯示新稱呼。",
+            view=WorldCategoryView(interaction, "company_rules"),
+        )
+
+
 class WorldCategoryView(discord.ui.View):
     """先進入分類頁，再編輯，避免直接彈出難懂的 JSON 表單。"""
     def __init__(self, i, category):
@@ -1151,6 +1185,8 @@ class WorldCategoryView(discord.ui.View):
         if category != "status_levels":
             self.remove_item(self.low_weights)
             self.remove_item(self.high_weights)
+        if category not in ("company_rules", "terms"):
+            self.remove_item(self.organization_terms)
 
     async def interaction_check(self, i):
         if i.user.id != self.uid or i.guild_id != self.gid or not owner(i):
@@ -1173,6 +1209,10 @@ class WorldCategoryView(discord.ui.View):
         if self.category != "status_levels":
             return await tell(i, "請先進入地位設定。")
         await i.response.send_modal(WorldStatusWeightsModal(i.guild_id, "lv19_20"))
+
+    @discord.ui.button(label="🏢 組織稱呼", style=discord.ButtonStyle.secondary, row=1)
+    async def organization_terms(self, i, button):
+        await i.response.send_modal(WorldOrganizationModal(i.guild_id))
 
     @discord.ui.button(label="◀️ 返回世界觀設定", style=discord.ButtonStyle.secondary)
     async def back(self, i, button):
