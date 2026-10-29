@@ -160,6 +160,77 @@ def treasury_balance(guild_id, business_id, actor_id):
         return balance
 
 
+def company_bank_summary(guild_id, business_id, actor_id):
+    """只顯示已獲官方核准開立的公司銀行帳戶。"""
+    initialize_treasury()
+    from modules.application_extras import init_db
+    init_db()
+    with get_connection() as db:
+        if not _finance_permission(db, guild_id, business_id, actor_id):
+            raise PermissionError("沒有公司銀行帳戶查看權限。")
+        record = db.execute(
+            "SELECT account_id,initial_deposit,opened_at "
+            "FROM rp_company_bank_accounts WHERE guild_id=? AND company_id=?",
+            (str(guild_id), str(business_id)),
+        ).fetchone()
+        if not record:
+            raise ValueError("此公司尚未通過銀行帳戶申請。")
+        bank = int(account_balance(db, guild_id, record["account_id"]))
+        treasury = int(account_balance(db, guild_id, _treasury_account(db, guild_id, business_id)))
+        return (
+            f"🏦 **公司銀行帳戶｜{business_id}**\n"
+            f"銀行餘額：**{bank:,} 金幣**\n"
+            f"公司金庫：{treasury:,} 金幣\n"
+            f"核准開戶首存：{record['initial_deposit']:,} 金幣\n"
+            f"開戶時間：{record['opened_at']}"
+        )
+
+
+def move_company_bank(guild_id, business_id, actor_id, direction, amount, unique_key):
+    """僅在同一家公司金庫與已開立的銀行帳戶間轉帳。"""
+    from modules.application_extras import init_db
+    init_db()
+    initialize_treasury()
+    amount = int(amount)
+    if amount <= 0:
+        raise ValueError("轉帳金額必須大於零。")
+    if direction not in ("deposit", "withdraw"):
+        raise ValueError("銀行操作類型不正確。")
+    with transaction() as db:
+        if not _finance_permission(db, guild_id, business_id, actor_id):
+            raise PermissionError("沒有公司財務操作權限。")
+        if not _is_owner(db, guild_id, business_id, actor_id):
+            limit = _manager_limit(db, guild_id, business_id, actor_id)
+            if limit <= 0 or amount > limit:
+                raise PermissionError("超過管理員單筆額度，或尚未設定支出上限。")
+        record = db.execute(
+            "SELECT account_id FROM rp_company_bank_accounts "
+            "WHERE guild_id=? AND company_id=?",
+            (str(guild_id), str(business_id)),
+        ).fetchone()
+        if not record:
+            raise ValueError("此公司尚未開立銀行帳戶。")
+        treasury = _treasury_account(db, guild_id, business_id)
+        bank = int(record["account_id"])
+        sender, receiver = (treasury, bank) if direction == "deposit" else (bank, treasury)
+        result = _payment(
+            db, str(guild_id), str(unique_key), sender, receiver, amount,
+            f"公司 {business_id} 銀行{'存入' if direction == 'deposit' else '提取'}",
+        )
+        if result.duplicated:
+            return "ℹ️ 此筆銀行轉帳已執行，不會重複扣款。"
+        db.execute(
+            "INSERT INTO rp_company_finance_audit "
+            "(guild_id,business_id,actor_id,action,reference_key,amount,"
+            "target_type,target_id,note,created_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
+            (str(guild_id), str(business_id), str(actor_id),
+             f"bank_{direction}", str(unique_key), amount, "organization",
+             str(business_id), "公司金庫與銀行帳戶間移轉", int(time.time())),
+        )
+        remaining = int(account_balance(db, guild_id, bank))
+    return f"✅ 銀行{'存入' if direction == 'deposit' else '提取'} {amount:,} 金幣成功。\n銀行餘額：{remaining:,} 金幣"
+
+
 def set_manager_spending_limit(
     guild_id,
     business_id,
