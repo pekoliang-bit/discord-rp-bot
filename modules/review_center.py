@@ -1193,7 +1193,9 @@ class EventReviewOpen(discord.ui.Button):
 def make_review_home(actor, interaction):
     view = Home(actor)
     from modules.application_extras import OpenGeneralReview
+    from modules.company_business_review_ui import OpenBusinessReview
     view.add_item(OpenGeneralReview())
+    view.add_item(OpenBusinessReview())
     if is_event_admin(interaction):
         view.add_item(EventReviewOpen())
     return view
@@ -1225,7 +1227,7 @@ class ReviewCenter(commands.Cog):
                     "🛡️ **統一審核中心**\n\n"
                     "請選擇要處理的申請類型：\n"
                     "角色、店鋪、貸款、"
-                    "信用卡或黑卡。"
+                    "信用卡、黑卡、公司、品牌或集團。"
                 ),
                 view=make_review_home(actor, interaction),
                 ephemeral=True,
