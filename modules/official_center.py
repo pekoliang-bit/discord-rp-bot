@@ -1,4 +1,3 @@
-
 """Discord RP｜官方人員與管理中心。
 
 正式指令：
@@ -1702,151 +1701,95 @@ class OpenAdminToolsButton(discord.ui.Button):
             await send_error(interaction, exc)
 
 
-class OfficialHome(PrivateView):
+class StaffApplySelect(discord.ui.Select):
+    def __init__(self):
+        super().__init__(placeholder="選擇申請職位", options=[
+            discord.SelectOption(label="審核員", value="reviewer"),
+            discord.SelectOption(label="紀律人員", value="discipline"),
+        ])
+
+    async def callback(self, interaction):
+        await interaction.response.send_modal(ApplyModal(self.values[0]))
+
+
+class StaffApplyView(PrivateView):
+    def __init__(self, interaction):
+        super().__init__(interaction)
+        self.add_item(StaffApplySelect())
+
+
+class StaffRosterView(PrivateView):
     def __init__(self, interaction):
         super().__init__(interaction)
 
-        if is_management_user(interaction):
-            self.add_item(OpenAdminToolsButton())
+    @discord.ui.button(label="👥 已通過", style=discord.ButtonStyle.primary)
+    async def approved(self, interaction, button):
+        result = get_grants(interaction.guild_id)
+        lines = ["👥 **已通過管理員**"]
+        for row in result["items"]:
+            user_id = row["user_id"]
+            member = interaction.guild.get_member(int(user_id))
+            account = str(member) if member else f"Discord ID：{user_id}"
+            lines.append(f"• {STAFF_TYPES[row['staff_type']]}｜{account}｜<@{user_id}>")
+        if not result["items"]:
+            lines.append("目前沒有已通過的管理員。")
+        if result["last"] > 0:
+            lines.append("更多正式人員請由群主進入管理清單查看。")
+        await interaction.response.send_message("\n".join(lines)[:1900], ephemeral=True)
 
-    @discord.ui.button(
-        label="申請審核員",
-        style=discord.ButtonStyle.primary,
-        row=0,
-    )
-    async def apply_reviewer(self, interaction, button):
-        await interaction.response.send_modal(
-            ApplyModal("reviewer")
-        )
-
-    @discord.ui.button(
-        label="申請紀律人員",
-        style=discord.ButtonStyle.primary,
-        row=0,
-    )
-    async def apply_discipline(self, interaction, button):
-        await interaction.response.send_modal(
-            ApplyModal("discipline")
-        )
-
-    @discord.ui.button(
-        label="我的申請",
-        style=discord.ButtonStyle.secondary,
-        row=0,
-    )
-    async def my_applications(self, interaction, button):
-        rows = get_my_applications(
-            interaction.guild_id,
-            interaction.user.id,
-        )
-
-        if not rows:
-            message = "目前沒有官方人員申請紀錄。"
-        else:
-            status_names = {
-                "pending": "待審",
-                "approved": "通過",
-                "rejected": "駁回",
-                "cancelled": "取消",
-            }
-
-            lines = ["📋 **我的官方人員申請**"]
-
-            for row in rows:
-                lines.append(
-                    f"#{row['id']}｜"
-                    f"{STAFF_TYPES[row['staff_type']]}｜"
-                    f"{status_names.get(row['status'], row['status'])}"
-                )
-
-            message = "\n".join(lines)
-
-        await interaction.response.send_message(
-            message[:1900],
-            ephemeral=True,
-        )
-
-    @discord.ui.button(
-        label="待審人員申請",
-        style=discord.ButtonStyle.success,
-        row=1,
-    )
+    @discord.ui.button(label="⏳ 審核中", style=discord.ButtonStyle.secondary)
     async def pending(self, interaction, button):
+        result = get_pending(interaction.guild_id)
+        lines = ["⏳ **審核中管理員申請**"]
+        for row in result["items"]:
+            user_id = row["user_id"]
+            member = interaction.guild.get_member(int(user_id))
+            account = str(member) if member else f"Discord ID：{user_id}"
+            lines.append(f"• {STAFF_TYPES[row['staff_type']]}｜{account}｜<@{user_id}>")
+        if not result["items"]:
+            lines.append("目前沒有審核中的申請。")
+        if result["last"] > 0:
+            lines.append("僅顯示第一頁，完整清單可由群主查看。")
+        await interaction.response.send_message("\n".join(lines)[:1900], ephemeral=True)
+
+    @discord.ui.button(label="🛡️ 群主審核", style=discord.ButtonStyle.success, row=1)
+    async def review(self, interaction, button):
         try:
             require_owner(interaction)
             result = get_pending(interaction.guild_id)
-
-            await interaction.response.send_message(
-                pending_text(result),
-                view=PendingView(interaction),
-                ephemeral=True,
-            )
-        except (
-            PermissionError,
-            sqlite3.Error,
-        ) as exc:
+            await interaction.response.send_message(pending_text(result), view=PendingView(interaction), ephemeral=True)
+        except (PermissionError, sqlite3.Error) as exc:
             await send_error(interaction, exc)
 
-    @discord.ui.button(
-        label="正式人員管理",
-        style=discord.ButtonStyle.secondary,
-        row=1,
-    )
-    async def staff_management(self, interaction, button):
+    @discord.ui.button(label="⚙️ 正式人員管理", style=discord.ButtonStyle.secondary, row=1)
+    async def manage(self, interaction, button):
         try:
             require_owner(interaction)
             result = get_grants(interaction.guild_id)
-
-            await interaction.response.send_message(
-                grants_text(result),
-                view=GrantsView(interaction),
-                ephemeral=True,
-            )
-        except (
-            PermissionError,
-            sqlite3.Error,
-        ) as exc:
+            await interaction.response.send_message(grants_text(result), view=GrantsView(interaction), ephemeral=True)
+        except (PermissionError, sqlite3.Error) as exc:
             await send_error(interaction, exc)
 
-    @discord.ui.button(
-        label="設定審核員身分組",
-        style=discord.ButtonStyle.secondary,
-        row=2,
-    )
-    async def reviewer_role(self, interaction, button):
-        try:
-            require_owner(interaction)
 
-            await interaction.response.send_message(
-                "請選擇審核員專用身分組。",
-                view=RoleBindingView(
-                    interaction,
-                    "reviewer",
-                ),
-                ephemeral=True,
-            )
-        except PermissionError as exc:
-            await send_error(interaction, exc)
+class OfficialHome(PrivateView):
+    def __init__(self, interaction):
+        super().__init__(interaction)
+        if is_management_user(interaction):
+            self.add_item(OpenAdminToolsButton())
 
-    @discord.ui.button(
-        label="設定紀律人員身分組",
-        style=discord.ButtonStyle.secondary,
-        row=2,
-    )
-    async def discipline_role(self, interaction, button):
-        try:
-            require_owner(interaction)
+    @discord.ui.button(label="📝 管理員申請", style=discord.ButtonStyle.primary, row=0)
+    async def apply_staff(self, interaction, button):
+        await interaction.response.send_message(
+            "請選擇申請審核員或紀律人員，接著只需填寫暱稱。",
+            view=StaffApplyView(interaction), ephemeral=True,
+        )
 
-            await interaction.response.send_message(
-                "請選擇紀律人員專用身分組。",
-                view=RoleBindingView(
-                    interaction,
-                    "discipline",
-                ),
-                ephemeral=True,
-            )
-        except PermissionError as exc:
-            await send_error(interaction, exc)
+    @discord.ui.button(label="👥 管理員名單", style=discord.ButtonStyle.secondary, row=0)
+    async def staff_roster(self, interaction, button):
+        await interaction.response.send_message(
+            "👥 **管理員名單**\n查看已通過及審核中的申請。",
+            view=StaffRosterView(interaction), ephemeral=True,
+        )
 
 
 # ==========================================
