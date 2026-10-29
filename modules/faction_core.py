@@ -1,19 +1,20 @@
 
 """Discord RP 陣營系統核心。
 
-檔案位置：modules/faction_core.py
+路徑：modules/faction_core.py
 
 功能：
-- 五個預設陣營
+- 五個預設陣營，只初始化一次
+- 保護管理員修改後的陣營名稱
 - 每個角色獨立選擇陣營
 - 陣營共用經費池
-- 經費收入流水
-- 每 100 金幣有效貢獻 = 1 積分
+- 個人貢獻積分
 - 違約金入池但不計分
 - 每 30 天結算內部排行榜
-- 保存歷任第一名與第二名
+- 保存歷任第一名及第二名
 
-本模組不註冊任何 Discord 指令。
+所有玩家操作由 /陣營 提供。
+本模組不註冊 Discord 指令。
 """
 
 from __future__ import annotations
@@ -31,7 +32,6 @@ DEFAULT_FACTIONS = (
     "MCN機構",
 )
 
-# 可計入角色個人積分的資金來源
 PERSONAL_SOURCES = {
     "offering",
     "commission",
@@ -39,7 +39,6 @@ PERSONAL_SOURCES = {
     "sponsor_personal",
 }
 
-# 所有允許進入陣營經費池的資金來源
 POOL_SOURCES = PERSONAL_SOURCES | {
     "departure_penalty",
     "faction_rank",
@@ -50,8 +49,12 @@ POOL_SOURCES = PERSONAL_SOURCES | {
 }
 
 
+def _now():
+    return datetime.now(timezone.utc)
+
+
 def initialize():
-    """建立陣營資料表，不覆蓋既有資料。"""
+    """建立必要資料表，不清除既有資料。"""
 
     with transaction() as db:
 
@@ -126,22 +129,22 @@ def initialize():
                 period INTEGER NOT NULL,
                 leader_id INTEGER,
                 deputy_id INTEGER,
-                PRIMARY KEY(
-                    guild_id,
-                    faction_id,
-                    period
-                )
+                PRIMARY KEY(guild_id, faction_id, period)
+            )
+        """)
+
+        db.execute("""
+            CREATE TABLE IF NOT EXISTS faction_settings (
+                guild_id TEXT PRIMARY KEY,
+                defaults_initialized INTEGER NOT NULL DEFAULT 0,
+                updated_at TEXT NOT NULL
+                    DEFAULT CURRENT_TIMESTAMP
             )
         """)
 
 
-def _now():
-    """取得 UTC 時間。"""
-    return datetime.now(timezone.utc)
-
-
 def ensure_guild(guild_id):
-    """確保伺服器擁有預設陣營及結算期。"""
+    """初始化陣營，避免改名後重新建立預設陣營。"""
 
     initialize()
 
@@ -150,26 +153,73 @@ def ensure_guild(guild_id):
 
     with transaction() as db:
 
-        for name in DEFAULT_FACTIONS:
+        setting = db.execute(
+            """
+            SELECT defaults_initialized
+            FROM faction_settings
+            WHERE guild_id = ?
+            """,
+            (gid,),
+        ).fetchone()
+
+        if (
+            setting is None
+            or int(setting["defaults_initialized"]) == 0
+        ):
+
+            existing = db.execute(
+                """
+                SELECT COUNT(*) AS total
+                FROM faction_groups
+                WHERE guild_id = ?
+                """,
+                (gid,),
+            ).fetchone()
+
+            if int(existing["total"]) == 0:
+
+                for name in DEFAULT_FACTIONS:
+                    db.execute(
+                        """
+                        INSERT INTO faction_groups (
+                            guild_id,
+                            name
+                        )
+                        VALUES (?, ?)
+                        """,
+                        (gid, name),
+                    )
+
             db.execute(
                 """
-                INSERT OR IGNORE INTO faction_groups
-                    (guild_id, name)
-                VALUES (?, ?)
+                INSERT INTO faction_settings (
+                    guild_id,
+                    defaults_initialized
+                )
+                VALUES (?, 1)
+                ON CONFLICT(guild_id)
+                DO UPDATE SET
+                    defaults_initialized = 1,
+                    updated_at = CURRENT_TIMESTAMP
                 """,
-                (gid, name),
+                (gid,),
             )
 
         db.execute(
             """
-            INSERT OR IGNORE INTO faction_periods
-                (guild_id, starts_at, ends_at)
+            INSERT OR IGNORE INTO faction_periods (
+                guild_id,
+                starts_at,
+                ends_at
+            )
             VALUES (?, ?, ?)
             """,
             (
                 gid,
                 now.isoformat(),
-                (now + timedelta(days=30)).isoformat(),
+                (
+                    now + timedelta(days=30)
+                ).isoformat(),
             ),
         )
 
@@ -177,7 +227,7 @@ def ensure_guild(guild_id):
 
 
 def _roll(db, gid):
-    """結算已結束的期別，保存前兩名。"""
+    """結算已結束的期別並保存前兩名。"""
 
     row = db.execute(
         """
@@ -188,23 +238,24 @@ def _roll(db, gid):
         (gid,),
     ).fetchone()
 
-    if not row:
+    if row is None:
         raise RuntimeError("陣營期別尚未初始化")
 
     now = _now()
     end = datetime.fromisoformat(row["ends_at"])
     seq = int(row["sequence"])
+    original_seq = seq
+
+    factions = db.execute(
+        """
+        SELECT id
+        FROM faction_groups
+        WHERE guild_id = ?
+        """,
+        (gid,),
+    ).fetchall()
 
     while now >= end:
-
-        factions = db.execute(
-            """
-            SELECT id
-            FROM faction_groups
-            WHERE guild_id = ?
-            """,
-            (gid,),
-        ).fetchall()
 
         for faction in factions:
 
@@ -234,12 +285,14 @@ def _roll(db, gid):
 
             leader_id = (
                 rank[0]["character_id"]
-                if rank else None
+                if len(rank) >= 1
+                else None
             )
 
             deputy_id = (
                 rank[1]["character_id"]
-                if len(rank) > 1 else None
+                if len(rank) >= 2
+                else None
             )
 
             db.execute(
@@ -265,7 +318,7 @@ def _roll(db, gid):
         end += timedelta(days=30)
         seq += 1
 
-    if seq != int(row["sequence"]):
+    if seq != original_seq:
 
         start = end - timedelta(days=30)
 
@@ -294,30 +347,26 @@ def join(
     faction_id,
     owner_id,
 ):
-    """替玩家自己的已啟用角色加入初始陣營。"""
+    """替自己的已啟用原創角色選擇初始陣營。"""
 
     gid = ensure_guild(guild_id)
+    cid = int(character_id)
+    fid = int(faction_id)
 
     with transaction() as db:
 
         char = db.execute(
             """
-            SELECT
-                owner_id,
-                status,
-                character_type
+            SELECT owner_id, status, character_type
             FROM characters
             WHERE guild_id = ?
               AND id = ?
             """,
-            (
-                gid,
-                int(character_id),
-            ),
+            (gid, cid),
         ).fetchone()
 
         if (
-            not char
+            char is None
             or str(char["owner_id"]) != str(owner_id)
             or char["status"] != "active"
             or char["character_type"] != "player"
@@ -326,39 +375,33 @@ def join(
                 "僅能替自己已啟用的原創角色選擇陣營"
             )
 
-        exists = db.execute(
+        existing = db.execute(
             """
-            SELECT 1
+            SELECT faction_id
             FROM faction_members
             WHERE guild_id = ?
               AND character_id = ?
             """,
-            (
-                gid,
-                int(character_id),
-            ),
+            (gid, cid),
         ).fetchone()
 
-        if exists:
+        if existing is not None:
             raise ValueError(
-                "角色已有陣營；轉換陣營須使用正式退出／違約流程"
+                "角色已有陣營，請使用正式退出或轉換流程"
             )
 
         faction = db.execute(
             """
-            SELECT 1
+            SELECT id
             FROM faction_groups
             WHERE guild_id = ?
               AND id = ?
             """,
-            (
-                gid,
-                int(faction_id),
-            ),
+            (gid, fid),
         ).fetchone()
 
-        if not faction:
-            raise ValueError("陣營不存在")
+        if faction is None:
+            raise ValueError("指定的陣營不存在")
 
         db.execute(
             """
@@ -369,11 +412,7 @@ def join(
             )
             VALUES (?, ?, ?)
             """,
-            (
-                gid,
-                int(character_id),
-                int(faction_id),
-            ),
+            (gid, cid, fid),
         )
 
 
@@ -385,12 +424,11 @@ def credit(
     character_id=None,
     memo="",
 ):
-    """記錄已驗證的入池資金。
+    """記錄已驗證的陣營收入。
 
     注意：
-    此函式不負責扣除玩家錢包。
-    必須由已完成付款或獎勵驗證的模組呼叫。
-    不可直接暴露給玩家操作。
+    不會自行扣款或創造金幣。
+    呼叫者必須先完成付款或獎勵驗證。
     """
 
     gid = ensure_guild(guild_id)
@@ -399,13 +437,13 @@ def credit(
         raise ValueError("不支援的經費來源")
 
     if type(amount) is not int or amount <= 0:
-        raise ValueError(
-            "入池金額必須為正整數"
-        )
+        raise ValueError("入池金額必須為正整數")
+
+    fid = int(faction_id)
 
     with transaction() as db:
 
-        seq = _roll(db, gid)
+        period = _roll(db, gid)
 
         faction = db.execute(
             """
@@ -414,20 +452,23 @@ def credit(
             WHERE guild_id = ?
               AND id = ?
             """,
-            (
-                gid,
-                int(faction_id),
-            ),
+            (gid, fid),
         ).fetchone()
 
-        if not faction:
+        if faction is None:
             raise ValueError("陣營不存在")
 
         points = 0
 
+        cid = (
+            int(character_id)
+            if character_id is not None
+            else None
+        )
+
         if source in PERSONAL_SOURCES:
 
-            if character_id is None:
+            if cid is None:
                 raise ValueError(
                     "個人貢獻必須指定角色"
                 )
@@ -440,20 +481,15 @@ def credit(
                   AND faction_id = ?
                   AND character_id = ?
                 """,
-                (
-                    gid,
-                    int(faction_id),
-                    int(character_id),
-                ),
+                (gid, fid, cid),
             ).fetchone()
 
-            if not member:
+            if member is None:
                 raise ValueError(
                     "貢獻角色不屬於此陣營"
                 )
 
-            # 同一期的小額貢獻可累計換算積分。
-            old = db.execute(
+            previous_row = db.execute(
                 """
                 SELECT
                     COALESCE(SUM(amount), 0) AS total
@@ -469,36 +505,30 @@ def credit(
                       'sponsor_personal'
                   )
                 """,
-                (
-                    gid,
-                    int(faction_id),
-                    int(character_id),
-                    seq,
-                ),
+                (gid, fid, cid, period),
             ).fetchone()
 
-            previous = int(old["total"])
+            previous = int(previous_row["total"])
 
             points = (
                 (previous + amount) // 100
                 - previous // 100
             )
 
-        db.execute(
+        updated = db.execute(
             """
             UPDATE faction_groups
             SET pool = pool + ?
             WHERE guild_id = ?
               AND id = ?
             """,
-            (
-                amount,
-                gid,
-                int(faction_id),
-            ),
+            (amount, gid, fid),
         )
 
-        cur = db.execute(
+        if updated.rowcount != 1:
+            raise ValueError("經費入池失敗")
+
+        cursor = db.execute(
             """
             INSERT INTO faction_ledger (
                 guild_id,
@@ -514,50 +544,44 @@ def credit(
             """,
             (
                 gid,
-                int(faction_id),
-                (
-                    int(character_id)
-                    if character_id is not None
-                    else None
-                ),
+                fid,
+                cid,
                 source,
                 amount,
                 points,
-                seq,
+                period,
                 str(memo)[:500],
             ),
         )
 
         return {
-            "ledger_id": cur.lastrowid,
-            "period": seq,
+            "ledger_id": cursor.lastrowid,
+            "period": period,
             "points": points,
         }
 
 
 def snapshot(guild_id, faction_id):
-    """取得陣營經費及當期內部排行榜。"""
+    """取得陣營資訊及當期內部排行榜。"""
 
     gid = ensure_guild(guild_id)
+    fid = int(faction_id)
 
     with transaction() as db:
 
-        seq = _roll(db, gid)
+        period = _roll(db, gid)
 
         faction = db.execute(
             """
-            SELECT *
+            SELECT id, name, pool
             FROM faction_groups
             WHERE guild_id = ?
               AND id = ?
             """,
-            (
-                gid,
-                int(faction_id),
-            ),
+            (gid, fid),
         ).fetchone()
 
-        if not faction:
+        if faction is None:
             raise ValueError("陣營不存在")
 
         rows = db.execute(
@@ -580,30 +604,28 @@ def snapshot(guild_id, faction_id):
                 l.character_id ASC
             LIMIT 20
             """,
-            (
-                gid,
-                int(faction_id),
-                seq,
-            ),
+            (gid, fid, period),
         ).fetchall()
+
+        rank = [
+            (
+                row["character_id"],
+                row["name"],
+                row["points"],
+            )
+            for row in rows
+        ]
 
         return {
             "name": faction["name"],
             "pool": faction["pool"],
-            "period": seq,
-            "rank": [
-                (
-                    row["character_id"],
-                    row["name"],
-                    row["points"],
-                )
-                for row in rows
-            ],
+            "period": period,
+            "rank": rank,
         }
 
 
 def list_factions(guild_id):
-    """取得伺服器的陣營清單。"""
+    """取得目前伺服器所有陣營。"""
 
     gid = ensure_guild(guild_id)
 
@@ -611,10 +633,7 @@ def list_factions(guild_id):
 
         rows = db.execute(
             """
-            SELECT
-                id,
-                name,
-                pool
+            SELECT id, name, pool
             FROM faction_groups
             WHERE guild_id = ?
             ORDER BY id
