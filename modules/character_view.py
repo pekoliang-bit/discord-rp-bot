@@ -66,12 +66,14 @@ PUBLIC_FIELDS = {
     "secondary_track": "副賽道",
     "education": "學歷",
     "languages": "語言",
+    "appearance_aura": "外貌氣質",
     "experience_years": "資歷",
     "public_persona": "公開人設",
 }
 
 PRIVATE_FIELDS = {
     "private_personality": "私下性格",
+    "sexual_orientation": "性向",
     "special_notes": "特殊設定",
     "notes": "其他備註",
     "biography": "完整生平",
@@ -1734,6 +1736,22 @@ class PublicPanelView(discord.ui.View):
         await interaction.response.edit_message(content=None,embed=make_character_embed(Actor.from_interaction(interaction),self.parent.character_id),view=self.parent)
 
 
+class CharacterEditStartView(discord.ui.View):
+    def __init__(self, user_id, character_id):
+        super().__init__(timeout=600)
+        self.user_id = int(user_id)
+        self.character_id = int(character_id)
+
+    @discord.ui.button(label='✏️ 一次修改並送出', style=discord.ButtonStyle.primary)
+    async def open_editor(self, interaction, button):
+        if interaction.user.id != self.user_id:
+            return await interaction.response.send_message('這不是你的角色修改面板。', ephemeral=True)
+        from modules.application_extras import ApplicationModal
+        await interaction.response.send_modal(
+            ApplicationModal(interaction, 'character_edit', self.character_id)
+        )
+
+
 class CharacterDetailView(discord.ui.View):
     def __init__(self,actor,character_id,category,keyword,page):
         super().__init__(timeout=900)
@@ -1775,17 +1793,31 @@ class CharacterDetailView(discord.ui.View):
     @discord.ui.button(label='🏆 成就榮譽',style=discord.ButtonStyle.secondary,row=1)
     async def awards_button(self,interaction,button):
         await PanelSubView(self,'awards').show(interaction,'awards')
-    @discord.ui.button(label='📝 修改資料送審',style=discord.ButtonStyle.primary,row=2)
+    @discord.ui.button(label='📝 修改角色資料',style=discord.ButtonStyle.primary,row=2)
     async def edit_request_button(self,interaction,button):
         try:
             character = get_character(Actor.from_interaction(interaction), self.character_id)
-            if not is_owner(self.actor, character) or get_category(character) != 'original':
-                raise PermissionDenied('只有原創角色本人可以從此處提出資料修改申請。')
+            if not is_owner(self.actor, character) or get_category(character) not in ('original','player_npc'):
+                raise PermissionDenied('只有原創角色或玩家 NPC 的持有人可以修改資料。')
             if character['status'] != 'active':
-                raise InvalidState('只有已啟用的原創角色可以從此處提出修改申請。')
-            from modules.application_extras import ApplicationModal
-            await interaction.response.send_modal(
-                ApplicationModal(interaction, 'character_edit', self.character_id)
+                raise InvalidState('只有已啟用角色可以修改資料。')
+            from modules.application_extras import CHARACTER_EDIT_FIELDS, character_field_value
+            settings = safe_json(character['settings_json'])
+            embed = discord.Embed(
+                title='📝 角色資料修改｜目前資料',
+                description='檢查下列原始資料後按「一次修改並送出」。表單會帶入原值，只須改動想修改的項目。\n'
+                            '一般文字直接生效；重大變更及玩家 NPC 性格送審。數值與陣營不在此修改。',
+                color=discord.Color.blurple(),
+            )
+            for key, label in CHARACTER_EDIT_FIELDS.items():
+                if key == 'biography' and get_category(character) != 'original':
+                    continue
+                original = str(character_field_value(character, settings, key) or '（未填寫）')
+                embed.add_field(name=label, value=original[:900], inline=True)
+            await interaction.response.send_message(
+                embed=embed,
+                view=CharacterEditStartView(interaction.user.id, self.character_id),
+                ephemeral=True,
             )
         except (ValueError, sqlite3.Error, PermissionDenied, InvalidState) as exc:
             await interaction.response.send_message(f'⚠️ {exc}', ephemeral=True)
