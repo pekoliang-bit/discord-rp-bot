@@ -158,12 +158,17 @@ def create_rumor(guild_id, actor_id, business_id, character_id, source_type, tit
     initialize_rule_snapshots()
     rules = get_active_rules(gid)  # 未啟用官方規則就拒絕建案
     with transaction() as db:
-        _entity(db, gid, bid)
-        if not has_permission(db, gid, bid, uid, "public_relations"):
-            raise PermissionError("你沒有該公司的公關管理權限。")
-        row = db.execute("SELECT id,status FROM characters WHERE guild_id=? AND id=?", (gid, cid)).fetchone()
+        # 一般玩家以本人角色建立傳聞；公司代理則需該公司的公關權限。
+        row = db.execute("SELECT id,status,owner_id FROM characters WHERE guild_id=? AND id=?", (gid, cid)).fetchone()
         if not row or row["status"] != "active":
             raise ValueError("只能對已啟用角色建立傳聞。")
+        own_character = str(row["owner_id"]) == uid
+        company_authorized = False
+        if bid:
+            _entity(db, gid, bid)
+            company_authorized = bool(has_permission(db, gid, bid, uid, "public_relations"))
+        if not own_character and not company_authorized:
+            raise PermissionError("只能使用自己的角色，或以有權限的公司公關身分建立傳聞。")
         if not rumor_allowed(db, gid, cid, category):
             raise PermissionError("這個角色已拒絕該類型的傳聞。")
         tier = resolve_tier_in_transaction(db, gid, category, source_type)
@@ -196,7 +201,16 @@ def list_rumors(guild_id, actor_id):
             WHERE guild_id=? ORDER BY id DESC LIMIT 150""", (gid,)).fetchall()
         result = []
         for row in rows:
-            if has_permission(db, gid, row["business_id"], uid, "public_relations"):
+            char = db.execute(
+                "SELECT owner_id FROM characters WHERE guild_id=? AND id=?",
+                (gid, row["character_id"]),
+            ).fetchone()
+            owns = bool(char and str(char["owner_id"]) == uid)
+            created = str(row["creator_id"]) == uid
+            company_access = bool(row["business_id"]) and bool(
+                has_permission(db, gid, row["business_id"], uid, "public_relations")
+            )
+            if owns or created or company_access:
                 result.append(dict(row))
                 if len(result) >= 15:
                     break
@@ -254,20 +268,23 @@ def run_locked_due(now=None, *, enabled=False, limit=100):
     return completed
 
 
-class RumorModal(discord.ui.Modal, title="建立公司傳聞"):
-    business = discord.ui.TextInput(label="公司編號")
+class RumorModal(discord.ui.Modal, title="建立傳聞"):
+    business = discord.ui.TextInput(label="公司編號（個人建案可留空）", required=False)
     target = discord.ui.TextInput(label="對象角色編號")
-    source = discord.ui.TextInput(label="來源：玩家／造謠", placeholder="玩家")
-    headline = discord.ui.TextInput(label="傳聞標題（80字內）")
+    category = discord.ui.TextInput(label="分類：戀情／商業／工作／人際／私生活／其他", max_length=8)
+    headline = discord.ui.TextInput(label="傳聞標題", max_length=80)
     detail = discord.ui.TextInput(label="傳聞內容", style=discord.TextStyle.paragraph, max_length=500)
 
     async def on_submit(self, interaction: discord.Interaction):
         try:
-            msg = create_rumor(interaction.guild_id, interaction.user.id, self.business.value,
-                               self.target.value, self.source.value, self.headline.value, self.detail.value)
+            msg = create_rumor(
+                interaction.guild_id, interaction.user.id, self.business.value,
+                self.target.value, "玩家", self.headline.value, self.detail.value,
+                category=self.category.value.strip(),
+            )
         except (ValueError, LookupError, PermissionError, TypeError) as exc:
             msg = f"❌ {exc}"
-        await interaction.response.send_message(msg, ephemeral=True)
+        await interaction.response.send_message(msg[:1900], ephemeral=True)
 
 
 class ConsentModal(discord.ui.Modal, title="角色傳聞授權"):
@@ -295,7 +312,11 @@ class RumorView(discord.ui.View):
 
     @discord.ui.button(label="📚 案件清單", style=discord.ButtonStyle.secondary)
     async def records(self, interaction, button):
-        rows = list_rumors(interaction.guild_id, interaction.user.id)
+        try:
+            rows = list_rumors(interaction.guild_id, interaction.user.id)
+        except (ValueError, LookupError, PermissionError) as exc:
+            await interaction.response.send_message(f"❌ {exc}", ephemeral=True)
+            return
         text = "\n".join(f"#{r['id']}｜角色#{r['character_id']}｜{r['title']}｜{r['status']}｜<t:{r['settle_at']}:F>" for r in rows)
         await interaction.response.send_message(text[:1900] if text else "目前沒有可查看的案件。", ephemeral=True)
 
