@@ -1,16 +1,17 @@
 
-"""Discord RP 虛構網友評論的可信資料來源。
+"""Discord RP 虛構網友評論可信資料來源。
 
-接入第 38 個檔案：
-    modules.internet_comment_dispatch
+第 40 個檔案完整修正版。
 
-提供：
-- 依伺服器及角色讀取有效虛構網友
-- 重新讀取已核准評論模板
-- 檢查網友類型與模板發言者是否相容
-- 建立 DispatchServices
+依賴：
+- core.database
+- core.internet_comment_matcher
+- modules.internet_comment_bridge
+- modules.internet_comment_dispatch
 
-不授予管理權限、不建立事件白名單、不發文。
+不會自行發文或修改玩家資料。
+
+正式授權與事件白名單由既有系統提供。
 """
 
 from __future__ import annotations
@@ -24,6 +25,7 @@ from core.internet_comment_matcher import (
 )
 from modules.internet_comment_bridge import (
     CommentEvent,
+    CommentPreview,
     preview_by_id,
 )
 from modules.internet_comment_dispatch import (
@@ -37,7 +39,9 @@ from modules.internet_comment_review_bridge import (
 
 def _positive(value: int, name: str) -> int:
     if type(value) is not int or value <= 0:
-        raise ValueError(f"{name} 必須是正整數")
+        raise ValueError(
+            f"{name} 必須為正整數"
+        )
     return value
 
 
@@ -48,11 +52,7 @@ def read_active_virtual_user(
     virtual_user_id: int,
     connection_factory=get_connection,
 ) -> dict:
-    """唯讀查詢同伺服器、同角色的有效虛構網友。
-
-    不能只查帳號 ID：
-    每次都必須核對 guild_id 與 character_id。
-    """
+    """讀取與指定角色存在有效關係的固定網友。"""
 
     gid = str(_positive(guild_id, "guild_id"))
     cid = _positive(character_id, "character_id")
@@ -74,14 +74,18 @@ def read_active_virtual_user(
                 r.relation_type,
                 r.familiarity,
                 r.appearance_weight
+
             FROM internet_virtual_users u
+
             JOIN internet_virtual_user_relations r
               ON r.guild_id = u.guild_id
              AND r.virtual_user_id = u.id
+
             WHERE u.guild_id = ?
               AND u.id = ?
               AND r.character_id = ?
               AND u.active = 1
+
             LIMIT 1
             """,
             (gid, uid, cid),
@@ -89,10 +93,10 @@ def read_active_virtual_user(
 
         if row is None:
             raise PermissionError(
-                "找不到屬於本伺服器及角色的有效網友"
+                "找不到相同伺服器與角色的有效虛構網友"
             )
 
-        columns = [
+        fields = (
             "id",
             "guild_id",
             "username",
@@ -103,20 +107,20 @@ def read_active_virtual_user(
             "relation_type",
             "familiarity",
             "appearance_weight",
-        ]
+        )
 
-        result = {
-            key: row[index]
-            for index, key in enumerate(columns)
+        values = {
+            name: row[index]
+            for index, name in enumerate(fields)
         }
 
-        result["id"] = int(result["id"])
-        result["character_id"] = int(
-            result["character_id"]
+        values["id"] = int(values["id"])
+        values["character_id"] = int(
+            values["character_id"]
         )
-        result["active"] = bool(result["active"])
+        values["active"] = bool(values["active"])
 
-        return result
+        return values
 
     finally:
         db.close()
@@ -128,20 +132,23 @@ def read_verified_comment_preview(
     comment_id: str,
     relation_type: str,
     connection_factory=get_connection,
-):
-    """從核准的評論模板產生預覽。
+) -> CommentPreview:
+    """確認評論與網友立場相符，再重新渲染。"""
 
-    除檢查事件白名單，還必須確認固定網友的
-    關係類型可以使用該模板。
-    """
+    if not isinstance(event, CommentEvent):
+        raise TypeError("event 必須是 CommentEvent")
 
-    if (
-        not event.verified
-        or event.speaker_authorized
-        or comment_id not in event.permitted_comment_ids
-    ):
+    if not event.verified:
+        raise PermissionError("事件尚未核實")
+
+    if event.speaker_authorized:
         raise PermissionError(
-            "事件或評論模板未獲虛構網友使用授權"
+            "虛構網友不能使用角色本人授權"
+        )
+
+    if comment_id not in event.permitted_comment_ids:
+        raise PermissionError(
+            "評論不在本次事件白名單"
         )
 
     db = connection_factory()
@@ -156,23 +163,23 @@ def read_verified_comment_preview(
                 speaker,
                 emotion,
                 canonical_id,
-                requires_authorization,
-                approved
+                requires_authorization
+
             FROM internet_comment_templates
+
             WHERE id = ?
               AND category_id = ?
               AND approved = 1
+              AND requires_authorization = 0
+
             LIMIT 1
             """,
-            (
-                comment_id,
-                event.category_id,
-            ),
+            (comment_id, event.category_id),
         ).fetchone()
 
         if row is None:
             raise PermissionError(
-                "核准評論模板不存在"
+                "找不到可公開使用的已核准模板"
             )
 
         candidate = TemplateCandidate(
@@ -181,32 +188,50 @@ def read_verified_comment_preview(
             category_id=int(row[2]),
             speaker=str(row[3]),
             emotion=str(row[4]),
-            canonical_id=str(
-                row[5] or row[0]
-            ),
+            canonical_id=str(row[5] or row[0]),
             requires_authorization=bool(row[6]),
         )
 
         if not can_match(relation_type, candidate):
             raise PermissionError(
-                "網友身分與評論發言者不相容"
+                "虛構網友身分與評論發言者不相符"
             )
 
     finally:
         db.close()
 
-    # 延用既有評論橋接函式，重新檢查渲染變數。
+    # 使用既有橋接器的白名單與變數渲染規則。
     preview = preview_by_id(event, comment_id)
 
     if preview is None:
         raise PermissionError(
-            "評論模板無法通過正式渲染檢查"
+            "評論未通過正式渲染條件"
+        )
+
+    if (
+        preview.event_id != event.event_id
+        or preview.comment_id != comment_id
+        or preview.category_id != event.category_id
+    ):
+        raise RuntimeError(
+            "評論渲染結果與事件不一致"
+        )
+
+    # 兩次讀取之間若模板遭修改，應停止發文。
+    if (
+        preview.original != candidate.raw_text
+        or preview.speaker != candidate.speaker
+        or preview.emotion != candidate.emotion
+    ):
+        raise RuntimeError(
+            "評論模板在驗證期間發生變化"
         )
 
     return preview
 
 
 def create_dispatch_services(
+    request: DispatchRequest,
     *,
     load_approved_review: Callable[
         [DispatchRequest],
@@ -217,32 +242,53 @@ def create_dispatch_services(
         Awaitable[CommentEvent],
     ],
 ) -> DispatchServices:
-    """建立第 38 個調度器需要的資料服務。
+    """建立綁定單次發文請求的可信服務。
 
-    兩個外部回呼必須由正式機器人內部實作：
-    - load_approved_review：重新檢查現有 /審核
-    - load_verified_event：重新計算事件及評論白名單
+    因第 38 個調度器的 load_preview 未包含網友 ID，
+    這裡將完整 request 封存在獨立 closure 中。
 
-    本函式不會把任何事件自動當成已核准。
+    每次發文都要重新呼叫本函式建立服務，
+    不可把結果當成所有玩家共用的全域物件。
     """
+
+    if not isinstance(request, DispatchRequest):
+        raise TypeError(
+            "必須提供 DispatchRequest"
+        )
 
     if not callable(load_approved_review):
         raise TypeError(
-            "缺少正式審核讀取函式"
+            "缺少可信審核讀取服務"
         )
 
     if not callable(load_verified_event):
         raise TypeError(
-            "缺少已驗證事件讀取函式"
+            "缺少可信事件讀取服務"
         )
 
-    # 使用各自的非同步函式包裝資料庫操作。
-    # 資料庫查詢仍是同步操作；大量留言時，
-    # 應由上層另行處理併發與速率限制。
+    def check_request(actual: DispatchRequest) -> None:
+        if actual != request:
+            raise PermissionError(
+                "不能跨事件、角色或網友共用發文服務"
+            )
+
+    async def load_approval(
+        actual: DispatchRequest,
+    ) -> CommentPublishApproval:
+        check_request(actual)
+        return await load_approved_review(actual)
+
+    async def load_event(
+        actual: DispatchRequest,
+    ) -> CommentEvent:
+        check_request(actual)
+        return await load_verified_event(actual)
 
     async def load_user(
-        request: DispatchRequest,
+        actual: DispatchRequest,
     ) -> dict:
+        check_request(actual)
+
         return read_active_virtual_user(
             guild_id=request.guild_id,
             character_id=request.character_id,
@@ -252,22 +298,35 @@ def create_dispatch_services(
     async def load_preview(
         event: CommentEvent,
         comment_id: str,
-    ):
-        raise RuntimeError(
-            "須使用帶有固定網友身分的預覽函式"
+    ) -> CommentPreview:
+        if event.event_id != request.event_id:
+            raise PermissionError(
+                "事件 ID 與綁定請求不同"
+            )
+
+        if comment_id != request.comment_id:
+            raise PermissionError(
+                "評論 ID 與綁定請求不同"
+            )
+
+        # 取得當下最新的固定網友關係。
+        user = read_active_virtual_user(
+            guild_id=request.guild_id,
+            character_id=request.character_id,
+            virtual_user_id=request.virtual_user_id,
         )
 
-    # 原始 DispatchServices.load_preview 只有
-    # event、comment_id，沒有 virtual_user_id。
-    # 這裡不猜測發文者身分，必須由下面的
-    # request-bound 服務取得網友關係後才配對。
-    #
-    # 因此回傳此介面前，由下方 closure 保存
-    # 本次經驗證的網友關係；不可跨請求共用。
+        return read_verified_comment_preview(
+            event=event,
+            comment_id=comment_id,
+            relation_type=str(
+                user["relation_type"]
+            ),
+        )
 
-    raise NotImplementedError(
-        "第 38 個 DispatchServices 介面缺少"
-        "發文者身分參數，需使用第 41 個檔案"
-        "的相容性檢查結果完成介面修正；"
-        "禁止跳過身分驗證直接發布。"
+    return DispatchServices(
+        load_approval=load_approval,
+        load_event=load_event,
+        load_user=load_user,
+        load_preview=load_preview,
     )
