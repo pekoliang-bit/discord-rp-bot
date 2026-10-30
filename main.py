@@ -203,78 +203,35 @@ FINAL_MODULES = (
     "modules.zz_owner_review_policy",
 )
 
+# 舉報服務檔不屬於 Discord Extension；只能透過整合入口載入。
+REPORT_EXTENSION = "modules.report_commands"
+REPORT_HELPER_PREFIX = "report_"
 
 
 def discover_extensions() -> list[str]:
-    """搜尋真正的 Discord 擴充模組。
-
-    只有在模組最外層定義 setup() 的檔案，
-    才會交給 bot.load_extension() 載入。
-
-    其餘核心運算、資料管理、付款及傳聞工具，
-    仍可被其他模組正常 import，
-    但不會被當成 Discord Cog 載入。
-    """
-    import ast
+    """自動搜尋 modules 資料夾。"""
 
     if not MODULES_DIR.is_dir():
         raise RuntimeError(
             "找不到 modules 資料夾。"
         )
 
-    extensions: list[str] = []
-
-    skipped: list[str] = []
+    extensions = []
 
     for path in sorted(
         MODULES_DIR.glob("*.py")
     ):
-        if (
-            path.name.startswith("_")
-            or path.stem in {
-                "test_character",
-                "test_content_manager",
-            }
-        ):
+        if path.name.startswith("_") or path.stem in {"test_character", "test_content_manager"}:
             continue
 
-        module_name = f"modules.{path.stem}"
+        # 服務層由 report_commands.py import，不能交給 Bot.load_extension()。
+        # 否則缺少 setup() 時會使整台機器人啟動中止。
+        if path.stem.startswith(REPORT_HELPER_PREFIX):
+            continue
 
-        try:
-            source = path.read_text(
-                encoding="utf-8-sig"
-            )
-
-            tree = ast.parse(
-                source,
-                filename=str(path),
-            )
-
-        except (SyntaxError, UnicodeError) as exc:
-            # 有語法錯誤的檔案不能悄悄忽略，
-            # 避免其他模組 import 時才崩潰。
-            raise RuntimeError(
-                f"模組語法檢查失敗：{module_name}"
-                f"\n{exc}"
-            ) from exc
-
-        has_setup = any(
-            isinstance(
-                node,
-                (
-                    ast.FunctionDef,
-                    ast.AsyncFunctionDef,
-                ),
-            )
-            and node.name == "setup"
-            for node in tree.body
+        extensions.append(
+            f"modules.{path.stem}"
         )
-
-        if not has_setup:
-            skipped.append(module_name)
-            continue
-
-        extensions.append(module_name)
 
     normal = [
         name
@@ -297,23 +254,18 @@ def discover_extensions() -> list[str]:
 
     ordered = normal + priority + final
 
+    # 舉報整合入口在正式核心模組之後載入；本身不註冊同名指令。
+    # 僅當檔案實際存在時啟用，讓尚未安裝舉報模組的部署也能運作。
+    if (MODULES_DIR / "report_commands.py").is_file():
+        ordered.append(REPORT_EXTENSION)
+
     if len(ordered) != len(set(ordered)):
         raise RuntimeError(
             "模組載入清單存在重複項目。"
         )
 
-    LOG.info(
-        "找到 %d 個 Discord 擴充模組",
-        len(ordered),
-    )
-
-    for module_name in skipped:
-        LOG.info(
-            "跳過非擴充模組：%s",
-            module_name,
-        )
-
     return ordered
+
 
 # ==================================================
 # 指令盤點
