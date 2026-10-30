@@ -437,33 +437,28 @@ def grant_stats(
                         f"{name} 扣除後不可低於 0。"
                     )
 
+                # SQLite 的 UPSERT 會先檢查 INSERT 的 CHECK 約束，
+                # 故不能以負數當 INSERT.value 再期待衝突分支修正。
+                # 先建立 0 值行，再以條件式 UPDATE 套用增減。
                 db.execute(
                     """
-                    INSERT INTO attributes (
-                        guild_id,
-                        character_id,
-                        name,
-                        value
-                    )
-                    VALUES (?, ?, ?, ?)
-
-                    ON CONFLICT(
-                        guild_id,
-                        character_id,
-                        name
-                    )
-
-                    DO UPDATE SET
-                        value=value+excluded.value,
-                        version=version+1
+                    INSERT OR IGNORE INTO attributes (
+                        guild_id, character_id, name, value
+                    ) VALUES (?, ?, ?, 0)
                     """,
-                    (
-                        gid,
-                        cid,
-                        name,
-                        amount,
-                    ),
+                    (gid, cid, name),
                 )
+                updated = db.execute(
+                    """
+                    UPDATE attributes
+                    SET value = value + ?, version = version + 1
+                    WHERE guild_id = ? AND character_id = ? AND name = ?
+                      AND value + ? >= 0
+                    """,
+                    (amount, gid, cid, name, amount),
+                )
+                if updated.rowcount != 1:
+                    raise ValueError(f"{name} 扣除後不可低於 0。")
 
             # 粉絲、大眾認知度、CP 好感度
             else:
@@ -503,33 +498,25 @@ def grant_stats(
 
                 db.execute(
                     """
-                    INSERT INTO rp_reward_metrics (
-                        guild_id,
-                        character_id,
-                        metric,
-                        subject_character_id,
-                        value
-                    )
-                    VALUES (?, ?, ?, ?, ?)
-
-                    ON CONFLICT(
-                        guild_id,
-                        character_id,
-                        metric,
-                        subject_character_id
-                    )
-
-                    DO UPDATE SET
-                        value=value+excluded.value
+                    INSERT OR IGNORE INTO rp_reward_metrics (
+                        guild_id, character_id, metric,
+                        subject_character_id, value
+                    ) VALUES (?, ?, ?, ?, 0)
                     """,
-                    (
-                        gid,
-                        cid,
-                        name,
-                        target,
-                        amount,
-                    ),
+                    (gid, cid, name, target),
                 )
+                updated = db.execute(
+                    """
+                    UPDATE rp_reward_metrics
+                    SET value = value + ?
+                    WHERE guild_id = ? AND character_id = ?
+                      AND metric = ? AND subject_character_id = ?
+                      AND value + ? >= 0
+                    """,
+                    (amount, gid, cid, name, target, amount),
+                )
+                if updated.rowcount != 1:
+                    raise ValueError(f"{name} 扣除後不可低於 0。")
 
         # 整筆交易成功後記錄來源。
         db.execute(
