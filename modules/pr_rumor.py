@@ -13,6 +13,7 @@ from core.database import get_connection, transaction
 from modules.company_business import _entity, has_permission, initialize as initialize_business
 from core.rumor_rule_registry import get_active_rules
 from core.rumor_case_creation import insert_case_and_snapshot
+from core.rumor_tier_policy import resolve_tier_in_transaction
 from core.rumor_plan_store import initialize as initialize_rule_snapshots
 
 LOG = logging.getLogger(__name__)
@@ -164,6 +165,7 @@ def create_rumor(guild_id, actor_id, business_id, character_id, source_type, tit
             raise ValueError("只能對已啟用角色建立傳聞。")
         if not rumor_allowed(db, gid, cid, category):
             raise PermissionError("這個角色已拒絕該類型的傳聞。")
+        tier = resolve_tier_in_transaction(db, gid, category, source_type)
         rid = insert_case_and_snapshot(
             db,
             guild_id=gid,
@@ -175,10 +177,11 @@ def create_rumor(guild_id, actor_id, business_id, character_id, source_type, tit
             description=description,
             category=category,
             settle_seconds=SETTLE_SECONDS,
+            tier=tier,
             rules=rules,
             trusted=True,
         )
-    return f"✅ 傳聞案件 #{rid} 已建立並鎖定規則版本；72 小時後進入結算流程。"
+    return f"✅ 傳聞案件 #{rid} 已建立（T{tier}），並鎖定規則版本；72 小時後進入結算流程。"
 
 
 def list_rumors(guild_id, actor_id):
@@ -258,7 +261,7 @@ class RumorModal(discord.ui.Modal, title="建立公司傳聞"):
         try:
             msg = create_rumor(interaction.guild_id, interaction.user.id, self.business.value,
                                self.target.value, self.source.value, self.headline.value, self.detail.value)
-        except (ValueError, PermissionError, TypeError) as exc:
+        except (ValueError, LookupError, PermissionError, TypeError) as exc:
             msg = f"❌ {exc}"
         await interaction.response.send_message(msg, ephemeral=True)
 
@@ -273,7 +276,7 @@ class ConsentModal(discord.ui.Modal, title="角色傳聞授權"):
                 raise ValueError("請輸入開啟或關閉。")
             msg = set_consent(interaction.guild_id, interaction.user.id,
                               self.character.value, self.enabled.value == "開啟")
-        except (ValueError, PermissionError, TypeError) as exc:
+        except (ValueError, LookupError, PermissionError, TypeError) as exc:
             msg = f"❌ {exc}"
         await interaction.response.send_message(msg, ephemeral=True)
 
