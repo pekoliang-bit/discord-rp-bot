@@ -587,11 +587,42 @@ def make_asset_detail_embed(actor, character_id):
     return embed
 
 
+def _biography_pages(biography, page_chars=1600):
+    """Split biography safely without truncating long text in Discord embeds."""
+    text = str(biography or "").strip()
+    if not text:
+        return []
+    pages = []
+    while text:
+        if len(text) <= page_chars:
+            pages.append(text)
+            break
+        split = text.rfind("\n", 0, page_chars + 1)
+        if split < page_chars // 2:
+            split = text.rfind("。", 0, page_chars + 1)
+            if split >= page_chars // 2:
+                split += 1
+        if split < page_chars // 2:
+            split = page_chars
+        pages.append(text[:split].strip())
+        text = text[split:].strip()
+    return pages
+
+
+def _character_detail_max_page(actor, character_id):
+    character = get_character(actor, character_id)
+    biography = safe_json(character["settings_json"]).get("public_biography")
+    pages = _biography_pages(biography)
+    # Short biographies fit at the bottom of page two; longer ones have their own pages.
+    return 1 if not pages or (len(pages) == 1 and len(pages[0]) <= 600) else 1 + len(pages)
+
+
 def make_character_embed(
     actor,
     character_id,
     *,
     private=False,
+    detail_page=0,
 ):
     character = get_character(
         actor,
@@ -675,7 +706,7 @@ def make_character_embed(
             f"{display_value(value)}{suffix}"
         )
 
-    if public_lines:
+    if detail_page == 0 and public_lines:
         add_field_chunks(
             embed,
             "🌐 公開人物設定",
@@ -686,13 +717,6 @@ def make_character_embed(
         "public_biography"
     )
 
-    if public_bio:
-        add_field_chunks(
-            embed,
-            "📖 公開生平",
-            [str(public_bio)],
-        )
-
     attributes = read_attributes(
         actor,
         character_id,
@@ -701,14 +725,17 @@ def make_character_embed(
     # 十三項屬性全部公開，包括目前沒有紀錄的 0 點屬性。
     general = [f"{name}：{attributes.get(name, 0)}" for name in ATTRIBUTE_GENERAL]
     talents = [f"{name}：{attributes.get(name, 0)}" for name in ATTRIBUTE_TALENT]
-    add_field_chunks(embed, "📈 商業與名氣（5 項）", general)
-    add_field_chunks(embed, "🎤 藝能與實力（8 項）", talents)
+    if detail_page == 0:
+        add_field_chunks(embed, "📈 商業與名氣（5 項）", general)
+    else:
+        add_field_chunks(embed, "🎤 藝能與實力（8 項）", talents)
     known = set(ATTRIBUTE_GENERAL + ATTRIBUTE_TALENT)
     others = [f"{name}：{value}" for name, value in attributes.items() if name not in known]
-    if others:
+    if detail_page == 1 and others:
         add_field_chunks(embed, "其他已登記屬性", others)
 
-    embed.add_field(
+    if detail_page == 1:
+        embed.add_field(
         name="🏳️ 所屬陣營",
         value=_panel_faction(actor, character_id),
         inline=False,
@@ -719,7 +746,8 @@ def make_character_embed(
         character_id,
     )
 
-    embed.add_field(
+    if detail_page == 1:
+        embed.add_field(
         name="📊 系統動態追蹤",
         value=(
             "❤️ 死忠粉絲數："
@@ -739,7 +767,8 @@ def make_character_embed(
         character_id,
     )
 
-    embed.add_field(
+    if detail_page == 1:
+        embed.add_field(
         name="💰 公開貨幣資產",
         value=(
             f"**{money['total']:,} 金幣**\n"
@@ -749,7 +778,7 @@ def make_character_embed(
         inline=False,
     )
 
-    if private:
+    if private and detail_page == 1:
         private_lines = [
             f"**{label}**："
             f"{display_value(settings.get(key), '未填寫')}"
@@ -761,6 +790,23 @@ def make_character_embed(
             "🔒 私人角色資料",
             private_lines,
         )
+
+    biography_pages = _biography_pages(public_bio)
+    biography_short = len(biography_pages) == 1 and len(biography_pages[0]) <= 600
+    if detail_page == 1 and biography_short:
+        embed.add_field(name="📖 公開生平", value=biography_pages[0], inline=False)
+    elif detail_page >= 2 and biography_pages:
+        biography_index = detail_page - 2
+        if biography_index < len(biography_pages):
+            # Each page is capped at 1600 characters, split into 800-character
+            # fields to stay below Discord's 1024-character embed field limit.
+            content = biography_pages[biography_index]
+            for idx in range(0, len(content), 800):
+                embed.add_field(
+                    name="📖 公開生平" if idx == 0 else "📖 公開生平（續）",
+                    value=content[idx:idx + 800],
+                    inline=False,
+                )
 
     portrait = settings.get(
         "portrait_url"
@@ -788,6 +834,8 @@ def make_character_embed(
             )
         )
 
+    max_page = _character_detail_max_page(actor, character_id)
+    embed.add_field(name="📄 面板頁數", value=f"{detail_page + 1}/{max_page + 1}｜使用 ◀️ ▶️ 切換", inline=False)
     return embed
 
 
@@ -1755,7 +1803,7 @@ class CharacterEditStartView(discord.ui.View):
 class CharacterDetailView(discord.ui.View):
     def __init__(self,actor,character_id,category,keyword,page):
         super().__init__(timeout=900)
-        self.actor=actor;self.character_id=int(character_id);self.category=category;self.keyword=keyword;self.page=page
+        self.actor=actor;self.character_id=int(character_id);self.category=category;self.keyword=keyword;self.page=page;self.detail_page=0;self.display_private=False
         character=get_character(actor,character_id)
         self.is_own_character=is_owner(actor,character) and character['status']=='active'
         self.private_button.disabled=not can_see_private(actor,character)
@@ -1773,10 +1821,12 @@ class CharacterDetailView(discord.ui.View):
         self.actor=actor;return True
     @discord.ui.button(label='🌐 公開',style=discord.ButtonStyle.secondary,row=0)
     async def public_button(self,interaction,button):
-        await interaction.response.edit_message(content=None,embed=make_character_embed(self.actor,self.character_id),view=self)
+        self.detail_page=0;self.display_private=False
+        await interaction.response.edit_message(content=None,embed=make_character_embed(self.actor,self.character_id,detail_page=self.detail_page),view=self)
     @discord.ui.button(label='🔒 私人',style=discord.ButtonStyle.primary,row=0)
     async def private_button(self,interaction,button):
-        await interaction.response.edit_message(content=None,embed=make_character_embed(self.actor,self.character_id,private=True),view=self)
+        self.detail_page=0;self.display_private=True
+        await interaction.response.edit_message(content=None,embed=make_character_embed(self.actor,self.character_id,private=True,detail_page=self.detail_page),view=self)
     @discord.ui.button(label='💰 資產',style=discord.ButtonStyle.secondary,row=0)
     async def asset_detail_button(self,interaction,button):
         await interaction.response.edit_message(content=None,embed=make_asset_detail_embed(self.actor,self.character_id),view=self)
@@ -1784,6 +1834,16 @@ class CharacterDetailView(discord.ui.View):
     async def inventory_button(self,interaction,button):
         require_inventory_owner(self.actor,self.character_id)
         await PanelSubView(self,'bag').show(interaction,'bag')
+    @discord.ui.button(label='◀️',style=discord.ButtonStyle.secondary,row=1)
+    async def previous_detail_page(self,interaction,button):
+        self.detail_page = max(0, self.detail_page - 1)
+        await interaction.response.edit_message(content=None,embed=make_character_embed(self.actor,self.character_id,private=self.display_private,detail_page=self.detail_page),view=self)
+
+    @discord.ui.button(label='▶️',style=discord.ButtonStyle.secondary,row=1)
+    async def next_detail_page(self,interaction,button):
+        self.detail_page = min(_character_detail_max_page(self.actor, self.character_id), self.detail_page + 1)
+        await interaction.response.edit_message(content=None,embed=make_character_embed(self.actor,self.character_id,private=self.display_private,detail_page=self.detail_page),view=self)
+
     @discord.ui.button(label='📖 攻略',style=discord.ButtonStyle.secondary,row=1)
     async def guides_button(self,interaction,button):
         await PanelSubView(self,'routes').show(interaction,'routes')
