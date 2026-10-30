@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from core.database import transaction, get_or_create_account, account_balance
 from core.economy import _payment
-from modules import faction_core, faction_shop_orders
+from modules import faction_core, faction_shop_orders, faction_shop_fulfillment
 
 MAJOR_THRESHOLD = 100_000
 
@@ -19,6 +19,7 @@ class FulfillmentUnavailable(ValueError):
 
 def initialize():
     faction_shop_orders.initialize()
+    faction_shop_fulfillment.initialize()
     with transaction() as db:
         db.execute("""CREATE TABLE IF NOT EXISTS faction_shop_approvals (
             guild_id TEXT NOT NULL, order_id INTEGER NOT NULL,
@@ -174,7 +175,7 @@ def settle_order(guild_id,order_id,actor_owner_id):
     """原子結算：扣款、庫存、權益交付、金庫池及結算紀錄。
 
     金庫訂單由任一已核准幹部觸發；錢包訂單由買家觸發。
-    僅 item 類型發放至 faction_shop_deliveries（可核對的道具權益）。
+    僅 item 類型透過既有 shop_inventory 正式發貨，並記錄交付流水。
     """
     gid=faction_core.ensure_guild(guild_id)
     initialize()
@@ -228,6 +229,13 @@ def settle_order(guild_id,order_id,actor_owner_id):
             raise ValueError('商品價格已變更，請重新下單。')
         if item['stock'] is not None and int(item['stock'])<qty:
             raise ValueError('商品庫存不足。')
+        # 必須先綁定有效商城商品；任何付款前先檢查。
+        binding=db.execute("""SELECT 1 FROM faction_shop_product_bindings b
+            JOIN shop_products p ON p.guild_id=b.guild_id AND p.id=b.shop_product_id
+            WHERE b.guild_id=? AND b.faction_item_id=? AND p.active=1
+              AND p.effect_kind='none'""",(gid,int(item['id']))).fetchone()
+        if not binding:
+            raise FulfillmentUnavailable('商品尚未綁定可發放的既有商城道具，禁止扣款。')
         # 零元商品不執行經濟系統正數轉帳。
         txid=None
         if total>0:
@@ -258,6 +266,9 @@ def settle_order(guild_id,order_id,actor_owner_id):
                 WHERE guild_id=? AND id=? AND pool>=?""",(total,gid,fid,total))
             if cur.rowcount!=1:
                 raise ValueError('陣營經費更新失敗。')
+        faction_shop_fulfillment.deliver_in_transaction(
+            db, gid, oid, cid, int(item['id']), qty
+        )
         db.execute("""INSERT INTO faction_shop_deliveries
             (guild_id,order_id,character_id,faction_id,item_id,quantity,effect_type,effect_key)
             VALUES (?,?,?,?,?,?,?,?)""",
