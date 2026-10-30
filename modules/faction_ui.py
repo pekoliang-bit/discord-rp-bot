@@ -1,4 +1,3 @@
-
 """Discord RP 陣營互動介面。
 
 檔案位置：modules/faction_ui.py
@@ -30,6 +29,7 @@ from core.economy import EconomyError
 
 from modules import faction_core
 from modules.faction_donations import donate
+from modules import faction_membership
 
 
 def owned_characters(guild_id, user_id):
@@ -52,7 +52,6 @@ def owned_characters(guild_id, user_id):
               AND c.status = 'active'
               AND c.character_type = 'player'
             ORDER BY c.id
-            LIMIT 25
             """,
             (
                 str(guild_id),
@@ -335,137 +334,145 @@ class JoinFaction(PrivateView):
 
 
 class CharacterSelection(PrivateView):
-    """玩家選擇自己名下的角色。"""
+    """角色選擇：支援分頁與已加入角色的退出、轉換。"""
 
-    def __init__(
-        self,
-        guild_id,
-        user_id,
-    ):
-        super().__init__(
-            guild_id,
-            user_id,
-        )
-
-        rows = owned_characters(
-            guild_id,
-            user_id,
-        )
-
-        if rows:
-
-            options = []
-
-            for row in rows:
-
-                status = (
-                    "已有陣營"
-                    if row["faction_id"] is not None
-                    else "尚未加入"
-                )
-
-                options.append(
-                    discord.SelectOption(
-                        label=str(
-                            row["name"]
-                        )[:90],
-                        description=(
-                            f"角色 #{row['id']}"
-                            f"｜{status}"
-                        ),
-                        value=str(row["id"]),
-                    )
-                )
-
+    def __init__(self, guild_id, user_id, page=0):
+        super().__init__(guild_id, user_id)
+        rows = owned_characters(guild_id, user_id)
+        self.page = max(0, min(page, max(0, (len(rows)-1)//25)))
+        page_rows = rows[self.page*25:(self.page+1)*25]
+        if page_rows:
             selector = discord.ui.Select(
-                placeholder="選擇自己的角色",
-                options=options,
+                placeholder="選擇角色",
+                options=[discord.SelectOption(
+                    label=str(row["name"])[:90],
+                    description=f"角色 #{row['id']}｜" + ("已有陣營" if row["faction_id"] is not None else "尚未加入"),
+                    value=str(row["id"]),
+                ) for row in page_rows],
             )
-
             selector.callback = self.choose
+            self.selector = selector
+            self.add_item(selector)
+        self.previous.disabled = self.page == 0
+        self.next_page.disabled = (self.page+1)*25 >= len(rows)
 
+    async def choose(self, interaction):
+        cid = int(self.selector.values[0])
+        row = next((r for r in owned_characters(self.guild_id, self.user_id)
+                    if int(r["id"]) == cid), None)
+        if row is None:
+            await interaction.response.send_message("角色已無法操作，請重新開啟 /陣營。", ephemeral=True)
+            return
+        if row["faction_id"] is None:
+            view = JoinFaction(self.guild_id, self.user_id, cid)
+            content = f"替角色 #{cid} 選擇初始陣營："
+        else:
+            view = MembershipActions(self.guild_id, self.user_id, cid, int(row["faction_id"]))
+            content = f"角色 #{cid} 已加入陣營，請選擇操作："
+        await interaction.response.edit_message(content=content, view=view)
+
+    @discord.ui.button(label="上一頁", style=discord.ButtonStyle.secondary, row=1)
+    async def previous(self, interaction, button):
+        await interaction.response.edit_message(content="請選擇角色：", view=CharacterSelection(self.guild_id, self.user_id, self.page-1))
+
+    @discord.ui.button(label="下一頁", style=discord.ButtonStyle.secondary, row=1)
+    async def next_page(self, interaction, button):
+        await interaction.response.edit_message(content="請選擇角色：", view=CharacterSelection(self.guild_id, self.user_id, self.page+1))
+
+    @discord.ui.button(label="返回首頁", style=discord.ButtonStyle.secondary, row=1)
+    async def back(self, interaction, button):
+        await interaction.response.edit_message(content=home_text(self.guild_id), view=FactionHome(self.guild_id, self.user_id))
+
+
+class MembershipActions(PrivateView):
+    def __init__(self, guild_id, user_id, character_id, old_faction_id):
+        super().__init__(guild_id, user_id)
+        self.character_id = character_id
+        self.old_faction_id = old_faction_id
+
+    @discord.ui.button(label="退出陣營", style=discord.ButtonStyle.danger)
+    async def leave(self, interaction, button):
+        await show_membership_confirmation(interaction, self.guild_id, self.user_id, self.character_id, self.old_faction_id, None)
+
+    @discord.ui.button(label="轉換陣營", style=discord.ButtonStyle.primary)
+    async def transfer(self, interaction, button):
+        await interaction.response.edit_message(content="請選擇目標陣營：", view=TransferFaction(self.guild_id, self.user_id, self.character_id, self.old_faction_id))
+
+    @discord.ui.button(label="返回角色列表", style=discord.ButtonStyle.secondary)
+    async def back(self, interaction, button):
+        await interaction.response.edit_message(content="請選擇角色：", view=CharacterSelection(self.guild_id, self.user_id))
+
+
+class TransferFaction(PrivateView):
+    def __init__(self, guild_id, user_id, character_id, old_faction_id):
+        super().__init__(guild_id, user_id)
+        self.character_id = character_id
+        self.old_faction_id = old_faction_id
+        choices = [discord.SelectOption(label=str(name)[:100], value=str(fid))
+                   for fid, name, _ in faction_core.list_factions(guild_id)
+                   if int(fid) != old_faction_id][:25]
+        if choices:
+            selector = discord.ui.Select(placeholder="選擇新陣營", options=choices)
+            selector.callback = self.choose
             self.selector = selector
             self.add_item(selector)
 
     async def choose(self, interaction):
+        await show_membership_confirmation(interaction, self.guild_id, self.user_id, self.character_id, self.old_faction_id, int(self.selector.values[0]))
 
-        cid = int(
-            self.selector.values[0]
-        )
+    @discord.ui.button(label="返回", style=discord.ButtonStyle.secondary, row=1)
+    async def back(self, interaction, button):
+        await interaction.response.edit_message(content="請選擇操作：", view=MembershipActions(self.guild_id, self.user_id, self.character_id, self.old_faction_id))
 
-        rows = owned_characters(
-            self.guild_id,
-            self.user_id,
-        )
 
-        row = next(
-            (
-                item
-                for item in rows
-                if int(item["id"]) == cid
-            ),
-            None,
-        )
-
-        if row is None:
-
-            await interaction.response.send_message(
-                "角色已無法操作，"
-                "請重新開啟 /陣營。",
-                ephemeral=True,
-            )
-
-            return
-
-        if row["faction_id"] is not None:
-
-            await interaction.response.send_message(
-                "此角色已加入陣營。\n"
-                "轉換或退出需要正式違約流程，"
-                "目前尚未開放。",
-                ephemeral=True,
-            )
-
-            return
-
-        safe_name = (
-            discord.utils.escape_markdown(
-                str(row["name"])
-            )
-        )
-
+async def show_membership_confirmation(interaction, guild_id, user_id, character_id, old_faction_id, new_faction_id):
+    try:
+        penalty = faction_membership.get_penalty(guild_id, old_faction_id)
+        if penalty is None:
+            raise ValueError("原陣營尚未設定退出規則，暫時不能退出或轉換。")
+        factions = {int(fid): name for fid, name, _ in faction_core.list_factions(guild_id)}
+        if old_faction_id not in factions or (new_faction_id is not None and new_faction_id not in factions):
+            raise ValueError("陣營資料已變更，請重新操作。")
+        old_name = discord.utils.escape_markdown(str(factions[old_faction_id]))
+        new_name = discord.utils.escape_markdown(str(factions[new_faction_id])) if new_faction_id is not None else "無（退出）"
         await interaction.response.edit_message(
-            content=(
-                f"替 **{safe_name}**"
-                f"（#{cid}）選擇陣營："
-            ),
-            view=JoinFaction(
-                self.guild_id,
-                self.user_id,
-                cid,
-            ),
+            content=(f"**確認陣營異動**\n角色：#{character_id}\n原陣營：{old_name}\n目標：{new_name}\n"
+                     f"**違約金：{penalty:,} 金幣**\n違約金進入原陣營金庫，不增加積分。\n"
+                     "請確認後才會扣款；若金額變動，交易將被拒絕。"),
+            view=MembershipConfirm(guild_id, user_id, character_id, old_faction_id, new_faction_id, penalty),
         )
+    except ValueError as exc:
+        await interaction.response.send_message(str(exc), ephemeral=True)
 
-    @discord.ui.button(
-        label="返回陣營首頁",
-        style=discord.ButtonStyle.secondary,
-        row=1,
-    )
-    async def back(
-        self,
-        interaction,
-        button,
-    ):
 
-        await interaction.response.edit_message(
-            content=home_text(
-                self.guild_id
-            ),
-            view=FactionHome(
-                self.guild_id,
-                self.user_id,
-            ),
-        )
+class MembershipConfirm(PrivateView):
+    def __init__(self, guild_id, user_id, character_id, old_faction_id, new_faction_id, penalty):
+        super().__init__(guild_id, user_id)
+        self.character_id = character_id
+        self.old_faction_id = old_faction_id
+        self.new_faction_id = new_faction_id
+        self.penalty = penalty
+
+    @discord.ui.button(label="確認退出／轉換", style=discord.ButtonStyle.danger)
+    async def confirm(self, interaction, button):
+        await interaction.response.defer(ephemeral=True)
+        try:
+            result = faction_membership.change_membership(
+                self.guild_id, self.character_id, self.user_id,
+                str(interaction.id), new_faction_id=self.new_faction_id,
+                expected_penalty=self.penalty,
+            )
+            await interaction.edit_original_response(
+                content=(f"陣營異動完成！違約金 {result['penalty']:,} 金幣，積分 +0。\n\n"
+                         + home_text(self.guild_id)),
+                view=FactionHome(self.guild_id, self.user_id),
+            )
+        except (ValueError, EconomyError) as exc:
+            await interaction.followup.send(f"操作失敗：{exc}", ephemeral=True)
+
+    @discord.ui.button(label="取消", style=discord.ButtonStyle.secondary)
+    async def cancel(self, interaction, button):
+        await interaction.response.edit_message(content="已取消陣營異動。", view=FactionHome(self.guild_id, self.user_id))
 
 
 class DonationModal(
@@ -579,6 +586,7 @@ class DonationCharacterSelection(PrivateView):
         self,
         guild_id,
         user_id,
+        page=0,
     ):
         super().__init__(
             guild_id,
@@ -594,7 +602,10 @@ class DonationCharacterSelection(PrivateView):
             if row["faction_id"] is not None
         ]
 
-        if rows:
+        self.page = max(0, min(page, max(0, (len(rows)-1)//25)))
+        page_rows = rows[self.page*25:(self.page+1)*25]
+
+        if page_rows:
 
             options = [
                 discord.SelectOption(
@@ -604,7 +615,7 @@ class DonationCharacterSelection(PrivateView):
                     ),
                     value=str(row["id"]),
                 )
-                for row in rows
+                for row in page_rows
             ]
 
             selector = discord.ui.Select(
@@ -616,6 +627,9 @@ class DonationCharacterSelection(PrivateView):
 
             self.selector = selector
             self.add_item(selector)
+
+        self.previous.disabled = self.page == 0
+        self.next_page.disabled = (self.page+1)*25 >= len(rows)
 
     async def choose(self, interaction):
 
@@ -651,6 +665,14 @@ class DonationCharacterSelection(PrivateView):
             )
         )
 
+    @discord.ui.button(label="上一頁", style=discord.ButtonStyle.secondary, row=1)
+    async def previous(self, interaction, button):
+        await interaction.response.edit_message(content="選擇供奉角色：", view=DonationCharacterSelection(self.guild_id, self.user_id, self.page-1))
+
+    @discord.ui.button(label="下一頁", style=discord.ButtonStyle.secondary, row=1)
+    async def next_page(self, interaction, button):
+        await interaction.response.edit_message(content="選擇供奉角色：", view=DonationCharacterSelection(self.guild_id, self.user_id, self.page+1))
+
     @discord.ui.button(
         label="返回陣營首頁",
         style=discord.ButtonStyle.secondary,
@@ -677,7 +699,7 @@ class FactionHome(PrivateView):
     """統一的 /陣營 首頁。"""
 
     @discord.ui.button(
-        label="我的角色／加入陣營",
+        label="我的角色／加入／退出／轉換",
         style=discord.ButtonStyle.primary,
         row=0,
     )
@@ -703,8 +725,8 @@ class FactionHome(PrivateView):
 
         await interaction.response.edit_message(
             content=(
-                "請選擇要加入陣營的角色。\n"
-                "已有陣營的角色不可重複加入。"
+                "請選擇要操作的角色。\n"
+                "已加入陣營的角色可以退出或轉換。"
             ),
             view=CharacterSelection(
                 self.guild_id,
