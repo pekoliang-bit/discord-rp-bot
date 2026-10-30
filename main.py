@@ -25,6 +25,7 @@ TEST_GUILD_ID（選填）
 from __future__ import annotations
 
 import asyncio
+import ast
 import logging
 import os
 from collections import Counter
@@ -224,14 +225,28 @@ def discover_extensions() -> list[str]:
         if path.name.startswith("_") or path.stem in {"test_character", "test_content_manager"}:
             continue
 
-        # 服務層由 report_commands.py import，不能交給 Bot.load_extension()。
-        # 否則缺少 setup() 時會使整台機器人啟動中止。
-        if path.stem.startswith(REPORT_HELPER_PREFIX):
+        # 僅將具有模組層級 setup() 的檔案當作 Discord extension。
+        # 服務模組由其他 Cog import，不應直接交給 load_extension()。
+        # 使用 AST 靜態檢查，不執行任何模組頂層程式碼。
+        try:
+            source = path.read_text(encoding="utf-8-sig")
+            tree = ast.parse(source, filename=str(path))
+        except (OSError, UnicodeError, SyntaxError) as exc:
+            # 不隱藏有語法問題的指令模組：讓正式載入階段顯示錯誤。
+            LOG.error("模組無法靜態檢查，保留載入以顯示錯誤：%s (%s)", path.name, exc)
+            extensions.append(f"modules.{path.stem}")
             continue
 
-        extensions.append(
-            f"modules.{path.stem}"
+        has_setup = any(
+            isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+            and node.name == "setup"
+            for node in tree.body
         )
+        if not has_setup:
+            LOG.info("略過非 Discord 擴充模組：%s", path.name)
+            continue
+
+        extensions.append(f"modules.{path.stem}")
 
     normal = [
         name
