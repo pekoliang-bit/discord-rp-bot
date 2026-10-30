@@ -14,6 +14,7 @@ from modules.company_business import _entity, has_permission, initialize as init
 from core.rumor_rule_registry import get_active_rules
 from core.rumor_case_creation import insert_case_and_snapshot
 from core.rumor_tier_policy import resolve_tier_in_transaction
+from core.rumor_complexity_policy import resolve_complexity_in_transaction
 from core.rumor_plan_store import initialize as initialize_rule_snapshots
 
 LOG = logging.getLogger(__name__)
@@ -166,6 +167,7 @@ def create_rumor(guild_id, actor_id, business_id, character_id, source_type, tit
         if not rumor_allowed(db, gid, cid, category):
             raise PermissionError("這個角色已拒絕該類型的傳聞。")
         tier = resolve_tier_in_transaction(db, gid, category, source_type)
+        complexity_policy = resolve_complexity_in_transaction(db, gid, category, source_type)
         rid = insert_case_and_snapshot(
             db,
             guild_id=gid,
@@ -178,10 +180,12 @@ def create_rumor(guild_id, actor_id, business_id, character_id, source_type, tit
             category=category,
             settle_seconds=SETTLE_SECONDS,
             tier=tier,
+            complexity=complexity_policy.complexity,
+            complexity_version=complexity_policy.version,
             rules=rules,
             trusted=True,
         )
-    return f"✅ 傳聞案件 #{rid} 已建立（T{tier}），並鎖定規則版本；72 小時後進入結算流程。"
+    return f"✅ 傳聞案件 #{rid} 已建立（T{tier}／複雜度 {complexity_policy.complexity}），並鎖定規則版本；72 小時後進入結算流程。"
 
 
 def list_rumors(guild_id, actor_id):
