@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import time
+import logging
 
 import discord
 from discord.ext import commands, tasks
 
 from core.database import get_connection, transaction
 from modules.company_business import _entity, has_permission, initialize as initialize_business
+
+LOG = logging.getLogger(__name__)
 
 SETTLE_SECONDS = 72 * 3600
 PLAYER_SOURCES = {"玩家", "造謠"}
@@ -180,15 +183,39 @@ def list_rumors(guild_id, actor_id):
 
 
 def settle_due(now=None):
+    """透過唯一的公關結算入口處理到期案件，避免先結案卻漏寫評級。
+
+    每件案件各自使用交易；單一案件失敗不阻斷其他案件。
+    此函式不發放金幣、行動值或屬性獎勵，後續須接正式金流帳本。
+    """
     initialize()
-    now = int(now or time.time())
-    with transaction() as db:
-        ids = db.execute("""SELECT id FROM rp_company_rumors
-            WHERE status='active' AND settle_at<=?""", (now,)).fetchall()
-        db.execute("""UPDATE rp_company_rumors
-            SET status='settled',settled_at=?
-            WHERE status='active' AND settle_at<=?""", (now, now))
-    return len(ids)
+    timestamp = int(time.time()) if now is None else int(now)
+    # 放在函式內導入，避免 pr_rumor 與 rumor_public_relations 循環導入。
+    from modules.rumor_public_relations import settle_one_case
+
+    with get_connection() as db:
+        due = db.execute("""SELECT guild_id,id FROM rp_company_rumors
+            WHERE status='active' AND settle_at<=?
+            ORDER BY settle_at ASC,id ASC""", (timestamp,)).fetchall()
+        cases = [(str(row['guild_id']), int(row['id'])) for row in due]
+
+    completed = 0
+    for gid, rid in cases:
+        try:
+            settle_one_case(gid, rid, now=timestamp)
+        except ValueError as exc:
+            # 另一個工作者可能已完成該案件；其餘異常保留狀態供重試。
+            with get_connection() as db:
+                row = db.execute("""SELECT status FROM rp_company_rumors
+                    WHERE guild_id=? AND id=?""", (gid, rid)).fetchone()
+            if row is not None and row['status'] == 'settled':
+                continue
+            LOG.warning('傳聞 #%s（伺服器 %s）結算未完成：%s', rid, gid, exc)
+        except Exception:
+            LOG.exception('傳聞 #%s（伺服器 %s）結算失敗，維持原狀等待重試', rid, gid)
+        else:
+            completed += 1
+    return completed
 
 
 class RumorModal(discord.ui.Modal, title="建立公司傳聞"):
