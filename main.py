@@ -253,6 +253,7 @@ def discover_extensions() -> list[str]:
         for name in extensions
         if name not in PRIORITY_MODULES
         and name not in FINAL_MODULES
+        and name != REPORT_EXTENSION
     ]
 
     priority = [
@@ -271,7 +272,10 @@ def discover_extensions() -> list[str]:
 
     # 舉報整合入口在正式核心模組之後載入；本身不註冊同名指令。
     # 僅當檔案實際存在時啟用，讓尚未安裝舉報模組的部署也能運作。
-    if (MODULES_DIR / "report_commands.py").is_file():
+    if (
+        (MODULES_DIR / "report_commands.py").is_file()
+        and REPORT_EXTENSION not in ordered
+    ):
         ordered.append(REPORT_EXTENSION)
 
     if len(ordered) != len(set(ordered)):
