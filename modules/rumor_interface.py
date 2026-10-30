@@ -111,6 +111,9 @@ FORM_DEFINITIONS = {
 class RumorActionSelect(discord.ui.Select):
     def __init__(self):
         options = [
+            discord.SelectOption(label="建立傳聞", value="create"),
+            discord.SelectOption(label="查看案件清單", value="records"),
+            discord.SelectOption(label="整體傳聞授權", value="consent"),
             discord.SelectOption(label="設定分類授權", value="category"),
             discord.SelectOption(label="登記證據", value="evidence"),
             discord.SelectOption(label="基礎調查", value="investigate"),
@@ -126,6 +129,23 @@ class RumorActionSelect(discord.ui.Select):
 
     async def callback(self, interaction):
         key = self.values[0]
+        if key == "create":
+            await interaction.response.send_modal(pr_rumor.RumorModal())
+            return
+        if key == "consent":
+            await interaction.response.send_modal(pr_rumor.ConsentModal())
+            return
+        if key == "records":
+            try:
+                rows = pr_rumor.list_rumors(interaction.guild_id, interaction.user.id)
+                msg = "\n".join(
+                    f"#{r['id']}｜角色#{r['character_id']}｜{r['title']}｜{r['status']}"
+                    for r in rows
+                ) or "目前沒有可查看的案件。"
+            except (ValueError, LookupError, PermissionError) as exc:
+                msg = f"❌ {exc}"
+            await interaction.response.send_message(msg[:1900], ephemeral=True)
+            return
         title, fields = FORM_DEFINITIONS[key]
         await interaction.response.send_modal(GenericRumorModal(title, fields))
 
