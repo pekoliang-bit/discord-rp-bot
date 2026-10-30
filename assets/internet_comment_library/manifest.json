@@ -1,0 +1,90 @@
+
+{
+  "catalog_version": "reviewed-419-split-v1",
+  "description": "Discord RP 已審核網路評論庫",
+  "status": "approved",
+  "expected_approved_count": 419,
+  "initial_target_per_category": 80,
+  "category_count": 12,
+  "first_comment_id": "C001",
+  "last_comment_id": "C420",
+  "next_comment_id": "C421",
+  "preserved_ids": [
+    "C074"
+  ],
+  "excluded_ids": [
+    "C300"
+  ],
+  "parts": [
+    {
+      "file": "comments_part_01.json",
+      "part": 1,
+      "count": 50,
+      "first_id": "C001",
+      "last_id": "C050"
+    },
+    {
+      "file": "comments_part_02.json",
+      "part": 2,
+      "count": 50,
+      "first_id": "C051",
+      "last_id": "C100"
+    },
+    {
+      "file": "comments_part_03.json",
+      "part": 3,
+      "count": 50,
+      "first_id": "C101",
+      "last_id": "C150"
+    },
+    {
+      "file": "comments_part_04.json",
+      "part": 4,
+      "count": 50,
+      "first_id": "C151",
+      "last_id": "C200"
+    },
+    {
+      "file": "comments_part_05.json",
+      "part": 5,
+      "count": 50,
+      "first_id": "C201",
+      "last_id": "C250"
+    },
+    {
+      "file": "comments_part_06.json",
+      "part": 6,
+      "count": 50,
+      "first_id": "C251",
+      "last_id": "C301"
+    },
+    {
+      "file": "comments_part_07.json",
+      "part": 7,
+      "count": 50,
+      "first_id": "C302",
+      "last_id": "C351"
+    },
+    {
+      "file": "comments_part_08.json",
+      "part": 8,
+      "count": 50,
+      "first_id": "C352",
+      "last_id": "C401"
+    },
+    {
+      "file": "comments_part_09.json",
+      "part": 9,
+      "count": 19,
+      "first_id": "C402",
+      "last_id": "C420"
+    }
+  ],
+  "approval_policy": {
+    "new_templates_require_owner_approval": true,
+    "preserve_original_text": true,
+    "allow_reusing_deleted_ids": false,
+    "allow_unauthorized_speaker_impersonation": false,
+    "automatic_discord_posting": false
+  }
+}
