@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import time
 import logging
+import os
 
 import discord
 from discord.ext import commands, tasks
@@ -183,38 +184,53 @@ def list_rumors(guild_id, actor_id):
 
 
 def settle_due(now=None):
-    """透過唯一的公關結算入口處理到期案件，避免先結案卻漏寫評級。
+    """使用唯一正式結案入口；不再執行舊的評級直結案流程。
 
-    每件案件各自使用交易；單一案件失敗不阻斷其他案件。
-    此函式不發放金幣、行動值或屬性獎勵，後續須接正式金流帳本。
+    此處不生成獎懲方案，也不替歷史案件補發。
+    必須先由受信任的案件流程保存規則快照與正式獎懲方案。
+    未準備完成的案件保持 active，供管理員檢查與後續重試。
+
+    注意：只有在 RUMOR_FINALIZATION_ENABLED=1 時定時任務才會呼叫本函式。
+    手動呼叫此函式也必須明確指定 enabled=True。
     """
+    return run_locked_due(now=now, enabled=False)
+
+
+def run_locked_due(now=None, *, enabled=False, limit=100):
+    """受信任的排程入口；回傳已成功結案的案件數。"""
+    if not enabled:
+        LOG.info('傳聞正式結算未啟用；略過到期案件（不修改資料）')
+        return 0
+
     initialize()
     timestamp = int(time.time()) if now is None else int(now)
-    # 放在函式內導入，避免 pr_rumor 與 rumor_public_relations 循環導入。
-    from modules.rumor_public_relations import settle_one_case
+    limit = max(1, min(int(limit), 500))
+    from core.rumor_finalization import finalize_locked_case
 
     with get_connection() as db:
-        due = db.execute("""SELECT guild_id,id FROM rp_company_rumors
-            WHERE status='active' AND settle_at<=?
-            ORDER BY settle_at ASC,id ASC""", (timestamp,)).fetchall()
+        due = db.execute(
+            """SELECT guild_id,id FROM rp_company_rumors
+               WHERE status='active' AND settle_at<=?
+               ORDER BY settle_at ASC,id ASC LIMIT ?""",
+            (timestamp, limit),
+        ).fetchall()
         cases = [(str(row['guild_id']), int(row['id'])) for row in due]
 
     completed = 0
     for gid, rid in cases:
         try:
-            settle_one_case(gid, rid, now=timestamp)
-        except ValueError as exc:
-            # 另一個工作者可能已完成該案件；其餘異常保留狀態供重試。
-            with get_connection() as db:
-                row = db.execute("""SELECT status FROM rp_company_rumors
-                    WHERE guild_id=? AND id=?""", (gid, rid)).fetchone()
-            if row is not None and row['status'] == 'settled':
-                continue
-            LOG.warning('傳聞 #%s（伺服器 %s）結算未完成：%s', rid, gid, exc)
+            result = finalize_locked_case(gid, rid, trusted=True, now=timestamp)
+            if result.state == 'settled':
+                completed += 1
+        except (ValueError, LookupError, PermissionError) as exc:
+            LOG.warning(
+                '傳聞 #%s（伺服器 %s）缺少正式結算條件，保持待處理：%s',
+                rid, gid, exc,
+            )
         except Exception:
-            LOG.exception('傳聞 #%s（伺服器 %s）結算失敗，維持原狀等待重試', rid, gid)
-        else:
-            completed += 1
+            LOG.exception(
+                '傳聞 #%s（伺服器 %s）結算失敗，等待後續重試', rid, gid
+            )
     return completed
 
 
@@ -286,7 +302,9 @@ class RumorScheduler(commands.Cog):
 
     @tasks.loop(hours=1)
     async def check_due(self):
-        settle_due()
+        if os.getenv("RUMOR_FINALIZATION_ENABLED", "0") != "1":
+            return
+        run_locked_due(enabled=True)
 
     @check_due.before_loop
     async def before_check(self):
