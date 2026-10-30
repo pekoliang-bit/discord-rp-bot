@@ -11,6 +11,9 @@ from discord.ext import commands, tasks
 
 from core.database import get_connection, transaction
 from modules.company_business import _entity, has_permission, initialize as initialize_business
+from core.rumor_rule_registry import get_active_rules
+from core.rumor_case_creation import insert_case_and_snapshot
+from core.rumor_plan_store import initialize as initialize_rule_snapshots
 
 LOG = logging.getLogger(__name__)
 
@@ -148,6 +151,10 @@ def create_rumor(guild_id, actor_id, business_id, character_id, source_type, tit
         raise ValueError("未知傳聞分類。")
     if not (1 <= len(title) <= 80 and 1 <= len(description) <= 500):
         raise ValueError("標題需 1～80 字，內容需 1～500 字。")
+    # 規則讀取與快照表初始化在案件交易前完成；
+    # 真正寫入案件與快照仍在下方同一筆 transaction 中。
+    initialize_rule_snapshots()
+    rules = get_active_rules(gid)  # 未啟用官方規則就拒絕建案
     with transaction() as db:
         _entity(db, gid, bid)
         if not has_permission(db, gid, bid, uid, "public_relations"):
@@ -157,15 +164,21 @@ def create_rumor(guild_id, actor_id, business_id, character_id, source_type, tit
             raise ValueError("只能對已啟用角色建立傳聞。")
         if not rumor_allowed(db, gid, cid, category):
             raise PermissionError("這個角色已拒絕該類型的傳聞。")
-        now = int(time.time())
-        cur = db.execute("""INSERT INTO rp_company_rumors
-            (guild_id,business_id,character_id,source_type,creator_id,title,description,created_at,settle_at)
-            VALUES (?,?,?,?,?,?,?,?,?)""",
-            (gid, bid, cid, source_type, uid, title, description, now, now + SETTLE_SECONDS))
-        db.execute("""INSERT INTO rp_rumor_case_meta
-            (guild_id,rumor_id,category,rule_version) VALUES (?,?,?,1)""",
-            (gid, cur.lastrowid, category))
-    return f"✅ 傳聞案件 #{cur.lastrowid} 已建立，將於 72 小時後結案。"
+        rid = insert_case_and_snapshot(
+            db,
+            guild_id=gid,
+            business_id=bid,
+            character_id=cid,
+            source_type=source_type,
+            creator_id=uid,
+            title=title,
+            description=description,
+            category=category,
+            settle_seconds=SETTLE_SECONDS,
+            rules=rules,
+            trusted=True,
+        )
+    return f"✅ 傳聞案件 #{rid} 已建立並鎖定規則版本；72 小時後進入結算流程。"
 
 
 def list_rumors(guild_id, actor_id):
