@@ -1,33 +1,18 @@
 
 """傳聞公關評級準備器。
 
-安裝：core/rumor_grade_preparation.py
+位置：core/rumor_grade_preparation.py
 
-讀取：
-- 案件已鎖定的 T1～T5 等級
-- 建案時的官方評級門檻版本
-- 公關行動累積分數
-- 熱度快照
-- 公關能力與屬性版本
-- 案件複雜度及其來源版本
-- 已保存的評級修正
-
-本版只提供預覽，不發獎、不結案。
-評級修正數值仍須由正式換算規則驗證。
+只負責驗證與預覽，不直接發獎或結案。
 """
-
 from __future__ import annotations
 
 from dataclasses import dataclass
 
 from core.database import get_connection
 from core.rumor_grade_policy import load_grade_policy
-from core.rumor_pr_score_summary import (
-    summarize_pr_score,
-)
-from core.rumor_heat_snapshot import (
-    load_heat_snapshot,
-)
+from core.rumor_pr_score_summary import summarize_pr_score
+from core.rumor_heat_snapshot import load_heat_snapshot
 from core.rumor_grade_adjustments import (
     load_adjustment,
     adjusted_score,
@@ -36,6 +21,10 @@ from core.rumor_grade_service import calculate_grade
 from core.rumor_plan_store import load_case_rules
 from core.rumor_pr_ability_source import read_pr_ability
 from core.rumor_complexity_source import read_complexity
+from core.rumor_scoring_policy import (
+    read_case_policy_in_transaction,
+    calculate_adjustments,
+)
 
 
 @dataclass(frozen=True)
@@ -44,20 +33,16 @@ class GradePreparation:
     rumor_id: int
     character_id: int
     policy_version: str
-
     base_score: int
     ability_bonus: int
     complexity_penalty: int
     heat_modifier: int
-
     score: int
     heat: int
     tier: int
     grade: str
-
     locked: bool
     plan_fingerprint: str | None
-
     pr_ability_value: int
     pr_ability_version: int
     complexity: int
@@ -80,7 +65,7 @@ def prepare_rumor_grade(
 
     if lock:
         raise RuntimeError(
-            "正式評級鎖定尚未通過跨系統驗證，禁止發獎"
+            "正式評級尚未完成整合驗證，禁止發獎"
         )
 
     gid = str(guild_id).strip()
@@ -90,9 +75,7 @@ def prepare_rumor_grade(
         or type(rumor_id) is not int
         or rumor_id <= 0
     ):
-        raise ValueError(
-            "伺服器或案件編號無效"
-        )
+        raise ValueError("伺服器或案件編號無效")
 
     with get_connection() as db:
         case = db.execute(
@@ -105,9 +88,7 @@ def prepare_rumor_grade(
         ).fetchone()
 
         if case is None or case["status"] != "active":
-            raise ValueError(
-                "案件不存在或不是進行中"
-            )
+            raise ValueError("案件不存在或不是進行中")
 
         cid = int(case["character_id"])
 
@@ -137,58 +118,67 @@ def prepare_rumor_grade(
     tier = int(tier_row["tier"])
 
     if tier not in (1, 2, 3, 4, 5):
-        raise RuntimeError(
-            "案件 T 級資料損壞"
-        )
+        raise RuntimeError("案件 T 級資料損壞")
 
-    # 舊案件不能使用新版規則取代原始快照。
-    load_case_rules(
-        gid,
-        rumor_id,
-    )
+    load_case_rules(gid, rumor_id)
 
     policy = load_grade_policy(
-        gid,
-        policy_row["version"],
+        gid, policy_row["version"]
     )
 
     summary = summarize_pr_score(
-        gid,
-        rumor_id,
-        cid,
+        gid, rumor_id, cid
     )
 
-    heat = load_heat_snapshot(
-        gid,
-        rumor_id,
+    heat = load_heat_snapshot(gid, rumor_id)
+
+    ability = read_pr_ability(gid, cid)
+
+    complexity = read_complexity(gid, rumor_id)
+
+    adjustment = load_adjustment(
+        gid, rumor_id, cid
     )
 
-    ability = read_pr_ability(
-        gid,
-        cid,
+    # 核對案件建立時鎖定的換算公式。
+    with get_connection() as db:
+        scoring_policy = (
+            read_case_policy_in_transaction(
+                db, gid, rumor_id
+            )
+        )
+
+    expected = calculate_adjustments(
+        scoring_policy,
+        ability=ability.value,
+        complexity=complexity.complexity,
+        heat=heat.heat,
     )
 
-    complexity = read_complexity(
-        gid,
-        rumor_id,
+    actual = (
+        adjustment.ability_bonus,
+        adjustment.complexity_penalty,
+        adjustment.heat_modifier,
     )
 
-    adjust = load_adjustment(
-        gid,
-        rumor_id,
-        cid,
-    )
+    if actual != expected:
+        raise RuntimeError(
+            "公關評級修正與鎖定政策不一致"
+        )
 
-    # 已保存的修正目前尚未核對官方換算來源。
-    # 此結果只能用於預覽，不能正式結算。
+    if not adjustment.source_version.startswith(
+        scoring_policy.version + ":"
+    ):
+        raise RuntimeError(
+            "評級修正來源並非本案鎖定政策"
+        )
+
     score = adjusted_score(
-        summary.score,
-        adjust,
+        summary.score, adjustment
     )
 
     grade = calculate_grade(
-        score,
-        policy.thresholds,
+        score, policy.thresholds
     )
 
     return GradePreparation(
@@ -197,9 +187,9 @@ def prepare_rumor_grade(
         character_id=cid,
         policy_version=policy.version,
         base_score=summary.score,
-        ability_bonus=adjust.ability_bonus,
-        complexity_penalty=adjust.complexity_penalty,
-        heat_modifier=adjust.heat_modifier,
+        ability_bonus=adjustment.ability_bonus,
+        complexity_penalty=adjustment.complexity_penalty,
+        heat_modifier=adjustment.heat_modifier,
         score=score,
         heat=heat.heat,
         tier=tier,
