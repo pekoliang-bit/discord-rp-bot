@@ -974,6 +974,96 @@ class FactionShopProductSelect(discord.ui.Select):
             self.guild_id, self.user_id, self.character_id, int(self.values[0])))
 
 
+# 第七階段：金庫採購審核入口，不額外註冊頂層斜線指令。
+class FactionTreasuryReviewSelect(discord.ui.Select):
+    def __init__(self, guild_id, user_id, character_id, orders):
+        opts = [discord.SelectOption(
+            label=f"訂單 #{int(o['id'])}｜{int(o['total_price']):,} 金幣"[:100],
+            value=str(o['id']),
+            description=f"角色 #{o['character_id']}｜{str(o['shop_type'])}"[:100]
+        ) for o in orders[:25]]
+        super().__init__(placeholder="選擇待審金庫訂單", options=opts, row=0)
+        self.guild_id, self.user_id, self.character_id = guild_id, user_id, character_id
+
+    async def callback(self, interaction):
+        if interaction.user.id != self.user_id:
+            return await interaction.response.send_message("只能操作自己的審核面板。", ephemeral=True)
+        view = FactionTreasuryOrderReview(self.guild_id, self.user_id, self.character_id, int(self.values[0]))
+        await interaction.response.edit_message(content=view.description(), view=view)
+
+
+class FactionTreasuryOrderReview(PrivateView):
+    def __init__(self, guild_id, user_id, character_id, order_id):
+        super().__init__(guild_id, user_id)
+        self.character_id, self.order_id = int(character_id), int(order_id)
+        for name, action, style in [
+            ("批准", "approve", discord.ButtonStyle.success),
+            ("拒絕", "reject", discord.ButtonStyle.danger),
+            ("核准後結算", "settle", discord.ButtonStyle.primary),
+        ]:
+            b=discord.ui.Button(label=name, style=style)
+            async def act(interaction, operation=action):
+                from modules import faction_shop_payments as pay
+                try:
+                    if operation == "settle":
+                        result=pay.settle_order(self.guild_id,self.order_id,self.user_id)
+                        message=f"訂單 #{self.order_id} 已結算：{result}"
+                    else:
+                        result=pay.review_treasury_order(self.guild_id,self.order_id,self.character_id,self.user_id,operation)
+                        message=f"訂單 #{self.order_id} 審核完成：{operation}。目前狀態：{result}"
+                    await interaction.response.edit_message(content=message,view=None)
+                except (ValueError,KeyError) as exc:
+                    await interaction.response.send_message(str(exc),ephemeral=True)
+            b.callback=act
+            self.add_item(b)
+        back=discord.ui.Button(label="返回經費情況", row=1)
+        async def back_callback(interaction):
+            panel=MyFactionPanel(self.guild_id,self.user_id,self.character_id,"funds")
+            await interaction.response.edit_message(content=panel.render(),view=panel)
+        back.callback=back_callback
+        self.add_item(back)
+
+    def description(self):
+        from modules import faction_shop_payments as pay
+        status=pay.payment_status(self.guild_id,self.order_id)
+        return (f"**⚖️ 金庫採購審核｜訂單 #{self.order_id}**\n"
+                f"金額：{status['total_price']:,} 金幣\n"
+                f"狀態：{status['status']}｜已批准：{status['approvals']}\n"
+                "審核與付款必須通過角色歸屬、雙人核准及商品交付檢查；申請人不可自審。")
+
+
+class FactionTreasuryReviewList(PrivateView):
+    def __init__(self,guild_id,user_id,character_id,faction_id):
+        super().__init__(guild_id,user_id)
+        self.character_id = int(character_id)
+        from modules import faction_shop_payments as pay
+        pay.initialize()
+        with get_connection() as db:
+            orders=[dict(o) for o in db.execute(
+                """SELECT o.*,i.shop_type FROM faction_shop_orders o
+                   JOIN faction_shop_items i ON i.guild_id=o.guild_id AND i.id=o.item_id
+                   WHERE o.guild_id=? AND o.faction_id=? AND o.currency='treasury'
+                   AND o.status='pending_review' AND NOT EXISTS (
+                       SELECT 1 FROM faction_shop_settlements s
+                       WHERE s.guild_id=o.guild_id AND s.order_id=o.id)
+                   ORDER BY o.id DESC LIMIT 25""",
+                (str(guild_id),int(faction_id))).fetchall()]
+        if orders:
+            self.add_item(FactionTreasuryReviewSelect(guild_id,user_id,character_id,orders))
+        back=discord.ui.Button(label="返回經費情況",row=1)
+        async def back_callback(interaction):
+            panel=MyFactionPanel(guild_id,user_id,character_id,"funds")
+            await interaction.response.edit_message(content=panel.render(),view=panel)
+        back.callback=back_callback
+        self.add_item(back)
+        self.orders=orders
+
+    def description(self):
+        return ("**⚖️ 待審金庫採購**\n"
+                + (f"目前有 {len(self.orders)} 筆待處理訂單（最多顯示 25 筆）。" if self.orders else "目前沒有待審訂單。")
+                + "\n只有當期老大、副手能執行審核；重大支出需兩人同意。")
+
+
 # 新版 /陣營：依角色顯示自己的陣營；原有入退轉 UI 保留但不再從首頁提供。
 class MyFactionPanel(PrivateView):
     def __init__(self, guild_id, user_id, character_id, section="home", page=0, shop_type="general"):
@@ -1032,6 +1122,21 @@ class MyFactionPanel(PrivateView):
                         await interaction.response.send_message(str(exc),ephemeral=True)
                 b2.callback=contribute_item
                 self.add_item(b2)
+                from modules.faction_shop import get_current_officers
+                try:
+                    _row, _fid=self.current_faction()
+                    if self.character_id in get_current_officers(self.guild_id,_fid):
+                        review=discord.ui.Button(label="金庫採購審核",style=discord.ButtonStyle.primary,row=1)
+                        async def review_click(interaction):
+                            try:
+                                panel=FactionTreasuryReviewList(self.guild_id,self.user_id,self.character_id,_fid)
+                                await interaction.response.edit_message(content=panel.description(),view=panel)
+                            except (ValueError,KeyError) as exc:
+                                await interaction.response.send_message(str(exc),ephemeral=True)
+                        review.callback=review_click
+                        self.add_item(review)
+                except (ValueError,KeyError):
+                    pass
             if section in ("rank", "members", "shop", "funds"):
                 for label, offset in [("◀️", -1), ("▶️", 1)]:
                     b = discord.ui.Button(label=label, style=discord.ButtonStyle.secondary, row=2)
