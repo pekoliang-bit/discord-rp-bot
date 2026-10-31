@@ -882,6 +882,48 @@ class FactionHome(PrivateView):
 
 
 
+class FactionWalletCheckout(discord.ui.View):
+    """玩家本人按確認後才正式扣款；逾期未按不會產生扣款。"""
+    def __init__(self, guild_id, user_id, order_id):
+        super().__init__(timeout=180)
+        self.guild_id = str(guild_id)
+        self.user_id = int(user_id)
+        self.order_id = int(order_id)
+
+    @discord.ui.button(label="確認付款並領取道具", style=discord.ButtonStyle.success)
+    async def pay(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id != self.user_id:
+            return await interaction.response.send_message("只有訂單本人可以付款。", ephemeral=True)
+        await interaction.response.defer(ephemeral=True)
+        try:
+            from modules.faction_shop_payments import settle_order
+            result = settle_order(self.guild_id, self.order_id, str(self.user_id))
+        except (ValueError, TypeError) as exc:
+            return await interaction.followup.send(f"付款未完成：{exc}", ephemeral=True)
+        for item in self.children:
+            item.disabled = True
+        message = (f"訂單 #{self.order_id} 已完成，商品已放入角色背包。"
+                   if result.get('delivered') else f"訂單 #{self.order_id} 已經結算過，沒有重複扣款。")
+        await interaction.followup.send(message, ephemeral=True)
+        try:
+            await interaction.message.edit(view=self)
+        except (discord.HTTPException, AttributeError):
+            pass
+
+    @discord.ui.button(label="取消訂單", style=discord.ButtonStyle.secondary)
+    async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id != self.user_id:
+            return await interaction.response.send_message("只有訂單本人可以取消。", ephemeral=True)
+        try:
+            from modules.faction_shop_orders import cancel_request
+            cancel_request(self.guild_id, self.order_id, str(self.user_id))
+            for item in self.children:
+                item.disabled = True
+            await interaction.response.edit_message(content=f"訂單 #{self.order_id} 已取消，沒有扣款。", view=self)
+        except ValueError as exc:
+            await interaction.response.send_message(str(exc), ephemeral=True)
+
+
 class FactionShopRequestModal(discord.ui.Modal, title="陣營商店｜提出購買申請"):
     quantity = discord.ui.TextInput(label="購買數量（1～99）", default="1", max_length=2)
 
@@ -899,11 +941,19 @@ class FactionShopRequestModal(discord.ui.Modal, title="陣營商店｜提出購�
             order = request_purchase(self.guild_id, self.character_id,
                                      self.user_id, self.item_id, qty,
                                      f"discord:{interaction.id}")
-            await interaction.response.send_message(
-                f"已建立待審訂單 #{order['id']}\n商品 #{self.item_id} × {qty}\n"
-                f"總價：{order['total_price']:,} 金幣\n"
-                "目前尚未扣款、減庫存或發貨。請等待正式審核與結算功能。",
-                ephemeral=True)
+            if order['currency'] == 'wallet' and order['effect_type'] == 'item':
+                await interaction.response.send_message(
+                    f"購買確認｜訂單 #{order['id']}\n商品 #{self.item_id} × {qty}\n"
+                    f"應付：{order['total_price']:,} 金幣（角色錢包）\n"
+                    "確認後才會扣款、扣庫存並發貨；如果無法交貨，整筆交易會回滾。",
+                    view=FactionWalletCheckout(self.guild_id, self.user_id, order['id']),
+                    ephemeral=True)
+            else:
+                await interaction.response.send_message(
+                    f"已建立待審訂單 #{order['id']}\n商品 #{self.item_id} × {qty}\n"
+                    f"總價：{order['total_price']:,} 金幣\n"
+                    "此類訂單尚未開放自動結算，沒有扣款、扣庫存或發貨。",
+                    ephemeral=True)
         except (ValueError, TypeError) as exc:
             await interaction.response.send_message(f"無法建立訂單：{exc}", ephemeral=True)
 
@@ -916,7 +966,7 @@ class FactionShopProductSelect(discord.ui.Select):
         options = [discord.SelectOption(label=str(item['name'])[:80],
                     description=f"#{item['id']}｜{int(item['price']):,} 金幣"[:100],
                     value=str(item['id'])) for item in items]
-        super().__init__(placeholder="選擇商品並提出待審訂單", min_values=1, max_values=1,
+        super().__init__(placeholder="選擇商品（符合資格的普通道具可直接購買）", min_values=1, max_values=1,
                          options=options, row=1)
 
     async def callback(self, interaction: discord.Interaction):
@@ -1026,7 +1076,7 @@ class MyFactionPanel(PrivateView):
             items = list_items(self.guild_id, fid, self.shop_type, limit=8, offset=self.page*8)
             lines = [f"• #{i['id']} {discord.utils.escape_markdown(str(i['name']))}｜{int(i['price']):,} 金幣" for i in items]
             t = "一般商店" if self.shop_type == "general" else "專屬商店（老大／副手）"
-            return header + f"**🛍️ {t}｜第 {self.page+1} 頁**\n" + ("\n".join(lines) if lines else "本頁沒有上架商品。") + "\n商品展示不代表已完成購買；付款須使用正式交易流程。"
+            return header + f"**🛍️ {t}｜第 {self.page+1} 頁**\n" + ("\n".join(lines) if lines else "本頁沒有上架商品。") + "\n普通道具可在確認畫面付款；其他效果暫不開放結算。"
         if self.section == "funds":
             with get_connection() as db:
                 entries = db.execute("""SELECT source,amount,created_at FROM faction_ledger WHERE guild_id=? AND faction_id=? ORDER BY id DESC LIMIT 8 OFFSET ?""", (str(self.guild_id), fid, self.page*8)).fetchall()
