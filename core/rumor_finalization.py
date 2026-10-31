@@ -19,6 +19,7 @@ from dataclasses import dataclass
 
 from core.database import get_connection, transaction
 from core.rumor_plan_store import load_reward_plan
+from core.rumor_grade_service import load_grade
 from core.rumor_reward_job_builder import prepare_locked_reward_job
 from modules.rumor_settlement import settle_character_reward
 
@@ -69,6 +70,14 @@ def finalize_locked_case(
 
     # 規則快照、方案指紋與角色歸屬都會由載入器再次驗證。
     plan = load_reward_plan(gid, rumor_id, cid, phase="final")
+    grade_snapshot = load_grade(gid, rumor_id, cid)
+    if (
+        grade_snapshot.grade != plan.grade
+        or grade_snapshot.tier != plan.tier
+        or grade_snapshot.heat != plan.heat
+        or grade_snapshot.rule_version != plan.version
+    ):
+        raise RuntimeError("評級快照與正式獎懲方案不一致，禁止結案")
     if not plan.changes:
         raise ValueError("本版尚不支援無數值變動案件；不可擅自標記結案")
 
@@ -112,11 +121,13 @@ def finalize_locked_case(
         if row["status"] == "active":
             if int(row["settle_at"]) > timestamp:
                 raise RuntimeError("案件結算時間已被更改")
-            db.execute(
+            updated = db.execute(
                 "UPDATE rp_company_rumors SET status='settled', settled_at=? "
-                "WHERE guild_id=? AND id=? AND status='active'",
-                (timestamp, gid, rumor_id),
+                "WHERE guild_id=? AND id=? AND status='active' AND settle_at<=?",
+                (timestamp, gid, rumor_id, timestamp),
             )
+            if updated.rowcount != 1:
+                raise RuntimeError("案件狀態已變更，拒絕標記結案")
 
     return FinalizationResult(
         gid, rumor_id, cid, plan.grade, "settled", bool(outcome.duplicate)
