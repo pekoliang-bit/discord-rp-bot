@@ -21,6 +21,8 @@
 
 from __future__ import annotations
 
+from contextlib import nullcontext
+
 from core.database import (
     transaction,
     get_or_create_account,
@@ -162,6 +164,7 @@ def change_membership(
     request_id,
     new_faction_id=None,
     expected_penalty=None,
+    db=None,
 ):
     """角色主動退出或轉換陣營。
 
@@ -175,8 +178,9 @@ def change_membership(
     系統會拒絕交易，要求重新確認。
     """
 
-    gid = faction_core.ensure_guild(guild_id)
-    initialize()
+    gid = faction_core.ensure_guild(guild_id) if db is None else str(guild_id)
+    if db is None:
+        initialize()
 
     cid = int(character_id)
 
@@ -198,7 +202,7 @@ def change_membership(
         else None
     )
 
-    with transaction() as db:
+    with (transaction() if db is None else nullcontext(db)) as db:
 
         # 重複請求直接回傳既有結果。
         old_event = db.execute(
