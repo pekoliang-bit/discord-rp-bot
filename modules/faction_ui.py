@@ -825,6 +825,119 @@ class FactionHome(PrivateView):
         )
 
 
+
+
+# 新版 /陣營：依角色顯示自己的陣營；原有入退轉 UI 保留但不再從首頁提供。
+class MyFactionPanel(PrivateView):
+    def __init__(self, guild_id, user_id, character_id, section="home", page=0, shop_type="general"):
+        super().__init__(guild_id, user_id)
+        self.character_id = int(character_id)
+        self.section = section
+        self.page = max(0, int(page))
+        self.shop_type = shop_type
+        if section == "home":
+            for label, target, style, r in [
+                ("積分排行", "rank", discord.ButtonStyle.primary, 0),
+                ("成員名單", "members", discord.ButtonStyle.secondary, 0),
+                ("商店", "shop", discord.ButtonStyle.success, 1),
+                ("經費情況", "funds", discord.ButtonStyle.secondary, 1),
+            ]:
+                b = discord.ui.Button(label=label, style=style, row=r)
+                async def callback(interaction, dest=target):
+                    await self.navigate(interaction, dest)
+                b.callback = callback
+                self.add_item(b)
+        else:
+            if section == "shop":
+                b = discord.ui.Button(label="一般／專屬商店", row=0)
+                async def change_shop(interaction):
+                    kind = "exclusive" if self.shop_type == "general" else "general"
+                    await self.navigate(interaction, "shop", 0, kind)
+                b.callback = change_shop
+                self.add_item(b)
+            if section == "funds":
+                b = discord.ui.Button(label="捐獻金幣", style=discord.ButtonStyle.success, row=0)
+                async def contribute(interaction):
+                    await interaction.response.send_modal(DonationModal(self.guild_id, self.user_id, self.character_id))
+                b.callback = contribute
+                self.add_item(b)
+                b2 = discord.ui.Button(label="捐獻物品（尚未開放）", disabled=True, row=0)
+                self.add_item(b2)
+            if section in ("rank", "members", "shop", "funds"):
+                for label, offset in [("◀️", -1), ("▶️", 1)]:
+                    b = discord.ui.Button(label=label, style=discord.ButtonStyle.secondary, row=1)
+                    async def flip(interaction, delta=offset):
+                        await self.navigate(interaction, self.section, max(0, self.page + delta))
+                    b.callback = flip
+                    self.add_item(b)
+            back = discord.ui.Button(label="返回陣營首頁", row=2)
+            async def go_back(interaction):
+                await self.navigate(interaction, "home", 0)
+            back.callback = go_back
+            self.add_item(back)
+
+    def current_faction(self):
+        rows = owned_characters(self.guild_id, self.user_id)
+        row = next((r for r in rows if int(r["id"]) == self.character_id), None)
+        if row is None or row["faction_id"] is None:
+            raise ValueError("角色已退出陣營或無操作權限，請重新使用 /陣營。")
+        return row, int(row["faction_id"])
+
+    def render(self):
+        row, fid = self.current_faction()
+        info = faction_core.snapshot(self.guild_id, fid)
+        name = discord.utils.escape_markdown(str(info["name"]))
+        header = f"**⚔️ {name}｜{row['name']}（#{self.character_id}）**\n"
+        if self.section == "home":
+            with get_connection() as db:
+                count = db.execute("SELECT COUNT(*) FROM faction_members WHERE guild_id=? AND faction_id=?", (str(self.guild_id), fid)).fetchone()[0]
+            return (header + f"成員：{count} 人\n經費池：{info['pool']:,} 金幣\n目前第 {info['period']} 期\n\n請選擇功能。")
+        if self.section == "rank":
+            entries = info["rank"]
+            lines = [f"{idx + 1}. {discord.utils.escape_markdown(str(n))}（#{cid}）｜{int(points):,} 分" for idx, (cid,n,points) in enumerate(entries)]
+            entries = lines[self.page*8:(self.page+1)*8]
+            return header + f"**🏆 積分排行｜第 {self.page+1} 頁**\n" + ("\n".join(entries) if entries else "本頁沒有資料。") + "\n每 100 金幣有效入池資金 = 1 積分。"
+        if self.section == "members":
+            with get_connection() as db:
+                members = db.execute("""SELECT c.id,c.name FROM faction_members m JOIN characters c ON c.guild_id=m.guild_id AND c.id=m.character_id WHERE m.guild_id=? AND m.faction_id=? ORDER BY c.id LIMIT 10 OFFSET ?""", (str(self.guild_id), fid, self.page*10)).fetchall()
+            lines = [f"• {discord.utils.escape_markdown(str(m['name']))}（#{m['id']}）" for m in members]
+            return header + f"**👥 成員名單｜第 {self.page+1} 頁**\n" + ("\n".join(lines) if lines else "本頁沒有成員。")
+        if self.section == "shop":
+            from modules.faction_shop import list_items
+            items = list_items(self.guild_id, fid, self.shop_type, limit=8, offset=self.page*8)
+            lines = [f"• #{i['id']} {discord.utils.escape_markdown(str(i['name']))}｜{int(i['price']):,} 金幣" for i in items]
+            t = "一般商店" if self.shop_type == "general" else "專屬商店（老大／副手）"
+            return header + f"**🛍️ {t}｜第 {self.page+1} 頁**\n" + ("\n".join(lines) if lines else "本頁沒有上架商品。") + "\n商品展示不代表已完成購買；付款須使用正式交易流程。"
+        if self.section == "funds":
+            with get_connection() as db:
+                entries = db.execute("""SELECT source,amount,created_at FROM faction_ledger WHERE guild_id=? AND faction_id=? ORDER BY id DESC LIMIT 8 OFFSET ?""", (str(self.guild_id), fid, self.page*8)).fetchall()
+            lines = [f"• {e['created_at']}｜{e['source']}｜{int(e['amount']):,} 金幣" for e in entries]
+            return header + f"**💰 經費情況｜第 {self.page+1} 頁**\n餘額：{info['pool']:,} 金幣\n" + ("\n".join(lines) if lines else "本頁沒有流水紀錄。")
+        return header
+
+    async def navigate(self, interaction, section, page=0, shop_type=None):
+        panel = MyFactionPanel(self.guild_id, self.user_id, self.character_id, section, page, shop_type or self.shop_type)
+        try:
+            content = panel.render()
+        except (ValueError, KeyError) as exc:
+            await interaction.response.send_message(str(exc), ephemeral=True)
+            return
+        await interaction.response.edit_message(content=content[:2000], view=panel)
+
+
+class FactionCharacterChooser(PrivateView):
+    def __init__(self, guild_id, user_id, rows):
+        super().__init__(guild_id,user_id)
+        choices=[discord.SelectOption(label=str(r['name'])[:90], value=str(r['id']), description=f"角色 #{r['id']}") for r in rows[:25]]
+        selector=discord.ui.Select(placeholder="選擇要查看的角色陣營",options=choices)
+        async def chosen(interaction):
+            cid=int(selector.values[0])
+            panel=MyFactionPanel(guild_id,user_id,cid)
+            await interaction.response.edit_message(content=panel.render(),view=panel)
+        selector.callback=chosen
+        self.add_item(selector)
+
+
 class FactionCog(commands.Cog):
     """陣營系統唯一斜線指令。"""
 
@@ -844,16 +957,15 @@ class FactionCog(commands.Cog):
         interaction: discord.Interaction,
     ):
 
-        await interaction.response.send_message(
-            content=home_text(
-                interaction.guild_id
-            ),
-            view=FactionHome(
-                interaction.guild_id,
-                interaction.user.id,
-            ),
-            ephemeral=True,
-        )
+        rows = [r for r in owned_characters(interaction.guild_id, interaction.user.id) if r["faction_id"] is not None]
+        if not rows:
+            await interaction.response.send_message("目前選用的角色尚無陣營。加入、退出及轉換請至 /申請 辦理。", ephemeral=True)
+            return
+        if len(rows) > 1:
+            await interaction.response.send_message("請選擇要查看的角色：", view=FactionCharacterChooser(interaction.guild_id, interaction.user.id, rows), ephemeral=True)
+            return
+        panel = MyFactionPanel(interaction.guild_id, interaction.user.id, int(rows[0]["id"]))
+        await interaction.response.send_message(content=panel.render(), view=panel, ephemeral=True)
 
 
 async def setup(bot):
