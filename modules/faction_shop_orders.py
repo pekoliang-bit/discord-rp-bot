@@ -49,7 +49,7 @@ def _officer_in_db(db, gid, fid, cid):
 
 
 def request_purchase(guild_id, character_id, owner_id, item_id,
-                     quantity, request_id):
+                     quantity, request_id, *, proposal_only=False):
     """建立待審訂單；不扣金幣、不減庫存、不發放效果。"""
     if type(quantity) is not int or not 1 <= quantity <= 99:
         raise ValueError('購買數量必須介於 1 至 99。')
@@ -89,8 +89,21 @@ def request_purchase(guild_id, character_id, owner_id, item_id,
         # 但必須由第一、第二名共同批准後才能付款。
         # 提案不等於取得專屬商店管理或購買權限。
         # 專屬商店只允許當期老大或副手提出採購；此處不代表核准金庫支出。
-        if item['shop_type'] == 'exclusive' and not faction_shop.can_use_exclusive(gid, fid, cid, owner_id):
-            raise ValueError('專屬商店僅限當期老大或副手使用。')
+        if item['shop_type'] == 'exclusive':
+            # 一般成員可以提議使用金庫，但不能直接購買或批准付款。
+            # 由老大與副手共同審核，並由幹部執行正式結算。
+            if not proposal_only:
+                raise ValueError('專屬商店請使用金庫採購提案，不能直接購買。')
+            period = faction_core._roll(db, gid)
+            officers = db.execute('''SELECT c.owner_id FROM faction_leaders l
+                JOIN characters c ON c.guild_id=l.guild_id
+                  AND c.id IN (l.leader_id,l.deputy_id)
+                WHERE l.guild_id=? AND l.faction_id=? AND l.period=?''',
+                (gid, fid, period - 1)).fetchall() if period > 1 else []
+            if str(owner_id) in {str(r['owner_id']) for r in officers}:
+                raise ValueError('幹部本人或其其他角色不可提出需由本人審核的金庫提案。')
+        elif proposal_only:
+            raise ValueError('一般商店不需要金庫採購提案。')
         if item['shop_type'] == 'exclusive' and item['currency'] != 'treasury':
             raise ValueError('專屬商店付款來源不合法。')
         if '影響指數' in str(item['effect_key']) or str(item['effect_key']).lower() == 'influence_index':
