@@ -93,12 +93,12 @@ FORM_FIELDS["faction_join"] = [
 FORM_FIELDS["faction_exit"] = [
     ("目前所屬陣營編號", 30, False),
     ("退出理由", 700, True),
-    ("補充說明（選填）", 400, True),
+    ("已確認違約金（金幣）", 30, False),
 ]
 FORM_FIELDS["faction_change"] = [
     ("目標陣營編號", 30, False),
     ("轉換理由", 700, True),
-    ("補充說明（選填）", 400, True),
+    ("已確認違約金（金幣）", 30, False),
 ]
 
 # 角色資料修改採一次填寫、一次送出；不用逐欄位開啟表單。
@@ -820,6 +820,19 @@ class ApplicationModal(discord.ui.Modal):
                             raise ValueError("指定陣營不存在。")
                         if existing is not None and int(existing["faction_id"]) == target_faction:
                             raise ValueError("目標陣營不能與目前陣營相同。")
+                if self.kind in {"faction_exit", "faction_change"}:
+                    from modules import faction_membership
+                    current_penalty = faction_membership.get_penalty(
+                        self.gid, int(existing["faction_id"])
+                    )
+                    if current_penalty is None:
+                        raise ValueError("原陣營尚未設定退出違約金，暫時無法送件。")
+                    try:
+                        agreed = int(values[2])
+                    except (ValueError, TypeError):
+                        raise ValueError("請在第三欄輸入已確認的違約金金額。")
+                    if agreed != current_penalty:
+                        raise ValueError(f"目前違約金是 {current_penalty:,} 金幣，請確認後重新填寫。")
                 title = f"角色 #{self.character_id}｜{CATEGORIES[self.kind]}｜陣營 #{target_faction}"
 
             with transaction() as db:
@@ -1264,6 +1277,10 @@ class GeneralReviewView(
             )
 
         try:
+            # DDL 初始化在審核交易外，避免 SQLite 巢狀交易與鎖定。
+            if accepted:
+                from modules import faction_membership
+                faction_membership.initialize()
 
             with transaction() as db:
 
@@ -1310,10 +1327,56 @@ class GeneralReviewView(
                     )
 
                 if accepted and r["kind"] in {"faction_join", "faction_exit", "faction_change"}:
-                    raise PermissionError(
-                        "陣營申請已可收件，但自動執行與違約金確認流程尚未接通；"
-                        "為避免假核准或錯誤扣款，暫不允許核准此類案件。"
-                    )
+                    from modules import faction_membership, faction_core
+                    import re
+                    # 審核與異動共用同一資料庫交易，任一失敗即回滾。
+                    cid = r["character_id"]
+                    if cid is None:
+                        raise ValueError("案件缺少角色編號。")
+                    owner_row = db.execute(
+                        "SELECT owner_id, status, character_type FROM characters WHERE guild_id=? AND id=?",
+                        (str(self.gid), int(cid)),
+                    ).fetchone()
+                    if (owner_row is None or str(owner_row["owner_id"]) != str(r["user_id"])
+                            or owner_row["status"] != "active" or owner_row["character_type"] != "player"):
+                        raise ValueError("申請角色已失效或擁有者不符。")
+                    target_match = re.search(r"【(?:目標陣營編號|目前所屬陣營編號)】\s*(\d+)", r["details"] or "")
+                    if not target_match:
+                        raise ValueError("申請資料缺少陣營編號，請重新送件。")
+                    target = int(target_match.group(1))
+                    current = db.execute(
+                        "SELECT faction_id FROM faction_members WHERE guild_id=? AND character_id=?",
+                        (str(self.gid), int(cid)),
+                    ).fetchone()
+                    if r["kind"] == "faction_join":
+                        if current is not None:
+                            raise ValueError("角色已加入其他陣營，請駁回舊申請並重新送件。")
+                        found = db.execute(
+                            "SELECT 1 FROM faction_groups WHERE guild_id=? AND id=?",
+                            (str(self.gid), target),
+                        ).fetchone()
+                        if found is None:
+                            raise ValueError("目標陣營不存在。")
+                        db.execute(
+                            "INSERT INTO faction_members(guild_id, character_id, faction_id) VALUES (?,?,?)",
+                            (str(self.gid), int(cid), target),
+                        )
+                    else:
+                        if current is None:
+                            raise ValueError("角色目前不屬於任何陣營。")
+                        if r["kind"] == "faction_exit" and int(current["faction_id"]) != target:
+                            raise ValueError("角色原陣營已變更，需重新申請。")
+                        penalty_match = re.search(r"【已確認違約金（金幣）】\s*(\d+)", r["details"] or "")
+                        if not penalty_match:
+                            raise ValueError("申請缺少明確的違約金確認，請重新送件。")
+                        # 不呼叫會自行開啟 transaction 的 initialize；使用既有交易。
+                        faction_membership.change_membership(
+                            self.gid, int(cid), r["user_id"],
+                            f"application:{r['id']}",
+                            new_faction_id=target if r["kind"] == "faction_change" else None,
+                            expected_penalty=int(penalty_match.group(1)),
+                            db=db,
+                        )
 
                 if accepted and r["kind"] == "character_edit":
                     apply_approved_character_changes(db, r)
