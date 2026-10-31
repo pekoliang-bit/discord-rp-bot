@@ -827,6 +827,48 @@ class FactionHome(PrivateView):
 
 
 
+class FactionShopRequestModal(discord.ui.Modal, title="陣營商店｜提出購買申請"):
+    quantity = discord.ui.TextInput(label="購買數量（1～99）", default="1", max_length=2)
+
+    def __init__(self, guild_id, user_id, character_id, item_id):
+        super().__init__()
+        self.guild_id = guild_id
+        self.user_id = user_id
+        self.character_id = int(character_id)
+        self.item_id = int(item_id)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        try:
+            qty = int(str(self.quantity.value).strip())
+            from modules.faction_shop_orders import request_purchase
+            order = request_purchase(self.guild_id, self.character_id,
+                                     self.user_id, self.item_id, qty,
+                                     f"discord:{interaction.id}")
+            await interaction.response.send_message(
+                f"已建立待審訂單 #{order['id']}\n商品 #{self.item_id} × {qty}\n"
+                f"總價：{order['total_price']:,} 金幣\n"
+                "目前尚未扣款、減庫存或發貨。請等待正式審核與結算功能。",
+                ephemeral=True)
+        except (ValueError, TypeError) as exc:
+            await interaction.response.send_message(f"無法建立訂單：{exc}", ephemeral=True)
+
+
+class FactionShopProductSelect(discord.ui.Select):
+    def __init__(self, guild_id, user_id, character_id, items):
+        self.guild_id = guild_id
+        self.user_id = user_id
+        self.character_id = int(character_id)
+        options = [discord.SelectOption(label=str(item['name'])[:80],
+                    description=f"#{item['id']}｜{int(item['price']):,} 金幣"[:100],
+                    value=str(item['id'])) for item in items]
+        super().__init__(placeholder="選擇商品並提出待審訂單", min_values=1, max_values=1,
+                         options=options, row=1)
+
+    async def callback(self, interaction: discord.Interaction):
+        await interaction.response.send_modal(FactionShopRequestModal(
+            self.guild_id, self.user_id, self.character_id, int(self.values[0])))
+
+
 # 新版 /陣營：依角色顯示自己的陣營；原有入退轉 UI 保留但不再從首頁提供。
 class MyFactionPanel(PrivateView):
     def __init__(self, guild_id, user_id, character_id, section="home", page=0, shop_type="general"):
@@ -849,6 +891,17 @@ class MyFactionPanel(PrivateView):
                 self.add_item(b)
         else:
             if section == "shop":
+                try:
+                    from modules.faction_shop import list_items
+                    row, fid = self.current_faction()
+                    items = list_items(self.guild_id, fid, self.shop_type, limit=8, offset=self.page*8)
+                    # 專屬商店付款規則與雙人核准相衝突，暫不受理訂單。
+                    if self.shop_type == "exclusive":
+                        items = []
+                    if items:
+                        self.add_item(FactionShopProductSelect(self.guild_id, self.user_id, self.character_id, items))
+                except (ValueError, KeyError):
+                    pass
                 b = discord.ui.Button(label="一般／專屬商店", row=0)
                 async def change_shop(interaction):
                     kind = "exclusive" if self.shop_type == "general" else "general"
@@ -865,12 +918,12 @@ class MyFactionPanel(PrivateView):
                 self.add_item(b2)
             if section in ("rank", "members", "shop", "funds"):
                 for label, offset in [("◀️", -1), ("▶️", 1)]:
-                    b = discord.ui.Button(label=label, style=discord.ButtonStyle.secondary, row=1)
+                    b = discord.ui.Button(label=label, style=discord.ButtonStyle.secondary, row=2)
                     async def flip(interaction, delta=offset):
                         await self.navigate(interaction, self.section, max(0, self.page + delta))
                     b.callback = flip
                     self.add_item(b)
-            back = discord.ui.Button(label="返回陣營首頁", row=2)
+            back = discord.ui.Button(label="返回陣營首頁", row=3)
             async def go_back(interaction):
                 await self.navigate(interaction, "home", 0)
             back.callback = go_back
