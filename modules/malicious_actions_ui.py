@@ -1,3 +1,4 @@
+
 """/惡意 V1：角色對角色行動與群主機器人帖子綁定。
 
 /惡意只在已綁定的角色專屬機器人帖子可用。
@@ -53,6 +54,52 @@ def debit_character_wallet(db, guild_id: str, actor_character_id: int,
     db.executemany('''INSERT INTO ledger_entries(guild_id,transaction_id,account_id,amount)
                       VALUES (?,?,?,?)''',
                    [(guild_id, tid, payer, -amount), (guild_id, tid, receiver, amount)])
+
+
+def create_rumor_if_ready(guild_id: str, action_id: int) -> tuple[int | None, str]:
+    """基於正式啟用的官方規則，為成功惡意行動建立傳聞。
+
+    沒有核准的分級、複雜度或獎懲規則時不猜測數值；
+    保留私人行動紀錄，稍後可由正式流程補建。
+    """
+    from core.database import transaction
+    from core.malicious_actions import TYPES
+    from core.malicious_rumor_bridge import (
+        RumorCreationSettings, create_rumor_for_action,
+    )
+    from core.rumor_rule_registry import get_active_rules
+    from core.rumor_tier_policy import resolve_tier_in_transaction
+    from core.rumor_complexity_policy import resolve_complexity_in_transaction
+
+    with transaction() as db:
+        row = db.execute(
+            "SELECT * FROM rp_malicious_actions WHERE guild_id=? AND id=?",
+            (str(guild_id), action_id),
+        ).fetchone()
+        if row is None:
+            raise LookupError("惡意行動不存在")
+        if not row["succeeded"]:
+            return None, "行動未成功，沒有對目標建立傳聞"
+        if row["rumor_id"] is not None:
+            return int(row["rumor_id"]), "已關聯傳聞案件"
+        source = "造謠" if row["action_type"] == "rumor" else "玩家"
+        category = TYPES[row["action_type"]]
+        tier = resolve_tier_in_transaction(db, guild_id, category, source)
+        complexity = resolve_complexity_in_transaction(db, guild_id, category, source)
+
+    rules = get_active_rules(guild_id)
+    settings = RumorCreationSettings(
+        business_id=f"malicious:{action_id}",
+        tier=tier,
+        complexity=complexity.complexity,
+        complexity_version=complexity.version,
+        rules=rules,
+    )
+    rumor_id = create_rumor_for_action(
+        guild_id, action_id, settings=settings,
+        case_authorized=True, publicly_visible=True,
+    )
+    return rumor_id, "已自動建立傳聞案件" if rumor_id else "無需建立傳聞"
 
 
 class MaliciousActionsUI(commands.Cog):
@@ -139,14 +186,29 @@ class MaliciousActionsUI(commands.Cog):
             logging.getLogger(__name__).exception('惡意行動結算失敗')
             await interaction.followup.send('⚠️ 系統結算失敗；請聯絡管理員確認帳本。', ephemeral=True)
             return
+        rumor_note = ""
+        if result.succeeded:
+            try:
+                rumor_id, rumor_status = await __import__('asyncio').to_thread(
+                    create_rumor_if_ready, authorization.guild_id, result.action_id,
+                )
+                rumor_note = (
+                    f"\n傳聞：#{rumor_id}（{rumor_status}）" if rumor_id
+                    else f"\n傳聞：{rumor_status}"
+                )
+            except (LookupError, PermissionError, ValueError) as exc:
+                rumor_note = f"\n傳聞：等待官方規則／授權確認（{exc}）"
+            except Exception:
+                import logging
+                logging.getLogger(__name__).exception('惡意傳聞建案失敗')
+                rumor_note = "\n傳聞：尚未建立，請管理員檢查傳聞設定；行動與扣款不重複執行"
         outcome = '行動成功' if result.succeeded else '行動失敗'
         status = '可能留下線索' if result.exposed else '尚未暴露'
         await interaction.followup.send(
             f'🎭 惡意行動 #{result.action_id}：**{outcome}**\n'
             f'投入：{result.cost:,} 金幣｜判定成功率：{result.success_chance}%\n'
             f'來源：{status}\n'
-            '此處僅完成私人行動判定。傳聞建立須另經正式案件授權流程；'
-            '不會在這個指令中直接把指控公開。', ephemeral=True,
+            f'{rumor_note}\n傳聞指控不等於已證實事實。', ephemeral=True,
         )
 
 
