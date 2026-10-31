@@ -33,7 +33,9 @@ CATEGORIES = {
     "npc_switch": "🔄 NPC 更換飾演申請",
     "cp_register": "💕 CP 關係登記申請",
     "location_add": "📍 新增地點申請",
-    "faction_change": "🏳️ 角色陣營變更申請",
+    "faction_join": "🏳️ 加入陣營申請",
+    "faction_exit": "🚪 退出陣營申請",
+    "faction_change": "🔄 轉換陣營申請",
     "leave": "📅 請假申請",
 }
 
@@ -78,9 +80,26 @@ _GENERAL_FORM = [
 ]
 for _category in (
     "item_create", "shop_bank", "role_retire", "npc_resign",
-    "npc_switch", "cp_register", "location_add", "faction_change",
+    "npc_switch", "cp_register", "location_add",
 ):
     FORM_FIELDS[_category] = list(_GENERAL_FORM)
+
+# 三種陣營異動分開收件，避免把加入與轉換混為一談。
+FORM_FIELDS["faction_join"] = [
+    ("目標陣營編號", 30, False),
+    ("加入理由", 700, True),
+    ("補充說明（選填）", 400, True),
+]
+FORM_FIELDS["faction_exit"] = [
+    ("目前所屬陣營編號", 30, False),
+    ("退出理由", 700, True),
+    ("補充說明（選填）", 400, True),
+]
+FORM_FIELDS["faction_change"] = [
+    ("目標陣營編號", 30, False),
+    ("轉換理由", 700, True),
+    ("補充說明（選填）", 400, True),
+]
 
 # 角色資料修改採一次填寫、一次送出；不用逐欄位開啟表單。
 FORM_FIELDS["character_edit"] = [
@@ -304,7 +323,7 @@ def apply_approved_character_changes(db, application):
 # 申請者需用自己的已啟用角色提出的案件。
 CHARACTER_REQUIRED = {
     "item", "item_create", "role_retire", "character_edit", "npc_resign",
-    "npc_switch", "cp_register", "shop_bank", "faction_change",
+    "npc_switch", "cp_register", "shop_bank", "faction_join", "faction_exit", "faction_change",
 }
 
 
@@ -768,6 +787,40 @@ class ApplicationModal(discord.ui.Modal):
                 )
                 if value
             )
+
+            # 陣營案件只接受角色擁有者提交，且提交時檢查現況。
+            # 核准後仍需再次檢查，不能依賴送件當時的資料。
+            if self.kind in {"faction_join", "faction_exit", "faction_change"}:
+                from modules import faction_core
+                faction_core.ensure_guild(self.gid)
+                if self.character_id is None:
+                    raise ValueError("請先選擇自己的已啟用角色。")
+                try:
+                    target_faction = int(values[0])
+                except (ValueError, TypeError):
+                    raise ValueError("請輸入有效的陣營編號。")
+                with get_connection() as faction_db:
+                    existing = faction_db.execute(
+                        "SELECT faction_id FROM faction_members WHERE guild_id=? AND character_id=?",
+                        (str(self.gid), int(self.character_id)),
+                    ).fetchone()
+                    if self.kind == "faction_join" and existing is not None:
+                        raise ValueError("角色已加入陣營，請改選轉換申請。")
+                    if self.kind != "faction_join" and existing is None:
+                        raise ValueError("角色尚未加入陣營。")
+                    if self.kind == "faction_exit":
+                        if int(existing["faction_id"]) != target_faction:
+                            raise ValueError("填寫的原陣營編號與目前所屬陣營不一致。")
+                    else:
+                        dest = faction_db.execute(
+                            "SELECT id FROM faction_groups WHERE guild_id=? AND id=?",
+                            (str(self.gid), target_faction),
+                        ).fetchone()
+                        if dest is None:
+                            raise ValueError("指定陣營不存在。")
+                        if existing is not None and int(existing["faction_id"]) == target_faction:
+                            raise ValueError("目標陣營不能與目前陣營相同。")
+                title = f"角色 #{self.character_id}｜{CATEGORIES[self.kind]}｜陣營 #{target_faction}"
 
             with transaction() as db:
 
@@ -1254,6 +1307,12 @@ class GeneralReviewView(
                     raise PermissionError(
                         "公司帳戶開戶後端尚未完成："
                         "不得僅憑核准案件建立假帳戶。"
+                    )
+
+                if accepted and r["kind"] in {"faction_join", "faction_exit", "faction_change"}:
+                    raise PermissionError(
+                        "陣營申請已可收件，但自動執行與違約金確認流程尚未接通；"
+                        "為避免假核准或錯誤扣款，暫不允許核准此類案件。"
                     )
 
                 if accepted and r["kind"] == "character_edit":
