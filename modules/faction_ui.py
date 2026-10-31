@@ -1135,12 +1135,17 @@ class FactionActionsPanel(PrivateView):
                     self.guild_id, self.user_id, self.character_id, self.faction_id, action_type))
             b.callback = start
             self.add_item(b)
+        from modules.faction_actions import count_proposals
+        total = count_proposals(self.guild_id, self.faction_id,
+                                self.character_id, self.user_id)
+        max_page = max(0, (total-1)//8)
+        self.page = min(self.page, max_page)
         entries = self._entries()
         if any(r['status'] == 'draft' and int(r['applicant_character_id']) == self.character_id for r in entries):
             self.add_item(FactionActionDraftSelect(guild_id, user_id, character_id, entries))
         for label, delta in (("◀️", -1), ("▶️", 1)):
             b = discord.ui.Button(label=label, style=discord.ButtonStyle.secondary, row=2,
-                                  disabled=(delta == -1 and self.page == 0))
+                                  disabled=(self.page + delta < 0 or self.page + delta > max_page))
             async def turn(interaction, d=delta):
                 view = FactionActionsPanel(self.guild_id, self.user_id, self.character_id,
                                            self.faction_id, max(0, self.page+d))
@@ -1156,7 +1161,9 @@ class FactionActionsPanel(PrivateView):
 
     def _entries(self):
         from modules.faction_actions import list_proposals
-        return list_proposals(self.guild_id, self.faction_id, limit=8, offset=self.page*8)
+        return list_proposals(self.guild_id, self.faction_id,
+                              self.character_id, self.user_id,
+                              limit=8, offset=self.page*8)
 
     def description(self):
         entries = self._entries()
