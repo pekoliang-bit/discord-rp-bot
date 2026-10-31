@@ -71,11 +71,33 @@ def create_proposal(guild_id, faction_id, applicant_character_id, owner_id,
         return int(cursor.lastrowid)
 
 
-def list_proposals(guild_id, faction_id, *, limit=20, offset=0):
+def _assert_active_member(db, guild_id, faction_id, character_id, owner_id):
+    member = db.execute('''SELECT 1 FROM faction_members AS m
+        JOIN characters AS c ON c.guild_id=m.guild_id AND c.id=m.character_id
+        WHERE m.guild_id=? AND m.faction_id=? AND m.character_id=?
+          AND c.owner_id=? AND c.status='active' AND c.character_type='player' ''',
+        (str(guild_id), int(faction_id), int(character_id), str(owner_id))).fetchone()
+    if not member:
+        raise ValueError('角色不再屬於此陣營，或沒有查看權限。')
+
+
+def count_proposals(guild_id, faction_id, viewer_character_id, owner_id):
+    """只允許目前陣營中的合法角色持有人查看提案數量。"""
+    initialize()
+    with transaction() as db:
+        _assert_active_member(db, guild_id, faction_id, viewer_character_id, owner_id)
+        return int(db.execute('''SELECT COUNT(*) FROM faction_action_proposals
+            WHERE guild_id=? AND faction_id=?''',
+            (str(guild_id), int(faction_id))).fetchone()[0])
+
+
+def list_proposals(guild_id, faction_id, viewer_character_id, owner_id, *, limit=20, offset=0):
+    """查看所屬陣營草稿（尚不執行），每次查詢都重新驗證權限。"""
     if not 1 <= int(limit) <= 50 or int(offset) < 0:
         raise ValueError('分頁範圍不合法。')
     initialize()
     with transaction() as db:
+        _assert_active_member(db, guild_id, faction_id, viewer_character_id, owner_id)
         return [dict(row) for row in db.execute('''SELECT id, applicant_character_id,
             action_type, target_text, reason, status, created_at FROM faction_action_proposals
             WHERE guild_id=? AND faction_id=? ORDER BY id DESC LIMIT ? OFFSET ?''',
