@@ -482,6 +482,33 @@ def remove_requested_legacy(tree, *, allow_groups=False):
 
 
 # ==================================================
+# 隱藏已整合到主面板的多餘入口（保留底層功能）
+# ==================================================
+
+UNWANTED_TOP_LEVEL_COMMANDS = frozenset({
+    "惡意帖子設定",
+    "活動報名",
+    "活動進程",
+    "活動任務列表",
+    "活動任務提交",
+    "活動完成回報",
+    "商品批次",  # 包含 /商品批次 匯入、/商品批次 說明
+    "玩家npc修改",
+})
+
+
+def remove_unwanted_top_level_commands(tree):
+    """只移除 Discord 指令樹的入口；不移除資料表、後端與既有紀錄。"""
+    removed = []
+    for name in sorted(UNWANTED_TOP_LEVEL_COMMANDS):
+        if tree.get_command(name, type=discord.AppCommandType.chat_input) is None:
+            continue
+        if tree.remove_command(name, type=discord.AppCommandType.chat_input) is not None:
+            removed.append(name)
+    return removed
+
+
+# ==================================================
 # 機器人主體
 # ==================================================
 
@@ -537,6 +564,7 @@ class RPBot(commands.Bot):
                 remove_character_legacy(self.tree)
                 + remove_optional_legacy(self.tree)
                 + remove_requested_legacy(self.tree)
+                + remove_unwanted_top_level_commands(self.tree)
             ):
                 if name not in self.hidden_legacy:
                     self.hidden_legacy.append(name)
@@ -551,6 +579,7 @@ class RPBot(commands.Bot):
             remove_character_legacy(self.tree)
             + remove_optional_legacy(self.tree)
             + remove_requested_legacy(self.tree, allow_groups=True)
+            + remove_unwanted_top_level_commands(self.tree)
         ):
             if name not in self.hidden_legacy:
                 self.hidden_legacy.append(name)
