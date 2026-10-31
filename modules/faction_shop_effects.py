@@ -11,6 +11,7 @@ ALLOWED_KEYS = frozenset({
     "流量熱度", "商業價值", "路人緣", "公關", "大眾認知度",
     "容貌", "歌唱", "舞蹈", "演技", "創作", "才藝",
     "體能", "口才", "智力", "魅力",
+    "才智", "演繹", "主持", "綜藝", "個人才藝",
 })
 MAX_BONUS_PER_ORDER = 10000
 
@@ -67,3 +68,22 @@ def revoke_order(guild_id, order_id):
         return db.execute("""UPDATE faction_shop_buff_grants SET revoked_at=CURRENT_TIMESTAMP
             WHERE guild_id=? AND order_id=? AND revoked_at IS NULL""",
             (str(guild_id),int(order_id))).rowcount == 1
+
+
+def list_active_bonuses(guild_id, character_id):
+    """一次讀取角色目前陣營所有已登記加成；只讀，不修改基礎數值。"""
+    initialize()
+    with transaction() as db:
+        rows = db.execute("""SELECT g.effect_key,
+                   SUM(g.effect_value * g.quantity) AS bonus
+            FROM faction_members m
+            JOIN characters c ON c.guild_id=m.guild_id AND c.id=m.character_id
+            JOIN faction_shop_buff_grants g ON g.guild_id=m.guild_id
+                AND g.faction_id=m.faction_id
+            WHERE m.guild_id=? AND m.character_id=?
+              AND c.status='active' AND c.character_type='player'
+              AND g.revoked_at IS NULL
+            GROUP BY g.effect_key ORDER BY g.effect_key""",
+            (str(guild_id), int(character_id))).fetchall()
+        return {str(r['effect_key']): int(r['bonus']) for r in rows
+                if str(r['effect_key']) in ALLOWED_KEYS and int(r['bonus']) > 0}
