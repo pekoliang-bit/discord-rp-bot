@@ -211,6 +211,10 @@ def settle_order(guild_id,order_id,actor_owner_id):
             (gid,fid,int(order['item_id']))).fetchone()
         if not item:
             raise ValueError('商品已下架或不存在。')
+        if item['shop_type']=='exclusive':
+            # 舊版專屬商店須由幹部提出、又禁止申請人自行參與雙人審核，
+            # 在規則調整前保守拒絕結算，避免無權限扣款。
+            raise FulfillmentUnavailable('專屬商店金庫審核規則尚未完成整合，暫不開放付款。')
         if (item['currency']!=order['currency']
             or item['effect_type']!=order['effect_type']
             or item['effect_key']!=order['effect_key']
