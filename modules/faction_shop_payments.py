@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from core.database import transaction, get_or_create_account, account_balance
 from core.economy import _payment
-from modules import faction_core, faction_shop_orders, faction_shop_fulfillment
+from modules import faction_core, faction_shop_orders, faction_shop_fulfillment, faction_shop_effects
 
 MAJOR_THRESHOLD = 100_000
 
@@ -20,6 +20,7 @@ class FulfillmentUnavailable(ValueError):
 def initialize():
     faction_shop_orders.initialize()
     faction_shop_fulfillment.initialize()
+    faction_shop_effects.initialize()
     with transaction() as db:
         db.execute("""CREATE TABLE IF NOT EXISTS faction_shop_approvals (
             guild_id TEXT NOT NULL, order_id INTEGER NOT NULL,
@@ -211,18 +212,21 @@ def settle_order(guild_id,order_id,actor_owner_id):
             (gid,fid,int(order['item_id']))).fetchone()
         if not item:
             raise ValueError('商品已下架或不存在。')
-        if item['shop_type']=='exclusive':
-            # 舊版專屬商店須由幹部提出、又禁止申請人自行參與雙人審核，
-            # 在規則調整前保守拒絕結算，避免無權限扣款。
-            raise FulfillmentUnavailable('專屬商店金庫審核規則尚未完成整合，暫不開放付款。')
+        exclusive_buff = (item['shop_type']=='exclusive' and order['effect_type']=='faction_buff')
+        if item['shop_type']=='exclusive' and not exclusive_buff:
+            raise FulfillmentUnavailable('專屬商店目前僅支援經核准的全陣營正面加成。')
         if (item['currency']!=order['currency']
             or item['effect_type']!=order['effect_type']
             or item['effect_key']!=order['effect_key']
             or int(item['effect_value'])!=int(order['effect_value'])):
             raise ValueError('商品設定已變更，請取消並重新下單。')
-        if order['effect_type']!='item':
-            raise FulfillmentUnavailable(
-                '此效果尚未接入正式發放器，為避免扣款未發貨，禁止結算。')
+        if order['effect_type']!='item' and not exclusive_buff:
+            raise FulfillmentUnavailable('此效果尚未接入正式發放器，禁止結算。')
+        if exclusive_buff:
+            if str(order['effect_key']).strip() not in faction_shop_effects.ALLOWED_KEYS:
+                raise FulfillmentUnavailable('效果尚未通過正面加成白名單。')
+            if int(order['effect_value']) <= 0 or int(order['effect_value'])*int(order['quantity']) > faction_shop_effects.MAX_BONUS_PER_ORDER:
+                raise FulfillmentUnavailable('效果強度不合法。')
         if '影響指數' in str(order['effect_key']) or str(order['effect_key']).lower()=='influence_index':
             raise ValueError('影響指數不可透過商店購買。')
         qty=int(order['quantity'])
@@ -234,12 +238,13 @@ def settle_order(guild_id,order_id,actor_owner_id):
         if item['stock'] is not None and int(item['stock'])<qty:
             raise ValueError('商品庫存不足。')
         # 必須先綁定有效商城商品；任何付款前先檢查。
-        binding=db.execute("""SELECT 1 FROM faction_shop_product_bindings b
-            JOIN shop_products p ON p.guild_id=b.guild_id AND p.id=b.shop_product_id
-            WHERE b.guild_id=? AND b.faction_item_id=? AND p.active=1
-              AND p.effect_kind='none'""",(gid,int(item['id']))).fetchone()
-        if not binding:
-            raise FulfillmentUnavailable('商品尚未綁定可發放的既有商城道具，禁止扣款。')
+        if not exclusive_buff:
+            binding=db.execute("""SELECT 1 FROM faction_shop_product_bindings b
+                JOIN shop_products p ON p.guild_id=b.guild_id AND p.id=b.shop_product_id
+                WHERE b.guild_id=? AND b.faction_item_id=? AND p.active=1
+                  AND p.effect_kind='none'""",(gid,int(item['id']))).fetchone()
+            if not binding:
+                raise FulfillmentUnavailable('商品尚未綁定可發放的既有商城道具，禁止扣款。')
         # 零元商品不執行經濟系統正數轉帳。
         txid=None
         if total>0:
@@ -270,13 +275,17 @@ def settle_order(guild_id,order_id,actor_owner_id):
                 WHERE guild_id=? AND id=? AND pool>=?""",(total,gid,fid,total))
             if cur.rowcount!=1:
                 raise ValueError('陣營經費更新失敗。')
-        faction_shop_fulfillment.deliver_in_transaction(
-            db, gid, oid, cid, int(item['id']), qty
-        )
+        if exclusive_buff:
+            faction_shop_effects.grant_in_transaction(
+                db,gid,oid,fid,str(item['effect_key']),int(item['effect_value']),qty)
+        else:
+            faction_shop_fulfillment.deliver_in_transaction(
+                db, gid, oid, cid, int(item['id']), qty)
         db.execute("""INSERT INTO faction_shop_deliveries
             (guild_id,order_id,character_id,faction_id,item_id,quantity,effect_type,effect_key)
             VALUES (?,?,?,?,?,?,?,?)""",
-            (gid,oid,cid,fid,int(item['id']),qty,'item',str(item['effect_key'])))
+            (gid,oid,cid,fid,int(item['id']),qty,
+             'faction_buff' if exclusive_buff else 'item',str(item['effect_key'])))
         db.execute("""INSERT INTO faction_shop_settlements
             (guild_id,order_id,transaction_id,amount,currency)
             VALUES (?,?,?,?,?)""",(gid,oid,txid,total,order['currency']))
