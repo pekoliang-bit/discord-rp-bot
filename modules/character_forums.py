@@ -1,4 +1,3 @@
-
 """Discord RP｜角色二審完成自動建立角色論壇。
 
 指令：
@@ -44,6 +43,11 @@ POSTS = (
         "劇情討論",
         "📖 在此討論角色的劇情。",
     ),
+    (
+        "bot",
+        "機器人使用",
+        "🤖 角色機器人操作專用帖子。／惡意只可在此使用。",
+    ),
 )
 
 
@@ -70,9 +74,13 @@ def initialize():
                 notice_id TEXT,
                 question_id TEXT,
                 story_id TEXT,
+                bot_id TEXT,
                 PRIMARY KEY(guild_id, character_id)
             )
         """)
+        cols = {row["name"] for row in db.execute("PRAGMA table_info(character_forum_links)")}
+        if "bot_id" not in cols:
+            db.execute("ALTER TABLE character_forum_links ADD COLUMN bot_id TEXT")
 
 
 def get_category(guild_id):
@@ -138,6 +146,7 @@ def update_link(
         "notice_id",
         "question_id",
         "story_id",
+        "bot_id",
     )
 
     if column not in allowed:
@@ -306,6 +315,7 @@ class CharacterForums(commands.Cog):
                 "notice": "notice_id",
                 "question": "question_id",
                 "story": "story_id",
+                "bot": "bot_id",
             }
 
             for code, title, body in POSTS:
@@ -377,6 +387,14 @@ class CharacterForums(commands.Cog):
                         thread.id,
                     )
 
+                if code == "bot":
+                    # 以實際論壇、帖子 ID 登記，不因名稱相同授權。
+                    from core.malicious_forum_permissions import register_bot_thread
+                    register_bot_thread(
+                        guild.id, int(character_id), forum.id, thread.id,
+                        setter_id=int(guild.owner_id), owner_authorized=True,
+                    )
+
                 # 通知貼文首篇釘選
                 if code == "notice":
                     try:
@@ -426,6 +444,7 @@ class CharacterForums(commands.Cog):
                 "notice_id",
                 "question_id",
                 "story_id",
+                "bot_id",
             )
 
             if all(
