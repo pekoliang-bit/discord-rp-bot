@@ -88,6 +88,9 @@ def request_purchase(guild_id, character_id, owner_id, item_id,
         # A 方案：一般成員可以提出金庫採購提案，
         # 但必須由第一、第二名共同批准後才能付款。
         # 提案不等於取得專屬商店管理或購買權限。
+        # 專屬商店只允許當期老大或副手提出採購；此處不代表核准金庫支出。
+        if item['shop_type'] == 'exclusive' and not faction_shop.can_use_exclusive(gid, fid, cid, owner_id):
+            raise ValueError('專屬商店僅限當期老大或副手使用。')
         if item['shop_type'] == 'exclusive' and item['currency'] != 'treasury':
             raise ValueError('專屬商店付款來源不合法。')
         if '影響指數' in str(item['effect_key']) or str(item['effect_key']).lower() == 'influence_index':
