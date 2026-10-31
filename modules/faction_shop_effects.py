@@ -26,8 +26,13 @@ def initialize():
             quantity INTEGER NOT NULL CHECK(quantity > 0),
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
             revoked_at TEXT,
+            expires_at TEXT,
             PRIMARY KEY(guild_id,order_id)
         )""")
+        # 向下相容遷移：舊有加成永久有效，不自行設定到期日。
+        columns = {str(row[1]) for row in db.execute("PRAGMA table_info(faction_shop_buff_grants)")}
+        if "expires_at" not in columns:
+            db.execute("ALTER TABLE faction_shop_buff_grants ADD COLUMN expires_at TEXT")
         db.execute("""CREATE INDEX IF NOT EXISTS faction_shop_buff_lookup
             ON faction_shop_buff_grants(guild_id,faction_id,effect_key,revoked_at)""")
 
@@ -57,7 +62,8 @@ def get_faction_bonus(guild_id, character_id, effect_key):
               ON g.guild_id=m.guild_id AND g.faction_id=m.faction_id
             WHERE m.guild_id=? AND m.character_id=?
               AND c.status='active' AND c.character_type='player'
-              AND g.effect_key=? AND g.revoked_at IS NULL""",
+              AND g.effect_key=? AND g.revoked_at IS NULL
+              AND (g.expires_at IS NULL OR g.expires_at > CURRENT_TIMESTAMP)""",
               (str(guild_id),int(character_id),str(effect_key))).fetchone()
         return int(row['bonus']) if row else 0
 
@@ -83,7 +89,29 @@ def list_active_bonuses(guild_id, character_id):
             WHERE m.guild_id=? AND m.character_id=?
               AND c.status='active' AND c.character_type='player'
               AND g.revoked_at IS NULL
+              AND (g.expires_at IS NULL OR g.expires_at > CURRENT_TIMESTAMP)
             GROUP BY g.effect_key ORDER BY g.effect_key""",
             (str(guild_id), int(character_id))).fetchall()
         return {str(r['effect_key']): int(r['bonus']) for r in rows
                 if str(r['effect_key']) in ALLOWED_KEYS and int(r['bonus']) > 0}
+
+
+def expire_order(guild_id, order_id, expires_at):
+    """僅供權限已驗證的管理服務設定到期時間；不會退款。
+
+    expires_at 使用 UTC 的 SQLite 時間格式 YYYY-MM-DD HH:MM:SS。
+    禁止延後已過期的加成，以免無意重新開啟既有增益。
+    """
+    from datetime import datetime, timezone
+    try:
+        expiry = datetime.strptime(str(expires_at), "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+    except (ValueError, TypeError) as error:
+        raise ValueError("到期時間格式應為 UTC YYYY-MM-DD HH:MM:SS") from error
+    if expiry <= datetime.now(timezone.utc):
+        raise ValueError("到期時間必須晚於現在；立即解除請使用撤銷操作。")
+    initialize()
+    with transaction() as db:
+        return db.execute("""UPDATE faction_shop_buff_grants SET expires_at=?
+            WHERE guild_id=? AND order_id=? AND revoked_at IS NULL
+              AND (expires_at IS NULL OR expires_at>CURRENT_TIMESTAMP)""",
+            (expiry.strftime("%Y-%m-%d %H:%M:%S"), str(guild_id), int(order_id))).rowcount == 1
