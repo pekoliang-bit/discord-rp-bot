@@ -25,6 +25,7 @@ TEST_GUILD_ID（選填）
 from __future__ import annotations
 
 import asyncio
+import ast
 import logging
 import os
 from collections import Counter
@@ -213,68 +214,43 @@ CASINO_HELPER_PREFIX = "casino_"
 
 
 def discover_extensions() -> list[str]:
-    """自動搜尋 modules 資料夾。"""
-
+    """只載入具有頂層 setup() 的 Discord 擴充模組。"""
     if not MODULES_DIR.is_dir():
-        raise RuntimeError(
-            "找不到 modules 資料夾。"
-        )
+        raise RuntimeError("找不到 modules 資料夾。")
 
-    extensions = []
-
-    for path in sorted(
-        MODULES_DIR.glob("*.py")
-    ):
-        if path.name.startswith("_") or path.stem in {"test_character", "test_content_manager"}:
+    found: list[str] = []
+    for path in sorted(MODULES_DIR.glob("*.py")):
+        if path.name.startswith("_") or path.stem in {
+            "test_character", "test_content_manager"
+        }:
             continue
-
-        # 服務層由 report_commands.py import，不能交給 Bot.load_extension()。
-        # 否則缺少 setup() 時會使整台機器人啟動中止。
-        if path.stem.startswith(REPORT_HELPER_PREFIX):
+        try:
+            tree = ast.parse(path.read_text(encoding="utf-8-sig"), filename=str(path))
+        except (OSError, UnicodeError, SyntaxError) as exc:
+            raise RuntimeError(f"檢查模組失敗：{path.name}：{exc}") from exc
+        if not any(
+            isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+            and node.name == "setup"
+            for node in tree.body
+        ):
+            LOG.info("略過非 Discord 擴充模組：%s", path.name)
             continue
+        found.append(f"modules.{path.stem}")
 
-        if path.stem.startswith(CASINO_HELPER_PREFIX):
-            continue
-
-        extensions.append(
-            f"modules.{path.stem}"
-        )
-
-    normal = [
-        name
-        for name in extensions
-        if name not in PRIORITY_MODULES
-        and name not in FINAL_MODULES
+    special = set(PRIORITY_MODULES) | set(FINAL_MODULES) | {
+        REPORT_EXTENSION, CASINO_EXTENSION
+    }
+    normal = [name for name in found if name not in special]
+    priority = [name for name in PRIORITY_MODULES if name in found]
+    final = [name for name in FINAL_MODULES if name in found]
+    trailing = [
+        name for name in (REPORT_EXTENSION, CASINO_EXTENSION)
+        if name in found
     ]
-
-    priority = [
-        name
-        for name in PRIORITY_MODULES
-        if name in extensions
-    ]
-
-    final = [
-        name
-        for name in FINAL_MODULES
-        if name in extensions
-    ]
-
-    ordered = normal + priority + final
-
-    # 舉報整合入口在正式核心模組之後載入；本身不註冊同名指令。
-    # 僅當檔案實際存在時啟用，讓尚未安裝舉報模組的部署也能運作。
-    if (MODULES_DIR / "report_commands.py").is_file():
-        ordered.append(REPORT_EXTENSION)
-
-    # 機率與結算服務由此入口引用，避免缺少 setup() 導致啟動失敗。
-    if (MODULES_DIR / "casino_commands.py").is_file():
-        ordered.append(CASINO_EXTENSION)
-
+    ordered = normal + priority + final + trailing
     if len(ordered) != len(set(ordered)):
-        raise RuntimeError(
-            "模組載入清單存在重複項目。"
-        )
-
+        raise RuntimeError("模組載入清單存在重複項目。")
+    LOG.info("找到 %d 個 Discord 擴充模組。", len(ordered))
     return ordered
 
 
