@@ -1,13 +1,24 @@
-"""傳聞結算準備狀態盤點（只讀，純後端）。
 
-放置：core/rumor_finalization_readiness.py
-不初始化資料表、不決定評級、不建立工作單，也不發獎。
+"""傳聞正式結算前唯讀檢查，不發獎、不變更資料。
+
+安裝：core/rumor_finalization_readiness.py
 """
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass
+
 from core.database import get_connection
-from core.rumor_plan_store import load_reward_plan, load_case_rules
+from core.rumor_grade_service import (
+    load_grade,
+    calculate_grade,
+)
+from core.rumor_plan_store import (
+    load_case_rules,
+    load_reward_plan,
+)
+from core.rumor_heat_snapshot import load_heat_snapshot
+from core.rumor_grade_policy import load_grade_policy
 
 
 @dataclass(frozen=True)
@@ -19,58 +30,234 @@ class CaseReadiness:
     explanation: str
 
 
-def check_case(guild_id: str | int, rumor_id: int) -> CaseReadiness:
+def _result(gid, rid, code, message):
+    return CaseReadiness(
+        gid, rid, False, code, message
+    )
+
+
+def check_case(
+    guild_id: str | int,
+    rumor_id: int,
+    *,
+    now: int | None = None,
+) -> CaseReadiness:
+    """核對到期、評級、規則及獎懲方案。"""
+
     gid = str(guild_id).strip()
-    if not gid or type(rumor_id) is not int or rumor_id <= 0:
+
+    if (
+        not gid
+        or type(rumor_id) is not int
+        or rumor_id <= 0
+    ):
         raise ValueError("伺服器或案件編號無效")
+
+    timestamp = (
+        int(time.time()) if now is None else int(now)
+    )
+
     with get_connection() as db:
         case = db.execute(
-            "SELECT character_id,status FROM rp_company_rumors "
-            "WHERE guild_id=? AND id=?", (gid, rumor_id),
+            """
+            SELECT character_id, status, settle_at
+            FROM rp_company_rumors
+            WHERE guild_id=? AND id=?
+            """,
+            (gid, rumor_id),
         ).fetchone()
+
         if case is None:
-            return CaseReadiness(gid, rumor_id, False, "missing", "案件不存在")
+            return _result(
+                gid, rumor_id,
+                "missing", "案件不存在"
+            )
+
         if case["status"] != "active":
-            return CaseReadiness(gid, rumor_id, False, "not_active", "案件並非進行中")
+            return _result(
+                gid, rumor_id,
+                "not_active", "案件不是進行中"
+            )
+
+        if int(case["settle_at"]) > timestamp:
+            return _result(
+                gid, rumor_id,
+                "not_due", "尚未到達結算時間"
+            )
+
         cid = int(case["character_id"])
 
-        snapshot_table = db.execute(
-            "SELECT 1 FROM sqlite_master WHERE type='table' "
-            "AND name='rp_rumor_rule_snapshots'"
+        tables = {
+            row[0]
+            for row in db.execute(
+                """
+                SELECT name FROM sqlite_master
+                WHERE type='table'
+                """
+            )
+        }
+
+        required = {
+            "rp_rumor_rule_snapshots",
+            "rp_rumor_locked_plans",
+            "rp_rumor_grade_snapshots",
+            "rp_rumor_heat_snapshots",
+            "rp_rumor_case_grade_policy",
+            "rp_rumor_case_tiers",
+        }
+
+        missing = required - tables
+
+        if missing:
+            return _result(
+                gid, rumor_id,
+                "missing_tables",
+                "缺少結算資料表："
+                + ", ".join(sorted(missing)),
+            )
+
+        policy_row = db.execute(
+            """
+            SELECT version
+            FROM rp_rumor_case_grade_policy
+            WHERE guild_id=? AND rumor_id=?
+            """,
+            (gid, rumor_id),
         ).fetchone()
-        plan_table = db.execute(
-            "SELECT 1 FROM sqlite_master WHERE type='table' "
-            "AND name='rp_rumor_locked_plans'"
+
+        tier_row = db.execute(
+            """
+            SELECT tier
+            FROM rp_rumor_case_tiers
+            WHERE guild_id=? AND rumor_id=?
+            """,
+            (gid, rumor_id),
         ).fetchone()
-    if snapshot_table is None:
-        return CaseReadiness(gid, rumor_id, False, "no_snapshot_table", "尚未建立規則快照表")
-    if plan_table is None:
-        return CaseReadiness(gid, rumor_id, False, "no_plan_table", "尚未建立正式方案表")
+
+    if not policy_row or not tier_row:
+        return _result(
+            gid, rumor_id,
+            "no_policy",
+            "案件缺少鎖定的評級政策或T級",
+        )
+
     try:
-        load_case_rules(gid, rumor_id)
-    except LookupError:
-        return CaseReadiness(gid, rumor_id, False, "no_snapshot", "缺少案件建立時的規則快照")
-    except (ValueError, RuntimeError, KeyError, TypeError) as exc:
-        return CaseReadiness(gid, rumor_id, False, "invalid_snapshot", str(exc))
-    try:
-        plan = load_reward_plan(gid, rumor_id, cid, phase="final")
-    except LookupError:
-        return CaseReadiness(gid, rumor_id, False, "no_plan", "尚未核定最終獎懲方案")
-    except (ValueError, RuntimeError, KeyError, TypeError) as exc:
-        return CaseReadiness(gid, rumor_id, False, "invalid_plan", str(exc))
+        rules = load_case_rules(gid, rumor_id)
+        grade = load_grade(gid, rumor_id, cid)
+        heat = load_heat_snapshot(gid, rumor_id)
+
+        policy = load_grade_policy(
+            gid, policy_row["version"]
+        )
+
+        plan = load_reward_plan(
+            gid, rumor_id, cid, phase="final"
+        )
+
+    except LookupError as exc:
+        return _result(
+            gid, rumor_id,
+            "missing_snapshot", str(exc)
+        )
+
+    except (
+        ValueError, RuntimeError,
+        KeyError, TypeError,
+    ) as exc:
+        return _result(
+            gid, rumor_id,
+            "invalid_snapshot", str(exc)
+        )
+
+    if (
+        int(tier_row["tier"]) != grade.tier
+        or plan.tier != grade.tier
+    ):
+        return _result(
+            gid, rumor_id,
+            "tier_mismatch",
+            "方案、評級與案件T級不一致",
+        )
+
+    if (
+        grade.heat != heat.heat
+        or plan.heat != heat.heat
+    ):
+        return _result(
+            gid, rumor_id,
+            "heat_mismatch",
+            "方案、評級與熱度快照不一致",
+        )
+
+    if (
+        grade.grade != plan.grade
+        or calculate_grade(
+            grade.score, policy.thresholds
+        ) != grade.grade
+    ):
+        return _result(
+            gid, rumor_id,
+            "grade_mismatch",
+            "方案或正式門檻與評級不一致",
+        )
+
+    if (
+        grade.rule_version != rules.version
+        or plan.version != rules.version
+    ):
+        return _result(
+            gid, rumor_id,
+            "rule_mismatch",
+            "獎懲規則版本不一致",
+        )
+
     if not plan.changes:
-        return CaseReadiness(gid, rumor_id, False, "empty_plan", "目前結算器尚不支援空獎懲方案")
-    return CaseReadiness(gid, rumor_id, True, "ready", "已具備規則快照與可信任的鎖定方案")
+        return _result(
+            gid, rumor_id,
+            "empty_plan",
+            "目前結算器不支援空數值方案",
+        )
+
+    return CaseReadiness(
+        gid,
+        rumor_id,
+        True,
+        "ready",
+        "可交由正式結算器再次驗證",
+    )
 
 
-def check_recent_cases(guild_id: str | int, limit: int = 50) -> list[CaseReadiness]:
+def check_recent_cases(
+    guild_id: str | int,
+    limit: int = 50,
+    *,
+    now: int | None = None,
+) -> list[CaseReadiness]:
+    """檢查近期進行中的案件。"""
+
     gid = str(guild_id).strip()
+
     if not gid:
         raise ValueError("伺服器編號不可為空")
+
     limit = max(1, min(int(limit), 200))
+
     with get_connection() as db:
         rows = db.execute(
-            "SELECT id FROM rp_company_rumors WHERE guild_id=? "
-            "AND status='active' ORDER BY id DESC LIMIT ?", (gid, limit),
+            """
+            SELECT id
+            FROM rp_company_rumors
+            WHERE guild_id=? AND status='active'
+            ORDER BY id DESC LIMIT ?
+            """,
+            (gid, limit),
         ).fetchall()
-    return [check_case(gid, int(row["id"])) for row in rows]
+
+    return [
+        check_case(
+            gid,
+            int(row["id"]),
+            now=now,
+        )
+        for row in rows
+    ]
