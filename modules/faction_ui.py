@@ -28,7 +28,7 @@ from core.database import get_connection
 from core.economy import EconomyError
 
 from modules import faction_core
-from modules.faction_donations import donate
+from modules.faction_donations import donate, item_options, donate_item
 from modules import faction_membership
 
 
@@ -475,6 +475,61 @@ class MembershipConfirm(PrivateView):
         await interaction.response.edit_message(content="已取消陣營異動。", view=FactionHome(self.guild_id, self.user_id))
 
 
+
+
+class FactionItemDonateModal(discord.ui.Modal, title="供奉背包物品"):
+    quantity = discord.ui.TextInput(label="供奉數量", placeholder="例如：1", max_length=6)
+    def __init__(self,guild_id,user_id,character_id,product_id,unit_price):
+        super().__init__()
+        self.guild_id,self.user_id,self.character_id,self.product_id,self.unit_price=(
+            guild_id,user_id,character_id,product_id,unit_price)
+
+    async def on_submit(self,interaction):
+        if interaction.user.id != self.user_id:
+            return await interaction.response.send_message('只能操作自己的角色。',ephemeral=True)
+        try:
+            qty=int(str(self.quantity.value).strip())
+            if qty<=0: raise ValueError()
+            result=donate_item(self.guild_id,self.character_id,self.user_id,
+                               self.product_id,qty,str(interaction.id))
+        except (ValueError,EconomyError) as exc:
+            return await interaction.response.send_message(f'供奉失敗：{exc}',ephemeral=True)
+        await interaction.response.send_message(
+            f"物品供奉成功：{result['quantity']} 件，折算 {result['amount']:,} 金幣，"
+            f"本次獲得 {result['points']} 積分。",ephemeral=True)
+
+
+class FactionItemDonateSelect(discord.ui.View):
+    def __init__(self,guild_id,user_id,character_id,page=0):
+        super().__init__(timeout=180)
+        self.guild_id,self.user_id,self.character_id,self.page=guild_id,user_id,character_id,page
+        items=item_options(guild_id,character_id,user_id,limit=25,offset=page*25)
+        if items:
+            options=[discord.SelectOption(label=str(r['name'])[:85],
+              description=f"持有 {r['quantity']}｜折算單價 {r['price']} 金幣",
+              value=str(r['product_id'])) for r in items]
+            select=discord.ui.Select(placeholder='選擇要供奉的物品',options=options,row=0)
+            async def selected(interaction):
+                if interaction.user.id!=self.user_id:
+                    return await interaction.response.send_message('只能操作自己的角色。',ephemeral=True)
+                pid=int(select.values[0]); matched=next(r for r in items if int(r['product_id'])==pid)
+                await interaction.response.send_modal(FactionItemDonateModal(
+                    self.guild_id,self.user_id,self.character_id,pid,int(matched['price'])))
+            select.callback=selected
+            self.add_item(select)
+        if page:
+            b=discord.ui.Button(label='◀️',row=1)
+            async def previous(interaction):
+                await interaction.response.edit_message(view=FactionItemDonateSelect(
+                  self.guild_id,self.user_id,self.character_id,self.page-1))
+            b.callback=previous;self.add_item(b)
+        if len(items)==25:
+            b=discord.ui.Button(label='▶️',row=1)
+            async def nxt(interaction):
+                await interaction.response.edit_message(view=FactionItemDonateSelect(
+                  self.guild_id,self.user_id,self.character_id,self.page+1))
+            b.callback=nxt;self.add_item(b)
+
 class DonationModal(
     discord.ui.Modal,
     title="向所屬陣營供奉",
@@ -914,7 +969,18 @@ class MyFactionPanel(PrivateView):
                     await interaction.response.send_modal(DonationModal(self.guild_id, self.user_id, self.character_id))
                 b.callback = contribute
                 self.add_item(b)
-                b2 = discord.ui.Button(label="捐獻物品（尚未開放）", disabled=True, row=0)
+                b2 = discord.ui.Button(label="捐獻物品", style=discord.ButtonStyle.success, row=1)
+                async def contribute_item(interaction):
+                    if interaction.user.id != self.user_id:
+                        return await interaction.response.send_message('只能操作自己的角色。',ephemeral=True)
+                    try:
+                        view=FactionItemDonateSelect(self.guild_id,self.user_id,self.character_id)
+                        if not view.children:
+                            return await interaction.response.send_message('背包沒有可供奉的普通物品。',ephemeral=True)
+                        await interaction.response.send_message('選擇供奉物品；依當前官方商品價格折算。',view=view,ephemeral=True)
+                    except ValueError as exc:
+                        await interaction.response.send_message(str(exc),ephemeral=True)
+                b2.callback=contribute_item
                 self.add_item(b2)
             if section in ("rank", "members", "shop", "funds"):
                 for label, offset in [("◀️", -1), ("▶️", 1)]:
