@@ -108,7 +108,7 @@ def get_characters(guild_id):
                 character_type
             FROM characters
             WHERE guild_id=?
-              AND status IN ('approved', 'active')
+              AND status = 'active'
             ORDER BY id ASC
             """,
             (str(guild_id),),
@@ -459,7 +459,25 @@ class CharacterForums(commands.Cog):
                     forum,
                     discord.ForumChannel,
                 ):
-                    continue
+                    # 舊角色可能已有帖子，卻因當時尚未啟用而綁定失敗。
+                    # 只有論壇 ID、bot 帖子 ID、惡意系統綁定三者一致才跳過。
+                    from core.database import get_connection
+                    with get_connection() as db:
+                        bound = db.execute(
+                            "SELECT name FROM sqlite_master WHERE type='table' AND name='rp_malicious_bot_threads'"
+                        ).fetchone()
+                        record = (
+                            db.execute(
+                                """SELECT forum_id, thread_id FROM rp_malicious_bot_threads
+                                    WHERE guild_id=? AND character_id=?""",
+                                (str(guild.id), int(character["id"])),
+                            ).fetchone()
+                            if bound else None
+                        )
+                    if (record is not None
+                            and str(record["forum_id"]) == str(forum.id)
+                            and str(record["thread_id"]) == str(data["bot_id"])):
+                        continue
 
             try:
                 await self.ensure_forum(
@@ -472,6 +490,7 @@ class CharacterForums(commands.Cog):
             except (
                 discord.HTTPException,
                 ValueError,
+                PermissionError,
                 sqlite3.Error,
             ) as exc:
                 failed.append(
