@@ -1,4 +1,3 @@
-
 """角色玩法用的有效屬性（基礎值 + 當前陣營增益）。
 
 只能用於明確允許臨時加成的玩法計算；不可用於永久發獎、
@@ -26,6 +25,7 @@ def active_faction_bonuses(db, guild_id, character_id):
         WHERE m.guild_id=? AND m.character_id=?
           AND c.status='active' AND c.character_type='player'
           AND g.revoked_at IS NULL
+          AND (g.expires_at IS NULL OR g.expires_at > CURRENT_TIMESTAMP)
         GROUP BY g.effect_key""", (str(guild_id), int(character_id))).fetchall()
     return {str(r['effect_key']): int(r['bonus']) for r in rows
             if r['effect_key'] in EFFECTIVE_SKILLS and int(r['bonus']) > 0}
