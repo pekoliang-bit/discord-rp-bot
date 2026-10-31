@@ -1,6 +1,6 @@
-"""娛樂城抽抽樂：機率、保底、商品獎池驗證及安全金幣池執行。
+"""娛樂城抽抽樂：金幣／官方商城商品單抽及金幣獎池十連抽。
 
-非 Discord Extension。商城物品出貨尚未接通時，商品池禁止購買；不會扣款後只留下待領商品。
+非 Discord Extension。商品單抽會封存結果並使用商城背包原子發貨。
 管理設定應由已授權的後台保存，玩家不可自選獎品或稀有度。
 """
 from __future__ import annotations
@@ -130,8 +130,13 @@ def draw_gacha(*, guild_id: str | int, player_id: str | int, character_id: int,
     if not game:
         raise CasinoError('找不到抽抽樂獎池')
     spec = validate_gacha(game)
+    # 預先確認商品可由商城背包系統接受，避免已知無效商品扣款。
+    # 真正發貨仍會在同一資料庫事務內再次檢查。
     if spec['has_items']:
-        raise CasinoError('此獎池包含官方商城物品，需等待背包出貨橋接完成後才能開放購買')
+        from modules.casino_shop_bridge import validate_shop_prize
+        for item in spec['prizes']:
+            if item['type'] == 'official_shop_item':
+                validate_shop_prize(guild_id, item['item_id'])
     gid = str(guild_id)
     family = spec['config']['pool_family']
     purchased = purchase_round(guild_id=gid, player_id=player_id, character_id=character_id,
@@ -141,8 +146,11 @@ def draw_gacha(*, guild_id: str | int, player_id: str | int, character_id: int,
     with transaction() as conn:
         row = conn.execute('SELECT * FROM casino_rounds WHERE guild_id=? AND id=?',
                            (gid, round_id)).fetchone()
-        if int(row['config_version']) != int(game['config_version']):
-            raise CasinoError('獎池版本變動，已購買的對局需人工核對')
+        if int(row['config_version']) != int(game['config_version']) and row['status'] == 'pending':
+            # 已購票的舊版本不使用新版本的機率重新抽取。
+            existing_seal = conn.execute("SELECT 1 FROM casino_audit WHERE guild_id=? AND action='gacha_sealed' AND ref_key=?",(gid,str(round_id))).fetchone()
+            if not existing_seal:
+                raise CasinoError('購票後獎池版本已變動，請聯絡管理員處理')
         sealed = conn.execute('SELECT details_json FROM casino_audit WHERE guild_id=? AND action=? AND ref_key=?',
                               (gid, 'gacha_sealed', str(round_id))).fetchone()
         if sealed:
@@ -159,21 +167,32 @@ def draw_gacha(*, guild_id: str | int, player_id: str | int, character_id: int,
             new_ur = 0 if rarity == 'UR' else ur + 1
             conn.execute('INSERT INTO casino_pity(guild_id,character_id,pool_family,since_ssr,since_ur) VALUES(?,?,?,?,?) ON CONFLICT(guild_id,character_id,pool_family) DO UPDATE SET since_ssr=excluded.since_ssr,since_ur=excluded.since_ur,updated_at=CURRENT_TIMESTAMP',
                          (gid, character_id, family, new_ssr, new_ur))
-            outcome = {'rarity': rarity, 'type': 'coins', 'coins': prize['coins'],
+            outcome = {'rarity': rarity, 'type': prize['type'],
                        'pool_family': family, 'prize_code': str(prize.get('code', rarity))}
+            if prize['type'] == 'coins':
+                outcome['coins'] = prize['coins']
+            else:
+                outcome['item_id'] = int(prize['item_id'])
+                outcome['quantity'] = int(prize.get('quantity', 1))
             conn.execute('INSERT INTO casino_audit(guild_id,actor_id,action,ref_key,details_json) VALUES(?,?,?,?,?)',
                          (gid, 'system', 'gacha_sealed', str(round_id),
                           json.dumps(outcome, sort_keys=True, ensure_ascii=False)))
         else:
             raise CasinoError('此抽獎對局無法結算')
+    if outcome.get('type') == 'official_shop_item':
+        from modules.casino_shop_bridge import deliver_sealed_shop_prize
+        return deliver_sealed_shop_prize(guild_id=gid, round_id=int(round_id),
+                item_id=outcome['item_id'], quantity=int(outcome.get('quantity', 1)))
+    if outcome.get('type') != 'coins':
+        raise CasinoError('未知抽獎獎勵種類')
     return settle_round(guild_id=gid, round_id=round_id, outcome=outcome,
                         reward_coins=outcome['coins'], expected_kind='gacha')
 
 
 def draw_ten(*, guild_id: str | int, player_id: str | int, character_id: int,
              game_code: str, batch_key: str, payment_source: str = 'wallet') -> list[dict[str, Any]]:
-    """十連抽，每抽有固定唯一鍵；在商品池接線前同樣禁止購買。
-
-    注意：十連保證需完整原子批次結算；目前不提供開放式十連，避免只完成部分抽取。
-    """
-    raise CasinoError('十連保底需等待原子批次購買模組完成，目前不可開放')
+    """十連抽：委派原子批次引擎；商品混合池保持停用。"""
+    from modules.casino_gacha_batch import draw_ten_atomic
+    return draw_ten_atomic(guild_id=guild_id, player_id=player_id,
+            character_id=character_id, game_code=game_code,
+            batch_key=batch_key, payment_source=payment_source)
