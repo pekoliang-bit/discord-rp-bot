@@ -1067,6 +1067,108 @@ class FactionTreasuryReviewList(PrivateView):
                 + "\n只有當期老大、副手能執行審核；重大支出需兩人同意。")
 
 
+# 第十三階段：陣營暗害／防護草稿介面；尚未啟動扣款與效果。
+class FactionActionProposalModal(discord.ui.Modal, title="陣營行動提案（未執行）"):
+    target = discord.ui.TextInput(label="目標或防護對象", max_length=150, required=True)
+    reason = discord.ui.TextInput(label="提案理由", style=discord.TextStyle.paragraph,
+                                   max_length=500, required=False)
+
+    def __init__(self, guild_id, user_id, character_id, faction_id, action_type):
+        super().__init__()
+        self.guild_id = guild_id
+        self.user_id = user_id
+        self.character_id = character_id
+        self.faction_id = faction_id
+        self.action_type = action_type
+
+    async def on_submit(self, interaction):
+        if interaction.user.id != self.user_id:
+            return await interaction.response.send_message("只能替自己的角色提出行動。", ephemeral=True)
+        try:
+            from modules.faction_actions import create_proposal
+            proposal_id = create_proposal(
+                self.guild_id, self.faction_id, self.character_id, self.user_id,
+                self.action_type, str(self.target),
+                f"discord:{interaction.id}", str(self.reason))
+            label = "暗害" if self.action_type == "sabotage" else "防護"
+            await interaction.response.send_message(
+                f"已記錄{label}草稿 #{proposal_id}。目前僅存檔，**沒有扣款、審核或效果執行**。",
+                ephemeral=True)
+        except (ValueError, KeyError) as exc:
+            await interaction.response.send_message(str(exc), ephemeral=True)
+        except Exception:
+            await interaction.response.send_message("提案暫時無法建立，請管理員查看日誌。", ephemeral=True)
+
+
+class FactionActionDraftSelect(discord.ui.Select):
+    def __init__(self, guild_id, user_id, character_id, entries):
+        self.guild_id = guild_id
+        self.user_id = user_id
+        self.character_id = character_id
+        opts = [discord.SelectOption(
+            label=f"#{r['id']} {'暗害' if r['action_type']=='sabotage' else '防護'}｜{str(r['target_text'])[:55]}",
+            value=str(r['id']), description="取消我的草稿") for r in entries
+            if r['status'] == 'draft' and int(r['applicant_character_id']) == int(character_id)]
+        super().__init__(placeholder="取消自己提出的草稿", options=opts[:25], row=1)
+
+    async def callback(self, interaction):
+        if interaction.user.id != self.user_id:
+            return await interaction.response.send_message("不能取消其他玩家的提案。", ephemeral=True)
+        try:
+            from modules.faction_actions import cancel_proposal
+            cancel_proposal(self.guild_id, int(self.values[0]), self.character_id, self.user_id)
+            await interaction.response.send_message("草稿已取消，未扣除任何金幣。", ephemeral=True)
+        except ValueError as exc:
+            await interaction.response.send_message(str(exc), ephemeral=True)
+
+
+class FactionActionsPanel(PrivateView):
+    def __init__(self, guild_id, user_id, character_id, faction_id, page=0):
+        super().__init__(guild_id, user_id)
+        self.character_id = int(character_id)
+        self.faction_id = int(faction_id)
+        self.page = max(0, int(page))
+        for label, kind in (("提出暗害草稿", "sabotage"), ("提出防護草稿", "defense")):
+            b = discord.ui.Button(label=label, style=discord.ButtonStyle.secondary, row=0)
+            async def start(interaction, action_type=kind):
+                await interaction.response.send_modal(FactionActionProposalModal(
+                    self.guild_id, self.user_id, self.character_id, self.faction_id, action_type))
+            b.callback = start
+            self.add_item(b)
+        entries = self._entries()
+        if any(r['status'] == 'draft' and int(r['applicant_character_id']) == self.character_id for r in entries):
+            self.add_item(FactionActionDraftSelect(guild_id, user_id, character_id, entries))
+        for label, delta in (("◀️", -1), ("▶️", 1)):
+            b = discord.ui.Button(label=label, style=discord.ButtonStyle.secondary, row=2,
+                                  disabled=(delta == -1 and self.page == 0))
+            async def turn(interaction, d=delta):
+                view = FactionActionsPanel(self.guild_id, self.user_id, self.character_id,
+                                           self.faction_id, max(0, self.page+d))
+                await interaction.response.edit_message(content=view.description(), view=view)
+            b.callback = turn
+            self.add_item(b)
+        back = discord.ui.Button(label="返回經費情況", row=3)
+        async def go_back(interaction):
+            panel = MyFactionPanel(self.guild_id, self.user_id, self.character_id, "funds")
+            await interaction.response.edit_message(content=panel.render(), view=panel)
+        back.callback = go_back
+        self.add_item(back)
+
+    def _entries(self):
+        from modules.faction_actions import list_proposals
+        return list_proposals(self.guild_id, self.faction_id, limit=8, offset=self.page*8)
+
+    def description(self):
+        entries = self._entries()
+        lines = [f"#{r['id']}｜{'暗害' if r['action_type']=='sabotage' else '防護'}｜"
+                 f"{discord.utils.escape_markdown(str(r['target_text'])[:80])}｜"
+                 f"{'草稿' if r['status']=='draft' else ('已取消' if r['status']=='cancelled' else '已拒絕')}"
+                 for r in entries]
+        return (f"**⚔️ 陣營行動提案｜第 {self.page+1} 頁**\n"
+                "僅記錄草稿，不會扣款或施加任何效果。\n\n"
+                + ("\n".join(lines) if lines else "目前沒有提案。"))
+
+
 # 新版 /陣營：依角色顯示自己的陣營；原有入退轉 UI 保留但不再從首頁提供。
 class MyFactionPanel(PrivateView):
     def __init__(self, guild_id, user_id, character_id, section="home", page=0, shop_type="general"):
@@ -1137,6 +1239,16 @@ class MyFactionPanel(PrivateView):
                         self.add_item(review)
                 except (ValueError,KeyError):
                     pass
+                actions = discord.ui.Button(label="暗害／防護提案", style=discord.ButtonStyle.secondary, row=1)
+                async def actions_click(interaction):
+                    try:
+                        _row, _fid = self.current_faction()
+                        view = FactionActionsPanel(self.guild_id, self.user_id, self.character_id, _fid)
+                        await interaction.response.edit_message(content=view.description(), view=view)
+                    except (ValueError, KeyError) as exc:
+                        await interaction.response.send_message(str(exc), ephemeral=True)
+                actions.callback = actions_click
+                self.add_item(actions)
             if section in ("rank", "members", "shop", "funds"):
                 for label, offset in [("◀️", -1), ("▶️", 1)]:
                     b = discord.ui.Button(label=label, style=discord.ButtonStyle.secondary, row=2)
