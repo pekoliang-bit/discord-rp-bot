@@ -873,7 +873,7 @@ class FactionHome(PrivateView):
                 "**暗害與防護**\n"
                 "相關行動需要支付資金，"
                 "詳細規則尚待實作。\n\n"
-                "目前商店交易尚未開放，"
+                "一般商店的符合資格普通商品可付款；專屬商店僅開放採購提案，特殊效果結算尚未開放，"
                 "不會扣除任何資金。"
             ),
             ephemeral=True,
@@ -933,6 +933,7 @@ class FactionShopRequestModal(discord.ui.Modal, title="陣營商店｜提出購�
         self.user_id = user_id
         self.character_id = int(character_id)
         self.item_id = int(item_id)
+        self.proposal_only = False
 
     async def on_submit(self, interaction: discord.Interaction):
         try:
@@ -940,7 +941,7 @@ class FactionShopRequestModal(discord.ui.Modal, title="陣營商店｜提出購�
             from modules.faction_shop_orders import request_purchase
             order = request_purchase(self.guild_id, self.character_id,
                                      self.user_id, self.item_id, qty,
-                                     f"discord:{interaction.id}")
+                                     f"discord:{interaction.id}", proposal_only=self.proposal_only)
             if order['currency'] == 'wallet' and order['effect_type'] == 'item':
                 await interaction.response.send_message(
                     f"購買確認｜訂單 #{order['id']}\n商品 #{self.item_id} × {qty}\n"
@@ -952,26 +953,28 @@ class FactionShopRequestModal(discord.ui.Modal, title="陣營商店｜提出購�
                 await interaction.response.send_message(
                     f"已建立待審訂單 #{order['id']}\n商品 #{self.item_id} × {qty}\n"
                     f"總價：{order['total_price']:,} 金幣\n"
-                    "此類訂單尚未開放自動結算，沒有扣款、扣庫存或發貨。",
+                    "這是金庫採購提案，需老大及副手共同核准；目前特殊效果商品尚未開放結算，沒有扣款、扣庫存或發貨。",
                     ephemeral=True)
         except (ValueError, TypeError) as exc:
             await interaction.response.send_message(f"無法建立訂單：{exc}", ephemeral=True)
 
 
 class FactionShopProductSelect(discord.ui.Select):
-    def __init__(self, guild_id, user_id, character_id, items):
+    def __init__(self, guild_id, user_id, character_id, items, *, proposal_only=False):
+        self.proposal_only = proposal_only
         self.guild_id = guild_id
         self.user_id = user_id
         self.character_id = int(character_id)
         options = [discord.SelectOption(label=str(item['name'])[:80],
                     description=f"#{item['id']}｜{int(item['price']):,} 金幣"[:100],
                     value=str(item['id'])) for item in items]
-        super().__init__(placeholder="選擇商品（符合資格的普通道具可直接購買）", min_values=1, max_values=1,
+        super().__init__(placeholder=("選擇專屬商品提出金庫採購提案" if proposal_only else "選擇一般商店商品"), min_values=1, max_values=1,
                          options=options, row=1)
 
     async def callback(self, interaction: discord.Interaction):
-        await interaction.response.send_modal(FactionShopRequestModal(
-            self.guild_id, self.user_id, self.character_id, int(self.values[0])))
+        modal = FactionShopRequestModal(self.guild_id, self.user_id, self.character_id, int(self.values[0]))
+        modal.proposal_only = self.proposal_only
+        await interaction.response.send_modal(modal)
 
 
 # 第七階段：金庫採購審核入口，不額外註冊頂層斜線指令。
@@ -1090,11 +1093,8 @@ class MyFactionPanel(PrivateView):
                     from modules.faction_shop import list_items
                     row, fid = self.current_faction()
                     items = list_items(self.guild_id, fid, self.shop_type, limit=8, offset=self.page*8)
-                    # 專屬商店付款規則與雙人核准相衝突，暫不受理訂單。
-                    if self.shop_type == "exclusive":
-                        items = []
                     if items:
-                        self.add_item(FactionShopProductSelect(self.guild_id, self.user_id, self.character_id, items))
+                        self.add_item(FactionShopProductSelect(self.guild_id, self.user_id, self.character_id, items, proposal_only=self.shop_type == "exclusive"))
                 except (ValueError, KeyError):
                     pass
                 b = discord.ui.Button(label="一般／專屬商店", row=0)
