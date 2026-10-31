@@ -735,6 +735,24 @@ def make_character_embed(
         add_field_chunks(embed, "其他已登記屬性", others)
 
     if detail_page == 1:
+        # 陣營加成僅作為已登記效果展示，不改寫基礎屬性，亦不宣稱已套用。
+        try:
+            from modules.faction_shop_effects import list_active_bonuses
+            active_faction_bonuses = list_active_bonuses(
+                actor.guild_id, character_id
+            )
+        except Exception:
+            LOG.exception("讀取角色陣營增益失敗 character_id=%s", character_id)
+            active_faction_bonuses = {}
+        if active_faction_bonuses:
+            add_field_chunks(
+                embed,
+                "✨ 陣營商店加成（已登記）",
+                [f"{name}：+{value:,}" for name, value in active_faction_bonuses.items()]
+                + ["※ 顯示加成帳本紀錄；實際玩法須接入效果計算才會生效。"],
+            )
+
+    if detail_page == 1:
         embed.add_field(
         name="🏳️ 所屬陣營",
         value=_panel_faction(actor, character_id),
