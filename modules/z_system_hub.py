@@ -11,6 +11,8 @@ from modules.overview_catalog import PAGE_SIZE, MENU
 from modules.overview_guides import GUIDES, OWNER_GUIDE
 from modules.overview_helpers import escape
 from modules.overview_data import query_rows
+from modules.overview_status import system_lines, status_text
+from modules.overview_updates import recent_updates
 
 LOG = logging.getLogger(__name__)
 
@@ -98,7 +100,7 @@ class OverviewView(discord.ui.View):
         if self.section == "guide":
             self.add_item(GuideSelect(self.guide))
         self.prev_button.disabled = self.page <= 0
-        self.next_button.disabled = self.section in ("guide", "commands")
+        self.next_button.disabled = self.section in ("guide", "commands", "systems", "status", "updates")
         self.add_item(self.prev_button)
         self.add_item(self.next_button)
         self.add_item(self.home_button)
@@ -106,6 +108,17 @@ class OverviewView(discord.ui.View):
     def render(self):
         title = MENU[self.section]
         embed = discord.Embed(title=f"🌐 流光城｜{title}", color=discord.Color.blurple())
+        if self.section == "systems":
+            embed.description = "以下是目前指令樹的系統導覽；未註冊的入口以 ▫️ 顯示。"
+            for line in system_lines(self.bot):
+                embed.add_field(name="分類", value=line[:1024], inline=False)
+            return embed
+        if self.section == "status":
+            embed.description = status_text(self.bot)
+            return embed
+        if self.section == "updates":
+            embed.description = recent_updates(self.guild_id)
+            return embed
         if self.section == "guide":
             embed.add_field(name=self.guide, value=GUIDES[self.guide], inline=False)
             embed.set_footer(text="新手教學與任務獎勵請使用 /任務")
@@ -221,7 +234,7 @@ class OverviewView(discord.ui.View):
             embed = self.render()
             # render 會修正頁碼，因此需重新建構按鈕狀態。
             self.rebuild()
-            if self.section not in ('guide','commands'):
+            if self.section not in ('guide','commands','systems','status','updates'):
                 try:
                     count = len(query_rows(self.guild_id, self.section))
                     self.next_button.disabled = (self.page+1)*PAGE_SIZE >= count
