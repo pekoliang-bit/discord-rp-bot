@@ -1418,9 +1418,12 @@ class WorldSettingsView(discord.ui.View):
                 from modules.world_feature_editor import FeatureHomeView, feature_summary
                 view = FeatureHomeView(interaction)
                 content = feature_summary(interaction.guild_id)
+            elif category == "channels":
+                from modules.world_channel_editor import ChannelHomeView, channel_summary
+                view = ChannelHomeView(interaction)
+                content = channel_summary(interaction.guild_id)
             else:
-                view = (WorldChannelView(interaction) if category == "channels" else
-                        WorldCategoryView(interaction, category))
+                view = WorldCategoryView(interaction, category)
                 content = world_category_summary(interaction.guild_id, category)
             await interaction.response.edit_message(content=content, view=view)
         select.callback = selected
