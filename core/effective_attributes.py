@@ -27,8 +27,13 @@ def active_faction_bonuses(db, guild_id, character_id):
           AND g.revoked_at IS NULL
           AND (g.expires_at IS NULL OR g.expires_at > CURRENT_TIMESTAMP)
         GROUP BY g.effect_key""", (str(guild_id), int(character_id))).fetchall()
-    return {str(r['effect_key']): int(r['bonus']) for r in rows
-            if r['effect_key'] in EFFECTIVE_SKILLS and int(r['bonus']) > 0}
+    raw = {str(r['effect_key']): int(r['bonus']) for r in rows
+           if r['effect_key'] in EFFECTIVE_SKILLS and int(r['bonus']) > 0}
+    if not db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='faction_bonus_caps'").fetchone():
+        return raw
+    caps = {str(r[0]): int(r[1]) for r in db.execute(
+        'SELECT effect_key,cap FROM faction_bonus_caps WHERE guild_id=?', (str(guild_id),)).fetchall()}
+    return {k: min(v, caps[k]) if k in caps else v for k,v in raw.items()}
 
 
 def effective_attributes(db, guild_id, character_id, base_attributes):
