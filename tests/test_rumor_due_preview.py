@@ -5,6 +5,7 @@ import unittest
 
 from types import SimpleNamespace as NS
 from unittest.mock import patch
+
 from core import rumor_due_preview as mod
 
 
