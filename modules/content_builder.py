@@ -1007,6 +1007,52 @@ def world_save(gid, data):
             ON CONFLICT(guild_id) DO UPDATE SET config_json=excluded.config_json,
             updated_at=CURRENT_TIMESTAMP""", (str(gid), json.dumps(data, ensure_ascii=False)))
 
+class WorldBackgroundModal(discord.ui.Modal):
+    """世界背景專用表單：直接修改名稱與介紹，不需輸入內部鍵名。"""
+    def __init__(self, guild_id):
+        super().__init__(title="世界背景設定")
+        data = world_get(guild_id)
+        self.world_name = discord.ui.TextInput(label="世界觀名稱", default=str(data.get("world_name") or ""), max_length=100)
+        self.background = discord.ui.TextInput(label="世界背景介紹", default=str(data.get("background") or "")[:2000], style=discord.TextStyle.paragraph, max_length=2000, required=False)
+        self.add_item(self.world_name)
+        self.add_item(self.background)
+
+    async def on_submit(self, interaction):
+        if not owner(interaction):
+            return await tell(interaction, "⛔ 僅限群主修改世界觀。")
+        name = str(self.world_name).strip()
+        if not name:
+            return await tell(interaction, "世界觀名稱不可為空。")
+        data = world_get(interaction.guild_id)
+        data["world_name"] = name
+        data["background"] = str(self.background).strip()
+        for key in ("world_name", "background"):
+            data.setdefault("overrides", {})[key] = True
+        world_save(interaction.guild_id, data)
+        await interaction.response.send_message("✅ 世界背景已儲存。\n" + world_category_summary(interaction.guild_id, "root"), ephemeral=True)
+
+
+class WorldCurrencyModal(discord.ui.Modal):
+    """用詞管理中的貨幣名稱設定。"""
+    def __init__(self, guild_id):
+        super().__init__(title="貨幣稱呼設定")
+        terms = world_get(guild_id).get("terms", {})
+        self.currency = discord.ui.TextInput(label="貨幣稱呼", default=str(terms.get("currency", "金幣")), max_length=30)
+        self.add_item(self.currency)
+
+    async def on_submit(self, interaction):
+        if not owner(interaction):
+            return await tell(interaction, "⛔ 僅限群主修改世界觀。")
+        value = str(self.currency).strip()
+        if not value:
+            return await tell(interaction, "貨幣稱呼不可為空。")
+        data = world_get(interaction.guild_id)
+        data.setdefault("terms", {})["currency"] = value
+        data.setdefault("overrides", {})["terms.currency"] = True
+        world_save(interaction.guild_id, data)
+        await interaction.response.send_message("✅ 貨幣稱呼已儲存。其他模組仍須讀取世界觀設定才會套用新稱呼。", ephemeral=True)
+
+
 class WorldEditModal(discord.ui.Modal):
     def __init__(self, category, field=None):
         super().__init__(title="世界觀設定"[:45])
@@ -1286,6 +1332,8 @@ class WorldCategoryView(discord.ui.View):
             self.remove_item(self.high_weights)
         if category not in ("company_rules", "terms"):
             self.remove_item(self.organization_terms)
+        if category != "terms":
+            self.remove_item(self.currency_terms)
 
     async def interaction_check(self, i):
         if i.user.id != self.uid or i.guild_id != self.gid or not owner(i):
@@ -1295,7 +1343,15 @@ class WorldCategoryView(discord.ui.View):
 
     @discord.ui.button(label="✏️ 新增／修改設定", style=discord.ButtonStyle.primary)
     async def edit(self, i, button):
-        await i.response.send_modal(WorldRuleModal(self.category) if self.category in ("stats", "status_levels") else WorldEditModal(self.category))
+        if self.category == "root":
+            modal = WorldBackgroundModal(i.guild_id)
+        elif self.category == "terms":
+            modal = WorldOrganizationModal(i.guild_id)
+        elif self.category in ("stats", "status_levels"):
+            modal = WorldRuleModal(self.category)
+        else:
+            modal = WorldEditModal(self.category)
+        await i.response.send_modal(modal)
 
     @discord.ui.button(label="⚖️ LV1～18 權重", style=discord.ButtonStyle.secondary, row=1)
     async def low_weights(self, i, button):
@@ -1312,6 +1368,10 @@ class WorldCategoryView(discord.ui.View):
     @discord.ui.button(label="🏢 組織稱呼", style=discord.ButtonStyle.secondary, row=1)
     async def organization_terms(self, i, button):
         await i.response.send_modal(WorldOrganizationModal(i.guild_id))
+
+    @discord.ui.button(label="💰 貨幣稱呼", style=discord.ButtonStyle.secondary, row=2)
+    async def currency_terms(self, i, button):
+        await i.response.send_modal(WorldCurrencyModal(i.guild_id))
 
     @discord.ui.button(label="◀️ 返回世界觀設定", style=discord.ButtonStyle.secondary)
     async def back(self, i, button):
@@ -1350,13 +1410,16 @@ class WorldSettingsView(discord.ui.View):
         )
         async def selected(interaction):
             category = select.values[0]
-            view = (WorldFeatureView(interaction) if category == "features" else
-                    WorldChannelView(interaction) if category == "channels" else
-                    WorldCategoryView(interaction, category))
-            await interaction.response.edit_message(
-                content=world_category_summary(interaction.guild_id, category),
-                view=view,
-            )
+            if category == "root":
+                from modules.world_background_editor import WorldBackgroundView, background_summary
+                view = WorldBackgroundView(interaction)
+                content = background_summary(interaction.guild_id)
+            else:
+                view = (WorldFeatureView(interaction) if category == "features" else
+                        WorldChannelView(interaction) if category == "channels" else
+                        WorldCategoryView(interaction, category))
+                content = world_category_summary(interaction.guild_id, category)
+            await interaction.response.edit_message(content=content, view=view)
         select.callback = selected
         self.add_item(select)
 
