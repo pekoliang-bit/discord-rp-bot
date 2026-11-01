@@ -65,7 +65,11 @@ def get_faction_bonus(guild_id, character_id, effect_key):
               AND g.effect_key=? AND g.revoked_at IS NULL
               AND (g.expires_at IS NULL OR g.expires_at > CURRENT_TIMESTAMP)""",
               (str(guild_id),int(character_id),str(effect_key))).fetchone()
-        return int(row['bonus']) if row else 0
+        raw = int(row['bonus']) if row else 0
+        if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='faction_bonus_caps'").fetchone():
+            from modules.faction_policy import clamp_bonus
+            return clamp_bonus(guild_id, effect_key, raw, db=db)
+        return raw
 
 def revoke_order(guild_id, order_id):
     """僅供已驗證權限的管理／退款程序呼叫，不做退款。"""
@@ -92,7 +96,10 @@ def list_active_bonuses(guild_id, character_id):
               AND (g.expires_at IS NULL OR g.expires_at > CURRENT_TIMESTAMP)
             GROUP BY g.effect_key ORDER BY g.effect_key""",
             (str(guild_id), int(character_id))).fetchall()
-        return {str(r['effect_key']): int(r['bonus']) for r in rows
+        from modules.faction_policy import clamp_bonus
+        caps_exist = db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='faction_bonus_caps'").fetchone()
+        return {str(r['effect_key']): (clamp_bonus(guild_id, str(r['effect_key']), int(r['bonus']), db=db)
+                  if caps_exist else int(r['bonus'])) for r in rows
                 if str(r['effect_key']) in ALLOWED_KEYS and int(r['bonus']) > 0}
 
 
