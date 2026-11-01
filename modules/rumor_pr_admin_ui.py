@@ -1,3 +1,4 @@
+
 """/官方 管理功能中心使用的群主公關策略按鈕；不註冊新指令。"""
 from __future__ import annotations
 
