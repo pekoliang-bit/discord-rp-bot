@@ -1,3 +1,4 @@
+
 """Discord RP 直播互動：團播邀請、同意和真實禮物帳本。
 
 不建立斜線指令；僅供 /網路 UI 呼叫。資料庫必須先執行 core.database.init_db。
@@ -8,6 +9,7 @@ from __future__ import annotations
 import time
 from core.database import transaction, get_connection, get_or_create_account, account_balance
 from core import live_stream as live
+from core import live_teams as teams
 
 GIFT_VALUES = {"花束": 10, "應援燈": 100, "星光": 1000, "皇冠": 10000, "銀河": 100000, "傳奇": 500000}
 
@@ -39,6 +41,7 @@ def _init(db):
     live._init(db)
     for sql in DDL:
         db.execute(sql)
+    teams._init(db)
 
 
 def _active_char(db, gid, uid, cid):
@@ -126,7 +129,7 @@ def respond(guild_id, invitation_id, user_id, character_id, accept: bool, *, now
 
 
 def gift(guild_id, session_id, sender_user_id, sender_character_id, gift_name, interaction_id, anonymous=False, *, now=None):
-    """真正扣除角色金幣；收款給主播角色，平台手續費進系統帳戶。不可對自己贈禮。"""
+    """真正扣除角色金幣；依團播分潤規則付款；不可對自己贈禮。"""
     gid, uid, cid = str(guild_id),str(sender_user_id),int(sender_character_id)
     if gift_name not in GIFT_VALUES:
         raise ValueError("不支援的禮物")
@@ -149,19 +152,25 @@ def gift(guild_id, session_id, sender_user_id, sender_character_id, gift_name, i
         fee=(gross*fee_pct)//100
         net=gross-fee
         payer=get_or_create_account(db,gid,'character',cid,'wallet')
-        receiver=get_or_create_account(db,gid,'character',session['host_character_id'],'wallet')
-        system=get_or_create_account(db,gid,'system','live_platform','wallet') if fee else None
-        if payer==receiver:
+        allocations=teams.resolve_gift_recipients_in_transaction(db,gid,session,net)
+        if any(owner_type=='character' and owner_id==str(cid) for owner_type,owner_id,amount in allocations):
             raise ValueError("不能向自己的帳戶付款")
+        system=get_or_create_account(db,gid,'system','live_platform','wallet') if fee else None
         if account_balance(db,gid,payer)<gross:
             raise ValueError("角色錢包金幣不足")
         tx=db.execute("INSERT INTO ledger_transactions(guild_id,unique_key,description) VALUES(?,?,?)",(gid,key,'直播禮物 '+gift_name)).lastrowid
         entries=[(gid,tx,payer,-gross)]
-        if net: entries.append((gid,tx,receiver,net))
+        if net and sum(amt for _,_,amt in allocations)!=net:
+            raise RuntimeError("直播禮物分潤總和不一致")
+        for owner_type, owner_id, amount in allocations:
+            entries.append((gid,tx,get_or_create_account(db,gid,owner_type,owner_id,'wallet'),amount))
         if fee: entries.append((gid,tx,system,fee))
         db.executemany("INSERT INTO ledger_entries(guild_id,transaction_id,account_id,amount) VALUES(?,?,?,?)",entries)
         db.execute("""INSERT INTO rp_live_gifts(guild_id,session_id,sender_character_id,receiver_character_id,gift_name,gross_amount,platform_fee,received_amount,anonymous,ledger_key,created_at)
             VALUES(?,?,?,?,?,?,?,?,?,?,?)""",(gid,int(session_id),cid,int(session['host_character_id']),gift_name,gross,fee,net,int(bool(anonymous)),key,ts))
+        gift_id=db.execute("SELECT id FROM rp_live_gifts WHERE guild_id=? AND ledger_key=?",(gid,key)).fetchone()[0]
+        for owner_type,owner_id,amount in allocations:
+            db.execute("INSERT INTO rp_live_gift_payouts(guild_id,gift_id,recipient_type,recipient_id,amount) VALUES(?,?,?,?,?)",(gid,gift_id,owner_type,owner_id,amount))
         return dict(db.execute("SELECT * FROM rp_live_gifts WHERE guild_id=? AND ledger_key=?",(gid,key)).fetchone())
 
 
