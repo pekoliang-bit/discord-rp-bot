@@ -1555,6 +1555,11 @@ class AdminToolsView(ManagementView):
             ),
         ]
 
+        # 公關設定只供群主使用；不新增 Discord 頂層指令。
+        if self.owner:
+            from modules.rumor_pr_admin_ui import PRStrategyManageButton
+            self.add_item(PRStrategyManageButton())
+
         for index, (label, module_name, class_name, owner_only) in enumerate(tools):
             if owner_only and not self.owner:
                 continue
@@ -1607,6 +1612,7 @@ def management_text(view):
         lines.extend([
             "✍️ 內容建立：劇情、活動、獎項等",
             "🏪 場景商店：餐廳、診所、酒店等",
+            "📣 公關策略：設定分數、啟停與修改版本",
         ])
 
     if view.unavailable:
