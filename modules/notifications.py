@@ -23,6 +23,7 @@ from modules.notification_publish_permissions import is_guild_owner, check_bulle
 from modules.notification_delivery_guard import confirm_existing_delivery
 from modules.notification_management_status import bulletin_management_status
 from modules.notification_management_view import NotificationManagementView
+from modules.notification_release_processor import drain_published_releases
 
 LOG = logging.getLogger(__name__)
 KINDS = {
@@ -414,6 +415,11 @@ class Notifications(commands.Cog):
 
     @tasks.loop(seconds=45)
     async def dispatcher(self):
+        # 將已正式公開的事件轉入更新公告清單，失敗留存待下輪重試。
+        try:
+            drain_published_releases(limit=100)
+        except Exception:
+            LOG.exception("正式更新事件轉入通知清單失敗")
         # 沒設定頻道時保留 pending，不宣稱成功。
         now = datetime.now(timezone.utc)
         with get_connection() as db:
