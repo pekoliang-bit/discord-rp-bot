@@ -10,6 +10,8 @@ from discord import app_commands
 from discord.ext import commands
 
 from modules import pr_rumor, rumor_investigation, rumor_police, rumor_network, rumor_public_relations
+from core.rumor_pr_quote import quote_pr_action
+from core.rumor_pr_paid_flow import perform_paid_pr_action
 
 
 def _integer(value, label):
@@ -75,11 +77,6 @@ class GenericRumorModal(discord.ui.Modal):
                     gid, uid, _integer(values[0], "傳聞編號"),
                     _integer(values[1], "角色編號"), values[2], values[3])
                 result = f"線索 #{eid} 已提交，等待查證。"
-            elif purpose == "公關策略":
-                data = rumor_public_relations.record_free_pr_action(
-                    gid, uid, _integer(values[0], "傳聞編號"),
-                    _integer(values[1], "角色編號"), values[2])
-                result = f"策略已記錄，本次效果 +{data['points']}，效益 {data['multiplier_percent']}%。"
             elif purpose == "查詢警方案件":
                 data = rumor_police.police_case_status(
                     gid, uid, _integer(values[0], "警方案件編號"), _integer(values[1], "角色編號"))
@@ -102,10 +99,99 @@ FORM_DEFINITIONS = {
     "submit": ("向警方補交證據", [("警方案件編號", "例如 2"), ("持有角色編號", "自己的角色"), ("證據編號", "例如 6")]),
     "expose": ("網路公開曝光", [("傳聞編號", "例如 8"), ("角色編號", "自己的角色"), ("曝光形式", "公開爆料／媒體報導"), ("標題", "80 字內")]),
     "crowd": ("提供網友線索", [("傳聞編號", "例如 8"), ("角色編號", "自己的角色"), ("線索類型", "目擊線索／內容比對／知情者爆料／意外牽連"), ("內容", "5 至 500 字")]),
-    "pr": ("公關策略", [("傳聞編號", "例如 8"), ("角色編號", "自己的角色"), ("策略", "公開澄清／提出證據／接受訪問／公開道歉／法律聲明／沉默觀察")]),
+
     "police_status": ("查詢警方案件", [("警方案件編號", "例如 2"), ("報案角色編號", "自己的角色")]),
     "result": ("查看傳聞結果", [("傳聞編號", "例如 8")]),
 }
+
+
+class PRConfirmView(discord.ui.View):
+    """報價只有參考作用；付款時後端會重新檢查案件與扣費條件。"""
+    def __init__(self, owner_id, guild_id, rumor_id, character_id, strategy, resource):
+        super().__init__(timeout=120)
+        self.owner_id = owner_id
+        self.guild_id = guild_id
+        self.rumor_id = rumor_id
+        self.character_id = character_id
+        self.strategy = strategy
+        self.resource = resource
+
+    @discord.ui.button(label="確認支付並執行", style=discord.ButtonStyle.danger)
+    async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id != self.owner_id or interaction.guild_id != self.guild_id:
+            await interaction.response.send_message("這不是你的公關付款確認。", ephemeral=True)
+            return
+        await interaction.response.defer(ephemeral=True, thinking=True)
+        try:
+            import asyncio
+            data = await asyncio.to_thread(
+                perform_paid_pr_action,
+                self.guild_id, interaction.user.id, self.character_id,
+                self.rumor_id, self.strategy, self.resource,
+                f"pr-confirm:{interaction.id}", trusted=True,
+            )
+            unit = "金幣" if data.resource == "coins" else "付費行動值"
+            text = (f"✅ 公關操作完成！\n策略：{self.strategy}\n"
+                    f"消耗：{data.cost} {unit}\n本次公關分數：+{data.effective_score}\n"
+                    f"效益：{data.multiplier:.0%}；第 {data.repeat_count} 次使用"
+                    + ("\n（此請求已處理，不重複扣費）" if data.duplicate else ""))
+        except (ValueError, PermissionError, LookupError, RuntimeError) as exc:
+            text = f"❌ 未完成付款：{exc}"
+        except Exception:
+            import logging
+            logging.getLogger(__name__).exception("公關付款發生未預期錯誤")
+            text = "❌ 付款狀態待確認，請通知管理員核對紀錄，勿重複嘗試。"
+        else:
+            for item in self.children:
+                item.disabled = True
+            self.stop()
+        await interaction.followup.send(text[:1900], ephemeral=True)
+
+    @discord.ui.button(label="取消", style=discord.ButtonStyle.secondary)
+    async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id != self.owner_id:
+            await interaction.response.send_message("這不是你的確認視窗。", ephemeral=True)
+            return
+        for item in self.children:
+            item.disabled = True
+        self.stop()
+        await interaction.response.send_message("已取消，沒有扣費。", ephemeral=True)
+
+
+class PRPaymentModal(discord.ui.Modal, title="公關策略｜付款前確認"):
+    rumor_id = discord.ui.TextInput(label="傳聞編號", placeholder="例如 8", max_length=20)
+    character_id = discord.ui.TextInput(label="本人角色編號", placeholder="例如 15", max_length=20)
+    strategy = discord.ui.TextInput(label="策略名稱（必須與官方設定完全一致）", max_length=80)
+    resource = discord.ui.TextInput(label="支付方式：金幣／行動值", placeholder="金幣", max_length=10)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        try:
+            rid = _integer(self.rumor_id.value, "傳聞編號")
+            cid = _integer(self.character_id.value, "角色編號")
+            resource = {"金幣": "coins", "行動值": "paid_actions"}.get(self.resource.value.strip())
+            if resource is None:
+                raise ValueError("支付方式僅能填金幣或行動值")
+            strategy = self.strategy.value.strip()
+            import asyncio
+            quote = await asyncio.to_thread(
+                quote_pr_action, interaction.guild_id, interaction.user.id,
+                cid, rid, strategy, resource,
+            )
+            unit = "金幣" if resource == "coins" else "付費行動值"
+            msg = (f"📣 **公關付款確認**\n案件 #{rid}｜角色 #{cid}｜{strategy}\n"
+                   f"案件等級：T{quote.tier}\n支付：**{quote.cost} {unit}**\n"
+                   f"第 {quote.repeat_count} 次使用（效果 {quote.multiplier:.0%}）\n"
+                   f"預估公關分數：+{quote.estimated_score}\n\n"
+                   "請確認後再支付；若有人同時操作或官方修改設定，實際結果可能改變。")
+            await interaction.response.send_message(
+                msg, view=PRConfirmView(interaction.user.id,interaction.guild_id,rid,cid,strategy,resource), ephemeral=True,
+            )
+        except (ValueError, PermissionError, LookupError, RuntimeError) as exc:
+            await interaction.response.send_message(f"❌ {exc}", ephemeral=True)
+        except Exception:
+            import logging
+            logging.getLogger(__name__).exception("公關報價失敗")
+            await interaction.response.send_message("❌ 公關報價暫時無法取得，請通知管理員。", ephemeral=True)
 
 
 class RumorActionSelect(discord.ui.Select):
@@ -129,6 +215,9 @@ class RumorActionSelect(discord.ui.Select):
 
     async def callback(self, interaction):
         key = self.values[0]
+        if key == "pr":
+            await interaction.response.send_modal(PRPaymentModal())
+            return
         if key == "create":
             await interaction.response.send_modal(pr_rumor.RumorModal())
             return
