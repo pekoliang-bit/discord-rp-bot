@@ -1176,6 +1176,105 @@ class WorldOrganizationModal(discord.ui.Modal):
         )
 
 
+# 世界觀可視化管理：不要求群主輸入 JSON。
+WORLD_FEATURE_NAMES = {
+    "bank": "🏦 銀行", "shop": "🏬 商城", "company": "🏢 公司",
+    "faction": "⚔️ 陣營", "rumor": "🗣️ 傳聞",
+}
+
+
+def world_category_summary(gid, category):
+    data = world_get(gid)
+    title = WORLD_LABELS[category]
+    if category == "root":
+        return f"{title}\n名稱：{data.get('world_name') or '未設定'}\n背景：{(str(data.get('background') or '尚未填寫'))[:700]}"
+    section = data.get(category, {})
+    if category == "features":
+        lines = [f"{'✅' if section.get(k, True) else '⛔'} {v}" for k, v in WORLD_FEATURE_NAMES.items()]
+        return f"{title}\n" + "\n".join(lines) + "\n\n提醒：這些是世界觀配置值，其他模組仍須讀取設定才會實際停用功能。"
+    if category == "terms":
+        return title + "\n" + "\n".join(f"{k}：{v}" for k, v in section.items())
+    if category == "channels":
+        return title + "\n" + ("\n".join(f"{k}：<#{v}>" if str(v).isdigit() else f"{k}：{v}" for k,v in section.items()) if section else "尚未指定頻道")
+    if category == "status_levels":
+        lines = [f"LV{k}｜{v.get('name', '未命名')}｜{'啟用' if v.get('enabled', True) else '停用'}" for k,v in sorted(section.items(), key=lambda x:int(x[0]) if str(x[0]).isdigit() else 999) if isinstance(v, dict)]
+        return title + "\n" + ("\n".join(lines[:20]) if lines else "尚未設定地位名稱")
+    if category == "stats":
+        lines = [f"{v.get('name', k)}：{'啟用' if v.get('enabled', True) else '停用'}｜{v.get('min', 0)}～{v.get('max', '無上限')}" for k,v in section.items() if isinstance(v,dict)]
+        return title + "\n" + ("\n".join(lines[:18]) if lines else "尚未設定數值")
+    if not isinstance(section, dict):
+        return title + "\n目前設定格式不正確，請檢查資料。"
+    lines = [f"• {key}：{str(value)[:80]}" for key, value in section.items()]
+    return title + "\n" + ("\n".join(lines[:15]) if lines else "尚無自訂設定")
+
+
+class WorldFeatureSelect(discord.ui.Select):
+    def __init__(self, gid):
+        current = world_get(gid).get("features", {})
+        super().__init__(placeholder="選擇要切換的功能", min_values=1, max_values=1,
+            options=[discord.SelectOption(label=name, value=key, description="目前：啟用" if current.get(key, True) else "目前：停用") for key,name in WORLD_FEATURE_NAMES.items()])
+
+    async def callback(self, i):
+        if not owner(i):
+            return await tell(i, "⛔ 僅群主可修改功能開關。")
+        key = self.values[0]
+        data = world_get(i.guild_id)
+        section = data.setdefault("features", {})
+        section[key] = not bool(section.get(key, True))
+        data.setdefault("overrides", {})["features." + key] = True
+        world_save(i.guild_id, data)
+        await i.response.edit_message(content=world_category_summary(i.guild_id,"features"),view=WorldFeatureView(i))
+
+
+class WorldFeatureView(discord.ui.View):
+    def __init__(self, i):
+        super().__init__(timeout=600)
+        self.uid,self.gid=i.user.id,i.guild_id
+        self.add_item(WorldFeatureSelect(self.gid))
+
+    async def interaction_check(self, i):
+        if i.user.id != self.uid or i.guild_id != self.gid or not owner(i):
+            await tell(i, "⛔ 無權操作此面板。")
+            return False
+        return True
+
+    @discord.ui.button(label="◀️ 返回世界觀",style=discord.ButtonStyle.secondary,row=1)
+    async def back(self, i, button):
+        await i.response.edit_message(content=world_summary(i.guild_id),view=WorldSettingsView(i))
+
+
+class WorldChannelSelect(discord.ui.ChannelSelect):
+    def __init__(self):
+        super().__init__(placeholder="選擇世界觀資料頻道", channel_types=[discord.ChannelType.text],min_values=1,max_values=1)
+
+    async def callback(self,i):
+        if not owner(i):
+            return await tell(i,"⛔ 僅群主可修改頻道。")
+        channel=self.values[0]
+        data=world_get(i.guild_id)
+        data.setdefault("channels",{})["world_content"]=str(channel.id)
+        data.setdefault("overrides",{})["channels.world_content"]=True
+        world_save(i.guild_id,data)
+        await i.response.edit_message(content=world_category_summary(i.guild_id,"channels"),view=WorldChannelView(i))
+
+
+class WorldChannelView(discord.ui.View):
+    def __init__(self,i):
+        super().__init__(timeout=600)
+        self.uid,self.gid=i.user.id,i.guild_id
+        self.add_item(WorldChannelSelect())
+
+    async def interaction_check(self,i):
+        if i.user.id != self.uid or i.guild_id != self.gid or not owner(i):
+            await tell(i,"⛔ 無權操作此面板。")
+            return False
+        return True
+
+    @discord.ui.button(label="◀️ 返回世界觀",style=discord.ButtonStyle.secondary,row=1)
+    async def back(self,i,button):
+        await i.response.edit_message(content=world_summary(i.guild_id),view=WorldSettingsView(i))
+
+
 class WorldCategoryView(discord.ui.View):
     """先進入分類頁，再編輯，避免直接彈出難懂的 JSON 表單。"""
     def __init__(self, i, category):
@@ -1251,14 +1350,12 @@ class WorldSettingsView(discord.ui.View):
         )
         async def selected(interaction):
             category = select.values[0]
-            data = world_get(interaction.guild_id)
-            value = data if category == "root" else data.get(category, {})
-            preview = json.dumps(value, ensure_ascii=False, indent=2)
-            if len(preview) > 1300:
-                preview = preview[:1300] + "…"
+            view = (WorldFeatureView(interaction) if category == "features" else
+                    WorldChannelView(interaction) if category == "channels" else
+                    WorldCategoryView(interaction, category))
             await interaction.response.edit_message(
-                content=f"{WORLD_LABELS[category]}\\n```json\\n{preview}\\n```",
-                view=WorldCategoryView(interaction, category),
+                content=world_category_summary(interaction.guild_id, category),
+                view=view,
             )
         select.callback = selected
         self.add_item(select)
