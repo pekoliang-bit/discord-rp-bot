@@ -1414,9 +1414,12 @@ class WorldSettingsView(discord.ui.View):
                 from modules.world_background_editor import WorldBackgroundView, background_summary
                 view = WorldBackgroundView(interaction)
                 content = background_summary(interaction.guild_id)
+            elif category == "features":
+                from modules.world_feature_editor import FeatureHomeView, feature_summary
+                view = FeatureHomeView(interaction)
+                content = feature_summary(interaction.guild_id)
             else:
-                view = (WorldFeatureView(interaction) if category == "features" else
-                        WorldChannelView(interaction) if category == "channels" else
+                view = (WorldChannelView(interaction) if category == "channels" else
                         WorldCategoryView(interaction, category))
                 content = world_category_summary(interaction.guild_id, category)
             await interaction.response.edit_message(content=content, view=view)
