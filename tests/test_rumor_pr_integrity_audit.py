@@ -7,6 +7,7 @@ import unittest
 
 from pathlib import Path
 from unittest.mock import patch
+
 from core import rumor_pr_integrity_audit as mod
 
 
@@ -84,8 +85,7 @@ class IntegrityTests(unittest.TestCase):
                 INSERT INTO rp_rumor_pr_effects
                 VALUES(
                     'g', 9, 1, 4,
-                    '澄清', 100,
-                    '1', 100
+                    '澄清', 100, '1', 100
                 );
             """)
 
