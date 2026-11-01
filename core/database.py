@@ -333,9 +333,30 @@ SCHEMA = [
 
 
 def init_db():
+    """初始化原有資料表及公關必要資料表（不建立策略分數）。"""
     with transaction() as conn:
         for statement in SCHEMA:
             conn.execute(statement)
+
+        # 同一交易內建表；只增加缺少的表，不覆寫既有玩家資料。
+        from core.rumor_pr_strategy_admin import initialize as init_pr_strategies
+        from core.rumor_pr_effects import initialize_pr_effects
+
+        init_pr_strategies(conn)
+        initialize_pr_effects(conn)
+
+        # 公關評級快照使用不可變 JSON payload；在此只建立資料表。
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS rp_rumor_grade_snapshots (
+                guild_id TEXT NOT NULL,
+                rumor_id INTEGER NOT NULL,
+                character_id INTEGER NOT NULL,
+                payload TEXT NOT NULL,
+                fingerprint TEXT NOT NULL,
+                created_at INTEGER NOT NULL,
+                PRIMARY KEY (guild_id, rumor_id, character_id)
+            )
+        """)
 
 
 def register_guild(guild_id, name=""):
