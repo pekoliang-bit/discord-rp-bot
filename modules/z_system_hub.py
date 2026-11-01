@@ -155,7 +155,7 @@ class OverviewView(discord.ui.View):
                 visible = rows[self.page*PAGE_SIZE:(self.page+1)*PAGE_SIZE]
                 if visible:
                     self.add_item(DetailSelect(visible, self.section, self.detail_id))
-            except sqlite3.Error:
+            except Exception:
                 LOG.exception("建立總覽詳情選單失敗")
         if self.section == "guide":
             self.add_item(GuideSelect(self.guide))
@@ -173,21 +173,25 @@ class OverviewView(discord.ui.View):
             embed.set_footer(text="新手教學與任務獎勵請使用 /任務")
             return embed
         if self.section == "commands":
-            commands_list = sorted(self.bot.tree.get_commands(), key=lambda c:c.name)
-            visible = [c for c in commands_list if c.type == discord.AppCommandType.chat_input]
-            embed.description = "目前機器人已載入的頂層斜線指令（非所有功能都已完成實測）。"
-            lines = [f"`/{escape(c.name,50)}`｜{escape(c.description,100)}" for c in visible]
-            # Discord Embed description max 4096, separate into fields.
-            for start in range(0, min(len(lines), 120), 16):
-                embed.add_field(name=f"指令 {start+1}–{min(start+16,len(lines))}",
-                                value="\n".join(lines[start:start+16])[:1024] or "無", inline=False)
-                if len(embed.fields) >= 6:
+            # 不依賴 discord.AppCommandType：部分部署的 discord.py 版本可能沒有該名稱。
+            commands_list = sorted(self.bot.tree.get_commands(), key=lambda c: c.name)
+            visible = [c for c in commands_list if isinstance(c, (app_commands.Command, app_commands.Group))]
+            embed.description = "目前機器人已載入的頂層斜線指令；功能實作與 Discord 同步狀態可能不同。"
+            lines = [f"`/{escape(c.name,50)}`｜{escape(getattr(c, 'description', '') or '指令群組', 78)}" for c in visible]
+            # 每欄控制在 Discord 1024 字元之內，避免指令過多時整個總覽開啟失敗。
+            if not lines:
+                embed.description += "\n\n目前沒有找到已載入指令。"
+            for start in range(0, min(len(lines), 100), 10):
+                value = "\n".join(lines[start:start+10])
+                embed.add_field(name=f"指令 {start+1}–{min(start+10,len(lines))}",
+                                value=value[:1024] or "無", inline=False)
+                if len(embed.fields) >= 10:
                     break
-            embed.set_footer(text=f"目前載入 {len(visible)} 個頂層 Slash Command")
+            embed.set_footer(text=f"目前載入 {len(visible)} 個頂層指令")
             return embed
         try:
             rows = query_rows(self.guild_id, self.section)
-        except (sqlite3.Error, ImportError) as exc:
+        except Exception as exc:
             LOG.exception("總覽讀取失敗：%s", self.section)
             embed.description = "⚠️ 目前無法讀取資料，請通知管理員檢查資料庫。"
             return embed
@@ -269,17 +273,26 @@ class OverviewView(discord.ui.View):
         return ""
 
     async def update(self, interaction):
-        self.rebuild()
-        embed = self.render()
-        # render may clamp page; update navigation after it.
-        self.rebuild()
-        if self.section not in ('guide','commands'):
-            try:
-                count = len(query_rows(self.guild_id, self.section))
-                self.next_button.disabled = (self.page+1)*PAGE_SIZE >= count
-            except (sqlite3.Error, ImportError):
-                self.next_button.disabled = True
-        await interaction.response.edit_message(embed=embed, view=self)
+        try:
+            self.rebuild()
+            embed = self.render()
+            # render 會修正頁碼，因此需重新建構按鈕狀態。
+            self.rebuild()
+            if self.section not in ('guide','commands'):
+                try:
+                    count = len(query_rows(self.guild_id, self.section))
+                    self.next_button.disabled = (self.page+1)*PAGE_SIZE >= count
+                except Exception:
+                    LOG.exception("總覽分頁狀態讀取失敗")
+                    self.next_button.disabled = True
+            await interaction.response.edit_message(embed=embed, view=self)
+        except Exception:
+            LOG.exception("總覽互動更新失敗：section=%s", self.section)
+            if not interaction.response.is_done():
+                await interaction.response.send_message(
+                    "⚠️ 這個分類暫時無法開啟，請返回總覽後重試；管理員可查看日誌。",
+                    ephemeral=True,
+                )
 
     @discord.ui.button(label="◀ 上一頁", style=discord.ButtonStyle.secondary, row=2)
     async def prev_button(self, interaction, button):
@@ -308,8 +321,17 @@ class SystemHub(commands.Cog):
     @app_commands.command(name="總覽", description="查閱指令、活動、獎項、玩法、標籤與角色")
     @app_commands.guild_only()
     async def overview(self, interaction: discord.Interaction):
-        view = OverviewView(self.bot, interaction.user.id, interaction.guild_id)
-        await interaction.response.send_message(embed=view.render(), view=view, ephemeral=True)
+        try:
+            view = OverviewView(self.bot, interaction.user.id, interaction.guild_id)
+            embed = view.render()
+            await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+        except Exception:
+            LOG.exception("/總覽 開啟失敗：guild=%s user=%s", interaction.guild_id, interaction.user.id)
+            if not interaction.response.is_done():
+                await interaction.response.send_message(
+                    "⚠️ 總覽暫時無法載入，管理員請查看 Railway Logs 中的「/總覽 開啟失敗」。",
+                    ephemeral=True,
+                )
 
     @app_commands.command(name="排行", description="查看全服路人人氣排行榜（其他排行逐步整合）")
     @app_commands.guild_only()
