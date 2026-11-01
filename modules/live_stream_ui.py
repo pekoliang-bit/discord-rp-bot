@@ -17,14 +17,16 @@ from core import live_stream as live
 from core import live_social as social
 from core import live_teams as teams
 from core import live_team_treasury as treasury
+from core import live_pk as pk
+from core import live_commerce as commerce
 from core.database import get_connection
 
 LOG = logging.getLogger(__name__)
 STREAM_KINDS = [
     discord.SelectOption(label="個人直播", value="personal", emoji="🎙️"),
     discord.SelectOption(label="團播", value="group", emoji="👥", description="主持人邀請，受邀角色本人同意"),
-    discord.SelectOption(label="直播帶貨", value="sales", emoji="🛍️", description="目前不會建立真實訂單"),
-    discord.SelectOption(label="直播 PK", value="pk", emoji="⚔️", description="目前不會進行正式 PK 結算"),
+    discord.SelectOption(label="直播帶貨", value="sales", emoji="🛍️", description="商品先驗證，暫不直接扣款"),
+    discord.SelectOption(label="直播 PK", value="pk", emoji="⚔️", description="同意 PK 後以真實禮物計分"),
     discord.SelectOption(label="官方直播", value="official", emoji="📺"),
     discord.SelectOption(label="會員直播", value="members", emoji="💎"),
 ]
@@ -277,6 +279,15 @@ class NetworkView(OwnedView):
 
 
 
+    @discord.ui.button(label="直播 PK", style=discord.ButtonStyle.secondary, emoji="⚔️", row=3)
+    async def pk_center(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.send_message("⚔️ PK 中心｜邀請、同意、查比分、結束。只計真實贈禮。", view=PKView(self.owner_id,self.character_id), ephemeral=True)
+
+    @discord.ui.button(label="直播帶貨", style=discord.ButtonStyle.secondary, emoji="🛍️", row=4)
+    async def commerce_center(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.send_message("🛍️ 帶貨中心｜先登記商品，再經商城驗證。尚不提供付款或扣庫存。", view=CommerceView(self.owner_id,self.character_id), ephemeral=True)
+
+
     @discord.ui.button(label="直播團隊",style=discord.ButtonStyle.primary,emoji="🏠",row=4)
     async def team_center(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.send_message(
@@ -408,6 +419,95 @@ class TeamCenterView(OwnedView):
         except Exception:
             LOG.exception("查詢待審提款失敗")
             await interaction.response.send_message("⚠️ 系統錯誤",ephemeral=True)
+
+
+class PKModal(discord.ui.Modal):
+    number = discord.ui.TextInput(label="對方直播場次／PK 編號", max_length=15)
+
+    def __init__(self, character_id:int, mode:str):
+        super().__init__(title={"challenge":"發起 PK 邀請","finish":"結束直播 PK"}[mode]); self.character_id=character_id; self.mode=mode
+
+    async def on_submit(self,interaction:discord.Interaction):
+        if interaction.guild is None: return await interaction.response.send_message("請在伺服器操作",ephemeral=True)
+        await interaction.response.defer(ephemeral=True)
+        try:
+            gid=interaction.guild.id; uid=interaction.user.id; n=int(str(self.number.value))
+            if self.mode=="challenge":
+                live_session=await asyncio.to_thread(live.current,gid,self.character_id)
+                if not live_session or live_session['stream_type']!='pk' or live_session['owner_id']!=str(uid): raise ValueError("請先用這名角色主持一場 PK 直播")
+                number=await asyncio.to_thread(pk.challenge,gid,uid,live_session['id'],n)
+                msg=f"✅ PK 邀請 #{number} 已發送，對方需用自己的 /網路 面板同意。"
+            else:
+                result=await asyncio.to_thread(pk.finish,gid,uid,n)
+                msg=f"🏁 PK #{n} 已結算：{result['challenger_score']:,} 比 {result['opponent_score']:,}；平手或勝者角色 ID：{result['winner_character_id'] or '平手'}。沒有額外金幣獎勵。"
+            await interaction.followup.send(msg,ephemeral=True)
+        except (ValueError,PermissionError,LookupError) as exc: await interaction.followup.send(f"⚠️ {exc}",ephemeral=True)
+        except Exception: LOG.exception("PK 操作失敗"); await interaction.followup.send("⚠️ PK 操作失敗，請管理員查看日誌",ephemeral=True)
+
+
+class PKView(OwnedView):
+    def __init__(self, owner_id:int, character_id:int):
+        super().__init__(owner_id); self.character_id=character_id
+
+    @discord.ui.button(label="邀請 PK",emoji="⚔️")
+    async def challenge(self,interaction:discord.Interaction,button:discord.ui.Button): await interaction.response.send_modal(PKModal(self.character_id,'challenge'))
+
+    @discord.ui.button(label="接受邀請",emoji="✅")
+    async def accept(self,interaction:discord.Interaction,button:discord.ui.Button):
+        if not interaction.guild: return await interaction.response.send_message("請在伺服器操作",ephemeral=True)
+        await interaction.response.defer(ephemeral=True)
+        try:
+            rows=await asyncio.to_thread(pk.pending,interaction.guild.id,interaction.user.id,self.character_id)
+            if not rows: return await interaction.followup.send("沒有待處理的 PK 邀請",ephemeral=True)
+            state=await asyncio.to_thread(pk.respond,interaction.guild.id,interaction.user.id,self.character_id,rows[0]['id'],True)
+            await interaction.followup.send(f"✅ PK #{rows[0]['id']} 狀態：{state}",ephemeral=True)
+        except (ValueError,PermissionError,LookupError) as exc: await interaction.followup.send(f"⚠️ {exc}",ephemeral=True)
+        except Exception: LOG.exception('PK 接受失敗'); await interaction.followup.send("⚠️ 請管理員查看日誌",ephemeral=True)
+
+    @discord.ui.button(label="結束 PK",emoji="🏁")
+    async def finish(self,interaction:discord.Interaction,button:discord.ui.Button): await interaction.response.send_modal(PKModal(self.character_id,'finish'))
+
+
+class OfferModal(discord.ui.Modal,title="提交直播帶貨商品"):
+    session_id=discord.ui.TextInput(label="直播場次編號",max_length=15)
+    product_ref=discord.ui.TextInput(label="既有商城商品識別碼",max_length=100)
+    title_field=discord.ui.TextInput(label="商品名稱",max_length=80)
+    price=discord.ui.TextInput(label="商城標價（金幣）",max_length=15)
+    cap=discord.ui.TextInput(label="可售數量上限",max_length=12)
+
+    async def on_submit(self,interaction:discord.Interaction):
+        if not interaction.guild: return await interaction.response.send_message("請在伺服器操作",ephemeral=True)
+        await interaction.response.defer(ephemeral=True)
+        try:
+            oid=await asyncio.to_thread(commerce.propose_offer,interaction.guild.id,interaction.user.id,int(str(self.session_id.value)),str(self.product_ref.value),str(self.title_field.value),int(str(self.price.value)),int(str(self.cap.value)))
+            await interaction.followup.send(f"✅ 帶貨商品提案 #{oid} 已登記。必須經正式商城核對價格與庫存，才能開放購買意向；目前沒有扣款或扣庫存。",ephemeral=True)
+        except (ValueError,PermissionError,LookupError) as exc: await interaction.followup.send(f"⚠️ {exc}",ephemeral=True)
+        except Exception: LOG.exception('直播帶貨登記失敗'); await interaction.followup.send('⚠️ 請管理員查看日誌',ephemeral=True)
+
+
+class OffersLookupModal(discord.ui.Modal,title="查看帶貨商品"):
+    session_id=discord.ui.TextInput(label="直播場次編號",max_length=15)
+    async def on_submit(self,interaction:discord.Interaction):
+        if not interaction.guild: return await interaction.response.send_message('請在伺服器操作',ephemeral=True)
+        try:
+            rows=await asyncio.to_thread(commerce.offers,interaction.guild.id,int(str(self.session_id.value)))
+            msg='\n'.join(f"#{r['id']} {r['title']}｜{r['unit_price']:,} 金幣｜{r['status']}" for r in rows[:20]) or '本場沒有商品提案'
+            await interaction.response.send_message(msg[:1900],ephemeral=True)
+        except (ValueError,PermissionError,LookupError) as exc: await interaction.response.send_message(f'⚠️ {exc}',ephemeral=True)
+        except Exception: LOG.exception('查詢帶貨商品失敗'); await interaction.response.send_message('⚠️ 查詢失敗',ephemeral=True)
+
+
+class CommerceView(OwnedView):
+    def __init__(self,owner_id:int,character_id:int):
+        super().__init__(owner_id);self.character_id=character_id
+
+    @discord.ui.button(label="提出帶貨商品",emoji="🛍️")
+    async def new(self,interaction:discord.Interaction,button:discord.ui.Button):
+        await interaction.response.send_modal(OfferModal())
+
+    @discord.ui.button(label="商品提案列表",emoji="📋")
+    async def items(self,interaction:discord.Interaction,button:discord.ui.Button):
+        await interaction.response.send_modal(OffersLookupModal())
 
 
 class LiveStreamCog(commands.Cog):
