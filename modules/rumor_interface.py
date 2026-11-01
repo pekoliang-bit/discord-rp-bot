@@ -1,9 +1,8 @@
 
-"""Discord /傳聞 玩家操作入口（整合測試版）。
+"""Discord /傳聞 玩家操作入口（公關評級整合版）。
 
 管理設定仍歸 /官方。
-所有操作只在 Discord 伺服器執行；
-每次互動都重新檢查角色權限。
+每次公關付款及狀態查詢均由後端核對角色權限。
 """
 
 from __future__ import annotations
@@ -26,6 +25,8 @@ from modules import (
 from core.rumor_pr_quote import quote_pr_action
 from core.rumor_pr_paid_flow import perform_paid_pr_action
 from core.rumor_pr_history import get_pr_history
+from core.rumor_pr_grade_status import get_pr_grade_status
+from core.rumor_pr_grade_display import format_pr_grade_status
 
 
 LOG = logging.getLogger(__name__)
@@ -74,14 +75,10 @@ class GenericRumorModal(discord.ui.Modal):
 
             if purpose == "設定傳聞分類授權":
                 cid = _integer(
-                    values[0],
-                    "角色編號",
+                    values[0], "角色編號"
                 )
 
-                if values[2] not in (
-                    "開啟",
-                    "關閉",
-                ):
+                if values[2] not in ("開啟", "關閉"):
                     raise ValueError(
                         "狀態請填寫開啟或關閉。"
                     )
@@ -93,32 +90,28 @@ class GenericRumorModal(discord.ui.Modal):
                     values[1],
                     values[2] == "開啟",
                 )
-
                 result = "分類授權已更新。"
 
             elif purpose == "登記證據":
-                if values[4] not in (
-                    "真",
-                    "偽",
-                ):
+                if values[4] not in ("真", "偽"):
                     raise ValueError(
                         "真偽必須填真或偽。"
                     )
 
-                eid = rumor_investigation.register_evidence(
-                    gid,
-                    uid,
-                    _integer(
-                        values[0],
-                        "傳聞編號",
-                    ),
-                    _integer(
-                        values[1],
-                        "角色編號",
-                    ),
-                    values[2],
-                    values[3],
-                    authentic=values[4] == "真",
+                eid = (
+                    rumor_investigation.register_evidence(
+                        gid,
+                        uid,
+                        _integer(
+                            values[0], "傳聞編號"
+                        ),
+                        _integer(
+                            values[1], "角色編號"
+                        ),
+                        values[2],
+                        values[3],
+                        authentic=values[4] == "真",
+                    )
                 )
 
                 result = f"證據 #{eid} 已登記。"
@@ -130,12 +123,10 @@ class GenericRumorModal(discord.ui.Modal):
                         gid,
                         uid,
                         _integer(
-                            values[0],
-                            "傳聞編號",
+                            values[0], "傳聞編號"
                         ),
                         _integer(
-                            values[1],
-                            "角色編號",
+                            values[1], "角色編號"
                         ),
                     )
                 )
@@ -148,8 +139,7 @@ class GenericRumorModal(discord.ui.Modal):
             elif purpose == "虛構警方報案":
                 evidence = (
                     _integer(
-                        values[2],
-                        "證據編號",
+                        values[2], "證據編號"
                     )
                     if values[2]
                     else None
@@ -159,12 +149,10 @@ class GenericRumorModal(discord.ui.Modal):
                     gid,
                     uid,
                     _integer(
-                        values[0],
-                        "傳聞編號",
+                        values[0], "傳聞編號"
                     ),
                     _integer(
-                        values[1],
-                        "角色編號",
+                        values[1], "角色編號"
                     ),
                     evidence,
                 )
@@ -181,16 +169,13 @@ class GenericRumorModal(discord.ui.Modal):
                     gid,
                     uid,
                     _integer(
-                        values[0],
-                        "警方案件編號",
+                        values[0], "警方案件編號"
                     ),
                     _integer(
-                        values[1],
-                        "角色編號",
+                        values[1], "角色編號"
                     ),
                     _integer(
-                        values[2],
-                        "證據編號",
+                        values[2], "證據編號"
                     ),
                 )
 
@@ -205,12 +190,10 @@ class GenericRumorModal(discord.ui.Modal):
                     gid,
                     uid,
                     _integer(
-                        values[0],
-                        "傳聞編號",
+                        values[0], "傳聞編號"
                     ),
                     _integer(
-                        values[1],
-                        "角色編號",
+                        values[1], "角色編號"
                     ),
                     values[2],
                     values[3],
@@ -225,12 +208,10 @@ class GenericRumorModal(discord.ui.Modal):
                     gid,
                     uid,
                     _integer(
-                        values[0],
-                        "傳聞編號",
+                        values[0], "傳聞編號"
                     ),
                     _integer(
-                        values[1],
-                        "角色編號",
+                        values[1], "角色編號"
                     ),
                     values[2],
                     values[3],
@@ -245,12 +226,10 @@ class GenericRumorModal(discord.ui.Modal):
                     gid,
                     uid,
                     _integer(
-                        values[0],
-                        "警方案件編號",
+                        values[0], "警方案件編號"
                     ),
                     _integer(
-                        values[1],
-                        "角色編號",
+                        values[1], "角色編號"
                     ),
                 )
 
@@ -266,12 +245,10 @@ class GenericRumorModal(discord.ui.Modal):
                     gid,
                     uid,
                     _integer(
-                        values[0],
-                        "傳聞編號",
+                        values[0], "傳聞編號"
                     ),
                     _integer(
-                        values[1],
-                        "角色編號",
+                        values[1], "角色編號"
                     ),
                 )
 
@@ -283,7 +260,7 @@ class GenericRumorModal(discord.ui.Modal):
                 result = (
                     f"📣 傳聞 #{history.rumor_id}"
                     f"｜{history.status}\n"
-                    f"目前已記錄公關分數："
+                    f"已記錄公關分數："
                     f"{history.score}\n"
                     f"公關行動：{history.count} 次；"
                     f"金幣支出：{history.coins}；"
@@ -291,28 +268,22 @@ class GenericRumorModal(discord.ui.Modal):
                     f"{history.paid_actions}\n"
                     f"最近操作：\n{lines}\n"
                     "※ 此分數僅為公關行動累積，"
-                    "非正式 S～D 評級。"
+                    "不是正式 S～D 評級。"
                 )
 
             elif purpose == "查看傳聞結果":
-                data = (
-                    rumor_public_relations
-                    .preview_settlement(
-                        gid,
-                        _integer(
-                            values[0],
-                            "傳聞編號",
-                        ),
-                    )
+                data = get_pr_grade_status(
+                    gid,
+                    uid,
+                    _integer(
+                        values[0], "傳聞編號"
+                    ),
+                    _integer(
+                        values[1], "角色編號"
+                    ),
                 )
 
-                result = (
-                    f"案件 #{data['rumor_id']}："
-                    f"{data['case_status']}；"
-                    f"暫定 {data['rank']}"
-                    f"（{data['label']}），"
-                    f"公關分數 {data['score']}。"
-                )
+                result = format_pr_grade_status(data)
 
             else:
                 raise ValueError("未知操作。")
@@ -337,10 +308,7 @@ FORM_DEFINITIONS = {
         "設定傳聞分類授權",
         [
             ("角色編號", "例如 15"),
-            (
-                "分類",
-                "戀情／商業／工作／人際／私生活／其他",
-            ),
+            ("分類", "戀情／商業／工作／人際／私生活／其他"),
             ("狀態", "開啟／關閉"),
         ],
     ),
@@ -349,18 +317,12 @@ FORM_DEFINITIONS = {
         "登記證據",
         [
             ("傳聞編號", "例如 8"),
-            (
-                "持有角色編號",
-                "自己已啟用的角色",
-            ),
+            ("持有角色編號", "自己已啟用的角色"),
             (
                 "證據類型",
                 "目擊／對話／照片／影音／文件／交易／其他",
             ),
-            (
-                "可信度",
-                "低／中／高／決定性",
-            ),
+            ("可信度", "低／中／高／決定性"),
             ("真偽", "真／偽"),
         ],
     ),
@@ -369,10 +331,7 @@ FORM_DEFINITIONS = {
         "進行基礎調查",
         [
             ("傳聞編號", "例如 8"),
-            (
-                "調查角色編號",
-                "自己的角色",
-            ),
+            ("調查角色編號", "自己的角色"),
         ],
     ),
 
@@ -380,28 +339,16 @@ FORM_DEFINITIONS = {
         "虛構警方報案",
         [
             ("傳聞編號", "例如 8"),
-            (
-                "報案角色編號",
-                "自己的角色",
-            ),
-            (
-                "證據編號（可留空）",
-                "選填",
-            ),
+            ("報案角色編號", "自己的角色"),
+            ("證據編號（可留空）", "選填"),
         ],
     ),
 
     "submit": (
         "向警方補交證據",
         [
-            (
-                "警方案件編號",
-                "例如 2",
-            ),
-            (
-                "持有角色編號",
-                "自己的角色",
-            ),
+            ("警方案件編號", "例如 2"),
+            ("持有角色編號", "自己的角色"),
             ("證據編號", "例如 6"),
         ],
     ),
@@ -410,14 +357,8 @@ FORM_DEFINITIONS = {
         "網路公開曝光",
         [
             ("傳聞編號", "例如 8"),
-            (
-                "角色編號",
-                "自己的角色",
-            ),
-            (
-                "曝光形式",
-                "公開爆料／媒體報導",
-            ),
+            ("角色編號", "自己的角色"),
+            ("曝光形式", "公開爆料／媒體報導"),
             ("標題", "80 字內"),
         ],
     ),
@@ -426,14 +367,10 @@ FORM_DEFINITIONS = {
         "提供網友線索",
         [
             ("傳聞編號", "例如 8"),
-            (
-                "角色編號",
-                "自己的角色",
-            ),
+            ("角色編號", "自己的角色"),
             (
                 "線索類型",
-                "目擊線索／內容比對／"
-                "知情者爆料／意外牽連",
+                "目擊線索／內容比對／知情者爆料／意外牽連",
             ),
             ("內容", "5 至 500 字"),
         ],
@@ -442,14 +379,8 @@ FORM_DEFINITIONS = {
     "police_status": (
         "查詢警方案件",
         [
-            (
-                "警方案件編號",
-                "例如 2",
-            ),
-            (
-                "報案角色編號",
-                "自己的角色",
-            ),
+            ("警方案件編號", "例如 2"),
+            ("報案角色編號", "自己的角色"),
         ],
     ),
 
@@ -457,10 +388,7 @@ FORM_DEFINITIONS = {
         "查看公關歷史",
         [
             ("傳聞編號", "例如 8"),
-            (
-                "角色編號",
-                "本人角色編號",
-            ),
+            ("角色編號", "本人角色編號"),
         ],
     ),
 
@@ -468,13 +396,14 @@ FORM_DEFINITIONS = {
         "查看傳聞結果",
         [
             ("傳聞編號", "例如 8"),
+            ("角色編號", "本人角色編號"),
         ],
     ),
 }
 
 
 class PRConfirmView(discord.ui.View):
-    """報價為參考，付款時由後端重新檢查條件。"""
+    """報價為參考，付款時會重新檢查條件。"""
 
     def __init__(
         self,
@@ -573,7 +502,6 @@ class PRConfirmView(discord.ui.View):
         else:
             for item in self.children:
                 item.disabled = True
-
             self.stop()
 
         await interaction.followup.send(
@@ -665,9 +593,7 @@ class PRPaymentModal(
                     "支付方式僅能填金幣或行動值"
                 )
 
-            strategy = (
-                self.strategy.value.strip()
-            )
+            strategy = self.strategy.value.strip()
 
             quote = await asyncio.to_thread(
                 quote_pr_action,
@@ -793,7 +719,7 @@ class RumorActionSelect(discord.ui.Select):
                 value="police_status",
             ),
             discord.SelectOption(
-                label="公關結果預覽",
+                label="公關評級狀態",
                 value="result",
             ),
         ]
@@ -859,10 +785,7 @@ class RumorActionSelect(discord.ui.Select):
         title, fields = FORM_DEFINITIONS[key]
 
         await interaction.response.send_modal(
-            GenericRumorModal(
-                title,
-                fields,
-            )
+            GenericRumorModal(title, fields)
         )
 
 
