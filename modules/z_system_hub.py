@@ -7,78 +7,16 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 from core.database import get_connection
+from modules.overview_catalog import PAGE_SIZE, MENU
+from modules.overview_guides import GUIDES, OWNER_GUIDE
+from modules.overview_helpers import escape
+from modules.overview_data import query_rows
 
 LOG = logging.getLogger(__name__)
-PAGE_SIZE = 8
-MENU = {
-    "commands": "📚 指令大全",
-    "event_open": "🎟️ 報名中活動",
-    "event_running": "🎪 進行中活動",
-    "event_closed": "🏁 已完成活動",
-    "guide": "🎮 玩法說明",
-    "tags": "🏷️ 標籤庫",
-    "characters": "🎭 全服角色名單",
-    "awards": "🏆 公開獎項圖鑑",
-    "extra_likes": "💗 路人人氣排行榜",
-}
-GUIDES = {
-    "角色與背包": "使用 `/創角` 建立角色；使用 `/查看` 查閱角色資料、背包、稱號與裝備。各功能逐步支援直接指定角色編號或姓名。",
-    "申請與審核": "玩家透過 `/申請` 提交企劃、店鋪、金融、檢舉等申請；授權人員在 `/審核` 處理。案件結果將由通知系統集中通知。",
-    "活動玩法": "透過 `/總覽` 查看報名中、進行中及歷史活動。正式報名時依公告使用報名按鈕；任務證明由官方審核。",
-    "經濟與商店": "透過 `/銀行` 管理角色資金；透過 `/商城` 查看商品及背包。交易前請確認指定的角色與金額。",
-    "陣營與公司": "透過 `/陣營`、`/公司` 查詢相關組織與經營功能；涉及申請的流程統一由 `/申請` 進入。",
-    "任務與新手": "新手指引安排在 `/任務`，總覽只提供玩法查詢，不直接發送新手獎勵。",
-}
-OWNER_GUIDE = (
-    "👑 **群主建置指引**\n\n"
-    "① 確認 Railway Volume 和資料庫備份。\n"
-    "② 設定 Discord 權限、身分組和必要頻道。\n"
-    "③ 進入 `/官方` 設定授權人員與系統參數。\n"
-    "④ 設定角色、店鋪、活動及金融審核職能。\n"
-    "⑤ 設定活動報名頻道與通知頻道。\n"
-    "⑥ 透過測試角色驗證創角、申請、審核與交易。\n"
-    "⑦ 檢查 `/總覽` 公開資料及 Railway Logs。\n\n"
-    "*本指引不會自動變更伺服器設定。*"
-)
 
 
-def escape(value, limit=130):
-    s = discord.utils.escape_markdown(discord.utils.escape_mentions(str(value or "")))
-    return s[:limit] or "（未填寫）"
 
 
-def query_rows(gid, section):
-    if section == "extra_likes":
-        from modules.npc_likes import leaderboard
-        return leaderboard(gid)
-    if section.startswith("event_"):
-        status = section.split("_", 1)[1]
-        sql = """SELECT id,title,description,capacity,channel_id,status
-                 FROM rp_event_projects WHERE guild_id=? AND status=?
-                 ORDER BY id DESC"""
-        with get_connection() as db:
-            return [dict(r) for r in db.execute(sql, (str(gid), status))]
-    if section == "awards":
-        with get_connection() as db:
-            return [dict(r) for r in db.execute(
-                """SELECT id,kind,name,description,condition_json,rewards_json
-                   FROM rp_award_definitions
-                   WHERE guild_id=? AND active=1 AND hidden=0
-                   ORDER BY id DESC""", (str(gid),))]
-    if section == "tags":
-        from modules.tag_library import seed
-        seed(gid)
-        with get_connection() as db:
-            return [dict(r) for r in db.execute(
-                """SELECT id,name,category FROM rp_tag_library
-                   WHERE guild_id=? AND enabled=1 ORDER BY category,id""", (str(gid),))]
-    if section == "characters":
-        with get_connection() as db:
-            return [dict(r) for r in db.execute(
-                """SELECT id,public_code,name,character_type,occupation,status
-                   FROM characters WHERE guild_id=? AND status IN ('active','retired')
-                   ORDER BY id DESC""", (str(gid),))]
-    return []
 
 
 class OverviewSelect(discord.ui.Select):
@@ -181,9 +119,9 @@ class OverviewView(discord.ui.View):
             # 每欄控制在 Discord 1024 字元之內，避免指令過多時整個總覽開啟失敗。
             if not lines:
                 embed.description += "\n\n目前沒有找到已載入指令。"
-            for start in range(0, min(len(lines), 100), 10):
-                value = "\n".join(lines[start:start+10])
-                embed.add_field(name=f"指令 {start+1}–{min(start+10,len(lines))}",
+            for start in range(0, min(len(lines), 40), 5):
+                value = "\n".join(lines[start:start+5])
+                embed.add_field(name=f"指令 {start+1}–{min(start+5,len(lines))}",
                                 value=value[:1024] or "無", inline=False)
                 if len(embed.fields) >= 10:
                     break
@@ -224,7 +162,12 @@ class OverviewView(discord.ui.View):
         if self.detail_id is not None:
             selected = next((r for r in chunk if int(r["id"]) == self.detail_id), None)
             if selected:
-                detail = self.render_detail(selected)
+                
+                try:
+                    detail = self.render_detail(selected)
+                except Exception:
+                    LOG.exception("總覽詳情讀取失敗：section=%s", self.section)
+                    detail = "⚠️ 詳情暫時無法讀取，請稍後重試。"
                 if detail:
                     embed.insert_field_at(0, name="🔎 選取項目詳情", value=detail[:1024], inline=False)
             else:
