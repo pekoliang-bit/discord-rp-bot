@@ -1,3 +1,4 @@
+
 """Discord RP 網路系統：唯一頂層指令 /網路。
 
 直播功能使用 Discord 私人面板、按鈕、下拉選單和 Modal。
@@ -14,12 +15,13 @@ from discord import app_commands
 from discord.ext import commands
 
 from core import live_stream as live
+from core import live_social as social
 from core.database import get_connection
 
 LOG = logging.getLogger(__name__)
 STREAM_KINDS = [
     discord.SelectOption(label="個人直播", value="personal", emoji="🎙️"),
-    discord.SelectOption(label="團播", value="group", emoji="👥", description="團播邀請與分潤將於後續整合"),
+    discord.SelectOption(label="團播", value="group", emoji="👥", description="主持人邀請，受邀角色本人同意"),
     discord.SelectOption(label="直播帶貨", value="sales", emoji="🛍️", description="目前不會建立真實訂單"),
     discord.SelectOption(label="直播 PK", value="pk", emoji="⚔️", description="目前不會進行正式 PK 結算"),
     discord.SelectOption(label="官方直播", value="official", emoji="📺"),
@@ -119,6 +121,56 @@ class StartView(OwnedView):
         await interaction.response.send_modal(StartModal(self.character_id, self.kind, self.duration))
 
 
+class InviteModal(discord.ui.Modal, title="邀請角色加入團播"):
+    target_id = discord.ui.TextInput(label="受邀角色編號", placeholder="填入對方角色 ID", min_length=1, max_length=12)
+
+    def __init__(self, host_character_id: int):
+        super().__init__()
+        self.host_character_id=host_character_id
+
+    async def on_submit(self, interaction: discord.Interaction):
+        if interaction.guild is None:
+            await interaction.response.send_message("必須在伺服器使用。", ephemeral=True)
+            return
+        await interaction.response.defer(ephemeral=True)
+        try:
+            session=await asyncio.to_thread(live.current,interaction.guild.id,self.host_character_id)
+            if not session or session['host_character_id'] != self.host_character_id:
+                raise ValueError("這個角色目前沒有主持團播")
+            name=await asyncio.to_thread(social.invite,interaction.guild.id,session['id'],interaction.user.id,int(str(self.target_id.value)))
+            await interaction.followup.send(f"✅ 已邀請 **{name}** 加入場次 #{session['id']}。對方需要在自己的 `/網路` 面板按「接受邀請」，一小時內有效。",ephemeral=True)
+        except (ValueError,PermissionError,LookupError) as exc:
+            await interaction.followup.send(f"⚠️ 邀請失敗：{exc}",ephemeral=True)
+        except Exception:
+            LOG.exception("直播邀請失敗")
+            await interaction.followup.send("⚠️ 邀請失敗，請查看伺服器日誌。",ephemeral=True)
+
+
+class GiftModal(discord.ui.Modal,title="送出直播禮物"):
+    session_id=discord.ui.TextInput(label="直播場次編號",placeholder="從直播狀態查詢場次 #ID",min_length=1,max_length=12)
+    gift_name=discord.ui.TextInput(label="禮物名稱",placeholder="花束／應援燈／星光／皇冠／銀河／傳奇",min_length=1,max_length=8)
+    anonymous=discord.ui.TextInput(label="匿名？（是／否）",default="否",min_length=1,max_length=2)
+
+    def __init__(self,sender_character_id:int):
+        super().__init__()
+        self.sender_character_id=sender_character_id
+
+    async def on_submit(self,interaction:discord.Interaction):
+        if interaction.guild is None:
+            await interaction.response.send_message("必須在伺服器使用。",ephemeral=True)
+            return
+        await interaction.response.defer(ephemeral=True)
+        try:
+            name=str(self.gift_name.value).strip()
+            result=await asyncio.to_thread(social.gift,interaction.guild.id,int(str(self.session_id.value)),interaction.user.id,self.sender_character_id,name,interaction.id,str(self.anonymous.value).strip() in ('是','Y','y','yes','true'))
+            await interaction.followup.send(f"🎁 贈禮成功：**{name}**，扣除 {result['gross_amount']:,} 金幣。主播實收 {result['received_amount']:,}，平台費 {result['platform_fee']:,}。",ephemeral=True)
+        except (ValueError,PermissionError,LookupError) as exc:
+            await interaction.followup.send(f"⚠️ 無法贈禮：{exc}",ephemeral=True)
+        except Exception:
+            LOG.exception("直播禮物扣款失敗")
+            await interaction.followup.send("⚠️ 贈禮未完成，請管理員確認帳本後再操作。",ephemeral=True)
+
+
 class NetworkView(OwnedView):
     def __init__(self, owner_id: int, characters: list[tuple[int, str]]):
         super().__init__()
@@ -186,6 +238,42 @@ class NetworkView(OwnedView):
             ephemeral=True,
         )
 
+    @discord.ui.button(label="邀請團播",style=discord.ButtonStyle.secondary,emoji="👥",row=2)
+    async def invite_button(self,interaction:discord.Interaction,button:discord.ui.Button):
+        await interaction.response.send_modal(InviteModal(self.character_id))
+
+    async def _respond_invite(self,interaction:discord.Interaction,accept:bool):
+        if interaction.guild is None:
+            await interaction.response.send_message("必須在伺服器使用。",ephemeral=True)
+            return
+        await interaction.response.defer(ephemeral=True)
+        try:
+            pending=await asyncio.to_thread(social.pending_for_character,interaction.guild.id,interaction.user.id,self.character_id)
+            if not pending:
+                await interaction.followup.send("目前沒有等待你處理的團播邀請。",ephemeral=True)
+                return
+            target=pending[0]
+            state=await asyncio.to_thread(social.respond,interaction.guild.id,target['id'],interaction.user.id,self.character_id,accept)
+            msg={'accepted':'✅ 已加入團播！','declined':'已拒絕這次團播邀請。','expired':'邀請已過期。'}[state]
+            await interaction.followup.send(f"{msg} 場次 #{target['session_id']}",ephemeral=True)
+        except (ValueError,PermissionError,LookupError) as exc:
+            await interaction.followup.send(f"⚠️ 處理邀請失敗：{exc}",ephemeral=True)
+        except Exception:
+            LOG.exception("直播邀請處理失敗")
+            await interaction.followup.send("⚠️ 處理邀請失敗，請查看日誌。",ephemeral=True)
+
+    @discord.ui.button(label="接受邀請",style=discord.ButtonStyle.success,emoji="✅",row=2)
+    async def accept_button(self,interaction:discord.Interaction,button:discord.ui.Button):
+        await self._respond_invite(interaction,True)
+
+    @discord.ui.button(label="拒絕邀請",style=discord.ButtonStyle.secondary,emoji="✖️",row=2)
+    async def decline_button(self,interaction:discord.Interaction,button:discord.ui.Button):
+        await self._respond_invite(interaction,False)
+
+    @discord.ui.button(label="送直播禮物",style=discord.ButtonStyle.primary,emoji="🎁",row=3)
+    async def gift_button(self,interaction:discord.Interaction,button:discord.ui.Button):
+        await interaction.response.send_modal(GiftModal(self.character_id))
+
 
 class LiveStreamCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
@@ -208,7 +296,7 @@ class LiveStreamCog(commands.Cog):
             return
         note = "\n你擁有超過 25 個角色，目前先顯示前 25 名。" if len(chars) > 25 else ""
         await interaction.response.send_message(
-            "🌐 **網路中心**\n選擇角色後，使用下方按鈕操作直播。"
+            "🌐 **網路中心**\n選擇角色後，使用按鈕操作直播、團播邀請及真實禮物。"
             "\n其他社群功能將整合在這個面板，不會新增斜線子指令。" + note,
             view=NetworkView(interaction.user.id, chars), ephemeral=True,
         )
