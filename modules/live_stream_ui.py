@@ -1,4 +1,3 @@
-
 """Discord RP 網路系統：唯一頂層指令 /網路。
 
 直播功能使用 Discord 私人面板、按鈕、下拉選單和 Modal。
@@ -16,6 +15,8 @@ from discord.ext import commands
 
 from core import live_stream as live
 from core import live_social as social
+from core import live_teams as teams
+from core import live_team_treasury as treasury
 from core.database import get_connection
 
 LOG = logging.getLogger(__name__)
@@ -273,6 +274,140 @@ class NetworkView(OwnedView):
     @discord.ui.button(label="送直播禮物",style=discord.ButtonStyle.primary,emoji="🎁",row=3)
     async def gift_button(self,interaction:discord.Interaction,button:discord.ui.Button):
         await interaction.response.send_modal(GiftModal(self.character_id))
+
+
+
+    @discord.ui.button(label="直播團隊",style=discord.ButtonStyle.primary,emoji="🏠",row=4)
+    async def team_center(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.send_message(
+            "🏠 直播團隊中心｜建立、加入、金庫存款與雙人審核提款。",
+            view=TeamCenterView(self.owner_id,self.character_id),ephemeral=True)
+
+
+class TeamModal(discord.ui.Modal):
+    first = discord.ui.TextInput(label="名稱／角色編號／金額／申請編號", max_length=60)
+    second = discord.ui.TextInput(label="第二欄（僅申請提款使用）", required=False, max_length=60)
+
+    def __init__(self, owner_id: int, character_id: int, mode: str):
+        titles = {"create":"建立直播團隊", "invite":"邀請加入直播團隊",
+                  "deposit":"團隊金庫存入", "withdraw":"申請團隊金庫提款", "approve":"審核團隊提款"}
+        super().__init__(title=titles[mode])
+        self.owner_id, self.character_id, self.mode = owner_id, character_id, mode
+        descriptions={
+            "create":("團隊名稱", "不需要填寫"),
+            "invite":("受邀角色編號", "不需要填寫"),
+            "deposit":("存入金額（金幣）", "不需要填寫"),
+            "withdraw":("收款角色編號", "提款金額（金幣）"),
+            "approve":("提款申請編號", "同意／拒絕（預設同意）"),
+        }
+        self.first.label, self.second.label = descriptions[mode]
+        self.second.required = mode == "withdraw"
+
+    async def on_submit(self, interaction: discord.Interaction):
+        if interaction.guild is None or interaction.user.id != self.owner_id:
+            await interaction.response.send_message("⛔ 無權操作此面板", ephemeral=True)
+            return
+        await interaction.response.defer(ephemeral=True, thinking=True)
+        gid, uid, cid = interaction.guild.id, interaction.user.id, self.character_id
+        try:
+            team = await asyncio.to_thread(treasury.find_team,gid,uid,cid)
+            if self.mode == "create":
+                tid = await asyncio.to_thread(teams.create_team,gid,uid,cid,str(self.first.value))
+                msg=f"✅ 已建立直播團隊 #{tid}。"
+            elif not team:
+                raise ValueError("這名角色尚未加入永久直播團隊")
+            elif self.mode == "invite":
+                await asyncio.to_thread(teams.invite_team_member,gid,uid,team['id'],int(str(self.first.value)))
+                msg="✅ 已發送團隊邀請，對方需自行進入 /網路 → 團隊中心接受。"
+            elif self.mode == "deposit":
+                amount=int(str(self.first.value))
+                created=await asyncio.to_thread(treasury.deposit,gid,uid,cid,team['id'],amount,str(interaction.id))
+                msg=f"✅ 已存入 {amount:,} 金幣。" if created else "這筆存款已處理，不會重複扣款。"
+            elif self.mode == "withdraw":
+                rid=int(str(self.first.value)); amount=int(str(self.second.value))
+                request_id=await asyncio.to_thread(treasury.request_withdrawal,gid,uid,cid,team['id'],rid,amount)
+                msg=f"✅ 提款申請 #{request_id} 已建立，需另一名正式團隊成員批准才會轉帳。"
+            elif self.mode == "approve":
+                approve=str(self.second.value or "同意").strip() not in {"拒絕","否","no","N"}
+                outcome=await asyncio.to_thread(treasury.decide_withdrawal,gid,uid,cid,int(str(self.first.value)),approve)
+                msg=f"提款申請結果：{outcome}。"
+            await interaction.followup.send(msg,ephemeral=True)
+        except (ValueError, PermissionError, LookupError) as exc:
+            await interaction.followup.send(f"⚠️ 操作失敗：{exc}",ephemeral=True)
+        except Exception:
+            LOG.exception("直播團隊管理失敗")
+            await interaction.followup.send("⚠️ 發生系統錯誤，請查看日誌。",ephemeral=True)
+
+
+class TeamCenterView(OwnedView):
+    def __init__(self, owner_id: int, character_id: int):
+        super().__init__(owner_id)
+        self.character_id=character_id
+
+    async def _modal(self,interaction,mode):
+        await interaction.response.send_modal(TeamModal(self.owner_id,self.character_id,mode))
+
+    @discord.ui.button(label="建立團隊",emoji="🏠",row=0)
+    async def create(self,interaction:discord.Interaction,button:discord.ui.Button):
+        await self._modal(interaction,"create")
+
+    @discord.ui.button(label="邀請成員",emoji="✉️",row=0)
+    async def invite(self,interaction:discord.Interaction,button:discord.ui.Button):
+        await self._modal(interaction,"invite")
+
+    @discord.ui.button(label="接受團隊邀請",emoji="✅",row=0)
+    async def accept(self,interaction:discord.Interaction,button:discord.ui.Button):
+        if interaction.guild is None: return await interaction.response.send_message("只能在伺服器使用",ephemeral=True)
+        await interaction.response.defer(ephemeral=True)
+        try:
+            pending=await asyncio.to_thread(treasury.pending_invites,interaction.guild.id,interaction.user.id,self.character_id)
+            if not pending: return await interaction.followup.send("目前沒有團隊邀請。",ephemeral=True)
+            await asyncio.to_thread(teams.respond_team_invite,interaction.guild.id,interaction.user.id,pending[0]['id'],self.character_id,True)
+            await interaction.followup.send(f"✅ 已加入 {pending[0]['name']}。",ephemeral=True)
+        except (ValueError,PermissionError,LookupError) as exc:
+            await interaction.followup.send(f"⚠️ {exc}",ephemeral=True)
+        except Exception:
+            LOG.exception("接受直播團隊邀請失敗")
+            await interaction.followup.send("⚠️ 系統錯誤",ephemeral=True)
+
+    @discord.ui.button(label="金庫餘額",emoji="💰",row=1)
+    async def money(self,interaction:discord.Interaction,button:discord.ui.Button):
+        if interaction.guild is None: return await interaction.response.send_message("只能在伺服器使用",ephemeral=True)
+        try:
+            team=await asyncio.to_thread(treasury.find_team,interaction.guild.id,interaction.user.id,self.character_id)
+            if not team: raise ValueError("尚未加入團隊")
+            total=await asyncio.to_thread(treasury.balance,interaction.guild.id,interaction.user.id,self.character_id,team['id'])
+            await interaction.response.send_message(f"🏦 {team['name']}｜團隊金庫：**{total:,} 金幣**",ephemeral=True)
+        except (ValueError,PermissionError,LookupError) as exc:
+            await interaction.response.send_message(f"⚠️ {exc}",ephemeral=True)
+        except Exception:
+            LOG.exception("直播團隊金庫查詢失敗")
+            await interaction.response.send_message("⚠️ 系統錯誤",ephemeral=True)
+
+    @discord.ui.button(label="存入金庫",emoji="📥",row=1)
+    async def deposit(self,interaction:discord.Interaction,button:discord.ui.Button):
+        await self._modal(interaction,"deposit")
+
+    @discord.ui.button(label="提出提款",emoji="📤",row=1)
+    async def withdraw(self,interaction:discord.Interaction,button:discord.ui.Button):
+        await self._modal(interaction,"withdraw")
+
+    @discord.ui.button(label="審核提款",emoji="🗳️",row=1)
+    async def approve(self,interaction:discord.Interaction,button:discord.ui.Button):
+        await self._modal(interaction,"approve")
+
+    @discord.ui.button(label="查看待審提款",emoji="📋",row=2)
+    async def pending(self,interaction:discord.Interaction,button:discord.ui.Button):
+        if interaction.guild is None: return await interaction.response.send_message("只能在伺服器使用",ephemeral=True)
+        try:
+            rows=await asyncio.to_thread(treasury.pending_withdrawals,interaction.guild.id,interaction.user.id,self.character_id)
+            message="\n".join(f"#{r['id']}：{r['amount']:,} 金幣 → 角色 #{r['recipient_character_id']}" for r in rows) or "沒有待審提款"
+            await interaction.response.send_message(message[:1900],ephemeral=True)
+        except (ValueError,PermissionError,LookupError) as exc:
+            await interaction.response.send_message(f"⚠️ {exc}",ephemeral=True)
+        except Exception:
+            LOG.exception("查詢待審提款失敗")
+            await interaction.response.send_message("⚠️ 系統錯誤",ephemeral=True)
 
 
 class LiveStreamCog(commands.Cog):
