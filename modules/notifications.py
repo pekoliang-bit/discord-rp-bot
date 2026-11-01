@@ -21,6 +21,8 @@ from discord.ext import commands, tasks
 from core.database import get_connection, transaction
 from modules.notification_publish_permissions import is_guild_owner, check_bulletin_ready
 from modules.notification_delivery_guard import confirm_existing_delivery
+from modules.notification_management_status import bulletin_management_status
+from modules.notification_management_view import NotificationManagementView
 
 LOG = logging.getLogger(__name__)
 KINDS = {
@@ -294,6 +296,16 @@ class NotificationView(discord.ui.View):
             f'✅ 公告 #{bulletin_id} 已排入佇列。成功送達主通知頻道後才會標記完成。',
             ephemeral=True,
         )
+
+    @discord.ui.button(label='公告管理', emoji='📋', style=discord.ButtonStyle.secondary, row=2)
+    async def manage_bulletins(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not owner_only(interaction):
+            await interaction.response.send_message('只有本伺服器群主能管理公告。', ephemeral=True)
+            return
+        await interaction.response.send_message(
+            bulletin_management_status(interaction.guild_id),
+            view=NotificationManagementView(interaction.guild_id), ephemeral=True,
+            allowed_mentions=discord.AllowedMentions.none())
 
     @discord.ui.button(label='狀態刷新', emoji='🔄', style=discord.ButtonStyle.primary)
     async def refresh(self, interaction: discord.Interaction, button: discord.ui.Button):
