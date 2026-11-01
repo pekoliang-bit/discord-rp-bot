@@ -1,41 +1,11 @@
 
-"""唯讀批次預覽測試，不需 Discord 或正式資料庫。"""
+"""傳聞到期預覽測試；使用實際模組與區域性 mock。"""
 
-import importlib.util
-import sys
-import types
 import unittest
-from pathlib import Path
+
 from types import SimpleNamespace as NS
 from unittest.mock import patch
-
-ROOT = Path(__file__).resolve().parents[1]
-
-for name in (
-    "core",
-    "core.rumor_settlement_queue",
-    "core.rumor_grade_pipeline",
-):
-    sys.modules.setdefault(
-        name, types.ModuleType(name)
-    )
-
-sys.modules[
-    "core.rumor_settlement_queue"
-].inspect_due_cases = lambda *a, **kw: []
-
-sys.modules[
-    "core.rumor_grade_pipeline"
-].lock_prepared_grade = lambda *a, **kw: None
-
-spec = importlib.util.spec_from_file_location(
-    "rumor_due_preview_tested",
-    ROOT / "core" / "rumor_due_preview.py",
-)
-
-mod = importlib.util.module_from_spec(spec)
-sys.modules[spec.name] = mod
-spec.loader.exec_module(mod)
+from core import rumor_due_preview as mod
 
 
 class PreviewTests(unittest.TestCase):
@@ -80,16 +50,21 @@ class PreviewTests(unittest.TestCase):
             ) as lock,
         ):
             out = mod.preview_due_cases(
-                "1", trusted=True
+                "1",
+                trusted=True,
             )
 
             self.assertEqual(
                 [x.result for x in out],
-                ["ready_for_review", "skipped"],
+                [
+                    "ready_for_review",
+                    "skipped",
+                ],
             )
 
             self.assertEqual(
-                out[0].preview_grade, "A"
+                out[0].preview_grade,
+                "A",
             )
 
             self.assertTrue(
@@ -131,18 +106,24 @@ class PreviewTests(unittest.TestCase):
             ),
         ):
             out = mod.preview_due_cases(
-                "1", trusted=True
+                "1",
+                trusted=True,
             )
 
             self.assertEqual(
                 [x.result for x in out],
-                ["blocked", "ready_for_review"],
+                [
+                    "blocked",
+                    "ready_for_review",
+                ],
             )
 
     def test_invalid_limit(self):
         with self.assertRaises(ValueError):
             mod.preview_due_cases(
-                "1", trusted=True, limit=0
+                "1",
+                trusted=True,
+                limit=0,
             )
 
 
