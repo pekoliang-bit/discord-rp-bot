@@ -224,6 +224,17 @@ def discover_extensions() -> list[str]:
             "test_character", "test_content_manager"
         }:
             continue
+        # 直播 UI 依賴 core/live_stream.py；缺檔時先跳過，
+        # 避免單一未完成的直播功能阻止整個機器人啟動。
+        # 補回直播核心後，下次啟動會自動重新載入此 UI。
+        if path.stem == "live_stream_ui" and not (
+            BASE_DIR / "core" / "live_stream.py"
+        ).is_file():
+            LOG.warning(
+                "暫時停用直播介面：缺少 core/live_stream.py；"
+                "其他系統繼續啟動。"
+            )
+            continue
         try:
             tree = ast.parse(path.read_text(encoding="utf-8-sig"), filename=str(path))
         except (OSError, UnicodeError, SyntaxError) as exc:
