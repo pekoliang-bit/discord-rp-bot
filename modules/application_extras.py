@@ -522,6 +522,12 @@ def set_company_bank_proxy(
 
 def init_db():
 
+        from core.company_bank_opening import (
+            initialize_company_bank,
+        )
+
+        initialize_company_bank(db)
+
     with transaction() as db:
 
         db.execute(
