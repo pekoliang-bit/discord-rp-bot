@@ -7,6 +7,7 @@ import unittest
 
 from pathlib import Path
 from unittest.mock import patch
+
 from core import rumor_pr_paid_flow as m
 
 
@@ -28,6 +29,7 @@ class Test(unittest.TestCase):
                 INSERT INTO characters
                 VALUES("g", 1, "u");
             """)
+
             m.initialize_pr_strategy_config(db)
 
     def con(self):
@@ -147,6 +149,7 @@ class Test(unittest.TestCase):
                 r.effective_score,
                 30,
             )
+
             charge.assert_not_called()
 
     def test_retry_wrong_actor(self):
