@@ -17,3 +17,9 @@ def get_company_bank_record(guild_id, company_id):
                 "initial_deposit": int(row["initial_deposit"]),
                 "opened_at": row["opened_at"],
                 "balance": int(account_balance(db,guild_id,row["account_id"]))}
+
+
+def get_company_bank_overview(guild_id, company_id, user_id):
+    """Authorized bank plus treasury summary, sharing the existing company ledger."""
+    from modules.company_treasury import company_bank_summary
+    return company_bank_summary(guild_id, company_id, user_id)
