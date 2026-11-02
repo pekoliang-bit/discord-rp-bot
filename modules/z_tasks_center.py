@@ -1,130 +1,81 @@
-"""/任務：恢復玩家任務入口（唯讀版，不修改資料庫）。
-
-提供新手教學、活動階段任務查詢、通告開發狀態；
-既有活動任務的提交/審核仍由原模組處理。
-"""
+"""唯一正式 /任務 指令；新手進度及角色任務看板。"""
 from __future__ import annotations
-
-import logging
-import sqlite3
-
 import discord
 from discord import app_commands
 from discord.ext import commands
-
 from core.database import get_connection
+from modules.task_repository import initialize
+from modules.task_newbie import character_owner, progress, bot_thread_id, record_success
+from modules.task_defaults import seed_newbie
+from modules.task_service import board,accept,report
 
-LOG = logging.getLogger(__name__)
+KINDS={'daily':'☀️ 日常任務','screen':'🎬 影視通告','variety':'🎤 綜藝通告','endorsement':'📣 代言通告','limited':'⏱️ 限時通告','special':'✨ 特殊通告'}
 
-GUIDE = (
-    "**① 建立角色**：使用 `/創角` 建立角色並依規定完成審核。\n"
-    "**② 角色單連結**：在 `/創角` 查看登記入口，或在角色單訊息的應用程式選單尋找「登記角色單」。\n"
-    "**③ 查閱角色**：使用 `/查看` 或 `/角色` 查詢角色與背包。\n"
-    "**④ 經濟與組織**：使用 `/銀行`、`/商城`、`/公司`、`/陣營`。\n"
-    "**⑤ 參與活動**：使用 `/總覽` 查看活動，依活動公告報名及提交證明。\n"
-    "**⑥ 取得協助**：使用 `/總覽` 查看玩法及指令。\n\n"
-    "*這是操作指引，不會發放或重複領取新手獎勵。*"
-)
+def owned(gid,uid):
+    with get_connection() as db:
+        return [dict(r) for r in db.execute("SELECT id,name FROM characters WHERE guild_id=? AND owner_id=? AND status IN ('active','approved') AND character_type='player' ORDER BY id",(str(gid),str(uid)))]
 
+class TaskPick(discord.ui.Select):
+    def __init__(self,characters):
+        super().__init__(placeholder='選擇角色',options=[discord.SelectOption(label=str(c['name'])[:80],value=str(c['id']),description=f"角色 #{c['id']}") for c in characters[:25]])
+    async def callback(self,i):await show_character(i,int(self.values[0]))
 
-def safe_text(value: object, limit: int = 90) -> str:
-    return discord.utils.escape_mentions(discord.utils.escape_markdown(str(value or "")))[:limit]
-
-
-def read_active_tasks(guild_id: int, user_id: int) -> list[dict]:
-    """只讀取已存在的活動任務資料；缺表時安全返回。"""
-    try:
-        with get_connection() as db:
-            db.row_factory = sqlite3.Row
-            result = db.execute(
-                """SELECT e.id AS event_id, e.title AS event_title,
-                          t.step, t.name AS task_name, t.requirement,
-                          COALESCE(p.status, 'not_submitted') AS progress
-                   FROM rp_event_tasks t
-                   JOIN rp_event_projects e
-                     ON e.id=t.event_id AND e.guild_id=t.guild_id
-                   LEFT JOIN rp_event_task_progress p
-                     ON p.guild_id=t.guild_id AND p.task_id=t.id
-                    AND p.user_id=?
-                   WHERE t.guild_id=? AND e.status IN ('open','running')
-                   ORDER BY e.id DESC,t.step ASC LIMIT 30""",
-                (str(user_id), str(guild_id)),
-            ).fetchall()
-            return [dict(r) for r in result]
-    except (sqlite3.Error, KeyError, TypeError):
-        LOG.info("任務查詢資料表尚未就緒，改顯示空清單", exc_info=True)
-        return []
-
-
-class TasksView(discord.ui.View):
-    def __init__(self, user_id: int, guild_id: int):
-        super().__init__(timeout=300)
-        self.user_id = user_id
-        self.guild_id = guild_id
-
-    async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        if interaction.user.id != self.user_id:
-            await interaction.response.send_message("請自行使用 `/任務` 開啟面板。", ephemeral=True)
-            return False
+class TaskView(discord.ui.View):
+    def __init__(self,uid,characters):
+        super().__init__(timeout=300);self.uid=uid;self.add_item(TaskPick(characters))
+    async def interaction_check(self,i):
+        if i.user.id!=self.uid:await i.response.send_message('請自行使用 /任務',ephemeral=True);return False
         return True
 
-    @discord.ui.button(label="新手指引", emoji="📖", style=discord.ButtonStyle.primary)
-    async def guide(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_message(GUIDE, ephemeral=True)
+class KindPick(discord.ui.Select):
+    def __init__(self,gid,cid,choices):
+        super().__init__(placeholder='選擇通告分類',options=[discord.SelectOption(label=KINDS[x],value=x) for x in choices]);self.gid=gid;self.cid=cid
+    async def callback(self,i):
+        try: rows=board(self.gid,self.cid,i.user.id,self.values[0])
+        except Exception as e:return await i.response.send_message(str(e)[:180],ephemeral=True)
+        if not rows:return await i.response.send_message('目前沒有符合資格且已發布的通告。',ephemeral=True)
+        await i.response.send_message('\n'.join(f"#{r['id']} {discord.utils.escape_markdown(r['title'])}" for r in rows[:20])[:1800],ephemeral=True)
 
-    @discord.ui.button(label="活動任務", emoji="📋", style=discord.ButtonStyle.secondary)
-    async def event_tasks(self, interaction: discord.Interaction, button: discord.ui.Button):
-        rows = read_active_tasks(self.guild_id, interaction.user.id)
-        if not rows:
-            await interaction.response.send_message(
-                "目前沒有可顯示的進行中活動階段任務；活動報名與進度可到 `/總覽` 查看。",
-                ephemeral=True,
-            )
-            return
-        status_names = {"approved": "已核准", "submitted": "待審核", "rejected": "未通過", "not_submitted": "未提交"}
-        lines = [
-            f"**{safe_text(r['event_title'], 35)}** #{r['event_id']}｜第{r['step']}階段 "
-            f"{safe_text(r['task_name'], 40)}（{status_names.get(r['progress'], safe_text(r['progress'], 12))}）"
-            for r in rows
-        ]
-        chunks = []
-        current = ""
-        for line in lines:
-            if len(current) + len(line) + 1 > 1800:
-                chunks.append(current)
-                current = ""
-            current += line + "\n"
-        if current:
-            chunks.append(current)
-        await interaction.response.send_message(chunks[0], ephemeral=True)
-        for chunk in chunks[1:]:
-            await interaction.followup.send(chunk, ephemeral=True)
+class KindsView(discord.ui.View):
+    def __init__(self,uid,gid,cid,kinds):
+        super().__init__(timeout=300);self.uid=uid;self.add_item(KindPick(gid,cid,kinds))
+    async def interaction_check(self,i):
+        if i.user.id!=self.uid:await i.response.send_message('這不是你的面板',ephemeral=True);return False
+        return True
 
-    @discord.ui.button(label="演藝通告", emoji="🎬", style=discord.ButtonStyle.secondary)
-    async def notices(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_message(
-            "🎬 **演藝通告系統正在恢復中**。目前尚未接回正式通告資料及獎勵結算，"
-            "因此不提供虛假的可接取通告。現有活動請先至 `/總覽` 查詢。",
-            ephemeral=True,
-        )
-
+async def show_character(i,cid):
+    if not character_owner(i.guild_id,cid,i.user.id):return await i.response.send_message('無權使用此角色',ephemeral=True)
+    p=progress(i.guild_id,cid)
+    if not p['graduated']:
+        thread=bot_thread_id(i.guild_id,cid)
+        if thread and str(i.channel_id)==thread:record_success(i.guild_id,cid,i.user.id,i.channel_id,'任務');p=progress(i.guild_id,cid)
+        desc=f"🎓 新手探索 {p['done']}/{p['total']}\n未完成："+'、'.join('/'+n for n in p['remaining'])
+        if thread:desc+=f'\n請在 <#{thread}> 操作新手指令。'
+        else:desc+='\n尚未綁定角色的機器人使用帖子，請聯絡管理員。'
+        return await i.response.send_message(desc[:1900],ephemeral=True)
+    available=[]
+    for kind in KINDS:
+        try:
+            if kind in ('limited','special') and not board(i.guild_id,cid,i.user.id,kind):continue
+            available.append(kind)
+        except Exception:continue
+    await i.response.send_message(f'📋 角色 #{cid} 的任務中心',view=KindsView(i.user.id,i.guild_id,cid,available),ephemeral=True)
 
 class TasksCenter(commands.Cog):
-    def __init__(self, bot: commands.Bot):
-        self.bot = bot
-
-    @app_commands.command(name="任務", description="新手指引、活動任務及演藝通告入口")
+    def __init__(self,bot):self.bot=bot
+    @app_commands.command(name='任務',description='開啟任務中心；指定角色及任務編號可回報')
     @app_commands.guild_only()
-    async def tasks(self, interaction: discord.Interaction):
-        embed = discord.Embed(
-            title="📋 任務中心",
-            description="選擇下方功能查看教學與現有活動任務。演藝通告仍待恢復，不會誤發獎勵。",
-            color=discord.Color.blurple(),
-        )
-        await interaction.response.send_message(
-            embed=embed, view=TasksView(interaction.user.id, interaction.guild_id), ephemeral=True
-        )
+    @app_commands.describe(角色編號='需要操作的角色編號',任務編號='已接取、需要回報的通告編號')
+    async def tasks(self,i:discord.Interaction,角色編號:int|None=None,任務編號:int|None=None):
+        initialize();seed_newbie(i.guild_id)
+        if 角色編號 is None:
+            cs=owned(i.guild_id,i.user.id)
+            if not cs:return await i.response.send_message('請先啟用角色',ephemeral=True)
+            return await i.response.send_message('選擇要查看任務的角色：',view=TaskView(i.user.id,cs),ephemeral=True)
+        if 任務編號 is not None:
+            try:report(i.guild_id,角色編號,i.user.id,任務編號,i.channel_id)
+            except ValueError as e:return await i.response.send_message(str(e),ephemeral=True)
+            return await i.response.send_message('已回報，等待任務審核；尚未發放獎勵。',ephemeral=True)
+        return await show_character(i,角色編號)
 
-
-async def setup(bot: commands.Bot):
-    await bot.add_cog(TasksCenter(bot))
+async def setup(bot):await bot.add_cog(TasksCenter(bot))
