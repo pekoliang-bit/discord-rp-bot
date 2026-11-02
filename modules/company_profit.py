@@ -74,6 +74,8 @@ def profit_overview(guild_id, business_id, actor_id):
         account_text = f"{bank_balance:,}" if bank_balance is not None else "尚未開戶"
         company = term(gid, "company")
         currency = term(gid, "currency")
+        from core.company_profit_reserve import reserve_account
+        reserve = int(account_balance(db, gid, reserve_account(db, gid, bid)))
         return (
             f"📊 **{company}財務核對｜{bid}**\n"
             f"銷售統計：{sales:,} {currency}\n"
@@ -83,6 +85,7 @@ def profit_overview(guild_id, business_id, actor_id):
             f"其他已標記支出：{expense_spent:,} {currency}\n"
             f"試算餘額（未完成成本歸集）：{estimated:,} {currency}\n"
             f"{company}銀行實際餘額：{account_text} {currency}\n"
+            f"已隔離的分潤準備金：{reserve:,} {currency}\n"
             f"{company}金庫實際餘額：{treasury:,} {currency}\n\n"
             "⚠️ 銷售統計不等於銀行入帳；試算額不可直接分潤。"
             "待商城收款、退款與成本來源核對後，才會開放正式淨利潤結算。"
