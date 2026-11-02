@@ -661,3 +661,9 @@ class BrandManagementButton(discord.ui.Button):
 async def setup(bot):
     # 本模組的按鈕由 /公司 面板呼叫。
     pass
+
+
+def brand_management_history(guild_id, brand_id, limit=10):
+    """品牌管理面板可使用的歷史資料來源。"""
+    from modules.company_brand_reporting import recent_upgrade_checks,recent_brand_sales
+    return {"upgrades":recent_upgrade_checks(guild_id,brand_id,limit),"sales":recent_brand_sales(guild_id,brand_id,limit)}
