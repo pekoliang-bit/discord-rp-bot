@@ -449,6 +449,32 @@ class BrandDetailView(discord.ui.View):
         )
 
     @discord.ui.button(
+        label="📊 升級／銷售紀錄",
+        style=discord.ButtonStyle.secondary,
+        row=2,
+    )
+    async def history(self, interaction, button):
+        await interaction.response.defer(ephemeral=True, thinking=True)
+        try:
+            await asyncio.to_thread(brand_details, self.guild_id, self.brand_id, self.user_id)
+            from modules.company_brand_reporting import recent_upgrade_checks, recent_brand_sales
+            upgrades = await asyncio.to_thread(recent_upgrade_checks, self.guild_id, self.brand_id, 8)
+            sales = await asyncio.to_thread(recent_brand_sales, self.guild_id, self.brand_id, 8)
+            lines = ["📊 **品牌最近紀錄**", "**升級檢查**"]
+            lines.extend(f"• {r['check_date']}｜{r['result']}｜{str(r['details'])[:95]}" for r in upgrades)
+            if not upgrades:
+                lines.append("尚無紀錄")
+            lines.append("**銷售／退款**")
+            lines.extend(f"• {r['created_at']}｜{r['kind']}｜{r['amount']} 金幣" for r in sales)
+            if not sales:
+                lines.append("尚無紀錄")
+            await interaction.followup.send("\n".join(lines)[:1900], ephemeral=True)
+        except Exception:
+            import logging
+            logging.getLogger(__name__).exception("品牌紀錄讀取失敗")
+            await interaction.followup.send("⚠️ 目前無法讀取品牌紀錄。", ephemeral=True)
+
+    @discord.ui.button(
         label="↩️ 返回品牌選單",
         style=discord.ButtonStyle.secondary,
         row=1,
