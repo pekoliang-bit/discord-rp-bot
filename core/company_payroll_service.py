@@ -1,0 +1,310 @@
+
+"""公司正式發薪服務：7／14天制。
+
+沿用既有金流帳本，所有付款寫入同一個 SQLite 交易。
+不建立新的餘額系統。
+"""
+
+from __future__ import annotations
+
+import time
+from datetime import datetime, timezone
+
+from core.database import (
+    get_connection,
+    get_or_create_account,
+    transaction,
+)
+from core.economy import _payment
+from core.company_payroll_period import (
+    ALLOWED_CYCLES,
+    payroll_period,
+    payday_text,
+)
+
+
+def initialize_payroll():
+    from modules.company_treasury import initialize_treasury
+
+    initialize_treasury()
+
+    with get_connection() as db:
+        db.execute("""
+            CREATE TABLE IF NOT EXISTS
+            rp_company_payroll_settings (
+                guild_id TEXT NOT NULL,
+                business_id TEXT NOT NULL,
+                cycle_days INTEGER NOT NULL
+                    CHECK(cycle_days IN (7,14)),
+                updated_by TEXT NOT NULL,
+                updated_at INTEGER NOT NULL,
+                PRIMARY KEY(guild_id,business_id)
+            )
+        """)
+
+
+def configure_payroll_cycle(
+    guild_id,
+    business_id,
+    actor_id,
+    cycle_days,
+):
+    """只有公司持有人能設定發薪週期。"""
+    from modules.company_treasury import _is_owner
+
+    if type(cycle_days) is not int:
+        raise ValueError("週期必須是整數")
+
+    if cycle_days not in ALLOWED_CYCLES:
+        raise ValueError("僅支援7天或14天")
+
+    initialize_payroll()
+
+    gid = str(guild_id)
+    bid = str(business_id)
+    uid = str(actor_id)
+
+    with transaction() as db:
+        if not _is_owner(db, gid, bid, uid):
+            raise PermissionError(
+                "只有公司持有人能設定發薪週期"
+            )
+
+        old = db.execute("""
+            SELECT cycle_days
+            FROM rp_company_payroll_settings
+            WHERE guild_id=? AND business_id=?
+        """, (gid, bid)).fetchone()
+
+        # 已有發薪紀錄後，不允許任意切換週期，
+        # 避免重算已支付的薪資。
+        if old and int(old["cycle_days"]) != cycle_days:
+            paid = db.execute("""
+                SELECT 1
+                FROM rp_company_payroll
+                WHERE guild_id=? AND business_id=?
+                LIMIT 1
+            """, (gid, bid)).fetchone()
+
+            if paid:
+                raise ValueError(
+                    "公司已有薪資紀錄，"
+                    "不可直接更改發薪週期；"
+                    "需要先完成薪資遷移。"
+                )
+
+        db.execute("""
+            INSERT INTO rp_company_payroll_settings
+            (guild_id,business_id,cycle_days,updated_by,updated_at)
+            VALUES (?,?,?,?,?)
+            ON CONFLICT(guild_id,business_id)
+            DO UPDATE SET
+                cycle_days=excluded.cycle_days,
+                updated_by=excluded.updated_by,
+                updated_at=excluded.updated_at
+        """, (
+            gid, bid, cycle_days, uid, int(time.time()),
+        ))
+
+    return f"✅ 已設定公司每{cycle_days}天發薪一次。"
+
+
+def pay_salary(
+    guild_id,
+    business_id,
+    actor_id,
+    character_id,
+):
+    """支付最新一期已到期薪資，禁止重複扣款。"""
+    from modules.company_workforce import (
+        initialize as initialize_workforce,
+    )
+    from modules.application_extras import (
+        init_db as initialize_applications,
+    )
+    from modules.company_treasury import (
+        _finance_permission,
+        _is_owner,
+        _manager_limit,
+    )
+
+    initialize_workforce()
+    initialize_applications()
+    initialize_payroll()
+
+    gid = str(guild_id)
+    bid = str(business_id)
+    uid = str(actor_id)
+    cid = int(character_id)
+
+    if cid <= 0:
+        raise ValueError("角色編號必須大於零")
+
+    with transaction() as db:
+        if not _finance_permission(db, gid, bid, uid):
+            raise PermissionError("沒有公司發薪權限")
+
+        policy = db.execute("""
+            SELECT cycle_days
+            FROM rp_company_payroll_settings
+            WHERE guild_id=? AND business_id=?
+        """, (gid, bid)).fetchone()
+
+        if policy is None:
+            raise ValueError(
+                "公司尚未設定7天或14天發薪週期"
+            )
+
+        employee = db.execute("""
+            SELECT
+                p.salary,
+                e.hired_at,
+                c.owner_id
+            FROM company_employees e
+            JOIN company_job_positions p
+              ON p.guild_id=e.guild_id
+             AND p.company_id=e.company_id
+             AND p.rank=e.rank
+            JOIN characters c
+              ON c.guild_id=e.guild_id
+             AND c.id=e.character_id
+            WHERE e.guild_id=?
+              AND e.company_id=?
+              AND e.character_id=?
+              AND e.status='active'
+        """, (gid, bid, cid)).fetchone()
+
+        if employee is None:
+            raise ValueError(
+                "員工不存在、已離職或職位未設定"
+            )
+
+        amount = int(employee["salary"])
+        if amount <= 0:
+            raise ValueError("此職位未設定有效薪資")
+
+        period = payroll_period(
+            employee["hired_at"],
+            int(policy["cycle_days"]),
+        )
+
+        if period is None:
+            raise ValueError(
+                "尚未到達第一個發薪日"
+            )
+
+        # 舊版按月發薪紀錄不能無條件轉換，
+        # 否則可能對同一段工作期間重複付款。
+        legacy = db.execute("""
+            SELECT 1
+            FROM rp_company_payroll
+            WHERE guild_id=? AND business_id=?
+              AND character_id=?
+              AND pay_period GLOB
+                  '[0-9][0-9][0-9][0-9]-[0-9][0-9]'
+            LIMIT 1
+        """, (gid, bid, cid)).fetchone()
+
+        if legacy:
+            raise ValueError(
+                "員工有舊制月薪紀錄，"
+                "請先核對並遷移薪資期，"
+                "避免重複支付。"
+            )
+
+        existing = db.execute("""
+            SELECT 1 FROM rp_company_payroll
+            WHERE guild_id=? AND business_id=?
+              AND character_id=? AND pay_period=?
+        """, (
+            gid, bid, cid, period.key,
+        )).fetchone()
+
+        if existing:
+            return (
+                f"ℹ️ 角色 #{cid} 本期薪資已發放，"
+                "不會重複扣款。"
+            )
+
+        if not _is_owner(db, gid, bid, uid):
+            limit = _manager_limit(db, gid, bid, uid)
+            if limit <= 0 or amount > limit:
+                raise PermissionError(
+                    "薪資超出財務管理員單筆額度"
+                )
+
+        bank = db.execute("""
+            SELECT account_id,status
+            FROM rp_company_bank_accounts
+            WHERE guild_id=? AND company_id=?
+        """, (gid, bid)).fetchone()
+
+        if bank is None:
+            raise ValueError("公司尚未正式開立銀行帳戶")
+
+        if bank["status"] != "active":
+            raise PermissionError(
+                "公司銀行帳戶已凍結，禁止發薪"
+            )
+
+        receiver = get_or_create_account(
+            db, gid, "character", str(cid), "wallet"
+        )
+
+        reference = (
+            f"company-payroll:{gid}:{bid}:"
+            f"{cid}:{period.key}"
+        )
+
+        result = _payment(
+            db,
+            gid,
+            reference,
+            int(bank["account_id"]),
+            receiver,
+            amount,
+            f"公司 {bid}｜{payday_text(period)}"
+            f"｜角色 #{cid}",
+        )
+
+        if result.duplicated:
+            raise RuntimeError(
+                "帳本已存在同筆付款，"
+                "但薪資紀錄缺失；請管理員核對。"
+            )
+
+        now_ts = int(time.time())
+
+        db.execute("""
+            INSERT INTO rp_company_payroll
+            (
+                guild_id,business_id,character_id,
+                pay_period,amount,paid_by,
+                reference_key,paid_at
+            )
+            VALUES (?,?,?,?,?,?,?,?)
+        """, (
+            gid, bid, cid,
+            period.key, amount, uid,
+            reference, now_ts,
+        ))
+
+        db.execute("""
+            INSERT INTO rp_company_finance_audit
+            (
+                guild_id,business_id,actor_id,
+                action,reference_key,amount,
+                target_type,target_id,note,created_at
+            )
+            VALUES (?,?,?,?,?,?,?,?,?,?)
+        """, (
+            gid, bid, uid, "payroll", reference,
+            amount, "character", str(cid),
+            payday_text(period), now_ts,
+        ))
+
+    return (
+        f"✅ 已支付角色 #{cid} 的薪資 "
+        f"{amount:,} 金幣。\n"
+        f"發薪期：{payday_text(period)}"
+    )
