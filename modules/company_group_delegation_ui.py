@@ -3,7 +3,7 @@ import asyncio
 import logging
 import discord
 from core import company_group_delegation as svc
-from core.company_group_overview import group_overview
+from core.company_group_overview import group_overview, delegated_group_overview
 LOG=logging.getLogger(__name__)
 
 class DelegateModal(discord.ui.Modal):
@@ -56,3 +56,31 @@ class DelegationEntry(discord.ui.Button):
         if str(i.guild_id)!=v.gid or str(i.user.id)!=v.uid:
             return await i.response.send_message('非本人面板',ephemeral=True)
         await i.response.send_message('🔐 董事長可授予／撤銷資訊查閱權。此權限不涉及財務操作。',view=DelegationView(v.gid,v.uid),ephemeral=True)
+
+
+class DelegatedOverviewModal(discord.ui.Modal):
+    def __init__(self,gid,uid):
+        super().__init__(title='集團授權資訊查閱')
+        self.gid,self.uid=str(gid),str(uid)
+        self.group=discord.ui.TextInput(label='集團編號',max_length=100)
+        self.add_item(self.group)
+    async def on_submit(self,i):
+        if str(i.guild_id)!=self.gid or str(i.user.id)!=self.uid:
+            return await i.response.send_message('非本人表單',ephemeral=True)
+        await i.response.defer(ephemeral=True,thinking=True)
+        try:
+            from core.company_group_overview import format_group_overview
+            data=await asyncio.to_thread(delegated_group_overview,self.gid,self.uid,self.group.value.strip())
+            msg=format_group_overview(data)
+        except (ValueError,PermissionError) as e: msg=f'⚠️ {e}'
+        except Exception:
+            LOG.exception('授權查閱失敗');msg='⚠️ 查閱失敗，請查看日誌'
+        await i.followup.send(msg[:1900],ephemeral=True)
+
+class DelegatedOverviewEntry(discord.ui.Button):
+    def __init__(self): super().__init__(label='📋 授權集團查閱',style=discord.ButtonStyle.secondary)
+    async def callback(self,i):
+        v=self.view
+        if str(i.guild_id)!=v.gid or str(i.user.id)!=v.uid:
+            return await i.response.send_message('非本人面板',ephemeral=True)
+        await i.response.send_modal(DelegatedOverviewModal(v.gid,v.uid))
