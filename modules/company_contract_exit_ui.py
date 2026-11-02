@@ -11,6 +11,7 @@ from core.company_contract_exit_service import (
     request_exit,
     approve_mutual_exit,
     finalize_exit,
+    list_exit_cases,
 )
 
 LOG = logging.getLogger(__name__)
@@ -104,6 +105,7 @@ class ExitModal(discord.ui.Modal):
             else:
                 result = await asyncio.to_thread(
                     finalize_exit,
+    list_exit_cases,
                     self.gid, number, self.uid,
                 )
         except (
@@ -143,6 +145,31 @@ class ContractExitView(discord.ui.View):
             )
             return False
         return True
+
+    @discord.ui.button(
+        label="📋 解約案件",
+        style=discord.ButtonStyle.secondary,
+    )
+    async def cases(self, interaction, button):
+        await interaction.response.defer(ephemeral=True, thinking=True)
+        try:
+            rows = await asyncio.to_thread(list_exit_cases, self.gid, self.uid)
+            reasons = {'ordinary': '一般解約', 'mutual': '協議解約', 'self_company': '自建公司'}
+            lines = ['📋 **解約案件**']
+            for row in rows:
+                lines.append(
+                    f"#{row['id']}｜合約 #{row['contract_id']}｜"
+                    f"{reasons.get(row['reason'], row['reason'])}｜{row['status']}\n"
+                    f"公司：{row['company_id']}｜角色 #{row['character_id']}｜"
+                    f"實收違約金：{int(row['penalty_amount']):,}"
+                )
+            if not rows:
+                lines.append('目前沒有可查閱的解約案件。')
+            result = '\n'.join(lines)
+        except Exception:
+            LOG.exception('解約案件查詢失敗')
+            result = '⚠️ 無法讀取解約案件。'
+        await interaction.followup.send(result[:1900], ephemeral=True)
 
     @discord.ui.button(
         label="📝 提出解約",
