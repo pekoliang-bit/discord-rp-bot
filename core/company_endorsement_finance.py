@@ -2,6 +2,7 @@
 from __future__ import annotations
 import uuid
 from datetime import date
+from core.company_endorsement_term_guard import check_payment_term
 from core.database import transaction, get_connection, account_balance, get_or_create_account
 from core.economy import _payment
 from modules.company_business import initialize as initialize_business
@@ -54,6 +55,7 @@ def offer(guild_id,endorsement_id,payer_business_id,amount,label,actor_id,due_da
     with transaction() as db:
         _init(db);_ensure_due_date(db);e=_endorsement(db,gid,endorsement_id)
         _brand_and_payer(db,gid,e,payer,actor)
+        check_payment_term(db,gid,endorsement_id,due)
         ch=db.execute("SELECT owner_id FROM characters WHERE guild_id=? AND id=? AND status='active'",(gid,e['character_id'])).fetchone()
         if not ch: raise ValueError('代言角色未啟用')
         ref='endorsement:'+uuid.uuid4().hex
@@ -84,6 +86,7 @@ def pay(guild_id,payment_id,actor_id):
         if p['status']=='paid': return 'ℹ️ 此期款已付款，沒有重複扣款'
         if p['status']!='accepted': raise ValueError('需藝人確認期款後才能付款')
         e=_endorsement(db,gid,p['endorsement_id']);_brand_and_payer(db,gid,e,p['payer_business_id'],actor)
+        check_payment_term(db,gid,p['endorsement_id'],p['due_date'])
         bank=db.execute("SELECT account_id,status FROM rp_company_bank_accounts WHERE guild_id=? AND company_id=?",(gid,p['payer_business_id'])).fetchone()
         if not bank or bank['status']!='active': raise ValueError('付款主體的銀行帳戶尚未啟用')
         source=int(bank['account_id']);dest=get_or_create_account(db,gid,'character',str(p['character_id']),'wallet')
