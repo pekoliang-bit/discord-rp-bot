@@ -1,4 +1,3 @@
-
 """角色互動劇情編輯器：獨立模組，供 /官方 → 內容建立 調用。"""
 from __future__ import annotations
 
@@ -219,19 +218,19 @@ class StoryBuilderView(discord.ui.View):
         if i.user.id!=self.uid or i.guild_id!=self.gid or not owner(i):
             await respond(i,'⛔ 此面板不屬於你。');return False
         return True
-    @discord.ui.button(label='📖 新主線',style=discord.ButtonStyle.primary,row=0)
+    @discord.ui.button(label='📖 主線',style=discord.ButtonStyle.primary,row=0)
     async def main(self,i,b):await i.response.send_message('選擇角色：',view=CharacterPickerView(i,'main'),ephemeral=True)
-    @discord.ui.button(label='🌿 新支線',style=discord.ButtonStyle.primary,row=0)
+    @discord.ui.button(label='🌿 支線',style=discord.ButtonStyle.primary,row=0)
     async def side(self,i,b):await i.response.send_message('選擇角色：',view=CharacterPickerView(i,'side'),ephemeral=True)
-    @discord.ui.button(label='✍️ 編輯段落',style=discord.ButtonStyle.success,row=0)
+    @discord.ui.button(label='✍️ 段落',style=discord.ButtonStyle.success,row=0)
     async def edit(self,i,b):await i.response.send_modal(SegmentModal())
-    @discord.ui.button(label='📚 劇情清單',style=discord.ButtonStyle.secondary,row=1)
+    @discord.ui.button(label='🔎 檢視/就緒/封存',style=discord.ButtonStyle.secondary,row=1)
+    async def status(self,i,b):await i.response.send_modal(StoryIdModal())
+    @discord.ui.button(label='📚 清單',style=discord.ButtonStyle.secondary,row=1)
     async def listing(self,i,b):
         rows=story_list(i.guild_id)
         await respond(i,'\n'.join(f"#{r['id']}｜{r['character_name']}｜{'主線' if r['kind']=='main' else '支線'}｜{r['title']}｜{r['status']}" for r in rows) if rows else '目前沒有劇情。')
-    @discord.ui.button(label='🔎 檢視／就緒／封存',style=discord.ButtonStyle.secondary,row=1)
-    async def status(self,i,b):await i.response.send_modal(StoryIdModal())
-    @discord.ui.button(label='↩️ 返回內容建立',style=discord.ButtonStyle.secondary,row=2)
+    @discord.ui.button(label='↩️ 返回',style=discord.ButtonStyle.secondary,row=2)
     async def back(self,i,b):
         from modules.content_builder import ContentView
         await i.response.edit_message(content='✍️ **內容建立中心**',view=ContentView(i))
