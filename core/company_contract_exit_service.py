@@ -1,4 +1,3 @@
-
 """公司合約正式解約服務。
 
 違約金由角色錢包支付至原公司的金庫。
@@ -380,3 +379,26 @@ def finalize_exit(
         "✅ 正式解約完成，已保留原職位經驗。\n"
         f"違約金：{penalty:,} 金幣。"
     )
+
+
+def list_exit_cases(guild_id, actor_id, limit=15):
+    """查閱本人提出或本人持有公司之解約案件；不外洩其他公司資料。"""
+    from modules.company_treasury import _is_owner
+
+    initialize()
+    gid, uid = str(guild_id), str(actor_id)
+    with get_connection() as db:
+        rows = db.execute("""
+            SELECT id,contract_id,company_id,character_id,requested_by,
+                   reason,company_approved,penalty_amount,status,created_at
+            FROM rp_company_contract_exits
+            WHERE guild_id=?
+            ORDER BY id DESC LIMIT 100
+        """, (gid,)).fetchall()
+        result = []
+        for row in rows:
+            if str(row['requested_by']) == uid or _is_owner(db, gid, row['company_id'], uid):
+                result.append(dict(row))
+            if len(result) >= min(max(int(limit), 1), 30):
+                break
+        return result
