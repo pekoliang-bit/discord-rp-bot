@@ -84,3 +84,28 @@ class DelegatedOverviewEntry(discord.ui.Button):
         if str(i.guild_id)!=v.gid or str(i.user.id)!=v.uid:
             return await i.response.send_message('非本人面板',ephemeral=True)
         await i.response.send_modal(DelegatedOverviewModal(v.gid,v.uid))
+
+
+class DelegatedCompaniesEntry(discord.ui.Button):
+    def __init__(self): super().__init__(label='📋 授權公司清單',style=discord.ButtonStyle.secondary)
+    async def callback(self,i):
+        if str(i.guild_id)!=self.view.gid or str(i.user.id)!=self.view.uid:
+            return await i.response.send_message('非本人面板',ephemeral=True)
+        await i.response.send_modal(DelegatedCompaniesModal(self.view.gid,self.view.uid))
+
+class DelegatedCompaniesModal(discord.ui.Modal):
+    def __init__(self,gid,uid):
+        super().__init__(title='查詢授權集團公司清單');self.gid,self.uid=gid,uid
+        self.group=discord.ui.TextInput(label='集團編號',max_length=100);self.add_item(self.group)
+    async def on_submit(self,i):
+        if str(i.guild_id)!=self.gid or str(i.user.id)!=self.uid:
+            return await i.response.send_message('非本人表單',ephemeral=True)
+        await i.response.defer(ephemeral=True,thinking=True)
+        try:
+            from core.company_group_overview import delegated_company_summary
+            rows=await asyncio.to_thread(delegated_company_summary,self.gid,self.uid,self.group.value.strip())
+            msg='🏢 **旗下公司清單**\n'+('\n'.join(f"{r['name']}（{r['business_id']}）" for r in rows) or '暫無公司')
+        except (ValueError,PermissionError) as e: msg=f'⚠️ {e}'
+        except Exception:
+            LOG.exception('集團公司唯讀查詢失敗');msg='⚠️ 無法完成查詢'
+        await i.followup.send(msg[:1900],ephemeral=True)
