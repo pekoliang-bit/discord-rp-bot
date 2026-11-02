@@ -701,8 +701,15 @@ class BankView(discord.ui.View):
                 work
             )
 
+            from modules.company_bank_applications import format_company_application_status
+            try:
+                content += "\n\n" + (await asyncio.to_thread(
+                    format_company_application_status, actor.guild_id, interaction.user.id
+                ))[:600]
+            except Exception:
+                LOG.exception("company bank application status unavailable")
             await interaction.followup.send(
-                content,
+                content[:1900],
                 view=FinanceRepaymentView(
                     actor,
                     self.character_id,
@@ -883,6 +890,9 @@ class BankViewV2(BankView):
             self.add_extra_button(
                 "📜 交易紀錄", self.open_history, row=1,
             )
+            self.add_extra_button(
+                "🏢 公司帳戶", self.open_company_banking, row=1,
+            )
     def add_extra_button(
         self,
         label,
@@ -899,6 +909,14 @@ class BankViewV2(BankView):
 
         button.callback = handler
         self.add_item(button)
+
+    async def open_company_banking(self, interaction: discord.Interaction):
+        from modules.company_bank_portal import open_company_banking
+        try:
+            verify(interaction, self.actor, self.character_id)
+        except Exception as exc:
+            return await show_error(interaction, exc)
+        await open_company_banking(interaction)
 
     async def open_loan_application(
         self,
