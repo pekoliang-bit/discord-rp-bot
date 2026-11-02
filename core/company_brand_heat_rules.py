@@ -22,6 +22,8 @@ def calculate_brand_heat(
     cooperation: int = 0,
     representative: int = 0,
 ) -> dict:
+    if isinstance(target_heat, bool) or isinstance(net_consumption, bool):
+        raise ValueError("熱度與消費必須為整數")
     target_heat = int(target_heat)
     net_consumption = int(net_consumption)
 
