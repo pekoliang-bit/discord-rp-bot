@@ -19,7 +19,10 @@ def grant(guild_id,group_id,actor_id,delegate_id,capability='overview'):
     if str(owned.get('group_id'))!=group_id: raise PermissionError('只有目前集團董事長可授權')
     with transaction() as db:
         _setup(db)
-        db.execute('INSERT OR IGNORE INTO rp_group_delegations(guild_id,group_id,delegate_id,capability,granted_by) VALUES(?,?,?,?,?)',(gid,group_id,delegate,capability,actor))
+        inserted = db.execute('INSERT OR IGNORE INTO rp_group_delegations(guild_id,group_id,delegate_id,capability,granted_by) VALUES(?,?,?,?,?)',(gid,group_id,delegate,capability,actor)).rowcount > 0
+    if inserted:
+        from core.company_event_notifications import group_delegation_update
+        group_delegation_update(gid,group_id,'granted')
     return '✅ 已授權集團資訊查閱（不含金庫或人事修改）'
 
 
@@ -29,7 +32,11 @@ def revoke(guild_id,group_id,actor_id,delegate_id,capability='overview'):
     with transaction() as db:
         _setup(db)
         cur=db.execute('DELETE FROM rp_group_delegations WHERE guild_id=? AND group_id=? AND delegate_id=? AND capability=?',(gid,group_id,str(delegate_id),capability))
-        return bool(cur.rowcount)
+        changed = bool(cur.rowcount)
+    if changed:
+        from core.company_event_notifications import group_delegation_update
+        group_delegation_update(gid,group_id,'revoked')
+    return changed
 
 
 def list_grants(guild_id,group_id,actor_id):
