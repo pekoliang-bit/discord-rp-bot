@@ -1,4 +1,3 @@
-
 """集團五間公司資格核對。"""
 
 from __future__ import annotations
@@ -61,6 +60,7 @@ def group_eligibility(db, guild_id, owner_id):
         "automatic_eligible": (
             count >= AUTO_GROUP_COMPANIES
             and group is None
+            and all(not company["parent_id"] for company in companies)
         ),
         "direct_eligible": group is None,
         "existing_group_id": (
