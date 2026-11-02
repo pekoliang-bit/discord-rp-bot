@@ -725,3 +725,9 @@ async def setup(bot):
     await bot.add_cog(
         BrandProgression(bot)
     )
+
+
+def upgrade_history(guild_id, brand_id, limit=10):
+    """向品牌介面提供升級審核紀錄。"""
+    from modules.company_brand_reporting import recent_upgrade_checks
+    return recent_upgrade_checks(guild_id, brand_id, limit)
