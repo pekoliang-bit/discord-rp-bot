@@ -222,6 +222,11 @@ class CompanyCommercialView(discord.ui.View):
             ("exposure", "📣 代言曝光"),
         ]
 
+        from modules.company_endorsement_finance_ui import EndorsementFinanceEntry
+        self.add_item(EndorsementFinanceEntry())
+        from modules.company_contract_lifecycle_ui import TermsEntry
+        self.add_item(TermsEntry())
+
         for action, label in items:
             self.add_item(
                 CommercialActionButton(
