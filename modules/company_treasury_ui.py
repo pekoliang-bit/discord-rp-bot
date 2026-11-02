@@ -353,6 +353,31 @@ class SpendingLimitModal(FinanceModal):
         )
 
 
+class ReserveModal(FinanceModal):
+    def __init__(self,user_id,guild_id,business_id):
+        super().__init__(user_id,guild_id,business_id,'核定分潤準備金')
+        self.amount=discord.ui.TextInput(label='從公司銀行撥入金額',max_length=15)
+        self.confirm=discord.ui.TextInput(label='輸入「確認撥款」',max_length=6)
+        self.add_item(self.amount);self.add_item(self.confirm)
+    async def on_submit(self,interaction):
+        if str(self.confirm.value).strip()!='確認撥款':
+            return await interaction.response.send_message('確認文字不正確，已取消。',ephemeral=True)
+        from core.company_profit_reserve import allocate_profit
+        await self.run_operation(interaction,lambda:allocate_profit(self.guild_id,self.business_id,self.user_id,self.amount.value,f'{interaction.id}'))
+
+class DividendModal(FinanceModal):
+    def __init__(self,user_id,guild_id,business_id):
+        super().__init__(user_id,guild_id,business_id,'發放公司分潤')
+        self.cid=discord.ui.TextInput(label='收款角色 ID',max_length=15)
+        self.amount=discord.ui.TextInput(label='分潤金額',max_length=15)
+        self.confirm=discord.ui.TextInput(label='輸入「確認分潤」',max_length=6)
+        self.add_item(self.cid);self.add_item(self.amount);self.add_item(self.confirm)
+    async def on_submit(self,interaction):
+        if str(self.confirm.value).strip()!='確認分潤':
+            return await interaction.response.send_message('確認文字不正確，已取消。',ephemeral=True)
+        from core.company_dividend_service import distribute
+        await self.run_operation(interaction,lambda:distribute(self.guild_id,self.business_id,self.user_id,self.cid.value,self.amount.value,f'{interaction.id}'))
+
 class TreasuryDetailView(discord.ui.View):
     def __init__(
         self,
@@ -442,6 +467,26 @@ class TreasuryDetailView(discord.ui.View):
             return await interaction.response.send_message("只有公司持有人能設定發薪週期。", ephemeral=True)
         await interaction.response.send_modal(PayrollCycleModal(
             self.user_id, self.guild_id, self.business_id))
+
+    @discord.ui.button(label='💼 分潤準備金',style=discord.ButtonStyle.secondary,row=3)
+    async def dividend_reserve(self,interaction,button):
+        from core.company_profit_reserve import reserve_balance
+        await _respond(interaction,lambda:f'💼 分潤準備金：{reserve_balance(self.guild_id,self.business_id,self.user_id):,} 金幣')
+
+    @discord.ui.button(label='📥 撥入分潤',style=discord.ButtonStyle.primary,row=3)
+    async def reserve_add(self,interaction,button):
+        if not self.is_owner: return await interaction.response.send_message('只有持有人可撥款。',ephemeral=True)
+        await interaction.response.send_modal(ReserveModal(self.user_id,self.guild_id,self.business_id))
+
+    @discord.ui.button(label='💸 發放分潤',style=discord.ButtonStyle.success,row=3)
+    async def dividend_send(self,interaction,button):
+        if not self.is_owner: return await interaction.response.send_message('只有持有人可發放分潤。',ephemeral=True)
+        await interaction.response.send_modal(DividendModal(self.user_id,self.guild_id,self.business_id))
+
+    @discord.ui.button(label='📋 未發薪資',style=discord.ButtonStyle.secondary,row=3)
+    async def arrears(self,interaction,button):
+        from core.company_arrears import arrears_summary
+        await _respond(interaction,lambda:arrears_summary(self.guild_id,self.business_id,self.user_id))
 
     @discord.ui.button(label="📊 財務核對", style=discord.ButtonStyle.secondary, row=1)
     async def profit(self, interaction, button):
