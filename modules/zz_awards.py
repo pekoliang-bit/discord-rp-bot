@@ -469,11 +469,11 @@ class AwardsAdminView(BoundView):
     async def edit(self, interaction, button):
         await interaction.response.send_modal(IdModal("edit"))
 
-    @discord.ui.button(label="🎖️ 頒發", style=discord.ButtonStyle.success, row=0)
+    @discord.ui.button(label="🎖️ 頒發", style=discord.ButtonStyle.success, row=1)
     async def grant_button(self, interaction, button):
         await interaction.response.send_modal(IdModal("grant"))
 
-    @discord.ui.button(label="🚫 撤銷", style=discord.ButtonStyle.danger, row=0)
+    @discord.ui.button(label="🚫 撤銷", style=discord.ButtonStyle.danger, row=1)
     async def revoke_button(self, interaction, button):
         await interaction.response.send_modal(IdModal("revoke"))
 
@@ -506,6 +506,14 @@ class AwardsAdminView(BoundView):
             rows = conn.execute("SELECT * FROM rp_award_audit WHERE guild_id=? ORDER BY id DESC LIMIT 15", (str(interaction.guild_id),)).fetchall()
         lines = [f"#{r['id']}｜{r['created_at']}｜{r['action']}｜獎項#{r['definition_id']}｜角色#{r['character_id']}｜操作者{r['actor_id']}" for r in rows]
         await interaction.response.send_message("📜 **最近操作紀錄**\n" + ("\n".join(lines)[:1750] or "尚無紀錄"), ephemeral=True)
+
+    @discord.ui.button(label="↩️ 返回", style=discord.ButtonStyle.secondary, row=3)
+    async def back(self, interaction, button):
+        from modules.content_builder import ContentView
+        await interaction.response.edit_message(
+            content="✍️ **內容建立中心**",
+            view=ContentView(interaction),
+        )
 
 
 class AwardsPublicButton(discord.ui.Button):
