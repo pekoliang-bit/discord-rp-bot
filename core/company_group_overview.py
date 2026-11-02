@@ -130,3 +130,31 @@ def delegated_company_summary(guild_id, actor_id, group_id):
     with get_connection() as db:
         return [dict(r) for r in db.execute("""SELECT business_id,name,status FROM rp_business_entities
           WHERE guild_id=? AND parent_id=? AND kind='company' ORDER BY name LIMIT 50""",(gid,group))]
+
+
+def delegated_member_report(guild_id, actor_id, group_id):
+    """集團成員概況，僅顯示正式公司基本資訊；不洩漏員工或財務資料。"""
+    from core.company_group_delegation import has_capability
+    gid, group = str(guild_id), str(group_id)
+    if not has_capability(gid, group, actor_id, 'member_report'):
+        raise PermissionError('沒有集團成員報告查閱權')
+    with get_connection() as db:
+        entity = db.execute(
+            "SELECT name FROM rp_business_entities WHERE guild_id=? AND business_id=? AND kind='group' AND status='active'",
+            (gid, group),
+        ).fetchone()
+        if entity is None:
+            raise ValueError('找不到有效集團')
+        rows = db.execute(
+            "SELECT business_id,name,status FROM rp_business_entities "
+            "WHERE guild_id=? AND parent_id=? AND kind='company' "
+            "ORDER BY name,business_id LIMIT 50",
+            (gid, group),
+        ).fetchall()
+    companies = [dict(row) for row in rows]
+    return {
+        'group_id': group,
+        'group_name': entity['name'],
+        'company_count': len(companies),
+        'companies': companies,
+    }
