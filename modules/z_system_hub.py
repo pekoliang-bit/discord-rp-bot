@@ -13,6 +13,7 @@ from modules.overview_helpers import escape
 from modules.overview_data import query_rows
 from modules.overview_status import system_lines, status_text
 from modules.overview_updates import recent_updates
+from modules.leaderboard_ui import LeaderboardView
 
 LOG = logging.getLogger(__name__)
 
@@ -289,24 +290,16 @@ class SystemHub(commands.Cog):
                     ephemeral=True,
                 )
 
-    @app_commands.command(name="排行", description="查看全服路人人氣排行榜（其他排行逐步整合）")
+    @app_commands.command(name="排行", description="查看全服28類排行榜與排名")
     @app_commands.guild_only()
     async def ranking(self, interaction: discord.Interaction):
         try:
-            rows = query_rows(interaction.guild_id, "extra_likes")
-            embed = discord.Embed(title="🏆 全服排行榜｜路人人氣", color=discord.Color.gold())
-            if rows:
-                embed.description = "\n".join(
-                    f"**{i}.** {escape(r.get('name'), 70)}｜💗 {r.get('hearts', 0)}"
-                    for i, r in enumerate(rows[:15], 1)
-                )
-            else:
-                embed.description = "目前尚無排行榜資料。"
-            embed.set_footer(text="其他排行類型仍待整合；陣營內部排行請使用 /陣營")
-            await interaction.response.send_message(embed=embed, ephemeral=True)
+            view = LeaderboardView(interaction.user.id, interaction.guild_id)
+            await interaction.response.send_message(embed=view.render(), view=view, ephemeral=True)
         except Exception:
             LOG.exception("排行榜查詢失敗")
-            await interaction.response.send_message("⚠️ 排行資料目前無法讀取，請查看機器人日誌。", ephemeral=True)
+            if not interaction.response.is_done():
+                await interaction.response.send_message("⚠️ 排行資料目前無法讀取，請查看機器人日誌。", ephemeral=True)
 
     @app_commands.command(name="新手指引", description="查閱創角、角色單登記與遊戲入門教學")
     @app_commands.guild_only()
