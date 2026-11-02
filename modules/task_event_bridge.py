@@ -29,6 +29,11 @@ def completed_tutorial_view(guild_id, character_id, user_id, channel_id, command
     return record_success(guild_id, character_id, user_id, channel_id, command)
 
 
+def tutorial_channel_decision(guild_id, character_id, user_id, channel_id, command):
+    from modules.task_newbie import newbie_required_channel
+    initialize()
+    return newbie_required_channel(guild_id, character_id, user_id, channel_id, command)
+
 def tutorial_status(guild_id, character_id):
     initialize()
     return progress(guild_id, character_id)
