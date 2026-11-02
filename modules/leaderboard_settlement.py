@@ -11,7 +11,19 @@ def settle(guild_id,cycle,index,end_utc):
     initialize()
     with get_connection() as db:
         old=db.execute('SELECT state FROM lb_v11_periods WHERE guild_id=? AND cycle=? AND idx=?',(str(guild_id),cycle,index)).fetchone()
-    if old and old['state']=='snapshotted':return {'status':'already','cycle':cycle,'index':index,'unavailable':[]}
+    if old and old['state']=='snapshotted':
+        if cycle == '30d':
+            with get_connection() as db:
+                saved = db.execute("""SELECT board,rank,entity_key FROM lb_v11_snapshots
+                    WHERE guild_id=? AND cycle=? AND idx=?""",
+                    (str(guild_id),cycle,index)).fetchall()
+            grouped = {}
+            for row in saved:
+                grouped.setdefault(row['board'], []).append(
+                    {'rank':row['rank'],'entity_key':row['entity_key']})
+            for board, rows in grouped.items():
+                settle_without_prizes(guild_id,cycle,index,board,rows)
+        return {'status':'already','cycle':cycle,'index':index,'unavailable':[]}
     snapshots,unavailable=collect(guild_id)
     with transaction() as db:
         db.execute('INSERT OR IGNORE INTO lb_v11_periods(guild_id,cycle,idx,end_utc) VALUES(?,?,?,?)',(str(guild_id),cycle,index,iso(end_utc)))
