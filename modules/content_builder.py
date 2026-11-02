@@ -1581,6 +1581,9 @@ class ContentTypeSelect(
                     value=key,
                 )
                 for key, name in TYPES.items()
+            ] + [
+                discord.SelectOption(label="🚶 路人角色", value="extra_characters", description="批次建立與管理路人角色"),
+                discord.SelectOption(label="📋 通用官方內容管理", value="content_records", description="查看清單、編輯草稿、發布與下架"),
             ],
             row=0,
         )
@@ -1593,6 +1596,21 @@ class ContentTypeSelect(
             )
 
         selected = self.values[0]
+
+        if selected == "extra_characters":
+            from modules.extra_character_manager import ExtraCharacterView
+            await i.response.edit_message(
+                content="🚶 **路人角色管理中心**",
+                view=ExtraCharacterView(i),
+            )
+            return
+
+        if selected == "content_records":
+            await i.response.edit_message(
+                content="📋 **通用官方內容管理**\n請選擇清單、編輯草稿或發布／下架。\n注意：此處僅管理通用官方內容記錄，專屬系統請從上層選單進入。",
+                view=ContentRecordsView(i),
+            )
+            return
 
         try:
             handled = await open_specialized_manager(
@@ -1650,159 +1668,75 @@ class ContentTypeSelect(
 # 內容建立中心主介面
 # ==========================================
 
-class ExtraCharacterEntryButton(discord.ui.Button):
+class ContentRecordsSelect(discord.ui.Select):
+    """集中管理通用內容紀錄，不另設三個重複快捷按鈕。"""
+
     def __init__(self):
-        super().__init__(label='🚶 路人角色建立',style=discord.ButtonStyle.secondary,row=2)
-    async def callback(self,i):
-        if not owner(i):
-            return await i.response.send_message('只有群主可以建立路人角色。',ephemeral=True)
-        from modules.extra_character_manager import ExtraCharacterView
-        await i.response.edit_message(content='🚶 **路人角色管理中心**',view=ExtraCharacterView(i))
-
-class ContentView(
-    discord.ui.View
-):
-
-    def __init__(self, i):
         super().__init__(
-            timeout=600
+            placeholder="選擇通用官方內容操作",
+            row=0,
+            options=[
+                discord.SelectOption(label="📋 查看內容清單", value="list"),
+                discord.SelectOption(label="✏️ 編輯草稿", value="edit"),
+                discord.SelectOption(label="📢 發布／下架", value="publish"),
+                discord.SelectOption(label="↩️ 返回內容類型", value="back"),
+            ],
         )
 
+    async def callback(self, i):
+        if not owner(i):
+            return await tell(i, "⛔ 僅限群主使用。")
+        action = self.values[0]
+        if action == "back":
+            return await i.response.edit_message(
+                content="✍️ **官方內容建立中心**\n請從下拉選單選擇要建立／管理的類型。",
+                view=ContentView(i),
+            )
+        if action == "list":
+            try:
+                message = list_items(i.guild_id)
+            except sqlite3.Error:
+                LOG.exception("讀取官方內容清單失敗。")
+                message = "⚠️ 無法讀取官方內容清單。"
+            return await tell(i, message)
+        if action == "edit":
+            return await i.response.send_modal(EditContent())
+        if action == "publish":
+            return await i.response.send_modal(PublishContent())
+
+
+class ContentRecordsView(discord.ui.View):
+    def __init__(self, i):
+        super().__init__(timeout=600)
         self.user_id = i.user.id
         self.guild_id = i.guild_id
-
-        self.add_item(
-            ContentTypeSelect()
-        )
-
-        # 路人角色批次建立入口（僅群主）。
-        self.add_item(ExtraCharacterEntryButton())
-
-        # 保留原本劇情快捷按鈕。
-        from modules.story_builder import (
-            StoryBuilderButton,
-        )
-
-        self.add_item(
-            StoryBuilderButton()
-        )
-
-        # 保留原本抽獎快捷按鈕。
-        from modules.lottery_admin_ui import (
-            LotteryAdminButton,
-        )
-
-        self.add_item(
-            LotteryAdminButton()
-        )
+        self.add_item(ContentRecordsSelect())
 
     async def interaction_check(self, i):
-        if (
-            i.user.id != self.user_id
-            or i.guild_id != self.guild_id
-            or not owner(i)
-        ):
-            await tell(
-                i,
-                "⛔ 這不是你的管理面板，"
-                "或你的權限不足。",
-            )
-
+        if i.user.id != self.user_id or i.guild_id != self.guild_id or not owner(i):
+            await tell(i, "⛔ 這不是你的管理面板，或你的權限不足。")
             return False
-
         return True
 
-    # --------------------------------------
-    # 官方內容清單
-    # --------------------------------------
 
-    @discord.ui.button(
-        label="📋 內容清單",
-        style=discord.ButtonStyle.primary,
-        row=1,
-    )
-    async def listing(
-        self,
-        i,
-        button,
-    ):
-        try:
-            message = list_items(
-                i.guild_id
-            )
+class ContentView(discord.ui.View):
+    def __init__(self, i):
+        super().__init__(timeout=600)
+        self.user_id = i.user.id
+        self.guild_id = i.guild_id
+        self.add_item(ContentTypeSelect())
 
-        except sqlite3.Error:
-            LOG.exception(
-                "讀取官方內容清單失敗。"
-            )
+    async def interaction_check(self, i):
+        if i.user.id != self.user_id or i.guild_id != self.guild_id or not owner(i):
+            await tell(i, "⛔ 這不是你的管理面板，或你的權限不足。")
+            return False
+        return True
 
-            message = (
-                "⚠️ 無法讀取官方內容清單。"
-            )
-
-        await tell(
-            i,
-            message,
-        )
-
-    # --------------------------------------
-    # 編輯草稿
-    # --------------------------------------
-
-    @discord.ui.button(
-        label="✏️ 編輯草稿",
-        style=discord.ButtonStyle.secondary,
-        row=1,
-    )
-    async def editing(
-        self,
-        i,
-        button,
-    ):
-        await i.response.send_modal(
-            EditContent()
-        )
-
-    # --------------------------------------
-    # 發布與下架
-    # --------------------------------------
-
-    @discord.ui.button(
-        label="📢 發布／下架",
-        style=discord.ButtonStyle.success,
-        row=1,
-    )
-    async def publishing(
-        self,
-        i,
-        button,
-    ):
-        await i.response.send_modal(
-            PublishContent()
-        )
-
-    # --------------------------------------
-    # 返回官方
-    # --------------------------------------
-
-    @discord.ui.button(
-        label="↩️ 返回官方",
-        style=discord.ButtonStyle.secondary,
-        row=2,
-    )
-    async def back(
-        self,
-        i,
-        button,
-    ):
-        from modules.official_center import (
-            OfficialHome,
-        )
-
+    @discord.ui.button(label="↩️ 返回官方", style=discord.ButtonStyle.secondary, row=1)
+    async def back(self, i, button):
+        from modules.official_center import OfficialHome
         await i.response.edit_message(
-            content=(
-                "🏛️ **官方管理中心**"
-            ),
+            content="🏛️ **官方管理中心**",
             view=OfficialHome(i),
         )
 
