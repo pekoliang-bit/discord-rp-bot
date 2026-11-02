@@ -1,3 +1,4 @@
+
 """依已封存的30天快照計算獲獎次數，僅記錄待派發。"""
 from core.database import get_connection
 from modules.leaderboard_milestone_rules import reached
@@ -32,12 +33,16 @@ def _streak(db, guild, entity, board, idx, rank):
 
 def stage_milestones(guild_id, idx, board, ranked_rows):
     """要求該期快照已存在；跨榜統計按相同 entity_key，絕不跨身份合併。"""
+    if board == 'awards':
+        return
     if idx < 1:
         raise ValueError("期數必須大於零")
     with get_connection() as db:
         for row in ranked_rows:
             entity, rank = str(row["entity_key"]), int(row["rank"])
-            for kind in ("same_rank","board_top3","cross_top3","streak"):
+            # Cross-board rewards require a typed entity identity. Raw entity IDs
+            # collide between character/company/faction/account; defer until mapping exists.
+            for kind in ("same_rank","board_top3","streak"):
                 if kind in ("board_top3","cross_top3") and rank > 3:
                     continue
                 if kind == "streak":
