@@ -52,7 +52,7 @@ LOG = logging.getLogger(__name__)
 
 TYPES = {
     "story": "📖 劇情",
-    "extra_character": "🚶 路人角色建立",
+    "product": "🛍️ 商品企劃",
     "lottery": "🎰 抽獎獎單",
     "prize": "🏆 獎項",
     "event": "🎪 活動",
@@ -74,7 +74,7 @@ SPECIALIZED_TYPES = frozenset({
     "event",
     "tags",
     "prize",
-    "extra_character",
+    "mission",
 })
 
 
@@ -852,6 +852,11 @@ async def open_specialized_manager(
     回傳 True 表示已處理。
     """
 
+    if selected == "mission":
+        from modules.task_admin import open_task_admin
+        await open_task_admin(i)
+        return True
+
     # ======================================
     # 獎項／榮譽專屬管理（沿用既有 zz_awards）
     # ======================================
@@ -911,14 +916,6 @@ async def open_specialized_manager(
             view=LotteryAdminView(i),
         )
 
-        return True
-
-    if selected == "extra_character":
-        from modules.extra_character_manager import ExtraCharacterView
-        await i.response.edit_message(
-            content="🚶 **路人角色建立與管理**\n建立後直接列入 `/查看` 的路人角色分類，不需要審核。",
-            view=ExtraCharacterView(i),
-        )
         return True
 
     if selected == "npc":
@@ -1447,18 +1444,6 @@ class WorldSettingsView(discord.ui.View):
                 from modules.world_organization_editor import OrganizationHomeView, organization_summary
                 view = OrganizationHomeView(interaction)
                 content = organization_summary(interaction.guild_id)
-            elif category == "detail_rules":
-                from modules.world_detail_rules_editor import RuleHomeView, summary
-                view = RuleHomeView(interaction)
-                content = summary(interaction.guild_id)
-            elif category == "categories":
-                from modules.world_category_editor import CategoryHomeView, summary
-                view = CategoryHomeView(interaction)
-                content = summary(interaction.guild_id)
-            elif category == "permissions":
-                from modules.world_permission_editor import PermissionHomeView, summary
-                view = PermissionHomeView(interaction)
-                content = summary(interaction.guild_id)
             else:
                 view = WorldCategoryView(interaction, category)
                 content = world_category_summary(interaction.guild_id, category)
