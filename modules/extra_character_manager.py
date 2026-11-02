@@ -1,86 +1,72 @@
-"""官方內容建立中心：路人角色建立／檢視。沿用 characters 表與既有路人分類標記。"""
+
+"""官方路人管理：照片素材、姓名職業庫、批次建立、排行榜總開關。"""
 from __future__ import annotations
-import json
-import sqlite3
+import re
 import discord
-from core.database import transaction, get_connection
+from modules import extra_character_store as store
 
+def owner(i): return bool(i.guild and i.user.id==i.guild.owner_id)
 
-def check_owner(i):
-    return bool(i.guild and i.user.id == i.guild.owner_id)
-
-
-class ExtraCharacterModal(discord.ui.Modal, title="🚶 建立路人角色"):
-    name = discord.ui.TextInput(label="路人名稱", placeholder="例如：咖啡店店員 林小姐", max_length=80)
-    age = discord.ui.TextInput(label="年齡（可留空）", required=False, max_length=3, placeholder="例如：25")
-    occupation = discord.ui.TextInput(label="職業／身分", required=False, max_length=100, placeholder="例如：咖啡店店員")
-    description = discord.ui.TextInput(label="人物介紹／出場設定", required=False, style=discord.TextStyle.paragraph, max_length=900, placeholder="例如：經常出現在商業街，與主線無直接關聯")
-    portrait = discord.ui.TextInput(label="立繪網址（選填）", required=False, max_length=400, placeholder="https://...")
-
-    async def on_submit(self, i: discord.Interaction):
-        if not check_owner(i):
-            return await i.response.send_message("⛔ 僅伺服器群主能建立路人角色。", ephemeral=True)
+class PoolModal(discord.ui.Modal):
+    def __init__(self, kind):
+        super().__init__(title={'photos':'🖼️ 批次新增照片','names':'🌏 新增姓名庫','jobs':'🎭 新增職業庫'}[kind]); self.kind=kind
+        if kind=='names':
+            self.nationality=discord.ui.TextInput(label='國籍（例：日本）',max_length=50)
+            self.kind_field=discord.ui.TextInput(label='類型 surname 姓氏／given 名字',max_length=12,placeholder='surname')
+            self.add_item(self.nationality);self.add_item(self.kind_field)
+        self.values=discord.ui.TextInput(label='每行一項（可貼上多行）',style=discord.TextStyle.paragraph,max_length=4000,placeholder='每行一筆照片網址、名字或職業')
+        self.add_item(self.values)
+    async def on_submit(self,i):
+        if not owner(i): return await i.response.send_message('只有群主能操作。',ephemeral=True)
+        values=[v.strip() for v in self.values.value.splitlines() if v.strip()]
         try:
-            name = self.name.value.strip()
-            if not name:
-                raise ValueError("路人名稱不能為空。")
-            age = int(self.age.value.strip()) if self.age.value.strip() else None
-            if age is not None and not 0 <= age <= 200:
-                raise ValueError("年齡須介於 0～200。")
-            portrait = self.portrait.value.strip()
-            if portrait and not portrait.startswith(("https://", "http://")):
-                raise ValueError("立繪網址須以 https:// 或 http:// 開頭。")
-            settings = {
-                "character_category": "extra", "public_category": "extra",
-                "biography": self.description.value.strip(),
-                "portrait_url": portrait,
-                "created_as_extra": True,
-            }
-            with transaction() as db:
-                cur = db.execute(
-                    """INSERT INTO characters
-                    (guild_id, owner_id, name, age, occupation, status, character_type, settings_json)
-                    VALUES (?, ?, ?, ?, ?, 'active', 'official_npc', ?)""",
-                    (str(i.guild_id), str(i.guild.owner_id), name, age,
-                     self.occupation.value.strip(), json.dumps(settings, ensure_ascii=False)),
-                )
-                cid = cur.lastrowid
-            await i.response.send_message(
-                f"✅ 已建立路人角色 **{name}**（#{cid}）。\n可從 `/查看 → 路人角色` 找到。",
-                ephemeral=True,
-            )
-        except (ValueError, sqlite3.Error) as exc:
-            await i.response.send_message(f"⚠️ 建立失敗：{exc}", ephemeral=True)
+            if self.kind=='photos': n=store.add_photos(i.guild_id,values)
+            elif self.kind=='jobs': n=store.add_jobs(i.guild_id,values)
+            else: n=store.add_names(i.guild_id,self.nationality.value.strip(),self.kind_field.value.strip().lower(),values)
+            d=store.inventory(i.guild_id)
+            await i.response.send_message(f'✅ 新增 {n} 筆。照片庫剩餘 **{d["photos"]}** 張。'+(' ⚠️ 只剩五張或更少！' if d['photos']<=5 else ''),ephemeral=True)
+        except Exception as e: await i.response.send_message(f'⚠️ 匯入失敗：{e}',ephemeral=True)
 
+class BatchModal(discord.ui.Modal,title='🎲 批次建立路人角色'):
+    count=discord.ui.TextInput(label='建立人數（1～100）',placeholder='10',max_length=3)
+    nation=discord.ui.TextInput(label='指定國籍（空白＝隨機）',required=False,max_length=50)
+    level=discord.ui.TextInput(label='指定咖位等級（空白＝隨機）',required=False,max_length=2)
+    async def on_submit(self,i):
+        if not owner(i): return await i.response.send_message('僅群主能操作。',ephemeral=True)
+        try:
+            created=store.generate(i.guild_id,i.guild.owner_id,int(self.count.value),nationality=self.nation.value.strip() or None,level=int(self.level.value) if self.level.value.strip() else None)
+            remaining=store.inventory(i.guild_id)['photos']
+            msg=f'✅ 已建立 **{len(created)}** 位路人角色。\n'+ '\n'.join(f'#{cid} {name}｜{job}｜LV{lv} {title}' for cid,name,job,lv,title in created[:15])
+            if len(created)>15:msg+=f'\n……其餘 {len(created)-15} 位可至 `/查看 → 路人角色` 查看。'
+            msg+=f'\n🖼️ 未使用照片：{remaining} 張。'
+            if remaining<=5:msg+=' ⚠️ 照片庫只剩五張或更少，請補充。'
+            await i.response.send_message(msg[:1950],ephemeral=True)
+        except (ValueError,TypeError) as e: await i.response.send_message(f'⚠️ 無法建立：{e}',ephemeral=True)
 
 class ExtraCharacterView(discord.ui.View):
-    def __init__(self, i: discord.Interaction):
-        super().__init__(timeout=600)
-        self.owner_id = i.user.id
-        self.guild_id = i.guild_id
-
-    async def interaction_check(self, i):
-        if i.user.id != self.owner_id or i.guild_id != self.guild_id or not check_owner(i):
-            await i.response.send_message("⛔ 沒有此管理面板的權限。", ephemeral=True)
-            return False
+    def __init__(self,i):
+        super().__init__(timeout=600);self.user_id=i.user.id;self.guild_id=i.guild_id
+    async def interaction_check(self,i):
+        if i.user.id!=self.user_id or i.guild_id!=self.guild_id or not owner(i):
+            await i.response.send_message('⛔ 僅群主可使用此面板。',ephemeral=True);return False
         return True
-
-    @discord.ui.button(label="➕ 建立路人角色", style=discord.ButtonStyle.success)
-    async def add(self, i, button):
-        await i.response.send_modal(ExtraCharacterModal())
-
-    @discord.ui.button(label="📋 最近建立的路人", style=discord.ButtonStyle.secondary)
-    async def listing(self, i, button):
-        with get_connection() as db:
-            rows = db.execute(
-                """SELECT id,name,occupation,status FROM characters
-                WHERE guild_id=? AND json_extract(settings_json,'$.character_category')='extra'
-                ORDER BY id DESC LIMIT 20""", (str(i.guild_id),)
-            ).fetchall()
-        lines = [f"#{r[0]}｜{r[1]}｜{r[2] or '身分未填'}｜{r[3]}" for r in rows]
-        await i.response.send_message("🚶 **路人角色清單**\n" + ("\n".join(lines) if lines else "尚未建立路人角色。"), ephemeral=True)
-
-    @discord.ui.button(label="◀️ 返回內容建立", style=discord.ButtonStyle.secondary)
-    async def back(self, i, button):
+    @discord.ui.button(label='🖼️ 匯入照片',style=discord.ButtonStyle.primary,row=0)
+    async def photos(self,i,b):await i.response.send_modal(PoolModal('photos'))
+    @discord.ui.button(label='🌏 姓氏／名字庫',style=discord.ButtonStyle.secondary,row=0)
+    async def names(self,i,b):await i.response.send_modal(PoolModal('names'))
+    @discord.ui.button(label='🎭 職業庫',style=discord.ButtonStyle.secondary,row=0)
+    async def jobs(self,i,b):await i.response.send_modal(PoolModal('jobs'))
+    @discord.ui.button(label='🎲 批次生成',style=discord.ButtonStyle.success,row=1)
+    async def batch(self,i,b):await i.response.send_modal(BatchModal())
+    @discord.ui.button(label='📊 庫存統計',style=discord.ButtonStyle.secondary,row=1)
+    async def stats(self,i,b):
+        d=store.inventory(i.guild_id);cfg=store.get_config(i.guild_id)
+        await i.response.send_message(f'🚶 **路人資料庫**\n未使用照片：{d["photos"]} 張'+(' ⚠️ 庫存僅剩 5 張或更少' if d['photos']<=5 else '')+f'\n國籍數：{d["nations"]}，姓名詞條：{d["names"]}，職業數：{d["jobs"]}\n已建立：{d["existing"]} 人\n排行榜：{"允許" if cfg["allow_ranking"] else "不允許"}',ephemeral=True)
+    @discord.ui.button(label='🏆 切換排行榜資格',style=discord.ButtonStyle.secondary,row=1)
+    async def rank(self,i,b):
+        cfg=store.get_config(i.guild_id);enabled=not bool(cfg['allow_ranking']);store.set_ranking(i.guild_id,enabled)
+        await i.response.send_message(f'✅ 路人角現在{"允許" if enabled else "不允許"}參與排行榜。這不會刪除現有角色或數值。',ephemeral=True)
+    @discord.ui.button(label='◀️ 返回內容建立',style=discord.ButtonStyle.secondary,row=2)
+    async def back(self,i,b):
         from modules.content_builder import ContentView
-        await i.response.edit_message(content="✍️ **內容建立中心**", view=ContentView(i))
+        await i.response.edit_message(content='✍️ **內容建立中心**',view=ContentView(i))
