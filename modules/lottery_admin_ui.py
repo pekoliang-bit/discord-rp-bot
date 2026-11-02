@@ -1,4 +1,3 @@
-
 """官方抽獎管理介面：獎單、獎品、身分組、商品與查帳。"""
 from __future__ import annotations
 
@@ -615,7 +614,7 @@ class LotteryAdminView(discord.ui.View):
         return True
 
     @discord.ui.button(
-        label="🎟️ 建立獎單＋獎品",
+        label="🎟️ 建立獎單",
         style=discord.ButtonStyle.primary,
         row=0,
     )
@@ -628,7 +627,7 @@ class LotteryAdminView(discord.ui.View):
         )
 
     @discord.ui.button(
-        label="📋 獎單清單",
+        label="📋 清單",
         style=discord.ButtonStyle.secondary,
         row=1,
     )
@@ -636,7 +635,7 @@ class LotteryAdminView(discord.ui.View):
         await reply(i, list_text(i.guild_id))
 
     @discord.ui.button(
-        label="🔎 查看獎品",
+        label="🔎 獎品",
         style=discord.ButtonStyle.secondary,
         row=1,
     )
@@ -644,17 +643,17 @@ class LotteryAdminView(discord.ui.View):
         await i.response.send_modal(LotteryDetail())
 
     @discord.ui.button(
-        label="⚙️ 啟用／停用",
+        label="⚙️ 啟用/停用",
         style=discord.ButtonStyle.secondary,
-        row=1,
+        row=2,
     )
     async def toggle(self, i, button):
         await i.response.send_modal(ToggleLottery())
 
     @discord.ui.button(
-        label="🛍️ 綁定商城商品",
+        label="🛍️ 綁定商城",
         style=discord.ButtonStyle.primary,
-        row=2,
+        row=0,
     )
     async def bind_product(self, i, button):
         from modules.lottery_fulfillment import (
@@ -669,17 +668,17 @@ class LotteryAdminView(discord.ui.View):
         )
 
     @discord.ui.button(
-        label="📜 中獎名單",
+        label="📜 中獎",
         style=discord.ButtonStyle.secondary,
-        row=2,
+        row=1,
     )
     async def winners(self, i, button):
         await reply(i, draw_report(i.guild_id))
 
     @discord.ui.button(
-        label="📦 未領獎清單",
+        label="📦 未領獎",
         style=discord.ButtonStyle.secondary,
-        row=2,
+        row=1,
     )
     async def unclaimed(self, i, button):
         await reply(
@@ -688,9 +687,9 @@ class LotteryAdminView(discord.ui.View):
         )
 
     @discord.ui.button(
-        label="👥 設定抽獎身分組",
+        label="👥 設定身分",
         style=discord.ButtonStyle.secondary,
-        row=3,
+        row=0,
     )
     async def roles(self, i, button):
         await i.response.send_message(
@@ -702,9 +701,9 @@ class LotteryAdminView(discord.ui.View):
         )
 
     @discord.ui.button(
-        label="↩️ 返回內容建立",
+        label="↩️ 返回",
         style=discord.ButtonStyle.secondary,
-        row=4,
+        row=2,
     )
     async def back(self, i, button):
         from modules.content_builder import ContentView
