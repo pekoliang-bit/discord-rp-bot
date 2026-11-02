@@ -124,9 +124,10 @@ class CompanyGroupView(discord.ui.View):
         super().__init__(timeout=300)
         self.gid = str(gid)
         self.uid = str(uid)
-        from modules.company_group_delegation_ui import DelegationEntry, DelegatedOverviewEntry
+        from modules.company_group_delegation_ui import DelegationEntry, DelegatedOverviewEntry, DelegatedCompaniesEntry
         self.add_item(DelegationEntry())
         self.add_item(DelegatedOverviewEntry())
+        self.add_item(DelegatedCompaniesEntry())
 
     async def interaction_check(self, interaction):
         allowed = (
