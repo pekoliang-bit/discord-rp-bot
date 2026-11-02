@@ -1,19 +1,58 @@
-"""路人初始資料：保持九項基本技能與年齡、資歷一致，不隨機增加影響指數。"""
+
+"""路人初始資料：對齊正式十三項屬性（一般5項／藝能8項）。
+
+不得以咖位隨機加成影響指數；影響指數固定初始20。
+"""
 from __future__ import annotations
 import random
-SKILLS=('容貌','才智','歌唱','舞蹈','演繹','主持','綜藝','時尚','創作')
-TRACKS={'演員':'演繹','舞者':'舞蹈','歌手':'歌唱','模特兒':'時尚','導演':'創作','編劇':'創作','主持人':'主持','配音員':'演繹','編舞師':'舞蹈','製作人':'創作'}
-def generate_profile(age,job,level,gender):
-    years=random.randint(0,max(0,age-5))
-    main=TRACKS.get(job,'才智'); secondary=random.choice([s for s in SKILLS if s!=main])
-    # 這是路人模板，不從玩家配點池扣除，且不觸碰管制的影響指數。
-    values={k:random.randint(10,min(150,40+level*4)) for k in SKILLS}
-    values[main]=min(150,values[main]+20)
-    return {'gender':'男' if gender=='male' else '女','experience_years':years,'main_track':main,'secondary_track':secondary,'extra_initial_skills':values,'extra_initial_coins':max(0,level-1)*500,'extra_initial_fans':max(0,level-1)*100}
-def write_profile(db,guild_id,cid,profile):
-    # 寫入已確認的角色技能表；沒有對應欄位時保留 JSON 供後續整合。
-    cols={r[1] for r in db.execute('PRAGMA table_info(character_skills)').fetchall()}
-    needed={'guild_id','character_id','skill_name','skill_value'}
-    if needed<=cols:
-        for name,value in profile['extra_initial_skills'].items():
-            db.execute('INSERT INTO character_skills(guild_id,character_id,skill_name,skill_value) VALUES(?,?,?,?)',(guild_id,cid,name,value))
+from core.attribute_validation import calculate_values
+from modules.attributes import default_schema
+
+MAIN_SKILLS = ("演繹", "舞蹈", "歌唱", "綜藝", "主持")
+TRACKS = {
+    "演員": "演繹", "舞者": "舞蹈", "歌手": "歌唱", "偶像": "歌唱",
+    "模特兒": "演繹", "導演": "演繹", "編劇": "演繹",
+    "主持人": "主持", "配音員": "演繹", "編舞師": "舞蹈",
+    "製作人": "演繹", "綜藝藝人": "綜藝", "網紅": "綜藝",
+}
+
+def _allocate(keys, total, *, cap=130):
+    result = {k: 0 for k in keys}
+    candidates = list(keys)
+    while total:
+        eligible = [k for k in candidates if result[k] < cap]
+        if not eligible:
+            raise ValueError("屬性池容量不足")
+        k = random.choice(eligible)
+        step = min(total, random.randint(1, 20), cap - result[k])
+        result[k] += step
+        total -= step
+    return result
+
+def generate_profile(age, job, level, gender):
+    schema = default_schema()
+    main = TRACKS.get(job, random.choice(MAIN_SKILLS))
+    general = _allocate([k for k in schema["general"] if k != "影響指數"], 500)
+    general["影響指數"] = 0
+    talent = _allocate(schema["talent"], 500, cap=115 if main in schema["talent"] else 130)
+    # 正式驗證器保證初始值上限、主攻加成與影響指數限制。
+    result = calculate_values(schema, main, general, talent)
+    years = random.randint(0, max(0, int(age) - 5))
+    return {
+        "gender": "男" if gender == "male" else "女",
+        "experience_years": years,
+        "main_track": main,
+        "secondary_track": "",  # 現有正式規則沒有副賽道
+        "initial_general_points": general,
+        "initial_talent_points": talent,
+        "extra_initial_attributes": result,
+        "extra_initial_coins": max(0, int(level)-1)*500,
+        "extra_initial_fans": max(0, int(level)-1)*100,
+    }
+
+def write_profile(db, guild_id, cid, profile):
+    for key, value in profile["extra_initial_attributes"].items():
+        db.execute("""INSERT INTO attributes(guild_id,character_id,name,value)
+            VALUES(?,?,?,?) ON CONFLICT(guild_id,character_id,name)
+            DO UPDATE SET value=excluded.value""", (str(guild_id), int(cid), key, value))
+    # 初始金幣與粉絲需由各自的正式帳本/粉絲服務發放，不能冒充已入帳。
