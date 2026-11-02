@@ -773,114 +773,10 @@ def has_permission(
 
 # ===== 自動成立集團 =====
 
-def _maybe_auto_group(
-    db,
-    guild_id,
-    user_id,
-    character_id,
-):
-    owned_brands = db.execute(
-        """
-        SELECT business_id, brand_tier
-        FROM rp_business_entities
-        WHERE guild_id = ?
-          AND owner_id = ?
-          AND kind = 'brand'
-          AND status = 'active'
-        """,
-        (
-            guild_id,
-            user_id,
-        ),
-    ).fetchall()
+def _maybe_auto_group(db, guild_id, user_id, character_id):
+    """Compatibility: brand-count group creation retired."""
+    return None
 
-    total_brands = len(owned_brands)
-
-    high_luxury_brands = sum(
-        brand["brand_tier"] == "高奢"
-        for brand in owned_brands
-    )
-
-    if (
-        total_brands < 3
-        and high_luxury_brands < 2
-    ):
-        return None
-
-    existing = db.execute(
-        """
-        SELECT business_id
-        FROM rp_business_entities
-        WHERE guild_id = ?
-          AND owner_id = ?
-          AND kind = 'group'
-          AND status = 'active'
-        """,
-        (
-            guild_id,
-            user_id,
-        ),
-    ).fetchone()
-
-    if existing:
-        return existing["business_id"]
-
-    group_id = f"AUTO-GRP-{character_id}"
-
-    db.execute(
-        """
-        INSERT INTO rp_business_entities (
-            guild_id,
-            business_id,
-            kind,
-            name,
-            category,
-            industry,
-            description,
-            region,
-            owner_id,
-            owner_character_id
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """,
-        (
-            guild_id,
-            group_id,
-            "group",
-            f"集團-{character_id}",
-            "自動集團",
-            "綜合",
-            "符合品牌持有數量自動成立",
-            "待設定",
-            user_id,
-            character_id,
-        ),
-    )
-
-    db.execute(
-        """
-        INSERT INTO rp_business_audit (
-            guild_id,
-            business_id,
-            action,
-            actor_id,
-            details
-        )
-        VALUES (?, ?, ?, ?, ?)
-        """,
-        (
-            guild_id,
-            group_id,
-            "auto_group",
-            user_id,
-            "品牌3家或高奢2家，免費成立",
-        ),
-    )
-
-    return group_id
-
-
-# ===== 官方核准申請 =====
 
 def approve_application(
     guild_id,
@@ -1152,14 +1048,13 @@ def approve_application(
             ),
         )
 
-        # 品牌數量達標時，免費成立集團。
-        if application["kind"] == "brand":
-            _maybe_auto_group(
-                db,
-                guild_id,
-                application["applicant_id"],
-                application["owner_character_id"],
-            )
+        # 正式公司達五間後免費成立集團；品牌不計入。
+        if application["kind"] == "company":
+            from core.company_group_auto import maybe_create_group
+            maybe_create_group(db, guild_id, application["applicant_id"], application["owner_character_id"])
+        elif application["kind"] == "group":
+            from core.company_group_membership import attach_all_owned
+            attach_all_owned(db, guild_id, business_id, application["applicant_id"])
 
     return business_id
 
