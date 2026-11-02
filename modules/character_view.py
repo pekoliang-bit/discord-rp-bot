@@ -1772,12 +1772,12 @@ class PanelSubView(discord.ui.View):
             async def relation(interaction):await interaction.response.send_modal(PanelRelationModal(self.parent, self.page))
             btn.callback=relation;self.add_item(btn)
         if mode in ('bag','relations','works','endorsement'):
-            previous=discord.ui.Button(label='上一頁',style=discord.ButtonStyle.secondary,row=1)
-            next_button=discord.ui.Button(label='下一頁',style=discord.ButtonStyle.secondary,row=1)
+            previous=discord.ui.Button(label='◀️ 上一頁',style=discord.ButtonStyle.secondary,row=2 if mode=='bag' else 1)
+            next_button=discord.ui.Button(label='▶️ 下一頁',style=discord.ButtonStyle.secondary,row=2 if mode=='bag' else 1)
             async def prev(interaction):await self.show(interaction,self.mode,max(0,self.page-1))
             async def nxt(interaction):await self.show(interaction,self.mode,self.page+1)
             previous.callback=prev;next_button.callback=nxt;self.add_item(previous);self.add_item(next_button)
-        back=discord.ui.Button(label='返回原畫面',style=discord.ButtonStyle.secondary,row=2)
+        back=discord.ui.Button(label='⬅️ 返回',style=discord.ButtonStyle.secondary,row=3 if mode=='bag' else 2)
         async def go_back(interaction):
             await interaction.response.edit_message(content=None,embed=make_character_embed(Actor.from_interaction(interaction),self.parent.character_id),view=self.parent)
         back.callback=go_back;self.add_item(back)
@@ -1832,8 +1832,10 @@ class CharacterDetailView(discord.ui.View):
         self.private_button.disabled=not can_see_private(actor,character)
         self.asset_detail_button.disabled=not can_see_private(actor,character)
         if not self.is_own_character:self.inventory_button.disabled=True
-        self.like_button.disabled = category != 'extra'
-        if category == 'extra':
+        # 僅路人角色顯示愛心操作；其他角色完全不佔按鈕位置。
+        if get_category(character) != 'extra':
+            self.remove_item(self.like_button)
+        else:
             from modules.npc_likes import liked
             self.like_button.label = '💗 已喜歡・取消' if liked(actor.guild_id, character_id, actor.user_id) else '🤍 喜歡這個路人'
 
