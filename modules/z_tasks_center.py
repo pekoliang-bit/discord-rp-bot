@@ -87,13 +87,14 @@ async def show_character(i,cid):
     p=progress(i.guild_id,cid)
     if not p['graduated']:
         thread=bot_thread_id(i.guild_id,cid)
-        if thread and str(i.channel_id)==thread:
-            record_success(i.guild_id,cid,i.user.id,i.channel_id,'任務')
-            p=progress(i.guild_id,cid)
         if not p['graduated']:
             desc=f"🎓 新手指令探索 {p['done']}/{p['total']}\n尚未完成："+'、'.join('/'+n for n in p['remaining'])
             desc+=f'\n請在 <#{thread}> 操作。' if thread else '\n未找到專屬「機器人使用」帖子，請聯絡管理員。'
-            return await i.response.send_message(desc[:1900],ephemeral=True)
+            await i.response.send_message(desc[:1900],ephemeral=True)
+            if thread and str(i.channel_id)==thread:
+                try: record_success(i.guild_id,cid,i.user.id,i.channel_id,'任務')
+                except Exception: pass
+            return
     available=[]
     for kind in KINDS:
         if kind in ('limited','special'):
