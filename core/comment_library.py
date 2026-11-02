@@ -12,7 +12,7 @@ from core.database import get_connection
 
 SEED_PATH = Path(__file__).resolve().parent.parent / "assets" / "internet_comment_library"
 INITIAL_TARGET = 80
-EXPECTED_COUNT = 419
+EXPECTED_COUNT = 960
 CATEGORIES = {1:"日常生活",2:"影視作品",3:"演藝活動",4:"商業活動",5:"粉絲互動",6:"感情關係／CP",7:"爭議事件",8:"公關回應",9:"熱搜話題",10:"營銷號",11:"社會議題",12:"特殊事件"}
 
 DDL = (
@@ -105,10 +105,26 @@ def seed_catalog(path: Path = SEED_PATH) -> dict[str, Any]:
             raise ValueError(f"包含未核准評論：{cid}")
         ids.add(cid)
         nums.add(num)
-    if len(approved) != EXPECTED_COUNT or "C074" not in ids or "C300" in ids:
-        raise ValueError("評論總數不是419、缺少C074，或包含已刪除的C300")
+    # 舊版419則仍可使用；新版必須完整960則且每類80則，拒絕半套啟用。
+    manifest_path = Path(path) / "manifest.json" if Path(path).is_dir() else None
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8-sig")) if manifest_path and manifest_path.exists() else {}
+    declared = int(manifest.get("expected_approved_count", 419))
+    if declared not in (419, EXPECTED_COUNT) or len(approved) != declared:
+        raise ValueError(f"種子數量不一致：manifest={declared}，實際={len(approved)}")
+    if "C074" not in ids or "C300" in ids:
+        raise ValueError("C074 必須存在，C300 必須排除")
+    required_ids = {f"C{i:03d}" for i in range(1, (962 if declared == 960 else 421)) if i != 300}
+    if ids != required_ids:
+        raise ValueError("種子 ID 缺少或包含未經核准的編號")
+    if declared == 960:
+        from collections import Counter
+        counts = Counter(row["category_id"] for row in approved)
+        if any(counts.get(i, 0) != 80 for i in CATEGORIES):
+            raise ValueError(f"12類評論數量須各80則：{dict(counts)}")
+        if manifest.get("chat_text_reconciled") is not True:
+            raise ValueError("新版960則尚未完成聊天核准原文核對；禁止匯入")
     approved.sort(key=lambda v: v["number"])
-    return {"catalog_version": "reviewed-419-split-v1", "approved": approved}
+    return {"catalog_version": manifest.get("catalog_version", "reviewed-419-split-v1"), "approved": approved}
 
 
 def initialize(conn: sqlite3.Connection) -> None:
