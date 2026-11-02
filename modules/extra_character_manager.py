@@ -1,3 +1,4 @@
+
 """官方路人管理：照片素材、姓名職業庫、批次建立、排行榜總開關。"""
 from __future__ import annotations
 import re
@@ -87,6 +88,15 @@ class ExtraCharacterView(discord.ui.View):
         await i.response.send_message(f'✅ 路人角現在{"允許" if enabled else "不允許"}參與排行榜。這不會刪除現有角色或數值。',ephemeral=True)
     @discord.ui.button(label='📁 設定附件頻道',style=discord.ButtonStyle.secondary,row=2)
     async def channels(self,i,b):await i.response.send_modal(PhotoChannelModal())
+    @discord.ui.button(label='🗂️ 匯入頻道舊照片',style=discord.ButtonStyle.secondary,row=3)
+    async def backfill(self,i,b):
+        await i.response.defer(ephemeral=True,thinking=True)
+        from modules.extra_character_photo_backfill import import_history
+        report=await import_history(i.guild,per_channel=1000)
+        if not report:
+            return await i.followup.send('尚未綁定照片附件頻道。',ephemeral=True)
+        lines=[f"<#{r['channel_id']}>：新增 {r['added']} 張" + (f"（{r['error']}）" if r['error'] else '') for r in report]
+        await i.followup.send('🗂️ 歷史照片匯入完成\n'+'\n'.join(lines),ephemeral=True)
     @discord.ui.button(label='◀️ 返回內容建立',style=discord.ButtonStyle.secondary,row=2)
     async def back(self,i,b):
         from modules.content_builder import ContentView
