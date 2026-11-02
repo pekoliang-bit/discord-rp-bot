@@ -1,4 +1,3 @@
-
 """Discord RP｜活動企劃、審核與限權主辦管理。
 
 玩家使用 /活動企劃 投稿。
@@ -1093,6 +1092,7 @@ class EventAdminView(discord.ui.View):
     @discord.ui.button(
         label="📋 待審與活動列表",
         style=discord.ButtonStyle.primary,
+        row=0,
     )
     async def listing(self, i, button):
         with get_connection() as db:
@@ -1137,10 +1137,23 @@ class EventAdminView(discord.ui.View):
     @discord.ui.button(
         label="➕ 建立活動",
         style=discord.ButtonStyle.success,
+        row=0,
     )
     async def creating(self, i, button):
         await i.response.send_modal(
             ProjectModal()
+        )
+
+    @discord.ui.button(
+        label="↩️ 返回",
+        style=discord.ButtonStyle.secondary,
+        row=1,
+    )
+    async def back(self, i, button):
+        from modules.content_builder import ContentView
+        await i.response.edit_message(
+            content="✍️ **內容建立中心**",
+            view=ContentView(i),
         )
 
 
