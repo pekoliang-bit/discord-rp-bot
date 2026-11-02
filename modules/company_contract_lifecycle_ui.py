@@ -72,12 +72,40 @@ class TermsAction(discord.ui.Button):
             return await i.response.send_message('非本人面板',ephemeral=True)
         await i.response.send_modal(TermsModal(v.gid,v.uid,self.action))
 
+
+class SettlementPayModal(discord.ui.Modal):
+    def __init__(self,gid,uid):
+        super().__init__(title='支付已同意的代言和解')
+        self.gid,self.uid=str(gid),str(uid)
+        self.eid=discord.ui.TextInput(label='代言編號',max_length=20)
+        self.source=discord.ui.TextInput(label='付款人的角色編號',max_length=20)
+        self.dest=discord.ui.TextInput(label='收款人的角色編號',max_length=20)
+        for f in (self.eid,self.source,self.dest): self.add_item(f)
+    async def on_submit(self,i):
+        if str(i.guild_id)!=self.gid or str(i.user.id)!=self.uid:
+            return await i.response.send_message('非本人表單',ephemeral=True)
+        await i.response.defer(ephemeral=True,thinking=True)
+        try:
+            msg=await asyncio.to_thread(breach.pay_settlement,self.gid,int(self.eid.value),self.uid,int(self.source.value),int(self.dest.value))
+        except (ValueError,PermissionError) as e: msg=f'⚠️ {e}'
+        except Exception:
+            LOG.exception('和解支付失敗');msg='⚠️ 付款未完成，請查看日誌'
+        await i.followup.send(msg,ephemeral=True)
+
+class SettlementPayAction(discord.ui.Button):
+    def __init__(self): super().__init__(label='💸 支付和解',style=discord.ButtonStyle.secondary,row=2)
+    async def callback(self,i):
+        if str(i.guild_id)!=self.view.gid or str(i.user.id)!=self.view.uid:
+            return await i.response.send_message('非本人面板',ephemeral=True)
+        await i.response.send_modal(SettlementPayModal(self.view.gid,self.view.uid))
+
 class TermsView(discord.ui.View):
     def __init__(self,gid,uid):
         super().__init__(timeout=300);self.gid,self.uid=str(gid),str(uid)
         for a,l in [('propose','📅 提出／續約'),('approve','✍️ 藝人同意'),('details','📜 查詢條款'),('terminate','🛑 終止代言'),('expire','⌛ 到期整理')]: self.add_item(TermsAction(a,l))
         self.add_item(BreachAction('propose'))
         self.add_item(BreachAction('accept'))
+        self.add_item(SettlementPayAction())
 
 class TermsEntry(discord.ui.Button):
     def __init__(self): super().__init__(label='📅 代言合約',style=discord.ButtonStyle.secondary,row=3)
