@@ -1,5 +1,3 @@
-
-
 """Discord RP｜官方商城統一管理中心。
 
 檔案：modules/official_shop.py
@@ -473,7 +471,7 @@ class ManageSelect(discord.ui.Select):
     def __init__(self):
         options = [
             discord.SelectOption(
-                label="新增官方商品",
+                label="商品企劃／新增官方商品",
                 value="add",
                 emoji="➕",
             ),
