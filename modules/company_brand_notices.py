@@ -21,3 +21,27 @@ def mark_delivered(notice_id):
     with get_connection() as db:
         cur=db.execute("UPDATE rp_brand_notices SET delivered=1 WHERE id=? AND delivered=0",(int(notice_id),))
         return cur.rowcount == 1
+
+
+def sync_to_notification_updates(limit=100):
+    """把正式品牌異動轉入既有通知彙總紀錄（非 Discord 送達確認）。
+
+    使用 stable key 避免重複；若通知系統無法寫入則保留原始待發紀錄。
+    """
+    from modules.notification_event_bridge import publish_content_change
+    inserted = 0
+    for notice in pending_notices(limit=limit):
+        event_key = f"brand-notice:{notice['id']}"
+        action = '更新'
+        try:
+            publish_content_change(
+                int(notice['guild_id']), 'company', str(notice['content']),
+                source_url=None, stable_id=event_key, action=action,
+            )
+        except Exception:
+            # 中斷保留原始佇列，下次再試；不要吞掉故障。
+            raise
+        # 已安全寫進通知更新佇列即可標記已轉交；不代表已送達玩家。
+        mark_delivered(notice['id'])
+        inserted += 1
+    return inserted
