@@ -16,6 +16,8 @@ from modules.company_brand_progress import (
     initialize as initialize_progress,
 )
 
+from modules.company_brand_notices import sync_to_notification_updates
+
 from modules.company_sales_bridge import (
     initialize as initialize_bridge,
     sync_brand_sales,
@@ -44,6 +46,9 @@ class CompanyBrandSync(commands.Cog):
                 sync_brand_sales
             )
 
+            notices = await asyncio.to_thread(sync_to_notification_updates)
+            if notices:
+                LOG.info("品牌通知已移交至通知彙總佇列：%s 筆。", notices)
             if count:
                 LOG.info(
                     "品牌營業額同步完成：新增 %s 筆交易。",
