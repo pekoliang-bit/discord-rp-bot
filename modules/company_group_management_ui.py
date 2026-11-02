@@ -1,4 +1,3 @@
-
 """Discord /公司 → 集團管理。
 
 不新增頂層斜線指令。
@@ -125,8 +124,9 @@ class CompanyGroupView(discord.ui.View):
         super().__init__(timeout=300)
         self.gid = str(gid)
         self.uid = str(uid)
-        from modules.company_group_delegation_ui import DelegationEntry
+        from modules.company_group_delegation_ui import DelegationEntry, DelegatedOverviewEntry
         self.add_item(DelegationEntry())
+        self.add_item(DelegatedOverviewEntry())
 
     async def interaction_check(self, interaction):
         allowed = (
