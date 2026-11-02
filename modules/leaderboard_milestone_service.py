@@ -1,59 +1,153 @@
 
-"""依已封存的30天快照計算獲獎次數，僅記錄待派發。"""
+"""排行榜里程碑統計服務。"""
+
 from core.database import get_connection
 from modules.leaderboard_milestone_rules import reached
 from modules.leaderboard_milestone_storage import store
 
+
 def _count(db, guild, entity, board, idx, rank, kind):
-    base = """SELECT COUNT(*) FROM lb_v11_snapshots
-              WHERE guild_id=? AND cycle='30d' AND idx<=? AND entity_key=?"""
-    args = [str(guild), idx, str(entity)]
-    if kind != "cross_top3":
-        base += " AND board=?"
-        args.append(board)
-    if kind in ("board_top3", "cross_top3"):
-        base += " AND rank<=3"
+    sql = """
+        SELECT COUNT(DISTINCT idx)
+        FROM lb_v11_snapshots
+        WHERE guild_id = ?
+          AND cycle = '30d'
+          AND idx <= ?
+          AND entity_key = ?
+          AND board = ?
+    """
+
+    params = [
+        str(guild),
+        int(idx),
+        str(entity),
+        str(board),
+    ]
+
+    if kind == "board_top3":
+        sql += " AND rank BETWEEN 1 AND 3"
+
     elif kind == "same_rank":
-        base += " AND rank=?"
-        args.append(rank)
-    return int(db.execute(base, args).fetchone()[0])
+        sql += " AND rank = ?"
+        params.append(int(rank))
+
+    else:
+        raise ValueError("不支援的累積類型")
+
+    return int(db.execute(sql, params).fetchone()[0])
+
 
 def _streak(db, guild, entity, board, idx, rank):
+    """從本期往前檢查相同名次的連續期數。"""
     count = 0
+
     while idx > 0:
-        found = db.execute("""SELECT 1 FROM lb_v11_snapshots
-          WHERE guild_id=? AND cycle='30d' AND idx=? AND entity_key=?
-            AND board=? AND rank=? LIMIT 1""",
-          (str(guild),idx,str(entity),board,rank)).fetchone()
-        if not found:
+        row = db.execute("""
+            SELECT 1
+            FROM lb_v11_snapshots
+            WHERE guild_id = ?
+              AND cycle = '30d'
+              AND idx = ?
+              AND entity_key = ?
+              AND board = ?
+              AND rank = ?
+            LIMIT 1
+        """, (
+            str(guild),
+            int(idx),
+            str(entity),
+            str(board),
+            int(rank),
+        )).fetchone()
+
+        if row is None:
             break
+
         count += 1
         idx -= 1
+
     return count
 
+
 def stage_milestones(guild_id, idx, board, ranked_rows):
-    """要求該期快照已存在；跨榜統計按相同 entity_key，絕不跨身份合併。"""
-    if board == 'awards':
-        return
+    """建立里程碑待派發紀錄。"""
+    if board == "awards":
+        return 0
+
+    idx = int(idx)
+
     if idx < 1:
-        raise ValueError("期數必須大於零")
+        raise ValueError("結算期數必須大於零")
+
+    total = 0
+
     with get_connection() as db:
         for row in ranked_rows:
-            entity, rank = str(row["entity_key"]), int(row["rank"])
-            # Cross-board rewards require a typed entity identity. Raw entity IDs
-            # collide between character/company/faction/account; defer until mapping exists.
-            for kind in ("same_rank","board_top3","streak"):
-                if kind in ("board_top3","cross_top3") and rank > 3:
-                    continue
+            entity = str(row["entity_key"])
+            rank = int(row["rank"])
+
+            if rank < 1:
+                continue
+
+            # 必須存在已封存的本期快照。
+            exists = db.execute("""
+                SELECT 1
+                FROM lb_v11_snapshots
+                WHERE guild_id = ?
+                  AND cycle = '30d'
+                  AND idx = ?
+                  AND board = ?
+                  AND entity_key = ?
+                  AND rank = ?
+            """, (
+                str(guild_id),
+                idx,
+                board,
+                entity,
+                rank,
+            )).fetchone()
+
+            if exists is None:
+                continue
+
+            kinds = ["same_rank", "streak"]
+
+            if rank <= 3:
+                kinds.append("board_top3")
+
+            for kind in kinds:
                 if kind == "streak":
-                    current = _streak(db,guild_id,entity,board,idx,rank)
-                    previous = max(0,current-1)
+                    current = _streak(
+                        db, guild_id, entity,
+                        board, idx, rank
+                    )
                 else:
-                    current = _count(db,guild_id,entity,board,idx,rank,kind)
-                    previous = current-1
-                dimension = str(rank) if kind in ("same_rank","streak") else "top3"
-                # 跨榜同一獲獎身份只計一次，避免多榜同一期重複給里程碑。
-                ledger_board = "*" if kind == "cross_top3" else board
-                rewards = reached(kind,previous,current)
+                    current = _count(
+                        db, guild_id, entity,
+                        board, idx, rank, kind
+                    )
+
+                previous = max(0, current - 1)
+
+                dimension = (
+                    str(rank)
+                    if kind in ("same_rank", "streak")
+                    else "top3"
+                )
+
+                rewards = reached(
+                    kind, previous, current
+                )
+
                 if rewards:
-                    store(guild_id,entity,ledger_board,kind,dimension,idx,rewards)
+                    total += store(
+                        guild_id,
+                        entity,
+                        board,
+                        kind,
+                        dimension,
+                        idx,
+                        rewards,
+                    )
+
+    return total
