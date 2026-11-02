@@ -75,13 +75,19 @@ class GroupAttachModal(discord.ui.Modal):
 
             def do_attach():
                 with transaction() as db:
-                    return attach_company(
+                    changed = attach_company(
                         db,
                         self.gid,
                         gid,
                         company_id,
                         self.uid,
                     )
+                    if changed:
+                        db.execute(
+                            "INSERT INTO rp_business_audit(guild_id,business_id,action,actor_id,details) VALUES(?,?,?,?,?)",
+                            (self.gid, gid, 'group_attach_company', self.uid, company_id),
+                        )
+                    return changed
 
             changed = await asyncio.to_thread(
                 do_attach
@@ -119,6 +125,8 @@ class CompanyGroupView(discord.ui.View):
         super().__init__(timeout=300)
         self.gid = str(gid)
         self.uid = str(uid)
+        from modules.company_group_delegation_ui import DelegationEntry
+        self.add_item(DelegationEntry())
 
     async def interaction_check(self, interaction):
         allowed = (
