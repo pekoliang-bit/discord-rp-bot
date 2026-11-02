@@ -45,3 +45,11 @@ def record_success(guild_id,character_id,user_id,channel_id,command):
     """在指令成功顯示指定教學介面後由真正指令入口呼叫。"""
     if not can_use_training_channel(guild_id,character_id,user_id,channel_id,command):return False
     return record_event(guild_id,character_id,'newbie:'+command,'command:'+command)
+
+def newbie_required_channel(guild_id, character_id, user_id, channel_id, command):
+    """對新手必修指令採強制本人帖子；畢業後由原頻道規則決定。"""
+    if command not in REQUIRED_COMMANDS: return None
+    if not character_owner(guild_id, character_id, user_id): return False
+    if is_graduated(guild_id, character_id): return None
+    return can_use_training_channel(guild_id, character_id, user_id, channel_id, command)
+
