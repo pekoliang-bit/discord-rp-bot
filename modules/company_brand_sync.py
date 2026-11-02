@@ -1,4 +1,3 @@
-
 """品牌銷售自動同步服務。
 
 定期將個人店鋪已確認的訂單同步到品牌。
@@ -37,7 +36,7 @@ class CompanyBrandSync(commands.Cog):
 
         self.sales_sync.cancel()
 
-    @tasks.loop(minutes=5)
+    @tasks.loop(minutes=5, reconnect=True)
     async def sales_sync(self):
 
         try:
