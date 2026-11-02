@@ -1,3 +1,4 @@
+
 """金錢榜：核對完整資產構成，缺任何必要來源即不發布不完整排名。唯讀。"""
 from __future__ import annotations
 from core.database import get_connection
