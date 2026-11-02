@@ -6,14 +6,14 @@ from core.company_group_overview import group_overview
 def _setup(db):
     db.execute('''CREATE TABLE IF NOT EXISTS rp_group_delegations (
       guild_id TEXT NOT NULL, group_id TEXT NOT NULL, delegate_id TEXT NOT NULL,
-      capability TEXT NOT NULL CHECK(capability IN ('overview','member_report')),
+      capability TEXT NOT NULL CHECK(capability IN ('overview','member_report','company_summary')),
       granted_by TEXT NOT NULL, created_at TEXT DEFAULT CURRENT_TIMESTAMP,
       PRIMARY KEY(guild_id,group_id,delegate_id,capability))''')
 
 
 def grant(guild_id,group_id,actor_id,delegate_id,capability='overview'):
     gid=str(guild_id);group_id=str(group_id);actor=str(actor_id);delegate=str(delegate_id)
-    if capability not in ('overview','member_report'): raise ValueError('不支援此權限；財務管理不能經此授權')
+    if capability not in ('overview','member_report','company_summary'): raise ValueError('不支援此權限；財務管理不能經此授權')
     if actor==delegate: raise ValueError('無須授權自己')
     owned=group_overview(gid,actor)
     if str(owned.get('group_id'))!=group_id: raise PermissionError('只有目前集團董事長可授權')
@@ -41,7 +41,7 @@ def list_grants(guild_id,group_id,actor_id):
 
 
 def has_capability(guild_id,group_id,actor_id,capability='overview'):
-    if capability not in ('overview','member_report'): return False
+    if capability not in ('overview','member_report','company_summary'): return False
     with get_connection() as db:
         _setup(db)
         group=db.execute("SELECT owner_id,status FROM rp_business_entities WHERE guild_id=? AND business_id=? AND kind='group'",(str(guild_id),str(group_id))).fetchone()
