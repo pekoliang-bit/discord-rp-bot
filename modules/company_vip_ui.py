@@ -333,7 +333,7 @@ class VIPFreeItemModal(VIPOwnedModal):
             user_id,
             guild_id,
             business_id,
-            "登記 VIP 免費商品",
+            "領取 VIP 免費商品",
         )
 
         self.character_id = discord.ui.TextInput(
