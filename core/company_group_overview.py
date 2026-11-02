@@ -1,4 +1,3 @@
-
 """集團資訊唯讀查詢。"""
 
 from __future__ import annotations
@@ -120,3 +119,14 @@ def delegated_group_overview(guild_id, actor_id, group_id):
             raise PermissionError('沒有集團查閱權')
         members=[dict(r) for r in db.execute("SELECT business_id,name FROM rp_business_entities WHERE guild_id=? AND parent_id=? AND kind='company' AND status='active' ORDER BY name",(gid,group))]
         return dict(group_id=group,group_name=owner['name'],founded_at=owner['founded_at'],company_count=len(members),required=5,missing=0,members=tuple(members))
+
+
+def delegated_company_summary(guild_id, actor_id, group_id):
+    """提供集團授權者的旗下公司基本資料；不包含金庫、銀行、人事細節。"""
+    from core.company_group_delegation import has_capability
+    gid,group=str(guild_id),str(group_id)
+    if not has_capability(gid,group,actor_id,'company_summary') and not has_capability(gid,group,actor_id,'member_report'):
+        raise PermissionError('沒有旗下公司唯讀授權')
+    with get_connection() as db:
+        return [dict(r) for r in db.execute("""SELECT business_id,name,status FROM rp_business_entities
+          WHERE guild_id=? AND parent_id=? AND kind='company' ORDER BY name LIMIT 50""",(gid,group))]
