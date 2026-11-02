@@ -21,7 +21,6 @@
 - 標籤庫
 
 一般草稿：
-- 商品企劃
 - 獎項
 - 活動
 - 世界觀
@@ -52,7 +51,6 @@ LOG = logging.getLogger(__name__)
 
 TYPES = {
     "story": "📖 劇情",
-    "product": "🛍️ 商品企劃",
     "lottery": "🎰 抽獎獎單",
     "prize": "🏆 獎項",
     "event": "🎪 活動",
