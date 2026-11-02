@@ -1,457 +1,594 @@
 
-"""官方路人管理：照片素材、姓名職業庫、批次建立、排行榜總開關。"""
+"""路人角色管理中心：僅群主可操作，不增加 Slash 指令。"""
 from __future__ import annotations
-import re
+
+import asyncio
+
 import discord
+
 from modules import extra_character_store as store
 
-def owner(i):
-    return bool(i.guild and i.user.id == i.guild.owner_id)
+
+def owner(interaction):
+    return bool(
+        interaction.guild
+        and interaction.user.id
+        == interaction.guild.owner_id
+    )
+
 
 class PoolModal(discord.ui.Modal):
     def __init__(self, kind):
-        super().__init__(
-            title={
-                'photos': '🖼️ 批次新增照片',
-                'names': '🌏 新增姓名庫',
-                'jobs': '🎭 新增職業庫'
-            }[kind]
-        )
+        titles = {
+            "photos": "批次新增路人照片",
+            "names": "新增國籍姓名庫",
+            "jobs": "新增職業庫",
+        }
+        super().__init__(title=titles[kind])
         self.kind = kind
 
-        if kind == 'photos':
-            self.photo_group = discord.ui.TextInput(
-                label='照片分類 male_adult 等四類',
-                placeholder='female_adult',
-                max_length=20
+        if kind == "photos":
+            self.category = discord.ui.TextInput(
+                label="分類 male_adult 等四類",
+                placeholder="female_adult",
+                max_length=20,
             )
-            self.add_item(self.photo_group)
+            self.add_item(self.category)
 
-        if kind == 'names':
+        if kind == "names":
             self.nationality = discord.ui.TextInput(
-                label='國籍（例：日本）',
-                max_length=50
+                label="國籍",
+                placeholder="日本",
+                max_length=50,
             )
-            self.kind_field = discord.ui.TextInput(
-                label='類型 surname 姓氏／given 名字',
+            self.name_kind = discord.ui.TextInput(
+                label="surname姓氏／given名字",
+                placeholder="surname",
                 max_length=12,
-                placeholder='surname'
             )
             self.add_item(self.nationality)
-            self.add_item(self.kind_field)
+            self.add_item(self.name_kind)
 
         self.values = discord.ui.TextInput(
-            label='每行一項（可貼上多行）',
+            label="每行一項",
             style=discord.TextStyle.paragraph,
             max_length=4000,
-            placeholder='每行一筆照片網址、名字或職業'
         )
         self.add_item(self.values)
 
-    async def on_submit(self, i):
-        if not owner(i):
-            return await i.response.send_message(
-                '只有群主能操作。', ephemeral=True
+    async def on_submit(self, interaction):
+        if not owner(interaction):
+            return await interaction.response.send_message(
+                "只有群主可以操作。",
+                ephemeral=True,
             )
 
         values = [
-            v.strip() for v in self.values.value.splitlines()
-            if v.strip()
+            line.strip()
+            for line in self.values.value.splitlines()
+            if line.strip()
         ]
 
         try:
-            if self.kind == 'photos':
-                g, a = self.photo_group.value.strip().lower().split('_')
-                n = store.add_photos(
-                    i.guild_id, values, gender=g, age_group=a
+            if self.kind == "photos":
+                gender, age_group = (
+                    self.category.value
+                    .strip().lower().split("_")
                 )
-            elif self.kind == 'jobs':
-                n = store.add_jobs(i.guild_id, values)
-            else:
-                n = store.add_names(
-                    i.guild_id,
+                count = await asyncio.to_thread(
+                    store.add_photos,
+                    interaction.guild_id,
+                    values,
+                    gender=gender,
+                    age_group=age_group,
+                )
+
+            elif self.kind == "names":
+                count = await asyncio.to_thread(
+                    store.add_names,
+                    interaction.guild_id,
                     self.nationality.value.strip(),
-                    self.kind_field.value.strip().lower(),
-                    values
+                    self.name_kind.value.strip().lower(),
+                    values,
                 )
 
-            d = store.inventory(i.guild_id)
-            await i.response.send_message(
-                f'✅ 新增 {n} 筆。照片庫剩餘 **{d["photos"]}** 張。'
-                + (' ⚠️ 只剩五張或更少！' if d['photos'] <= 5 else ''),
-                ephemeral=True
-            )
-        except (ValueError, TypeError) as e:
-            await i.response.send_message(
-                f'⚠️ 匯入失敗：{e}', ephemeral=True
+            else:
+                count = await asyncio.to_thread(
+                    store.add_jobs,
+                    interaction.guild_id,
+                    values,
+                )
+
+            await interaction.response.send_message(
+                f"✅ 成功匯入 {count} 筆資料。",
+                ephemeral=True,
             )
 
-class BatchModal(discord.ui.Modal, title='🎲 批次建立路人角色'):
+        except (ValueError, TypeError) as exc:
+            await interaction.response.send_message(
+                f"⚠️ 匯入失敗：{exc}",
+                ephemeral=True,
+            )
+
+
+class BatchModal(
+    discord.ui.Modal,
+    title="批次建立路人角色",
+):
     count = discord.ui.TextInput(
-        label='建立人數（1～100）',
-        placeholder='10',
-        max_length=3
+        label="建立人數（1～100）",
+        placeholder="10",
+        max_length=3,
     )
     nation = discord.ui.TextInput(
-        label='指定國籍（空白＝隨機）',
+        label="指定國籍（空白隨機）",
         required=False,
-        max_length=50
+        max_length=50,
     )
     level = discord.ui.TextInput(
-        label='初始咖位 LV1～LV9（空白＝隨機）',
+        label="初始咖位 LV1～LV9（空白隨機）",
         required=False,
-        max_length=2
+        max_length=2,
     )
     gender = discord.ui.TextInput(
-        label='性別 male/female（空白＝隨機）',
+        label="male/female（空白隨機）",
         required=False,
-        max_length=8
+        max_length=8,
     )
     age_group = discord.ui.TextInput(
-        label='年齡 adult/minor（空白＝隨機）',
+        label="adult/minor（空白隨機）",
         required=False,
-        max_length=8
+        max_length=8,
     )
 
-    async def on_submit(self, i):
-        if not owner(i):
-            return await i.response.send_message(
-                '僅群主能操作。', ephemeral=True
+    async def on_submit(self, interaction):
+        if not owner(interaction):
+            return await interaction.response.send_message(
+                "只有群主可以建立路人。",
+                ephemeral=True,
             )
 
         try:
             count = int(self.count.value)
-            level = (
+            lv = (
                 int(self.level.value)
                 if self.level.value.strip()
                 else None
             )
+            gender = (
+                self.gender.value.strip().lower()
+                or None
+            )
+            age_group = (
+                self.age_group.value.strip().lower()
+                or None
+            )
 
             if not 1 <= count <= 100:
-                raise ValueError('生成數量必須為1～100')
-            if level is not None and not 1 <= level <= 9:
-                raise ValueError('初始咖位只能 LV1～LV9')
+                raise ValueError("數量必須為1～100")
+            if lv is not None and not 1 <= lv <= 9:
+                raise ValueError("初始咖位最高LV9")
+            if gender not in (
+                None, "male", "female",
+            ):
+                raise ValueError("性別分類不正確")
+            if age_group not in (
+                None, "adult", "minor",
+            ):
+                raise ValueError("年齡分類不正確")
 
-            gender = self.gender.value.strip().lower() or None
-            age_group = self.age_group.value.strip().lower() or None
+            kwargs = {
+                "nationality": (
+                    self.nation.value.strip() or None
+                ),
+                "level": lv,
+                "gender": gender,
+                "age_group": age_group,
+            }
 
-            if gender not in (None, 'male', 'female') or age_group not in (None, 'adult', 'minor'):
-                raise ValueError('性別／年齡分類錯誤')
-
-            kwargs = dict(
-                nationality=self.nation.value.strip() or None,
-                level=level,
-                gender=gender,
-                age_group=age_group
+            stock = await asyncio.to_thread(
+                store.photo_inventory,
+                interaction.guild_id,
             )
 
-            stock = store.photo_inventory(i.guild_id)
-            total = sum(
-                n for (g, a), n in stock.items()
-                if (not gender or gender == g)
-                and (not age_group or age_group == a)
+            available = sum(
+                amount
+                for (g, a), amount in stock.items()
+                if (gender is None or gender == g)
+                and (age_group is None or age_group == a)
             )
 
-            if total < count:
+            if available < count:
                 raise ValueError(
-                    f'可用照片只有 {total} 張，不足建立 {count} 人'
+                    f"照片不足：需要{count}張，"
+                    f"目前只有{available}張"
                 )
 
-            await i.response.send_message(
-                f'🎲 **批次建立設定預覽**\n'
-                f'建立 {count} 位路人\n'
-                f'國籍：{kwargs["nationality"] or "隨機"}\n'
-                f'咖位：{level or "隨機 LV1～LV9"}\n'
-                f'性別：{gender or "隨機"}\n'
-                f'年齡類別：{age_group or "隨機"}\n'
-                f'可用照片：{total} 張\n\n'
-                '確認後才會正式抽取姓名與數值並占用照片。',
-                view=BatchConfirmView(
-                    i.guild_id, i.user.id, count, kwargs
-                ),
-                ephemeral=True
+            preview = (
+                "🎲 **路人批次建立預覽**\n"
+                f"人數：{count}\n"
+                f"國籍：{kwargs['nationality'] or '隨機'}\n"
+                f"咖位：{lv if lv is not None else 'LV1～LV9隨機'}\n"
+                f"性別：{gender or '隨機'}\n"
+                f"年齡分類：{age_group or '隨機'}\n"
+                f"可用照片：{available}張\n\n"
+                "確認後才正式抽取姓名、職業與數值。"
             )
 
-        except (ValueError, TypeError) as e:
-            await i.response.send_message(
-                f'⚠️ 無法預覽：{e}', ephemeral=True
+            await interaction.response.send_message(
+                preview,
+                view=BatchConfirmView(
+                    interaction.guild_id,
+                    interaction.user.id,
+                    count,
+                    kwargs,
+                ),
+                ephemeral=True,
             )
+
+        except (ValueError, TypeError) as exc:
+            await interaction.response.send_message(
+                f"⚠️ 無法建立預覽：{exc}",
+                ephemeral=True,
+            )
+
 
 class BatchConfirmView(discord.ui.View):
-    def __init__(self, guild_id, user_id, count, kwargs):
+    def __init__(
+        self, guild_id, user_id, count, kwargs
+    ):
         super().__init__(timeout=300)
         self.guild_id = guild_id
         self.user_id = user_id
         self.count = count
         self.kwargs = kwargs
         self.done = False
+        self.busy = False
 
-    async def interaction_check(self, i):
-        if (
-            not owner(i)
-            or i.guild_id != self.guild_id
-            or i.user.id != self.user_id
-        ):
-            await i.response.send_message(
-                '只有建立此預覽的群主可以確認。',
-                ephemeral=True
+    async def interaction_check(self, interaction):
+        allowed = (
+            owner(interaction)
+            and interaction.guild_id == self.guild_id
+            and interaction.user.id == self.user_id
+        )
+        if not allowed:
+            await interaction.response.send_message(
+                "只有此批次的群主可以確認。",
+                ephemeral=True,
             )
-            return False
-        return True
+        return allowed
 
     @discord.ui.button(
-        label='✅ 確認正式建立',
-        style=discord.ButtonStyle.success
+        label="確認正式建立",
+        style=discord.ButtonStyle.success,
     )
-    async def confirm(self, i, b):
-        if self.done:
-            return await i.response.send_message(
-                '此批次已處理。', ephemeral=True
+    async def confirm(self, interaction, button):
+        if self.done or self.busy:
+            return await interaction.response.send_message(
+                "此批次正在處理或已完成。",
+                ephemeral=True,
             )
-        self.done = True
-        await i.response.defer(ephemeral=True, thinking=True)
+
+        self.busy = True
+        await interaction.response.defer(
+            ephemeral=True, thinking=True
+        )
 
         try:
-            created = store.generate(
-                i.guild_id,
-                i.guild.owner_id,
+            created = await asyncio.to_thread(
+                store.generate,
+                self.guild_id,
+                self.user_id,
                 self.count,
-                **self.kwargs
-            )
-            remaining = store.inventory(i.guild_id)['photos']
-
-            msg = f'✅ 已建立 {len(created)} 位路人\n'
-            msg += '\n'.join(
-                f'#{cid} {name}｜{job}｜LV{lv} {title}'
-                for cid, name, job, lv, title in created[:12]
-            )
-            msg += f'\n剩餘照片：{remaining} 張'
-            if remaining <= 5:
-                msg += ' ⚠️ 庫存只剩五張或更少'
-
-            await i.followup.send(
-                msg[:1900], ephemeral=True
+                **self.kwargs,
             )
 
-        except Exception as e:
-            self.done = False
-            await i.followup.send(
-                f'⚠️ 建立失敗：{type(e).__name__}：{e}',
-                ephemeral=True
+            self.done = True
+            for item in self.children:
+                if isinstance(item, discord.ui.Button):
+                    item.disabled = True
+
+            lines = [
+                f"✅ 已建立 {len(created)} 位路人角色"
+            ]
+
+            for cid, name, job, level, title in created[:15]:
+                lines.append(
+                    f"#{cid}｜{name}｜{job}｜"
+                    f"LV{level} {title}"
+                )
+
+            if len(created) > 15:
+                lines.append(
+                    f"其餘 {len(created)-15} 位已建立。"
+                )
+
+            await interaction.followup.send(
+                "\n".join(lines)[:1900],
+                ephemeral=True,
             )
+
+        except Exception as exc:
+            await interaction.followup.send(
+                f"⚠️ 建立失敗：{type(exc).__name__}：{exc}",
+                ephemeral=True,
+            )
+
+        finally:
+            self.busy = False
 
     @discord.ui.button(
-        label='取消',
-        style=discord.ButtonStyle.secondary
+        label="取消",
+        style=discord.ButtonStyle.secondary,
     )
-    async def cancel(self, i, b):
+    async def cancel(self, interaction, button):
+        if self.busy:
+            return await interaction.response.send_message(
+                "批次正在建立，無法取消。",
+                ephemeral=True,
+            )
         self.done = True
-        await i.response.edit_message(
-            content='已取消批次建立，沒有占用照片。',
-            view=None
+        await interaction.response.edit_message(
+            content="已取消建立，照片未占用。",
+            view=None,
         )
+
 
 class PhotoChannelModal(
     discord.ui.Modal,
-    title='🖼️ 指定照片附件頻道'
+    title="設定路人照片附件頻道",
 ):
     channel = discord.ui.TextInput(
-        label='文字頻道 ID',
-        max_length=25
+        label="Discord文字頻道ID",
+        max_length=25,
     )
     category = discord.ui.TextInput(
-        label='分類 male_adult / male_minor / female_adult / female_minor',
-        max_length=20
+        label="male_adult等四種分類",
+        placeholder="female_minor",
+        max_length=20,
     )
 
-    async def on_submit(self, i):
-        if not owner(i):
-            return await i.response.send_message(
-                '僅群主可設定。', ephemeral=True
-            )
-        try:
-            gender, age_group = (
-                self.category.value.strip().lower().split('_')
-            )
-            channel = i.guild.get_channel(
-                int(self.channel.value.strip())
+    async def on_submit(self, interaction):
+        if not owner(interaction):
+            return await interaction.response.send_message(
+                "只有群主可以操作。",
+                ephemeral=True,
             )
 
-            if channel is None or not isinstance(
+        try:
+            channel_id = int(
+                self.channel.value.strip()
+            )
+            channel = interaction.guild.get_channel(
+                channel_id
+            )
+
+            if not isinstance(
                 channel, discord.TextChannel
             ):
-                raise ValueError('找不到文字頻道')
+                raise ValueError("找不到指定文字頻道")
 
-            store.set_photo_channel(
-                i.guild_id, channel.id, gender, age_group
+            gender, age_group = (
+                self.category.value
+                .strip().lower().split("_")
             )
-            await i.response.send_message(
-                f'✅ 已設定 {channel.mention}：'
-                f'{gender}／{age_group}。'
-                '在此頻道上傳附件即可收錄。',
-                ephemeral=True
+
+            await asyncio.to_thread(
+                store.set_photo_channel,
+                interaction.guild_id,
+                channel.id,
+                gender,
+                age_group,
             )
-        except (ValueError, TypeError) as e:
-            await i.response.send_message(
-                f'⚠️ 設定失敗：{e}', ephemeral=True
+
+            await interaction.response.send_message(
+                f"✅ 已綁定 {channel.mention}，"
+                f"分類為{gender}/{age_group}。",
+                ephemeral=True,
             )
+
+        except (ValueError, TypeError) as exc:
+            await interaction.response.send_message(
+                f"⚠️ 綁定失敗：{exc}",
+                ephemeral=True,
+            )
+
 
 class ExtraCharacterView(discord.ui.View):
-    def __init__(self, i):
+    def __init__(self, interaction):
         super().__init__(timeout=600)
-        self.user_id = i.user.id
-        self.guild_id = i.guild_id
+        self.user_id = interaction.user.id
+        self.guild_id = interaction.guild_id
 
-    async def interaction_check(self, i):
-        if (
-            i.user.id != self.user_id
-            or i.guild_id != self.guild_id
-            or not owner(i)
-        ):
-            await i.response.send_message(
-                '⛔ 僅群主可使用此面板。',
-                ephemeral=True
+    async def interaction_check(self, interaction):
+        allowed = (
+            owner(interaction)
+            and interaction.user.id == self.user_id
+            and interaction.guild_id == self.guild_id
+        )
+        if not allowed:
+            await interaction.response.send_message(
+                "只有群主可以使用此面板。",
+                ephemeral=True,
             )
-            return False
-        return True
+        return allowed
 
     @discord.ui.button(
-        label='🖼️ 匯入照片',
+        label="匯入照片",
         style=discord.ButtonStyle.primary,
-        row=0
+        row=0,
     )
-    async def photos(self, i, b):
-        await i.response.send_modal(PoolModal('photos'))
+    async def photos(self, interaction, button):
+        await interaction.response.send_modal(
+            PoolModal("photos")
+        )
 
     @discord.ui.button(
-        label='🌏 姓氏／名字庫',
+        label="姓名庫",
         style=discord.ButtonStyle.secondary,
-        row=0
+        row=0,
     )
-    async def names(self, i, b):
-        await i.response.send_modal(PoolModal('names'))
+    async def names(self, interaction, button):
+        await interaction.response.send_modal(
+            PoolModal("names")
+        )
 
     @discord.ui.button(
-        label='🎭 職業庫',
+        label="職業庫",
         style=discord.ButtonStyle.secondary,
-        row=0
+        row=0,
     )
-    async def jobs(self, i, b):
-        await i.response.send_modal(PoolModal('jobs'))
+    async def jobs(self, interaction, button):
+        await interaction.response.send_modal(
+            PoolModal("jobs")
+        )
 
     @discord.ui.button(
-        label='🎲 批次生成',
+        label="批次生成",
         style=discord.ButtonStyle.success,
-        row=1
+        row=1,
     )
-    async def batch(self, i, b):
-        await i.response.send_modal(BatchModal())
-
-    @discord.ui.button(
-        label='📊 庫存統計',
-        style=discord.ButtonStyle.secondary,
-        row=1
-    )
-    async def stats(self, i, b):
-        d = store.inventory(i.guild_id)
-        cfg = store.get_config(i.guild_id)
-        stock = store.photo_inventory(i.guild_id)
-
-        message = (
-            '🚶 **路人資料庫**\n'
-            '四類庫存：'
-            + ', '.join(
-                f'{g}/{a}：{stock.get((g, a), 0)} 張'
-                for g in ('male', 'female')
-                for a in ('adult', 'minor')
-            )
-            + '\n未使用照片：'
-            + str(d['photos'])
-            + ' 張'
-            + (
-                ' ⚠️ 庫存僅剩 5 張或更少'
-                if d['photos'] <= 5 else ''
-            )
-            + f'\n國籍數：{d["nations"]}，'
-              f'姓名詞條：{d["names"]}，'
-              f'職業數：{d["jobs"]}'
-              f'\n已建立：{d["existing"]} 人'
-              f'\n排行榜：'
-              f'{"允許" if cfg["allow_ranking"] else "不允許"}'
-        )
-        await i.response.send_message(
-            message, ephemeral=True
+    async def batch(self, interaction, button):
+        await interaction.response.send_modal(
+            BatchModal()
         )
 
     @discord.ui.button(
-        label='🏆 切換排行榜資格',
+        label="庫存統計",
         style=discord.ButtonStyle.secondary,
-        row=1
+        row=1,
     )
-    async def rank(self, i, b):
-        cfg = store.get_config(i.guild_id)
-        enabled = not bool(cfg['allow_ranking'])
-        store.set_ranking(i.guild_id, enabled)
-        await i.response.send_message(
-            f'✅ 路人角現在'
-            f'{"允許" if enabled else "不允許"}'
-            '參與排行榜。這不會刪除現有角色或數值。',
-            ephemeral=True
+    async def stats(self, interaction, button):
+        data = await asyncio.to_thread(
+            store.inventory,
+            interaction.guild_id,
+        )
+        cfg = await asyncio.to_thread(
+            store.get_config,
+            interaction.guild_id,
+        )
+        stock = await asyncio.to_thread(
+            store.photo_inventory,
+            interaction.guild_id,
+        )
+
+        lines = [
+            "🚶 **路人角色資料庫**",
+            f"已建立：{data['existing']}人",
+            f"未使用照片：{data['photos']}張",
+            f"國籍：{data['nations']}種",
+            f"姓名詞條：{data['names']}筆",
+            f"職業：{data['jobs']}種",
+            "排行榜：" + (
+                "允許" if cfg["allow_ranking"]
+                else "停用"
+            ),
+        ]
+
+        for gender in ("male", "female"):
+            for age in ("adult", "minor"):
+                lines.append(
+                    f"{gender}/{age}："
+                    f"{stock.get((gender,age),0)}張"
+                )
+
+        if data["photos"] <= 5:
+            lines.append("⚠️ 照片庫存低於六張！")
+
+        await interaction.response.send_message(
+            "\n".join(lines),
+            ephemeral=True,
         )
 
     @discord.ui.button(
-        label='📁 設定附件頻道',
+        label="切換排行榜",
         style=discord.ButtonStyle.secondary,
-        row=2
+        row=1,
     )
-    async def channels(self, i, b):
-        await i.response.send_modal(PhotoChannelModal())
+    async def rank(self, interaction, button):
+        cfg = await asyncio.to_thread(
+            store.get_config,
+            interaction.guild_id,
+        )
+
+        enabled = not bool(cfg["allow_ranking"])
+
+        await asyncio.to_thread(
+            store.set_ranking,
+            interaction.guild_id,
+            enabled,
+        )
+
+        await interaction.response.send_message(
+            "✅ 路人排行榜總開關已"
+            + ("開啟。" if enabled else "關閉。"),
+            ephemeral=True,
+        )
 
     @discord.ui.button(
-        label='🗂️ 匯入頻道舊照片',
+        label="照片附件頻道",
         style=discord.ButtonStyle.secondary,
-        row=3
+        row=2,
     )
-    async def backfill(self, i, b):
-        await i.response.defer(
-            ephemeral=True, thinking=True
+    async def channels(self, interaction, button):
+        await interaction.response.send_modal(
+            PhotoChannelModal()
         )
+
+    @discord.ui.button(
+        label="匯入舊照片",
+        style=discord.ButtonStyle.secondary,
+        row=2,
+    )
+    async def backfill(self, interaction, button):
+        await interaction.response.defer(
+            ephemeral=True,
+            thinking=True,
+        )
+
         from modules.extra_character_photo_backfill import (
-            import_history
+            import_history,
         )
+
         report = await import_history(
-            i.guild, per_channel=1000
+            interaction.guild,
+            per_channel=1000,
         )
 
         if not report:
-            return await i.followup.send(
-                '尚未綁定照片附件頻道。',
-                ephemeral=True
+            return await interaction.followup.send(
+                "目前沒有綁定照片頻道。",
+                ephemeral=True,
             )
 
         lines = [
-            f"<#{r['channel_id']}>：新增 {r['added']} 張"
-            + (
-                f"（{r['error']}）"
-                if r['error'] else ''
-            )
-            for r in report
+            "🖼️ 歷史照片匯入結果"
         ]
 
-        await i.followup.send(
-            '🗂️ 歷史照片匯入完成\n'
-            + '\n'.join(lines),
-            ephemeral=True
+        for entry in report:
+            lines.append(
+                f"<#{entry['channel_id']}>："
+                f"新增{entry['added']}張"
+            )
+            if entry.get("error"):
+                lines.append(
+                    f"錯誤：{entry['error']}"
+                )
+
+        await interaction.followup.send(
+            "\n".join(lines)[:1900],
+            ephemeral=True,
         )
 
     @discord.ui.button(
-        label='◀️ 返回內容建立',
+        label="返回內容建立",
         style=discord.ButtonStyle.secondary,
-        row=2
+        row=3,
     )
-    async def back(self, i, b):
+    async def back(self, interaction, button):
         from modules.content_builder import ContentView
-        await i.response.edit_message(
-            content='✍️ **內容建立中心**',
-            view=ContentView(i)
+
+        await interaction.response.edit_message(
+            content="✍️ **內容建立中心**",
+            view=ContentView(interaction),
         )
