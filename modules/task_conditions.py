@@ -31,7 +31,9 @@ def get_profile(guild_id,subtype,level):
 def evaluate(rules,character):
     """character: {'occupation':str,'cafe_level':int,'attributes':dict,'age':int,...}。"""
     missing=[]
+    if not isinstance(rules, dict): return {'eligible':False,'missing':['條件設定格式錯誤']}
     jobs=rules.get('occupations') or []
+    if not isinstance(jobs,list): return {'eligible':False,'missing':['職業條件設定錯誤']}
     if jobs and character.get('occupation') not in jobs:missing.append('職業不符')
     for field,label in [('cafe_level','咖位'),('age','年齡')]:
         minimum=rules.get('min_'+field)
