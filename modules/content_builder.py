@@ -52,7 +52,7 @@ LOG = logging.getLogger(__name__)
 
 TYPES = {
     "story": "📖 劇情",
-    "product": "🛍️ 商品企劃",
+    "extra_character": "🚶 路人角色建立",
     "lottery": "🎰 抽獎獎單",
     "prize": "🏆 獎項",
     "event": "🎪 活動",
@@ -74,6 +74,7 @@ SPECIALIZED_TYPES = frozenset({
     "event",
     "tags",
     "prize",
+    "extra_character",
 })
 
 
@@ -910,6 +911,14 @@ async def open_specialized_manager(
             view=LotteryAdminView(i),
         )
 
+        return True
+
+    if selected == "extra_character":
+        from modules.extra_character_manager import ExtraCharacterView
+        await i.response.edit_message(
+            content="🚶 **路人角色建立與管理**\n建立後直接列入 `/查看` 的路人角色分類，不需要審核。",
+            view=ExtraCharacterView(i),
+        )
         return True
 
     if selected == "npc":
