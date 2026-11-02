@@ -13,6 +13,8 @@ import sqlite3
 from discord.ext import commands, tasks
 
 from core.company_endorsement_lifecycle import reconcile_expired
+from core.company_endorsement_reminders import scan_due
+from modules.company_endorsement_due_notices import forward_due_notices
 from core.database import get_connection
 
 from modules.company_brand_progress import (
@@ -56,6 +58,10 @@ class CompanyBrandSync(commands.Cog):
                 return sum(reconcile_expired(gid) for gid in guilds)
             expired = await asyncio.to_thread(expire_across_guilds)
             if expired: LOG.info('代言合約已到期：%s', expired)
+            due_count=await asyncio.to_thread(scan_due)
+            if due_count: LOG.info('新增代言期款到期提醒：%s',due_count)
+            sent=await asyncio.to_thread(forward_due_notices)
+            if sent: LOG.info('代言期款提醒轉入通知佇列：%s',sent)
             notices = await asyncio.to_thread(sync_to_notification_updates)
             if notices:
                 LOG.info("品牌通知已移交至通知彙總佇列：%s 筆。", notices)
