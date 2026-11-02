@@ -1,3 +1,4 @@
+
 """路人批次創建資料庫：每服隔離、照片僅一次使用、批次建立原子交易。"""
 from __future__ import annotations
 import json, random, re
@@ -144,7 +145,7 @@ def generate(gid,owner_id,count,*,nationality=None,level=None,gender=None,age_gr
             if name is None: raise ValueError(f'{nation} 的可用姓名組合不足，無法繼續生成不重名角色。')
             used_names.add(name)
             lv=int(level) if level is not None else random.randint(lo,hi)
-            age=random.randint(12,17) if photo['age_group']=='minor' else random.randint(max(18,int(cfg['min_age'])),max(18,int(cfg['max_age'])))
+            age=random.randint(12,17) if photo['age_group']=='minor' else random.randint(max(18,int(cfg['min_age'])),max(18,int(cfg['min_age']),int(cfg['max_age'])))
             occupation=random.choice(jobs)
             profile=generate_profile(age,occupation,lv,photo['gender'])
             settings={'character_category':'extra','public_category':'extra','created_as_extra':True,'portrait_url':photo['url'],'nationality':nation,'status_level':lv,'level':lv,'status_title':_title(lv,levels),'rank_display':f'LV{lv} {_title(lv,levels)}','ranking_eligible':True,**profile,'biography':'','public_biography':''}
