@@ -101,7 +101,5 @@ def endorsement_quote(tier: int, offered: int, *, honorary_origin: bool = False)
 
 
 async def setup(bot):
-    company_treasury.pay_employee_salary = status_salary_payment
-    # 財務 UI 在載入時以 from ... import ... 綁定舊函式，需一併替換。
-    company_treasury_ui.pay_employee_salary = status_salary_payment
-    LOG.info("每月公司薪資已套用角色地位倍率；代言最低價驗證函式已備妥。")
+    """地位系統與 7／14 天正式薪資服務共存，不再覆寫付款函式。"""
+    LOG.info("薪資已由 core.company_payroll_service 處理，保留地位與代言報價規則。")
