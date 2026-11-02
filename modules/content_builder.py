@@ -1650,6 +1650,15 @@ class ContentTypeSelect(
 # 內容建立中心主介面
 # ==========================================
 
+class ExtraCharacterEntryButton(discord.ui.Button):
+    def __init__(self):
+        super().__init__(label='🚶 路人角色建立',style=discord.ButtonStyle.secondary,row=2)
+    async def callback(self,i):
+        if not owner(i):
+            return await i.response.send_message('只有群主可以建立路人角色。',ephemeral=True)
+        from modules.extra_character_manager import ExtraCharacterView
+        await i.response.edit_message(content='🚶 **路人角色管理中心**',view=ExtraCharacterView(i))
+
 class ContentView(
     discord.ui.View
 ):
@@ -1665,6 +1674,9 @@ class ContentView(
         self.add_item(
             ContentTypeSelect()
         )
+
+        # 路人角色批次建立入口（僅群主）。
+        self.add_item(ExtraCharacterEntryButton())
 
         # 保留原本劇情快捷按鈕。
         from modules.story_builder import (
