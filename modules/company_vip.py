@@ -205,9 +205,27 @@ def set_vip_tier(
     if not title or len(title) > 60:
         raise ValueError("VIP 等級名稱必須是 1～60 字。")
 
+    # 本福利僅支援正式商城、已啟用且無特殊效果的實體道具。
+    # 先初始化商城資料表，領取與背包入庫再共用同一交易。
+    from modules.shop import init_shop_db, adjust_inventory
+    init_shop_db()
+    try:
+        product_id = int(product_reference)
+    except (ValueError, TypeError):
+        raise ValueError("VIP 免費商品必須填入正式商城的數字商品 ID。")
     now = int(time.time())
 
     with get_connection() as db:
+        product_row = db.execute("""
+            SELECT active, effect_kind, stock, scope
+            FROM shop_products WHERE guild_id=? AND id=?
+        """, (str(guild_id), product_id)).fetchone()
+        if not product_row or int(product_row['active']) != 1:
+            raise ValueError("商品不存在或未啟用。")
+        if product_row['effect_kind'] != 'none' or product_row['scope'] != 'public':
+            raise ValueError("VIP 免費福利只可發放公開、無特殊效果的道具。")
+        if product_row['stock'] is not None and int(product_row['stock']) < 1:
+            raise ValueError("商品庫存不足。")
         if not _can_manage(
             db, guild_id, business_id, actor_id
         ):
@@ -704,10 +722,23 @@ def reserve_free_item(
             now,
         ))
 
+        claim_id = db.execute("SELECT last_insert_rowid()").fetchone()[0]
+        adjust_inventory(db, str(guild_id), int(character_id), product_id, 1)
+        if product_row['stock'] is not None:
+            changed = db.execute("""
+                UPDATE shop_products SET stock=stock-1
+                WHERE guild_id=? AND id=? AND stock>=1
+            """, (str(guild_id), product_id))
+            if changed.rowcount != 1:
+                raise ValueError("商品庫存不足，未執行領取。")
+        db.execute("""
+            UPDATE rp_company_vip_claims SET status='completed', completed_at=?
+            WHERE id=? AND status='reserved'
+        """, (now, claim_id))
         _audit(
             db, guild_id, business_id,
             actor_user_id,
-            "reserve_free_item",
+            "fulfill_free_item",
             {
                 "character_id": int(character_id),
                 "product_reference": product_reference,
@@ -715,9 +746,7 @@ def reserve_free_item(
         )
 
     return (
-        "✅ 免費商品資格已登記。\n"
-        "目前狀態：待商品系統發放。\n"
-        "這筆登記不會直接新增背包物品。"
+        "✅ VIP 免費商品已領取，1 件正式商城道具已加入角色背包。"
     )
 
 
