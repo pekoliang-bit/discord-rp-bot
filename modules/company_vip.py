@@ -726,3 +726,14 @@ async def setup(bot):
     import asyncio
 
     await asyncio.to_thread(initialize_vip)
+
+
+def vip_transaction_history(guild_id, business_id, character_id, limit=20):
+    """向 VIP 面板提供已核實消費／退款紀錄。"""
+    from modules.company_vip_reporting import member_transactions
+    return member_transactions(guild_id, business_id, character_id, limit)
+
+def vip_pending_claims(guild_id, business_id, limit=50):
+    """查看已保留、但尚未由商品系統發放的福利。"""
+    from modules.company_vip_reporting import pending_benefits
+    return pending_benefits(guild_id, business_id, limit)
