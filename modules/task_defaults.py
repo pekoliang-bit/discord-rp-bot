@@ -15,6 +15,7 @@ def seed_newbie(guild_id):
     with get_connection() as db:
         existing={r['code'] for r in db.execute('SELECT code FROM rp_task_definitions WHERE guild_id=?',(str(guild_id),))}
     count=0
+    # 既有任務即使由管理員修改，也不會被種子流程覆蓋。
     for command in REQUIRED_COMMANDS:
         code='newbie_'+command
         if code in existing: continue
