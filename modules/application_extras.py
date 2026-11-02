@@ -522,13 +522,10 @@ def set_company_bank_proxy(
 
 def init_db():
 
-        from core.company_bank_opening import (
-            initialize_company_bank,
-        )
-
+    with transaction() as db:
+        from core.company_bank_opening import initialize_company_bank
         initialize_company_bank(db)
 
-    with transaction() as db:
 
         db.execute(
             """
@@ -933,8 +930,7 @@ class ApplicationModal(discord.ui.Modal):
                 i,
                 f"✅ {CATEGORIES[self.kind]} "
                 f"#{rid} 已送審。\n"
-                "案件核准僅代表申請通過，"
-                "不會自行發放物品或開立帳戶。"
+                "申請已送交審核；核准後依已接通的案件類型執行。"
             )
 
         except (
@@ -1232,11 +1228,11 @@ class GeneralReviewView(
                 )
             ):
 
-                content_detail = (
-                    describe_character_review(db, r)
-                    if r["kind"] == "character_edit"
-                    else str(r["details"])
-                )
+                if r["kind"] == "character_edit":
+                    with get_connection() as review_db:
+                        content_detail = describe_character_review(review_db, r)
+                else:
+                    content_detail = str(r["details"])
                 return (
                     f"🛡️ **案件 #{r['id']}｜"
                     f"{CATEGORIES.get(r['kind'], r['kind'])}**\n"
@@ -1318,6 +1314,15 @@ class GeneralReviewView(
                         "防止內容外洩。"
                     )
 
+                if (
+                    not owner(i)
+                    and str(r["user_id"])
+                    == str(i.user.id)
+                ):
+                    raise PermissionError(
+                        "審核人員不能審核自己的案件。"
+                    )
+
                 if accepted and r["kind"] == "company_bank":
 
                     validate_company_bank_applicant(
@@ -1327,9 +1332,13 @@ class GeneralReviewView(
                         r["user_id"],
                     )
 
-                    raise PermissionError(
-                        "公司帳戶開戶後端尚未完成："
-                        "不得僅憑核准案件建立假帳戶。"
+                    from core.company_bank_opening import approve_company_bank
+                    approve_company_bank(
+                        db,
+                        self.gid,
+                        r["title"],
+                        r["user_id"],
+                        r["id"],
                     )
 
                 if accepted and r["kind"] in {"faction_join", "faction_exit", "faction_change"}:
@@ -1386,15 +1395,6 @@ class GeneralReviewView(
 
                 if accepted and r["kind"] == "character_edit":
                     apply_approved_character_changes(db, r)
-
-                if (
-                    not owner(i)
-                    and str(r["user_id"])
-                    == str(i.user.id)
-                ):
-                    raise PermissionError(
-                        "審核人員不能審核自己的案件。"
-                    )
 
                 cur = db.execute(
                     """
