@@ -14,9 +14,7 @@ LOG = logging.getLogger(__name__)
 async def setup(bot: commands.Bot):
     from modules import character_view
     from modules.character_status import (
-        ENDORSEMENT_MAX_TIER,
         LEVELS,
-        WORK_MULTIPLIERS,
         get_status,
     )
 
@@ -24,19 +22,13 @@ async def setup(bot: commands.Bot):
     if getattr(original, "_rp_status_integrated", False):
         return
 
-    def with_status(actor, character_id, *, private=False):
-        embed = original(actor, character_id, private=private)
+    def with_status(actor, character_id, *, private=False, detail_page=0):
+        embed = original(actor, character_id, private=private, detail_page=detail_page)
         try:
             state = get_status(actor.guild_id, character_id)
             level = max(1, min(20, int(state["level"])))
             label = LEVELS[level - 1][1]
-            maintain = max(0, min(100, float(state.get("maintenance", 100))))
-            text = (
-                f"**LV{level}｜{label}**\n"
-                f"地位維持進度：{maintain:.0f}%\n"
-                f"一般工作最低身價倍率：×{WORK_MULTIPLIERS[level - 1]:g}\n"
-                f"代言申請上限：T{ENDORSEMENT_MAX_TIER[level - 1]}"
-            )
+            text = f"LV{level}｜{label}"
             if state.get("warning_active"):
                 text += "\n⚠️ 目前有地位維持警告"
             embed.add_field(name="🏅 角色地位", value=text, inline=False)
