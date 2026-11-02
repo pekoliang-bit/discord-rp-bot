@@ -1,4 +1,3 @@
-
 """Discord RP｜官方成就稱號管理中心。
 
 檔案：
@@ -1391,7 +1390,7 @@ class AchievementAdminView(
     @discord.ui.button(
         label="🌍 建立重大活動",
         style=discord.ButtonStyle.primary,
-        row=2,
+        row=3,
     )
     async def create_major_event(
         self,
