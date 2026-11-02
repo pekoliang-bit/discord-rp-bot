@@ -392,6 +392,10 @@ class TreasuryDetailView(discord.ui.View):
         self.guild_id = str(guild_id)
         self.business_id = str(business_id)
         self.is_owner = bool(is_owner)
+        from modules.company_wage_debt_ui import DebtEntry
+        # DebtEntry is available only on a selected company, not on the slash-command root.
+        self.gid, self.uid = self.guild_id, self.user_id
+        self.add_item(DebtEntry())
 
         # 只有持有人看到管理層額度設定按鈕。
         if self.is_owner:
