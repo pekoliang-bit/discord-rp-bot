@@ -1,4 +1,3 @@
-
 """五間正式公司自動成立集團。
 
 在公司審核核准的同一交易中呼叫。
@@ -33,24 +32,20 @@ def maybe_create_group(
     if not eligibility["automatic_eligible"]:
         return None
 
-    group_id = (
-        f"AUTO-GRP-{owner_character_id}"
-    )
-
-    duplicate = db.execute(
-        """
-        SELECT 1
-        FROM rp_business_entities
-        WHERE guild_id=? AND business_id=?
-        """,
+    # A character id can be re-used across guild migrations or earlier
+    # business imports. Allocate an unused id within this guild atomically.
+    base_id = f"AUTO-GRP-{owner_character_id}"
+    group_id = base_id
+    suffix = 2
+    while db.execute(
+        "SELECT 1 FROM rp_business_entities "
+        "WHERE guild_id=? AND business_id=?",
         (gid, group_id),
-    ).fetchone()
-
-    if duplicate:
-        raise RuntimeError(
-            "自動集團編號已被使用，"
-            "請管理員核對原有紀錄。"
-        )
+    ).fetchone():
+        group_id = f"{base_id}-{suffix}"
+        suffix += 1
+        if suffix > 10000:
+            raise RuntimeError("無法分配不重複的集團編號")
 
     db.execute(
         """
