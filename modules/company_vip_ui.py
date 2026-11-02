@@ -618,3 +618,9 @@ class CompanyVIPButton(discord.ui.Button):
 
 async def setup(bot):
     initialize_vip()
+
+
+def vip_management_history(guild_id, business_id, character_id, limit=20):
+    """管理中心統一查詢會員消費與未交付福利。"""
+    from modules.company_vip_reporting import member_transactions,pending_benefits
+    return {"transactions":member_transactions(guild_id,business_id,character_id,limit),"pending_benefits":[x for x in pending_benefits(guild_id,business_id,100) if int(x['character_id'])==int(character_id)]}
