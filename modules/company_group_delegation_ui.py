@@ -10,6 +10,8 @@ class DelegateModal(discord.ui.Modal):
     def __init__(self,gid,uid,mode):
         super().__init__(title={'grant':'授予集團查閱權','revoke':'取消集團查閱權'}[mode]);self.gid,self.uid,self.mode=str(gid),str(uid),mode
         self.delegate=discord.ui.TextInput(label='Discord 使用者 ID',max_length=25);self.add_item(self.delegate)
+        self.capability=discord.ui.TextInput(label='權限：overview / company_summary / member_report',default='overview',max_length=30)
+        self.add_item(self.capability)
     async def on_submit(self,i):
         if str(i.guild_id)!=self.gid or str(i.user.id)!=self.uid:
             return await i.response.send_message('非本人表單',ephemeral=True)
@@ -17,9 +19,9 @@ class DelegateModal(discord.ui.Modal):
         try:
             obj=await asyncio.to_thread(group_overview,self.gid,self.uid)
             if not obj.get('group_id'): raise ValueError('你目前不是集團董事長')
-            if self.mode=='grant': msg=await asyncio.to_thread(svc.grant,self.gid,obj['group_id'],self.uid,self.delegate.value.strip())
+            if self.mode=='grant': msg=await asyncio.to_thread(svc.grant,self.gid,obj['group_id'],self.uid,self.delegate.value.strip(),self.capability.value.strip())
             else:
-                ok=await asyncio.to_thread(svc.revoke,self.gid,obj['group_id'],self.uid,self.delegate.value.strip());msg='✅ 已取消授權' if ok else '沒有這筆授權'
+                ok=await asyncio.to_thread(svc.revoke,self.gid,obj['group_id'],self.uid,self.delegate.value.strip(),self.capability.value.strip());msg='✅ 已取消授權' if ok else '沒有這筆授權'
         except (ValueError,PermissionError) as e: msg=f'⚠️ {e}'
         except Exception:
             LOG.exception('集團授權失敗');msg='⚠️ 無法完成授權，請查看日誌'
