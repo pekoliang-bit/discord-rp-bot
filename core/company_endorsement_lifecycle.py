@@ -92,3 +92,20 @@ def details(guild_id,endorsement_id,actor_id):
         if actor not in (str(p['brand_owner']),str(p['artist_owner'])): raise PermissionError('無權查看此合約')
         term=db.execute('SELECT * FROM rp_endorsement_terms WHERE guild_id=? AND endorsement_id=?',(gid,eid)).fetchone()
         return dict(term) if term else None
+
+
+def reconcile_expired(guild_id, endorsement_id=None):
+    """依資料庫日期整理已到期的合約；不產生扣款或違約責任。"""
+    gid=str(guild_id)
+    with transaction() as db:
+        _setup(db)
+        sql="SELECT endorsement_id FROM rp_endorsement_terms WHERE guild_id=? AND status='active' AND end_date < ?"
+        args=[gid,date.today().isoformat()]
+        if endorsement_id is not None:
+            sql+=' AND endorsement_id=?';args.append(int(endorsement_id))
+        ids=[int(r['endorsement_id']) for r in db.execute(sql,args).fetchall()]
+        for eid in ids:
+            db.execute("UPDATE rp_endorsement_terms SET status='expired', updated_at=CURRENT_TIMESTAMP WHERE guild_id=? AND endorsement_id=? AND status='active'",(gid,eid))
+            db.execute("UPDATE rp_company_endorsements SET status='ended',ended_at=CURRENT_TIMESTAMP,end_reason='合約期限屆滿' WHERE guild_id=? AND id=? AND status='active'",(gid,eid))
+            _audit(db,gid,eid,'expire','system','期限已屆滿，未自動認定違約或扣款')
+        return len(ids)
