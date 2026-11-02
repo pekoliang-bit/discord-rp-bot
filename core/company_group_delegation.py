@@ -38,3 +38,13 @@ def list_grants(guild_id,group_id,actor_id):
     with get_connection() as db:
         _setup(db)
         return [dict(r) for r in db.execute('SELECT delegate_id,capability,created_at FROM rp_group_delegations WHERE guild_id=? AND group_id=? ORDER BY created_at DESC',(gid,group_id))]
+
+
+def has_capability(guild_id,group_id,actor_id,capability='overview'):
+    if capability not in ('overview','member_report'): return False
+    with get_connection() as db:
+        _setup(db)
+        group=db.execute("SELECT owner_id,status FROM rp_business_entities WHERE guild_id=? AND business_id=? AND kind='group'",(str(guild_id),str(group_id))).fetchone()
+        if not group or group['status']!='active': return False
+        if str(group['owner_id'])==str(actor_id): return True
+        return db.execute('SELECT 1 FROM rp_group_delegations WHERE guild_id=? AND group_id=? AND delegate_id=? AND capability=?',(str(guild_id),str(group_id),str(actor_id),capability)).fetchone() is not None
