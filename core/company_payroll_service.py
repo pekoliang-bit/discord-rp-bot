@@ -178,9 +178,11 @@ def pay_salary(
                 "員工不存在、已離職或職位未設定"
             )
 
-        amount = int(employee["salary"])
-        if amount <= 0:
-            raise ValueError("此職位未設定有效薪資")
+        from core.company_contract_store import initialize_contracts
+        from core.company_contract_payroll_link import resolve_payroll_terms
+        initialize_contracts(db)
+        terms = resolve_payroll_terms(db, gid, bid, cid, employee["salary"], policy["cycle_days"])
+        amount = terms.salary
 
         # 等級薪資倍率由正式地位規則統一計算。
         try:
@@ -378,4 +380,3 @@ def payroll_status(guild_id, business_id, actor_id):
                 status = '⚠️ 舊月薪待核對' if legacy else ('本期已付（歷史期可能未付）' if existing else '待發放：'+payday_text(period))
             result.append(f"角色 #{cid}｜{int(row['salary']):,} 金幣｜{status}")
         return "\n".join(result)[:1900] if rows else "目前沒有在職且已設定薪資的員工。"
-
