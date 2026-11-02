@@ -12,7 +12,7 @@ VISIBLE_KINDS=('daily','screen','variety','endorsement','limited','special')
 def character_info(guild_id, character_id, user_id):
     with get_connection() as db:
         r=db.execute("SELECT * FROM characters WHERE guild_id=? AND id=? AND owner_id=? AND status IN ('active','approved')",(str(guild_id),int(character_id),str(user_id))).fetchone()
-        if not r: raise ValueError('角色不存在、未啟用或不是持有人')
+        if not r or r['character_type']!='player': raise ValueError('角色不存在、未啟用或不是持有人')
         attrs={x['name']:x['value'] for x in db.execute('SELECT name,value FROM attributes WHERE guild_id=? AND character_id=?',(str(guild_id),int(character_id)))}
     return {'occupation':r['occupation'],'age':r['age'],'attributes':attrs,'cafe_level':0}
 
@@ -64,6 +64,7 @@ def accept(guild_id,character_id,user_id,task_id):
 def report(guild_id,character_id,user_id,task_id,channel_id):
     """回報只能送審；自動判定需來源事件橋接驗證，不憑空標記完成。"""
     if not character_owner(guild_id,character_id,user_id): raise ValueError('角色身分不符')
+    if not is_graduated(guild_id,character_id): raise ValueError('請先完成新手任務')
     with transaction() as db:
         r=db.execute('''SELECT p.* FROM rp_task_progress p
            WHERE p.guild_id=? AND p.character_id=? AND p.task_id=? AND p.status='accepted'
