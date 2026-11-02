@@ -1,4 +1,3 @@
-
 """公司員工合約服務。"""
 
 from __future__ import annotations
@@ -144,7 +143,7 @@ def accept_contract(
                 "員工已離職或角色擁有者變更"
             )
 
-        db.execute("""
+        result = db.execute("""
             UPDATE rp_company_employee_contracts
             SET employee_accepted=1,
                 status='active',
@@ -152,7 +151,10 @@ def accept_contract(
             WHERE id=?
               AND guild_id=?
               AND status='pending'
-        """, (int(contract_id), gid))
+              AND employee_user_id=?
+        """, (int(contract_id), gid, uid))
+        if result.rowcount != 1:
+            raise RuntimeError("合約狀態已變更，請重新查詢")
 
     return "✅ 雙方已確認，正式合約生效。"
 
