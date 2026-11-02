@@ -1,4 +1,3 @@
-
 """公司商務管理介面。
 
 /公司 → 商務管理
@@ -215,6 +214,7 @@ class CompanyCommercialView(discord.ui.View):
         self.uid = str(uid)
 
         items = [
+            ("endorsement_history", "📜 代言紀錄"),
             ("career", "📈 職位經驗"),
             ("appoint", "🎤 任命代言"),
             ("end", "📜 結束代言"),
@@ -254,7 +254,9 @@ class CommercialActionButton(discord.ui.Button):
 
     async def callback(self, interaction):
         view = self.view
-
+        if self.action == "endorsement_history":
+            await interaction.response.send_modal(EndorsementHistoryModal(view.gid, view.uid))
+            return
         await interaction.response.send_modal(
             CommercialModal(
                 view.gid,
@@ -293,3 +295,37 @@ class CompanyCommercialEntry(discord.ui.Button):
             ),
             ephemeral=True,
         )
+
+
+class EndorsementHistoryModal(discord.ui.Modal):
+    def __init__(self, gid, uid):
+        super().__init__(title="查詢品牌代言紀錄", timeout=300)
+        self.gid, self.uid = str(gid), str(uid)
+        self.brand = discord.ui.TextInput(label="品牌編號", max_length=100)
+        self.add_item(self.brand)
+
+    async def on_submit(self, interaction):
+        if str(interaction.guild_id) != self.gid or str(interaction.user.id) != self.uid:
+            return await respond(interaction, "這不是你的查詢表單。")
+        await interaction.response.defer(ephemeral=True, thinking=True)
+        try:
+            from core.database import get_connection
+            from core.company_endorsement_store import initialize_endorsements, active_endorsements
+            from modules.company_business import has_permission
+            def load():
+                with get_connection() as db:
+                    brand = db.execute("SELECT owner_id FROM rp_business_entities WHERE guild_id=? AND business_id=? AND kind='brand' AND status='active'", (self.gid,self.brand.value.strip())).fetchone()
+                    if not brand or (str(brand['owner_id']) != self.uid and not has_permission(db,self.gid,self.brand.value.strip(),self.uid,'manage')):
+                        raise PermissionError('沒有這個品牌的管理權限')
+                    initialize_endorsements(db)
+                    return active_endorsements(db,self.gid,brand_id=self.brand.value.strip())[:20]
+            rows = await asyncio.to_thread(load)
+            lines = ["📜 **有效代言紀錄**"]
+            lines.extend(f"• #{r['id']}｜角色 {r['character_id']}｜T{r['tier']}｜{r['scope']}" for r in rows)
+            if not rows: lines.append("目前沒有有效代言")
+            await interaction.followup.send("\n".join(lines)[:1900],ephemeral=True)
+        except (PermissionError, ValueError) as e:
+            await interaction.followup.send(f"⚠️ {e}",ephemeral=True)
+        except Exception:
+            LOG.exception('代言紀錄查詢失敗')
+            await interaction.followup.send('⚠️ 代言紀錄暫時無法讀取。',ephemeral=True)
