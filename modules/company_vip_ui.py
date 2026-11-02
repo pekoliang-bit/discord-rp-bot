@@ -482,6 +482,26 @@ class VIPDetailView(discord.ui.View):
         )
 
     @discord.ui.button(
+        label="📋 福利待發清單",
+        style=discord.ButtonStyle.secondary,
+        row=2,
+    )
+    async def pending_report(self, interaction, button):
+        await interaction.response.defer(ephemeral=True, thinking=True)
+        try:
+            from modules.company_vip_reporting import pending_benefits
+            rows = await asyncio.to_thread(pending_benefits, self.guild_id, self.business_id, 20)
+            lines = ["🎁 **尚待交付的 VIP 福利**"]
+            lines.extend(f"• #{r['id']}｜角色 {r['character_id']}｜商品 {r['product_reference']}｜{r['claimed_at']}" for r in rows)
+            if not rows:
+                lines.append("目前沒有待發福利")
+            await interaction.followup.send("\n".join(lines)[:1900], ephemeral=True)
+        except Exception:
+            import logging
+            logging.getLogger(__name__).exception("VIP 福利紀錄讀取失敗")
+            await interaction.followup.send("⚠️ 目前無法查詢福利紀錄。", ephemeral=True)
+
+    @discord.ui.button(
         label="↩️ 返回公司列表",
         style=discord.ButtonStyle.secondary,
         row=2,
