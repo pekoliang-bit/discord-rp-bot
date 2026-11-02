@@ -107,3 +107,16 @@ def format_group_overview(data):
             )
 
     return "\n".join(lines)
+
+
+def delegated_group_overview(guild_id, actor_id, group_id):
+    """限制於董事長或已明確授權的集團唯讀資料。"""
+    from core.company_group_delegation import has_capability
+    gid=str(guild_id);group=str(group_id)
+    with get_connection() as db:
+        owner=db.execute("SELECT owner_id,name,founded_at FROM rp_business_entities WHERE guild_id=? AND business_id=? AND kind='group' AND status='active'",(gid,group)).fetchone()
+        if not owner: raise ValueError('找不到有效集團')
+        if str(owner['owner_id'])!=str(actor_id) and not has_capability(gid,group,actor_id,'overview'):
+            raise PermissionError('沒有集團查閱權')
+        members=[dict(r) for r in db.execute("SELECT business_id,name FROM rp_business_entities WHERE guild_id=? AND parent_id=? AND kind='company' AND status='active' ORDER BY name",(gid,group))]
+        return dict(group_id=group,group_name=owner['name'],founded_at=owner['founded_at'],company_count=len(members),required=5,missing=0,members=tuple(members))
