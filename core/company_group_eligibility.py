@@ -1,107 +1,97 @@
 
-"""集團成立資格與旗下公司歸屬。
-
-不自動成立集團。
-僅供正式申請與審核流程使用。
-"""
+"""集團五間公司資格核對。"""
 
 from __future__ import annotations
 
+from core.company_group_rules import (
+    AUTO_GROUP_COMPANIES,
+)
 
-REQUIRED_COMPANIES = 5
 
-
-def eligible_companies(db, guild_id, owner_id):
-    rows = db.execute("""
-        SELECT business_id
+def owned_companies(db, guild_id, owner_id):
+    rows = db.execute(
+        """
+        SELECT business_id, parent_id
         FROM rp_business_entities
         WHERE guild_id=?
           AND owner_id=?
           AND kind='company'
           AND status='active'
-        ORDER BY founded_at, business_id
-    """, (str(guild_id), str(owner_id))).fetchall()
+        ORDER BY business_id
+        """,
+        (str(guild_id), str(owner_id)),
+    ).fetchall()
 
-    return tuple(str(r["business_id"]) for r in rows)
+    return tuple(dict(row) for row in rows)
 
 
-def validate_group_application(db, guild_id, owner_id):
-    companies = eligible_companies(
-        db, guild_id, owner_id
-    )
-
-    if len(companies) < REQUIRED_COMPANIES:
-        raise ValueError(
-            f"成立集團需要至少5間正式公司，"
-            f"目前只有{len(companies)}間。"
-            "品牌及商店不計入。"
-        )
-
-    existing = db.execute("""
-        SELECT business_id
+def owned_group(db, guild_id, owner_id):
+    return db.execute(
+        """
+        SELECT business_id, name
         FROM rp_business_entities
         WHERE guild_id=?
           AND owner_id=?
           AND kind='group'
           AND status='active'
+        ORDER BY founded_at
         LIMIT 1
-    """, (str(guild_id), str(owner_id))).fetchone()
-
-    if existing is not None:
-        raise ValueError(
-            "你已經擁有正式集團，"
-            "不得再次成立第二個集團。"
-        )
-
-    return companies
+        """,
+        (str(guild_id), str(owner_id)),
+    ).fetchone()
 
 
-def attach_owned_companies(
-    db, guild_id, owner_id, group_id
-):
-    """將符合條件的自有公司歸屬至新集團。
-
-    必須在建立集團的同一筆交易內執行。
-    """
-
-    group = db.execute("""
-        SELECT business_id
-        FROM rp_business_entities
-        WHERE guild_id=?
-          AND business_id=?
-          AND owner_id=?
-          AND kind='group'
-          AND status='active'
-    """, (
-        str(guild_id),
-        str(group_id),
-        str(owner_id),
-    )).fetchone()
-
-    if group is None:
-        raise ValueError("集團不存在或持有人不符。")
-
-    companies = eligible_companies(
+def group_eligibility(db, guild_id, owner_id):
+    companies = owned_companies(
         db, guild_id, owner_id
     )
 
-    if len(companies) < REQUIRED_COMPANIES:
-        raise ValueError("正式公司數量不足5間。")
+    group = owned_group(
+        db, guild_id, owner_id
+    )
 
-    for company_id in companies:
-        db.execute("""
-            UPDATE rp_business_entities
-            SET parent_id=?
-            WHERE guild_id=?
-              AND business_id=?
-              AND owner_id=?
-              AND kind='company'
-              AND status='active'
-        """, (
-            str(group_id),
-            str(guild_id),
-            company_id,
-            str(owner_id),
-        ))
+    count = len(companies)
 
-    return len(companies)
+    return {
+        "company_count": count,
+        "required": AUTO_GROUP_COMPANIES,
+        "missing": max(
+            0, AUTO_GROUP_COMPANIES - count
+        ),
+        "automatic_eligible": (
+            count >= AUTO_GROUP_COMPANIES
+            and group is None
+        ),
+        "direct_eligible": group is None,
+        "existing_group_id": (
+            group["business_id"]
+            if group else None
+        ),
+        "companies": companies,
+    }
+
+
+def validate_group_application(
+    db,
+    guild_id,
+    owner_id,
+    *,
+    method="automatic",
+):
+    from core.company_group_rules import (
+        check_group_creation,
+    )
+
+    result = group_eligibility(
+        db, guild_id, owner_id
+    )
+
+    check_group_creation(
+        method=method,
+        company_count=result["company_count"],
+        owns_group=bool(
+            result["existing_group_id"]
+        ),
+    )
+
+    return result
