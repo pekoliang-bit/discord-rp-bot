@@ -88,7 +88,8 @@ def profit_overview(guild_id, business_id, actor_id):
             f"已隔離的分潤準備金：{reserve:,} {currency}\n"
             f"{company}金庫實際餘額：{treasury:,} {currency}\n\n"
             "⚠️ 銷售統計不等於銀行入帳；試算額不可直接分潤。"
-            "待商城收款、退款與成本來源核對後，才會開放正式淨利潤結算。"
+            "本報表僅顯示可取得的銷售與財務流水。未具備完整成本、退款入帳及期初期末結轉來源，"
+            "因此不會宣稱淨利潤已正式核定，也不會自動釋出分潤。"
         )
 
 
