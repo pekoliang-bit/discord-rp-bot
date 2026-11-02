@@ -974,6 +974,13 @@ class CompanyPanel(discord.ui.View):
             button.row = 3
             self.add_item(button)
 
+        from modules.company_contract_management_ui import CompanyContractEntry
+        from modules.company_group_management_ui import CompanyGroupEntry
+        from modules.company_commercial_ui import CompanyCommercialEntry
+        for entry in (CompanyContractEntry(), CompanyGroupEntry(), CompanyCommercialEntry()):
+            entry.row = 4
+            self.add_item(entry)
+
         if is_owner or can_review:
             owner_actions = []
             if is_owner:
