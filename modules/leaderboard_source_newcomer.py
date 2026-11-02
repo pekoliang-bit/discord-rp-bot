@@ -1,22 +1,18 @@
-"""整合第一至第四批資料來源；未知榜單安全返回 unavailable。"""
+"""新人獎：只檢查正式啟用基準及快照條件，不以 created_at 冒充。"""
 from __future__ import annotations
-from modules import leaderboard_source_characters as characters
-from modules import leaderboard_source_works as works
-from modules import leaderboard_source_endorsements as endorsements
-from modules import leaderboard_source_batch3 as batch3
-from modules import leaderboard_source_factions as factions
-from modules import leaderboard_source_social as social
-from modules import leaderboard_source_newcomer as newcomer
+from core.database import get_connection
+from modules.leaderboard_source_common import table_columns
 
+EXCLUDED={'money','cash','bank','items','works','contracts'}
 
-def query(guild_id,board,limit=100):
-    if board in ('impact','fans','antis','main_skill'):
-        return characters.query(guild_id,board,limit)
-    if board=='works':return works.query(guild_id,limit)
-    if board=='endorsements':return endorsements.query(guild_id,limit)
-    if board in ('wealth','cp','shops','industry','groups'):
-        return batch3.query(guild_id,{'industry':'business','groups':'group'}.get(board,board),limit)
-    if board=='factions':return factions.query(guild_id,limit)
-    if board=='social':return social.query(guild_id,limit)
-    if board=='newcomer':return newcomer.query(guild_id,limit)
+def inspect(guild_id=None):
+    with get_connection() as db:
+        character_cols=sorted(table_columns(db,'characters'))
+        tables=[r['name'] for r in db.execute("SELECT name FROM sqlite_master WHERE type='table'")]
+        candidate={t:sorted(table_columns(db,t)) for t in tables if any(x in t for x in ('activation','newcomer','snapshot'))}
+    return {'status':'mapping_required','character_columns':character_cols,'candidate_tables':candidate,
+            'rule':'正式啟用起30天；所有合格角色數值的淨變化直接加總；到期保留成績等待下次30天大結算',
+            'warning':'不可用角色 created_at 或成就首次穿戴時間代替正式啟用時間'}
+
+def query(guild_id,limit=100):
     return [],'unavailable'
