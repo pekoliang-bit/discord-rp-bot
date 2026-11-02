@@ -1422,6 +1422,14 @@ class WorldSettingsView(discord.ui.View):
                 from modules.world_channel_editor import ChannelHomeView, channel_summary
                 view = ChannelHomeView(interaction)
                 content = channel_summary(interaction.guild_id)
+            elif category == "terms":
+                from modules.world_term_editor import TermHomeView, summary
+                view = TermHomeView(interaction)
+                content = summary(interaction.guild_id)
+            elif category == "stats":
+                from modules.world_stats_editor import StatHomeView, text
+                view = StatHomeView(interaction)
+                content = text(interaction.guild_id)
             else:
                 view = WorldCategoryView(interaction, category)
                 content = world_category_summary(interaction.guild_id, category)
