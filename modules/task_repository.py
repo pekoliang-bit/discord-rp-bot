@@ -49,6 +49,8 @@ def initialize():
 def publish_task(guild_id, code, kind, title, *, description='', subtype='', level=1, requirements=None, rewards=None, report=None, status='draft', starts_at=None, ends_at=None):
     if kind not in KINDS or status not in ('draft','published','paused','archived') or not 1 <= int(level) <= 5:
         raise ValueError('非法任務類型、狀態或等級')
+    if not isinstance(requirements or {},dict) or not isinstance(rewards or {},dict) or not isinstance(report or {},dict):
+        raise ValueError('條件、獎勵及回報設定必須是物件')
     if not code.strip() or not title.strip():
         raise ValueError('任務識別碼及名稱不得為空')
     with transaction() as db:
