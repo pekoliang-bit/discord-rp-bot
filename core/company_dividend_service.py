@@ -19,4 +19,6 @@ def distribute(gid,bid,uid,character_id,amount,reference):
         result=_payment(db,gid,key,source,target,amount,f'公司 {bid} 分潤｜角色 #{cid}')
         if result.duplicated: return 'ℹ️ 此筆分潤已發放，不重複入帳。'
         db.execute('INSERT INTO rp_company_finance_audit (guild_id,business_id,actor_id,action,reference_key,amount,target_type,target_id,note,created_at) VALUES (?,?,?,?,?,?,?,?,?,?)',(gid,bid,uid,'dividend',key,amount,'character',str(cid),'準備金分潤入帳',int(time.time())))
+    from core.company_finance_events import notify_payment
+    notify_payment(gid,bid,cid,amount,'分潤入帳',key)
     return f'✅ 已發放分潤 {amount:,} 金幣至角色 #{cid} 錢包。'
