@@ -30,6 +30,10 @@ class TermsModal(discord.ui.Modal):
             else:
                 res=await asyncio.to_thread(lifecycle.details,self.gid,int(v[0]),self.uid)
                 msg=('尚未設定合約期限' if not res else f"📜 合約 v{res['version']}｜到期 {res['end_date']}｜違約金 {res['breach_amount']:,}｜狀態 {res['status']}")
+                if res:
+                    renewal=await asyncio.to_thread(lifecycle.renewal_status,self.gid,int(v[0]),self.uid)
+                    msg+=f"｜剩餘 {renewal['days_left']} 天"
+                    if renewal['needs_renewal']: msg+='｜⚠️ 建議提出續約'
         except (ValueError,PermissionError,LookupError) as e: msg=f'⚠️ {e}'
         except Exception:
             LOG.exception('代言合約操作失敗');msg='⚠️ 操作失敗，請查看日誌'
