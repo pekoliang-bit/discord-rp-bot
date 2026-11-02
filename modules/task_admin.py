@@ -33,6 +33,9 @@ class TaskAdminView(discord.ui.View):
         return True
     @discord.ui.button(label='建立任務草稿',emoji='📝')
     async def create(self,i,b):await i.response.send_modal(TaskModal())
+    @discord.ui.button(label='分類與等級設定說明',emoji='🎚️')
+    async def levels(self,i,b):
+        await i.response.send_message('通告分類：影視、綜藝、代言、限時、特殊。\n每種作品類型獨立設定第 1～5 級的咖位與屬性門檻；目前尚未設定正式模板的作品不能接取。\n玩家端只呈現最低接取條件。',ephemeral=True)
     @discord.ui.button(label='草稿及已發布清單',emoji='📋')
     async def listings(self,i,b):
         initialize()
