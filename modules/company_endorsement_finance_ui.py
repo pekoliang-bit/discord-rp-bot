@@ -9,17 +9,17 @@ class EndorsementPaymentModal(discord.ui.Modal):
     def __init__(self,gid,uid,action):
         super().__init__(title={'offer':'建立代言期款','accept':'藝人確認期款','pay':'支付代言期款','history':'查詢代言期款','cancel':'取消未付期款','due':'待付期款清單'}[action],timeout=300)
         self.gid,self.uid,self.action=str(gid),str(uid),action
-        specs={'offer':['代言紀錄編號','付款公司或品牌編號','金額（金幣）','期款名稱／期數'], 'accept':['期款編號'],'pay':['期款編號'],'cancel':['期款編號'],'history':['代言紀錄編號'],'due':['代言紀錄編號']}
+        specs={'offer':['代言紀錄編號','付款公司或品牌編號','金額（金幣）','期款名稱／期數','到期日 YYYY-MM-DD（可留空）'], 'accept':['期款編號'],'pay':['期款編號'],'cancel':['期款編號'],'history':['代言紀錄編號'],'due':['代言紀錄編號']}
         self.fields=[]
         for label in specs[action]:
-            f=discord.ui.TextInput(label=label,max_length=100);self.add_item(f);self.fields.append(f)
+            f=discord.ui.TextInput(label=label,max_length=100,required=not label.startswith('到期日'));self.add_item(f);self.fields.append(f)
     async def on_submit(self,interaction):
         if str(interaction.guild_id)!=self.gid or str(interaction.user.id)!=self.uid:
             return await interaction.response.send_message('這不是你的表單',ephemeral=True)
         await interaction.response.defer(ephemeral=True,thinking=True)
         v=[f.value.strip() for f in self.fields]
         try:
-            if self.action=='offer': msg=f'✅ 代言期款 #{await asyncio.to_thread(finance.offer,self.gid,int(v[0]),v[1],int(v[2]),v[3],self.uid)} 已建立；請藝人確認'
+            if self.action=='offer': msg=f'✅ 代言期款 #{await asyncio.to_thread(finance.offer,self.gid,int(v[0]),v[1],int(v[2]),v[3],self.uid,v[4] or None)} 已建立；請藝人確認'
             elif self.action=='accept': msg=await asyncio.to_thread(finance.accept,self.gid,int(v[0]),self.uid)
             elif self.action=='pay': msg=await asyncio.to_thread(finance.pay,self.gid,int(v[0]),self.uid)
             elif self.action=='cancel': msg=await asyncio.to_thread(finance.cancel,self.gid,int(v[0]),self.uid)
