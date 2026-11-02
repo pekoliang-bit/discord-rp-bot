@@ -148,9 +148,25 @@ class CompanyBankMoveModal(FinanceModal):
         )
 
 
+
+class PayrollCycleModal(FinanceModal):
+    def __init__(self, user_id, guild_id, business_id):
+        super().__init__(user_id, guild_id, business_id, "設定發薪週期")
+        self.cycle = discord.ui.TextInput(label="週期天數（7 或 14）", max_length=2, placeholder="7")
+        self.add_item(self.cycle)
+
+    async def on_submit(self, interaction):
+        from core.company_payroll_service import configure_payroll_cycle
+        try:
+            days = int(str(self.cycle.value).strip())
+        except ValueError:
+            return await interaction.response.send_message("請輸入 7 或 14。", ephemeral=True)
+        await self.run_operation(interaction, lambda: configure_payroll_cycle(
+            self.guild_id, self.business_id, self.user_id, days))
+
 class PayrollModal(FinanceModal):
     def __init__(self, user_id, guild_id, business_id):
-        super().__init__(user_id, guild_id, business_id, "核發本月員工薪資")
+        super().__init__(user_id, guild_id, business_id, "核發到期員工薪資")
         self.character_id = discord.ui.TextInput(
             label="收薪員工角色編號", max_length=20,
             placeholder="填寫正式角色編號，例如 123",
@@ -413,6 +429,19 @@ class TreasuryDetailView(discord.ui.View):
         await interaction.response.send_modal(
             PayrollModal(self.user_id, self.guild_id, self.business_id)
         )
+
+    @discord.ui.button(label="📅 薪資進度", style=discord.ButtonStyle.secondary, row=2)
+    async def payroll_status(self, interaction, button):
+        from core.company_payroll_service import payroll_status
+        await _respond(interaction, lambda: payroll_status(
+            self.guild_id, self.business_id, self.user_id))
+
+    @discord.ui.button(label="⚙️ 發薪週期", style=discord.ButtonStyle.secondary, row=2)
+    async def payroll_cycle(self, interaction, button):
+        if not self.is_owner:
+            return await interaction.response.send_message("只有公司持有人能設定發薪週期。", ephemeral=True)
+        await interaction.response.send_modal(PayrollCycleModal(
+            self.user_id, self.guild_id, self.business_id))
 
     @discord.ui.button(label="📊 財務核對", style=discord.ButtonStyle.secondary, row=1)
     async def profit(self, interaction, button):
