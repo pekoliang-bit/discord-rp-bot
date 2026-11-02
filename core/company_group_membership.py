@@ -56,6 +56,9 @@ def attach_company(
     if company is None:
         raise LookupError("找不到正式公司")
 
+    if str(company["business_id"]) == str(group_id):
+        raise ValueError("集團不可納入自己")
+
     if str(company["owner_id"]) != str(actor_id):
         raise PermissionError(
             "目前只允許董事長將"
