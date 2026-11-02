@@ -143,6 +143,9 @@ def accept_contract(
                 "員工已離職或角色擁有者變更"
             )
 
+        from core.company_contract_payroll_guard import validate_contract_activation
+        validate_contract_activation(db, gid, contract["company_id"], contract["cycle_days"])
+
         result = db.execute("""
             UPDATE rp_company_employee_contracts
             SET employee_accepted=1,
