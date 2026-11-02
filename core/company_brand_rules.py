@@ -1,97 +1,164 @@
+"""品牌升級正式規則。
 
-"""品牌熱度來源及35%上限計算。
-
-消費：每1000金幣 = 1點熱度。
-四種來源各最多計入目標熱度的35%。
+不連線資料庫，不直接更動品牌等級。
 """
 
 from __future__ import annotations
 
-SOURCES = (
-    "consumption",
-    "promotion",
-    "cooperation",
-    "representative",
+from datetime import datetime, timedelta, timezone
+
+LEVELS = (
+    "平價",
+    "小資",
+    "輕奢",
+    "奢侈",
+    "高奢",
 )
 
+REQUIREMENTS = {
+    "小資": (10_000, 200_000),
+    "輕奢": (20_000, 1_000_000),
+    "奢侈": (100_000, 5_000_000),
+    "高奢": (1_000_000, 25_000_000),
+}
 
-def calculate_brand_heat(
-    target_heat: int,
-    net_consumption: int,
-    promotion: int = 0,
-    cooperation: int = 0,
-    representative: int = 0,
-) -> dict:
-    if isinstance(target_heat, bool) or isinstance(net_consumption, bool):
-        raise ValueError("熱度與消費必須為整數")
-    target_heat = int(target_heat)
-    net_consumption = int(net_consumption)
+DESIGN_WORDS = (
+    "設計", "服裝", "服飾", "珠寶",
+    "飾品", "皮具", "皮革", "鞋履",
+    "鞋類", "家具", "家居設計",
+    "香水", "美妝", "彩妝",
+)
 
-    if target_heat <= 0:
-        raise ValueError("目標熱度必須大於零")
+RESTAURANT_WORDS = (
+    "餐廳", "餐飲", "料理", "咖啡廳",
+    "甜點店", "食堂",
+)
 
-    if net_consumption < 0:
-        raise ValueError("淨消費不可為負數")
-
-    values = {
-        "consumption": net_consumption // 1000,
-        "promotion": int(promotion),
-        "cooperation": int(cooperation),
-        "representative": int(representative),
-    }
-
-    if any(value < 0 for value in values.values()):
-        raise ValueError("熱度來源不可為負數")
-
-    limit = target_heat * 35 // 100
-
-    effective = {
-        name: min(value, limit)
-        for name, value in values.items()
-    }
-
-    return {
-        "raw": values,
-        "effective": effective,
-        "source_limit": limit,
-        "total": sum(effective.values()),
-        "target": target_heat,
-        "qualified": (
-            sum(effective.values()) >= target_heat
-        ),
-    }
+WAIT_DAYS = 14
+WINDOW_DAYS = 30
+SOURCE_CAP_PERCENT = 35
 
 
-def heat_source_breakdown(data: dict) -> str:
-    names = {
-        "consumption": "消費",
-        "promotion": "宣傳",
-        "cooperation": "合作",
-        "representative": "代表曝光",
-    }
+def next_brand_level(current: str) -> str | None:
+    if current not in LEVELS:
+        raise ValueError("未知的品牌等級")
 
-    lines = [
-        "📊 品牌熱度來源",
-        f"目標熱度：{data['target']:,}",
-        f"單一來源上限：{data['source_limit']:,}",
-    ]
+    index = LEVELS.index(current)
 
-    for source in SOURCES:
-        raw = data["raw"][source]
-        effective = data["effective"][source]
+    if index == len(LEVELS) - 1:
+        return None
 
-        lines.append(
-            f"{names[source]}："
-            f"{effective:,} / {raw:,}"
+    return LEVELS[index + 1]
+
+
+def allowed_brand_level(
+    industry: str,
+    target: str,
+) -> bool:
+    if target not in LEVELS:
+        raise ValueError("未知的品牌等級")
+
+    industry = str(industry or "").strip()
+
+    if target != "高奢":
+        return True
+
+    if any(
+        word in industry
+        for word in RESTAURANT_WORDS
+    ):
+        return False
+
+    return any(
+        word in industry
+        for word in DESIGN_WORDS
+    )
+
+
+def normalize_datetime(value) -> datetime:
+    if isinstance(value, datetime):
+        parsed = value
+
+    elif isinstance(value, str):
+        parsed = datetime.fromisoformat(
+            value.strip().replace("Z", "+00:00")
         )
 
-    lines.append(
-        f"有效總熱度：{data['total']:,}"
+    else:
+        raise ValueError("品牌日期格式不正確")
+
+    if parsed.tzinfo is None:
+        # 舊資料庫的 naive 時間按 UTC 解讀。
+        parsed = parsed.replace(tzinfo=timezone.utc)
+
+    return parsed.astimezone(timezone.utc)
+
+
+def enough_age(
+    founded_at,
+    *,
+    now: datetime | None = None,
+) -> bool:
+    founded = normalize_datetime(founded_at)
+
+    current = normalize_datetime(
+        now if now is not None
+        else datetime.now(timezone.utc)
     )
 
-    lines.append(
-        "升級熱度達標："
-        + ("是" if data["qualified"] else "否")
+    return current - founded >= timedelta(
+        days=WAIT_DAYS
     )
 
-    return "\n".join(lines)
+
+def evaluate_brand_upgrade(
+    current_level: str,
+    industry: str,
+    founded_at,
+    heat: int,
+    net_revenue: int,
+    *,
+    now: datetime | None = None,
+) -> dict:
+    """回傳下一級升級的資格與未通過原因。
+
+    角色屬性、品牌代表等其他既有條件，
+    仍由原本的 company_brand_progress 檢查。
+    """
+
+    target = next_brand_level(current_level)
+
+    if target is None:
+        return {
+            "eligible": False,
+            "target": None,
+            "reasons": ("已達最高等級",),
+        }
+
+    required_heat, required_revenue = (
+        REQUIREMENTS[target]
+    )
+
+    reasons = []
+
+    if not enough_age(founded_at, now=now):
+        reasons.append("成立未滿14天")
+
+    if not allowed_brand_level(
+        industry, target
+    ):
+        reasons.append("產業不符合升級資格")
+
+    if int(heat) < required_heat:
+        reasons.append("品牌熱度不足")
+
+    if int(net_revenue) < required_revenue:
+        reasons.append("30天淨營業額不足")
+
+    return {
+        "eligible": not reasons,
+        "target": target,
+        "required_heat": required_heat,
+        "required_revenue": required_revenue,
+        "reasons": tuple(reasons),
+    }
