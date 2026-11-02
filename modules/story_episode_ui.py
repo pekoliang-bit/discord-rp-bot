@@ -139,7 +139,7 @@ class EpisodeView(discord.ui.View):
 
 
 class EpisodeManageButton(discord.ui.Button):
-    def __init__(self):super().__init__(label='📚 回目與獎勵',style=discord.ButtonStyle.success,row=2)
+    def __init__(self):super().__init__(label='🎁 回目獎勵',style=discord.ButtonStyle.success,row=2)
     async def callback(self,i):
         if not allowed(i):return await i.response.send_message('⛔ 僅群主可操作。',ephemeral=True)
         init_db()
