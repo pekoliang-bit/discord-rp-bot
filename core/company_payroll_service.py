@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 from core.database import (
     get_connection,
@@ -221,6 +221,26 @@ def pay_salary(
                 "避免重複支付。"
             )
 
+        # Select the oldest unpaid period so historical arrears can be repaid
+        # without skipping earlier completed work cycles.
+        from core.company_payroll_period import parse_time, PayrollPeriod
+        hired = parse_time(employee["hired_at"])
+        cycle = int(policy["cycle_days"])
+        step = timedelta(days=cycle)
+        completed = int((period.end - hired) // step)
+        anchor = hired.strftime("%Y%m%dT%H%M%S%fZ")
+        if completed > 520:
+            raise ValueError("薪資歷史超過 520 期，請先人工核對歷史資料")
+        for ix in range(1, completed + 1):
+            key = f"{cycle}d:{anchor}:{ix}"
+            paid = db.execute("SELECT 1 FROM rp_company_payroll WHERE guild_id=? AND business_id=? AND character_id=? AND pay_period=?", (gid,bid,cid,key)).fetchone()
+            if not paid:
+                end = hired + ix*step
+                period = PayrollPeriod(key, end-step, end, cycle)
+                break
+        else:
+            return f"ℹ️ 角色 #{cid} 所有已到期薪資均已發放。"
+
         existing = db.execute("""
             SELECT 1 FROM rp_company_payroll
             WHERE guild_id=? AND business_id=?
@@ -312,6 +332,8 @@ def pay_salary(
             payday_text(period), now_ts,
         ))
 
+    from core.company_finance_events import notify_payment
+    notify_payment(gid,bid,cid,amount,"薪資入帳",reference)
     return (
         f"✅ 已支付角色 #{cid} 的薪資 "
         f"{amount:,} 金幣。\n"
@@ -353,7 +375,7 @@ def payroll_status(guild_id, business_id, actor_id):
             else:
                 existing = db.execute("SELECT 1 FROM rp_company_payroll WHERE guild_id=? AND business_id=? AND character_id=? AND pay_period=?",(gid,bid,cid,period.key)).fetchone()
                 legacy = db.execute("SELECT 1 FROM rp_company_payroll WHERE guild_id=? AND business_id=? AND character_id=? AND pay_period GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]' LIMIT 1",(gid,bid,cid)).fetchone()
-                status = '⚠️ 舊月薪待核對' if legacy else ('已支付' if existing else '待發放：'+payday_text(period))
+                status = '⚠️ 舊月薪待核對' if legacy else ('本期已付（歷史期可能未付）' if existing else '待發放：'+payday_text(period))
             result.append(f"角色 #{cid}｜{int(row['salary']):,} 金幣｜{status}")
         return "\n".join(result)[:1900] if rows else "目前沒有在職且已設定薪資的員工。"
 
