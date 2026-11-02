@@ -1,3 +1,4 @@
+
 """網路影響榜：帳號級計分，未有核准欄位映射前禁止猜測。"""
 from __future__ import annotations
 from core.database import get_connection
