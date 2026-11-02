@@ -642,6 +642,11 @@ def make_character_embed(
     )
 
     category = get_category(character)
+    extra_rank = ''
+    if category == 'extra':
+        from modules.extra_character_store import _world_levels, _title
+        lv = int(settings.get('status_level') or settings.get('level') or 1)
+        extra_rank = f"\n咖位：LV{lv} {_title(lv, _world_levels(actor.guild_id))}"
 
     embed = discord.Embed(
         title=shorten(character["name"], 250),
@@ -650,7 +655,7 @@ def make_character_embed(
             f"角色編號：#{character['id']}\n"
             f"公開代碼："
             f"{character.get('public_code') or '未設定'}\n"
-            f"狀態：{character['status']}"
+            f"狀態：{character['status']}{extra_rank}"
         ),
         color=discord.Color.blurple(),
     )
