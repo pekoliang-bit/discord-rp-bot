@@ -87,7 +87,13 @@ def accessible_brands(guild_id, user_id):
                 except (ValueError, TypeError):
                     permissions = []
 
-                if "brand" in permissions:
+                if (
+                    isinstance(permissions, list)
+                    and "brand" in permissions
+                ) or (
+                    isinstance(permissions, dict)
+                    and permissions.get("brand") is True
+                ):
                     allowed.append(dict(row))
                     break
 
