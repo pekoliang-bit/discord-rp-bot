@@ -251,6 +251,7 @@ class CompanyContractView(discord.ui.View):
             )
 
         self.add_item(ContractListButton())
+        self.add_item(ContractExitEntryButton())
         self.add_item(
             ContractDecisionButton(
                 "accept", "✅ 接受合約",
@@ -364,6 +365,26 @@ class ContractDecisionButton(discord.ui.Button):
         )
 
 
+class ContractExitEntryButton(discord.ui.Button):
+    """正式解約與違約金帳本入口。"""
+
+    def __init__(self):
+        super().__init__(label="🚪 解約管理", style=discord.ButtonStyle.secondary)
+
+    async def callback(self, interaction):
+        from modules.company_contract_exit_ui import ContractExitView
+        view = self.view
+        await interaction.response.send_message(
+            "🚪 **正式合約解約中心**\n"
+            "員工可提出一般、雙方協議或自建公司合理解約；"
+            "公司持有人可核准協議。\n"
+            "一般提前解約的約定違約金會在完成解約時，由角色錢包"
+            "原子轉入公司金庫；款項不足時不會將員工標成離職。",
+            view=ContractExitView(view.gid, view.uid),
+            ephemeral=True,
+        )
+
+
 class CompanyContractEntry(discord.ui.Button):
     """嵌入現有 /公司 面板的入口。"""
 
@@ -389,7 +410,7 @@ class CompanyContractEntry(discord.ui.Button):
         await interaction.response.send_message(
             "📄 **公司員工合約中心**\n"
             "公司持有人可提出合約；"
-            "員工本人可查看、接受或拒絕。",
+            "員工本人可查看、接受、拒絕，並進入正式解約。",
             view=CompanyContractView(
                 panel.gid,
                 panel.uid,
