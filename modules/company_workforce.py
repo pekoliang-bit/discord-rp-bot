@@ -1211,6 +1211,8 @@ def resign(
     """
 
     with transaction() as db:
+        from core.company_contract_service import guard_resignation, finish_resignation
+        guard_resignation(db, gid, company, cid)
 
         character_owner(
             db,
@@ -1239,6 +1241,8 @@ def resign(
             raise ValueError(
                 "目前並未在該公司任職。"
             )
+
+        finish_resignation(db, gid, company, cid)
 
         db.execute(
             """
