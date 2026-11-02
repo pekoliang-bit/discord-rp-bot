@@ -91,7 +91,7 @@ def get_daily_slots(guild_id, character_id, user_id, *, now=None):
              JOIN rp_task_definitions AS t ON t.id=d.task_id AND t.guild_id=d.guild_id
              WHERE d.guild_id=? AND d.character_id=? AND d.cycle_key=?
              ORDER BY d.display_order''', (gid, cid, cycle_key)).fetchall()
-    return {'cycle_key': cycle_key, 'ends_at': end_at, 'tasks': [dict(r) for r in rows]}
+    return {'cycle_key': cycle_key, 'ends_at': end_at, 'tasks': [dict(r) for r in rows], 'available_count':len(rows)}
 
 
 def daily_task_in_current_cycle(guild_id, character_id, task_id, *, now=None):
