@@ -12,6 +12,9 @@ import sqlite3
 
 from discord.ext import commands, tasks
 
+from core.company_endorsement_lifecycle import reconcile_expired
+from core.database import get_connection
+
 from modules.company_brand_progress import (
     initialize as initialize_progress,
 )
@@ -46,6 +49,13 @@ class CompanyBrandSync(commands.Cog):
                 sync_brand_sales
             )
 
+            # 每次同步時整理已到期合約；不執行任何扣款。
+            def expire_across_guilds():
+                with get_connection() as db:
+                    guilds = [r[0] for r in db.execute("SELECT DISTINCT guild_id FROM rp_endorsement_terms WHERE status='active'")] if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='rp_endorsement_terms'").fetchone() else []
+                return sum(reconcile_expired(gid) for gid in guilds)
+            expired = await asyncio.to_thread(expire_across_guilds)
+            if expired: LOG.info('代言合約已到期：%s', expired)
             notices = await asyncio.to_thread(sync_to_notification_updates)
             if notices:
                 LOG.info("品牌通知已移交至通知彙總佇列：%s 筆。", notices)
