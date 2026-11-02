@@ -76,6 +76,13 @@ def profit_overview(guild_id, business_id, actor_id):
         currency = term(gid, "currency")
         from core.company_profit_reserve import reserve_account
         reserve = int(account_balance(db, gid, reserve_account(db, gid, bid)))
+        from core.company_cashflow_reconcile import cashflow_summary
+        # 使用相同的權限與既有帳本。這個摘要是現金流，不是淨利潤。
+        flows = cashflow_summary(gid, bid, uid)
+        unknown = "\n".join(
+            f"・{item['key']}: {item['delta']:+,}"
+            for item in flows['unclassified'][:5]
+        ) or "（無）"
         return (
             f"📊 **{company}財務核對｜{bid}**\n"
             f"銷售統計：{sales:,} {currency}\n"
@@ -86,10 +93,15 @@ def profit_overview(guild_id, business_id, actor_id):
             f"試算餘額（未完成成本歸集）：{estimated:,} {currency}\n"
             f"{company}銀行實際餘額：{account_text} {currency}\n"
             f"已隔離的分潤準備金：{reserve:,} {currency}\n"
-            f"{company}金庫實際餘額：{treasury:,} {currency}\n\n"
+            f"{company}金庫實際餘額：{treasury:,} {currency}\n"
+            f"已入帳資金流入：{flows['inflow']:,} {currency}\n"
+            f"已入帳資金流出：{flows['outflow']:,} {currency}\n"
+            f"淨現金流：{flows['net']:+,} {currency}\n"
+            f"公司內部互轉：{flows['transfers']} 筆（已排除）\n"
+            f"待歸類交易（最近五筆）：\n{unknown}\n\n"
             "⚠️ 銷售統計不等於銀行入帳；試算額不可直接分潤。"
             "本報表僅顯示可取得的銷售與財務流水。未具備完整成本、退款入帳及期初期末結轉來源，"
-            "因此不會宣稱淨利潤已正式核定，也不會自動釋出分潤。"
+            "現金流亦包含借款、資金挹注等非營業款，正式淨利潤尚未核定，不自動釋出分潤。"
         )
 
 
