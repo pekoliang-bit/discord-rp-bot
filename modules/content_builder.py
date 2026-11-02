@@ -1430,6 +1430,14 @@ class WorldSettingsView(discord.ui.View):
                 from modules.world_stats_editor import StatHomeView, text
                 view = StatHomeView(interaction)
                 content = text(interaction.guild_id)
+            elif category == "status_levels":
+                from modules.world_status_editor import StatusHomeView, status_summary
+                view = StatusHomeView(interaction)
+                content = status_summary(interaction.guild_id)
+            elif category == "company_rules":
+                from modules.world_organization_editor import OrganizationHomeView, organization_summary
+                view = OrganizationHomeView(interaction)
+                content = organization_summary(interaction.guild_id)
             else:
                 view = WorldCategoryView(interaction, category)
                 content = world_category_summary(interaction.guild_id, category)
