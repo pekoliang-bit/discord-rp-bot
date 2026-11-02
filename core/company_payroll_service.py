@@ -1,4 +1,3 @@
-
 """公司正式發薪服務：7／14天制。
 
 沿用既有金流帳本，所有付款寫入同一個 SQLite 交易。
@@ -183,6 +182,16 @@ def pay_salary(
         if amount <= 0:
             raise ValueError("此職位未設定有效薪資")
 
+        # 等級薪資倍率由正式地位規則統一計算。
+        try:
+            from modules import character_status
+            character_status.initialize()
+            state = db.execute("SELECT level FROM rp_character_status WHERE guild_id=? AND character_id=?", (gid, cid)).fetchone()
+            level = max(1, min(20, int(state["level"]) if state else 1))
+            amount = character_status.minimum_work_pay(amount, level)
+        except (ImportError, AttributeError):
+            level = 1
+
         period = payroll_period(
             employee["hired_at"],
             int(policy["cycle_days"]),
@@ -308,3 +317,43 @@ def pay_salary(
         f"{amount:,} 金幣。\n"
         f"發薪期：{payday_text(period)}"
     )
+
+
+def payroll_cycle_help():
+    """提供 UI 的正式薪資規則摘要。"""
+    return ("公司由持有人選擇每 7 或 14 天發薪；每期只可入帳一次。"
+            "薪資由已開通的公司銀行帳戶扣除，支付至角色錢包。"
+            "未開戶、餘額不足或舊月薪尚未遷移時停止支付，不會虛增金幣。")
+
+
+def payroll_status(guild_id, business_id, actor_id):
+    from core.database import get_connection
+    from core.company_payroll_period import payroll_period, payday_text
+    from modules.company_treasury import _finance_permission
+    from modules.company_workforce import initialize as init_workforce
+    init_workforce()
+    initialize_payroll()
+    gid, bid, uid = str(guild_id), str(business_id), str(actor_id)
+    with get_connection() as db:
+        if not _finance_permission(db, gid, bid, uid):
+            raise PermissionError("沒有公司財務查閱權限。")
+        settings = db.execute("SELECT cycle_days FROM rp_company_payroll_settings WHERE guild_id=? AND business_id=?",(gid,bid)).fetchone()
+        if not settings:
+            return "⚠️ 公司尚未設定 7／14 天發薪週期。請由持有人先設定。"
+        cycle = int(settings['cycle_days'])
+        rows = db.execute("""SELECT e.character_id,e.hired_at,p.salary FROM company_employees e
+          JOIN company_job_positions p ON p.guild_id=e.guild_id AND p.company_id=e.company_id AND p.rank=e.rank
+          WHERE e.guild_id=? AND e.company_id=? AND e.status='active' ORDER BY e.character_id LIMIT 40""",(gid,bid)).fetchall()
+        result = [f"📅 **公司 {bid}｜薪資概況**", f"發薪週期：每 {cycle} 天", "（僅列前 40 名在職員工）"]
+        for row in rows:
+            cid = int(row['character_id'])
+            period = payroll_period(row['hired_at'],cycle)
+            if period is None:
+                status = '尚未到期'
+            else:
+                existing = db.execute("SELECT 1 FROM rp_company_payroll WHERE guild_id=? AND business_id=? AND character_id=? AND pay_period=?",(gid,bid,cid,period.key)).fetchone()
+                legacy = db.execute("SELECT 1 FROM rp_company_payroll WHERE guild_id=? AND business_id=? AND character_id=? AND pay_period GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]' LIMIT 1",(gid,bid,cid)).fetchone()
+                status = '⚠️ 舊月薪待核對' if legacy else ('已支付' if existing else '待發放：'+payday_text(period))
+            result.append(f"角色 #{cid}｜{int(row['salary']):,} 金幣｜{status}")
+        return "\n".join(result)[:1900] if rows else "目前沒有在職且已設定薪資的員工。"
+
