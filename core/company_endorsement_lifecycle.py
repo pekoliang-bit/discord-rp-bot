@@ -109,3 +109,13 @@ def reconcile_expired(guild_id, endorsement_id=None):
             db.execute("UPDATE rp_company_endorsements SET status='ended',ended_at=CURRENT_TIMESTAMP,end_reason='合約期限屆滿' WHERE guild_id=? AND id=? AND status='active'",(gid,eid))
             _audit(db,gid,eid,'expire','system','期限已屆滿，未自動認定違約或扣款')
         return len(ids)
+
+
+def renewal_status(guild_id,endorsement_id,actor_id):
+    """回報已確認版本與是否接近到期，不自行修改付款。"""
+    from datetime import timedelta
+    term=details(guild_id,endorsement_id,actor_id)
+    if not term: return {'status':'unconfigured','days_left':None,'version':None}
+    days=(date.fromisoformat(term['end_date'])-date.today()).days
+    return {'status':term['status'],'days_left':days,'version':term['version'],
+            'needs_renewal':term['status']=='active' and days<=14}
