@@ -1438,6 +1438,18 @@ class WorldSettingsView(discord.ui.View):
                 from modules.world_organization_editor import OrganizationHomeView, organization_summary
                 view = OrganizationHomeView(interaction)
                 content = organization_summary(interaction.guild_id)
+            elif category == "detail_rules":
+                from modules.world_detail_rules_editor import RuleHomeView, summary
+                view = RuleHomeView(interaction)
+                content = summary(interaction.guild_id)
+            elif category == "categories":
+                from modules.world_category_editor import CategoryHomeView, summary
+                view = CategoryHomeView(interaction)
+                content = summary(interaction.guild_id)
+            elif category == "permissions":
+                from modules.world_permission_editor import PermissionHomeView, summary
+                view = PermissionHomeView(interaction)
+                content = summary(interaction.guild_id)
             else:
                 view = WorldCategoryView(interaction, category)
                 content = world_category_summary(interaction.guild_id, category)
