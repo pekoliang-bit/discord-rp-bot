@@ -1,3 +1,4 @@
+
 """Discord /公司 → 集團管理。
 
 不新增頂層斜線指令。
@@ -81,11 +82,28 @@ class GroupAttachModal(discord.ui.Modal):
                         company_id,
                         self.uid,
                     )
+
                     if changed:
                         db.execute(
-                            "INSERT INTO rp_business_audit(guild_id,business_id,action,actor_id,details) VALUES(?,?,?,?,?)",
-                            (self.gid, gid, 'group_attach_company', self.uid, company_id),
+                            """
+                            INSERT INTO rp_business_audit (
+                                guild_id,
+                                business_id,
+                                action,
+                                actor_id,
+                                details
+                            )
+                            VALUES (?, ?, ?, ?, ?)
+                            """,
+                            (
+                                self.gid,
+                                gid,
+                                "group_attach_company",
+                                self.uid,
+                                company_id,
+                            ),
                         )
+
                     return changed
 
             changed = await asyncio.to_thread(
@@ -107,7 +125,9 @@ class GroupAttachModal(discord.ui.Modal):
             message = f"⚠️ {exc}"
 
         except Exception:
-            LOG.exception("集團公司歸屬失敗")
+            LOG.exception(
+                "集團公司歸屬失敗"
+            )
             message = (
                 "⚠️ 操作無法完成，"
                 "請檢查集團紀錄。"
@@ -122,12 +142,21 @@ class GroupAttachModal(discord.ui.Modal):
 class CompanyGroupView(discord.ui.View):
     def __init__(self, gid, uid):
         super().__init__(timeout=300)
+
         self.gid = str(gid)
         self.uid = str(uid)
-        from modules.company_group_delegation_ui import DelegationEntry, DelegatedOverviewEntry, DelegatedCompaniesEntry
+
+        from modules.company_group_delegation_ui import (
+            DelegationEntry,
+            DelegatedOverviewEntry,
+            DelegatedCompaniesEntry,
+            DelegatedMemberReportEntry,
+        )
+
         self.add_item(DelegationEntry())
         self.add_item(DelegatedOverviewEntry())
         self.add_item(DelegatedCompaniesEntry())
+        self.add_item(DelegatedMemberReportEntry())
 
     async def interaction_check(self, interaction):
         allowed = (
@@ -159,6 +188,7 @@ class CompanyGroupView(discord.ui.View):
                 self.gid,
                 self.uid,
             )
+
             message = format_group_overview(data)
 
         except Exception:
@@ -176,7 +206,10 @@ class CompanyGroupView(discord.ui.View):
     )
     async def attach(self, interaction, button):
         await interaction.response.send_modal(
-            GroupAttachModal(self.gid, self.uid)
+            GroupAttachModal(
+                self.gid,
+                self.uid,
+            )
         )
 
 
