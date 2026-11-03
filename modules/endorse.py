@@ -29,6 +29,9 @@ def initialize():
             decided_at INTEGER, payment_key TEXT NOT NULL UNIQUE,
             UNIQUE(guild_id, id)
         )""")
+        columns = {r['name'] for r in db.execute('PRAGMA table_info(rp_endorsement_contracts)')}
+        if 'endorsement_id' not in columns:
+            db.execute('ALTER TABLE rp_endorsement_contracts ADD COLUMN endorsement_id INTEGER')
         db.execute("""CREATE INDEX IF NOT EXISTS idx_endorsement_pending
             ON rp_endorsement_contracts(guild_id, character_id, status)""")
 
@@ -61,8 +64,8 @@ def offer(guild_id, business_id, actor_id, character_id, tier, fee, contract_typ
         raise ValueError("合約類型只能填「單次／短期／中期／長期」。")
     if not market or len(market) > 60 or len(series) > 60 or len(note) > 250:
         raise ValueError("市場必填，市場及系列最多60字、備註最多250字。")
-    if tier < 1 or tier > 10 or fee < 0:
-        raise ValueError("代言級別 T1～T10，費用不得為負數。")
+    if tier < 4 or tier > 10 or fee < 0:
+        raise ValueError("品牌代言級別為 T4～T10，費用不得為負數。")
     if fee < minimum_endorsement_fee(tier):
         # T10 品牌起源可作免費榮譽頭銜，但需明確以市場欄標示「榮譽」。
         if not (tier == 10 and fee == 0 and market == "榮譽"):
@@ -70,6 +73,8 @@ def offer(guild_id, business_id, actor_id, character_id, tier, fee, contract_typ
     level = max(1, min(20, int(get_status(gid, cid)["level"])))
     with transaction() as db:
         entity = _entity(db, gid, bid)
+        if entity["kind"] != "brand":
+            raise ValueError("代言邀約必須由已建立的品牌提出")
         if not has_permission(db, gid, bid, uid, "endorsement"):
             raise PermissionError("你沒有代言管理權限。")
         if fee:
@@ -116,6 +121,7 @@ def decide(guild_id, actor_id, contract_id, accept):
         if str(character["owner_id"]) != uid:
             raise PermissionError("只有該角色的持有人可以回覆代言邀請。")
         if accept:
+            if int(row["tier"]) < 4: raise ValueError("舊版 T1～T3 邀約不符合正式 T4～T10 規則，不能生效")
             _entity(db, gid, row["business_id"])
             if row["fee"]:
                 # 收款當下再次核對公司財務授權與餘額；確保不能越權付款。
@@ -127,9 +133,18 @@ def decide(guild_id, actor_id, contract_id, accept):
                 result = _payment(db, gid, row["payment_key"], sender, receiver, int(row["fee"]), f"代言合約 #{contract_id} T{row['tier']}")
                 if result.duplicated:
                     raise ValueError("此合約款項已付款，請聯絡管理員核對。")
-            db.execute("""UPDATE rp_endorsement_contracts SET status='active',decided_by=?,decided_at=?
-                WHERE guild_id=? AND id=? AND status='pending'""", (uid, int(time.time()), gid, contract_id))
-            return f"✅ 已接受代言合約 #{contract_id}，T{row['tier']}，收到 {row['fee']:,} 金幣。"
+            # 舊介面同意邀約時，也必須產生正式代言紀錄，不能只有舊表 active。
+            from core.company_endorsement_appointment import activate_legacy_accepted
+            from core.company_endorsement_rules import validate_endorsement
+            scope = row['series'] or row['market']
+            result = activate_legacy_accepted(
+                db, gid, row['business_id'], row['character_id'],
+                row['tier'], validate_endorsement(int(row['tier']),scope),
+                row['offered_by'],
+            )
+            db.execute("""UPDATE rp_endorsement_contracts SET status='active',decided_by=?,decided_at=?,endorsement_id=?
+                WHERE guild_id=? AND id=? AND status='pending'""", (uid, int(time.time()), result['id'], gid, contract_id))
+            return f"✅ 已接受代言邀約 #{contract_id}，正式代言 #{result['id']}，收到 {row['fee']:,} 金幣。"
         db.execute("""UPDATE rp_endorsement_contracts SET status='declined',decided_by=?,decided_at=?
             WHERE guild_id=? AND id=? AND status='pending'""", (uid, int(time.time()), gid, contract_id))
         return f"已婉拒代言邀約 #{contract_id}。"
@@ -138,13 +153,13 @@ def decide(guild_id, actor_id, contract_id, accept):
 class OfferModal(discord.ui.Modal, title="發出代言邀約"):
     business = discord.ui.TextInput(label="公司／品牌編號")
     character = discord.ui.TextInput(label="藝人角色編號")
-    tier = discord.ui.TextInput(label="代言級別 T1～T10", placeholder="例如 4")
+    tier = discord.ui.TextInput(label="代言級別 T4～T10", placeholder="例如 4")
     fee = discord.ui.TextInput(label="代言費（金幣）", placeholder="例如 120000")
     details = discord.ui.TextInput(label="類型｜市場｜系列（系列可空）", placeholder="短期｜台灣｜春季系列")
 
     async def on_submit(self, interaction: discord.Interaction):
         try:
-            data = [x.strip() for x in str(self.details).split("｜")]
+            data = [x.strip() for x in self.details.value.split("｜")]
             if len(data) not in (2, 3):
                 raise ValueError("最後一欄請填：類型｜市場｜系列（可省略系列）。")
             msg = offer(interaction.guild_id, self.business.value,
