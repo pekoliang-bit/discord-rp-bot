@@ -1,4 +1,3 @@
-
 """討論串／論壇帖子名稱對應獎單的抽獎模組。"""
 from __future__ import annotations
 
@@ -344,6 +343,17 @@ class LotteryCog(commands.Cog):
         description='在討論串或論壇帖子內，按名稱對應獎單抽獎',
     )
     async def draw(self, i: discord.Interaction):
+        from modules.task_event_bridge import require_tutorial_channel, mark_tutorial_after_reply
+        allowed, tutorial_character = await require_tutorial_channel(i, '抽獎')
+        if not allowed:
+            return
+        if tutorial_character is not None:
+            await i.response.send_message(
+                '🎟️ 抽獎教學：正式抽獎必須到指定的獎單討論串使用 `/抽獎`。'
+                '這次僅瀏覽說明，不抽取獎品，也不變更抽獎資格。', ephemeral=True,
+            )
+            mark_tutorial_after_reply(i, '抽獎', tutorial_character)
+            return
         if (
             i.guild_id is None
             or not isinstance(i.channel, discord.Thread)
