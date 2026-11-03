@@ -800,6 +800,11 @@ class BankCenter(commands.Cog):
                 ),
                 ephemeral=True,
             )
+            try:
+                from modules.task_event_bridge import record_successful_command_interaction
+                record_successful_command_interaction(interaction, '銀行')
+            except Exception:
+                pass  # 教學紀錄不得影響原有功能
 
         except Exception as exc:
             await show_error(
