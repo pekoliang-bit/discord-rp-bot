@@ -25,9 +25,9 @@ def _init(db):
     db.execute("CREATE INDEX IF NOT EXISTS idx_endorsement_contract_payments ON rp_endorsement_contract_payments(guild_id,endorsement_id,status)")
 
 
-def _endorsement(db, gid, eid):
+def _endorsement(db, gid, eid, allow_ended=False):
     initialize_endorsements(db)
-    row=db.execute("SELECT * FROM rp_company_endorsements WHERE guild_id=? AND id=? AND status='active'",(gid,int(eid))).fetchone()
+    row=db.execute("SELECT * FROM rp_company_endorsements WHERE guild_id=? AND id=?" + ("" if allow_ended else " AND status='active'"),(gid,int(eid))).fetchone()
     if row is None: raise ValueError('找不到有效代言；請先確認代言任命')
     return row
 
@@ -85,8 +85,8 @@ def pay(guild_id,payment_id,actor_id):
         if not p: raise ValueError('期款不存在')
         if p['status']=='paid': return 'ℹ️ 此期款已付款，沒有重複扣款'
         if p['status']!='accepted': raise ValueError('需藝人確認期款後才能付款')
-        e=_endorsement(db,gid,p['endorsement_id']);_brand_and_payer(db,gid,e,p['payer_business_id'],actor)
-        check_payment_term(db,gid,p['endorsement_id'],p['due_date'])
+        e=_endorsement(db,gid,p['endorsement_id'],allow_ended=True);_brand_and_payer(db,gid,e,p['payer_business_id'],actor)
+        # 已經雙方確認的舊期款在合約自然到期後仍是債務，不可因此抹除。
         bank=db.execute("SELECT account_id,status FROM rp_company_bank_accounts WHERE guild_id=? AND company_id=?",(gid,p['payer_business_id'])).fetchone()
         if not bank or bank['status']!='active': raise ValueError('付款主體的銀行帳戶尚未啟用')
         source=int(bank['account_id']);dest=get_or_create_account(db,gid,'character',str(p['character_id']),'wallet')
@@ -101,7 +101,7 @@ def cancel(guild_id,payment_id,actor_id):
     with transaction() as db:
         _init(db);_ensure_due_date(db);p=db.execute('SELECT * FROM rp_endorsement_contract_payments WHERE guild_id=? AND id=?',(gid,int(payment_id))).fetchone()
         if not p: raise ValueError('期款不存在')
-        e=_endorsement(db,gid,p['endorsement_id']);_brand_and_payer(db,gid,e,p['payer_business_id'],actor)
+        e=_endorsement(db,gid,p['endorsement_id'],allow_ended=True);_brand_and_payer(db,gid,e,p['payer_business_id'],actor)
         if p['status']=='paid': raise ValueError('已支付款項不能直接取消，需另行處理退款或違約')
         db.execute("UPDATE rp_endorsement_contract_payments SET status='cancelled',cancelled_at=CURRENT_TIMESTAMP WHERE id=? AND status IN ('offered','accepted')",(int(payment_id),))
         return '✅ 未付款期款已取消，保留歷史紀錄'
@@ -111,10 +111,10 @@ def history(guild_id,endorsement_id,actor_id):
     gid=str(guild_id);actor=str(actor_id)
     with get_connection() as db:
         _init(db)
-        e=_endorsement(db,gid,endorsement_id)
+        e=_endorsement(db,gid,endorsement_id,allow_ended=True)
         brand=db.execute('SELECT owner_id FROM rp_business_entities WHERE guild_id=? AND business_id=?',(gid,e['brand_id'])).fetchone()
         ch=db.execute('SELECT owner_id FROM characters WHERE guild_id=? AND id=?',(gid,e['character_id'])).fetchone()
-        if actor not in (str(brand['owner_id']),str(ch['owner_id'])): raise PermissionError('只有品牌及藝人本人可查看期款')
+        if not brand or not ch or actor not in (str(brand['owner_id']),str(ch['owner_id'])): raise PermissionError('只有品牌及藝人本人可查看期款')
         return [dict(r) for r in db.execute('SELECT id,amount,installment_label,status,created_at,paid_at,due_date FROM rp_endorsement_contract_payments WHERE guild_id=? AND endorsement_id=? ORDER BY id DESC LIMIT 20',(gid,int(endorsement_id))).fetchall()]
 
 
@@ -129,8 +129,8 @@ def due_installments(guild_id,endorsement_id,actor_id):
     gid=str(guild_id)
     with get_connection() as db:
         _init(db);_ensure_due_date(db)
-        e=_endorsement(db,gid,endorsement_id)
+        e=_endorsement(db,gid,endorsement_id,allow_ended=True)
         brand=db.execute('SELECT owner_id FROM rp_business_entities WHERE guild_id=? AND business_id=?',(gid,e['brand_id'])).fetchone()
         ch=db.execute('SELECT owner_id FROM characters WHERE guild_id=? AND id=?',(gid,e['character_id'])).fetchone()
-        if str(actor_id) not in (str(brand['owner_id']),str(ch['owner_id'])): raise PermissionError('只有合約雙方可查閱')
+        if not brand or not ch or str(actor_id) not in (str(brand['owner_id']),str(ch['owner_id'])): raise PermissionError('只有合約雙方可查閱')
         return [dict(x) for x in db.execute("SELECT id,amount,installment_label,status,due_date FROM rp_endorsement_contract_payments WHERE guild_id=? AND endorsement_id=? AND status IN ('offered','accepted') ORDER BY COALESCE(due_date,'9999-12-31'), id LIMIT 30",(gid,int(endorsement_id))).fetchall()]
