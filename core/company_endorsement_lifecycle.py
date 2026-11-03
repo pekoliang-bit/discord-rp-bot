@@ -45,7 +45,7 @@ def propose(guild_id,endorsement_id,actor_id,end_date,breach_amount=0):
     with transaction() as db:
         _setup(db);p=_parties(db,gid,eid)
         if str(p['brand_owner'])!=actor: raise PermissionError('只有品牌持有人可提出期限及條款')
-        if p['status']!='active': raise ValueError('此代言已結束，不能續約')
+        if p['status']!='active': raise ValueError('此代言已結束；請重新任命後建立新合約，不可復活已結束的頭銜')
         old=db.execute('SELECT version FROM rp_endorsement_terms WHERE guild_id=? AND endorsement_id=?',(gid,eid)).fetchone()
         version=int(old['version'])+1 if old else 1
         db.execute('''INSERT INTO rp_endorsement_terms(guild_id,endorsement_id,start_date,end_date,breach_amount,version,proposer_id,artist_approved,status)
@@ -119,3 +119,17 @@ def renewal_status(guild_id,endorsement_id,actor_id):
     days=(date.fromisoformat(term['end_date'])-date.today()).days
     return {'status':term['status'],'days_left':days,'version':term['version'],
             'needs_renewal':term['status']=='active' and days<=14}
+
+
+def history(guild_id, endorsement_id, actor_id, limit=30):
+    """合約雙方查閱不可竄改的版本與事件紀錄。"""
+    gid, eid, actor = str(guild_id), int(endorsement_id), str(actor_id)
+    with get_connection() as db:
+        _setup(db)
+        party = _parties(db, gid, eid)
+        if actor not in (str(party['brand_owner']), str(party['artist_owner'])):
+            raise PermissionError('只有代言雙方可以查閱合約異動')
+        return [dict(row) for row in db.execute(
+            'SELECT event,actor_id,details,created_at FROM rp_endorsement_term_history WHERE guild_id=? AND endorsement_id=? ORDER BY id DESC LIMIT ?',
+            (gid, eid, max(1, min(int(limit), 50)))
+        ).fetchall()]
