@@ -1594,6 +1594,11 @@ class CasinoCommands(commands.Cog):
                 ),
                 ephemeral=True,
             )
+            try:
+                from modules.task_event_bridge import record_successful_command_interaction
+                record_successful_command_interaction(interaction, '娛樂城')
+            except Exception:
+                pass  # 教學紀錄不得影響原有功能
 
         except Exception:
             await interaction.response.send_message(
