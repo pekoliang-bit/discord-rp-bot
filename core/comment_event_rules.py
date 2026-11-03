@@ -1,4 +1,3 @@
-
 """評論事件白名單規則（唯讀、保守預覽版）。
 
 不自行認定事件屬實、不操作資料庫、不自動發布留言。
@@ -361,7 +360,9 @@ def allowed_comment_ids(
         ):
             continue
 
-        if comment_id in ALLEGATION_IDS:
+        # 新核准評論中 C723～C750 是爭議事件類；同樣受爭議授權保護。
+        new_number = int(comment_id[1:]) if comment_id.startswith("C") and comment_id[1:].isdigit() else 0
+        if comment_id in ALLEGATION_IDS or 723 <= new_number <= 750:
             if not (
                 ctx.allegation_use_approved
                 and "public_controversy" in ctx.facts
@@ -371,6 +372,11 @@ def allowed_comment_ids(
         specific = SPECIFIC_REQUIRED.get(
             comment_id
         )
+        if specific is None and 421 <= new_number <= 961:
+            # 群主逐批核准的新模板：仍須存在於可信已核准 ID 集合、
+            # 事件已核實、主分類 fact 符合、發言者授權符合。
+            # 沒有足夠個別事件資訊的模板，仍由上層事件白名單精準過濾。
+            specific = frozenset()
 
         # 尚未完成逐條規則的模板，
         # 暫時禁止自動抽取。
