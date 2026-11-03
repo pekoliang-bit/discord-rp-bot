@@ -1359,6 +1359,11 @@ class FactionCog(commands.Cog):
             return
         panel = MyFactionPanel(interaction.guild_id, interaction.user.id, int(rows[0]["id"]))
         await interaction.response.send_message(content=panel.render(), view=panel, ephemeral=True)
+        try:
+            from modules.task_event_bridge import record_successful_command_interaction
+            record_successful_command_interaction(interaction, '陣營')
+        except Exception:
+            pass  # 教學紀錄不得影響原有功能
 
 
 async def setup(bot):
