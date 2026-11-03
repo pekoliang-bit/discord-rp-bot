@@ -14,6 +14,7 @@ from discord.ext import commands, tasks
 
 from core.company_endorsement_lifecycle import reconcile_expired
 from core.company_endorsement_reminders import scan_due
+from core.company_endorsement_notifications import sync_private_notices
 from modules.company_endorsement_due_notices import forward_due_notices
 from core.database import get_connection
 
@@ -60,6 +61,9 @@ class CompanyBrandSync(commands.Cog):
             if expired: LOG.info('代言合約已到期：%s', expired)
             due_count=await asyncio.to_thread(scan_due)
             if due_count: LOG.info('新增代言期款到期提醒：%s',due_count)
+            private_count = await asyncio.to_thread(sync_private_notices)
+            if private_count:
+                LOG.info('代言事件已排入角色專屬論壇私人通知：%s',private_count)
             sent=await asyncio.to_thread(forward_due_notices)
             if sent: LOG.info('代言期款提醒轉入通知佇列：%s',sent)
             notices = await asyncio.to_thread(sync_to_notification_updates)
