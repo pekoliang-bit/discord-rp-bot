@@ -9,8 +9,8 @@ LOG=logging.getLogger(__name__)
 class TermsModal(discord.ui.Modal):
     def __init__(self,gid,uid,action):
         self.gid,self.uid,self.action=str(gid),str(uid),action
-        super().__init__(title={'propose':'提出／續約代言條款','approve':'確認代言條款','details':'查詢合約條款','terminate':'終止代言','expire':'更新合約到期狀態'}[action])
-        labels={'propose':['代言編號','合約到期日 YYYY-MM-DD','雙方約定違約金（0為未約定）'], 'approve':['代言編號'], 'details':['代言編號'],'terminate':['代言編號','終止理由'],'expire':['代言編號']}
+        super().__init__(title={'propose':'提出／續約代言條款','approve':'確認代言條款','details':'查詢合約條款','terminate':'終止代言','expire':'更新合約到期狀態','history':'查詢條款歷史'}[action])
+        labels={'propose':['代言編號','合約到期日 YYYY-MM-DD','雙方約定違約金（0為未約定）'], 'approve':['代言編號'], 'details':['代言編號'],'terminate':['代言編號','終止理由'],'expire':['代言編號'],'history':['代言編號']}
         self.fields=[]
         for label in labels[action]:
             field=discord.ui.TextInput(label=label,max_length=200);self.add_item(field);self.fields.append(field)
@@ -25,6 +25,9 @@ class TermsModal(discord.ui.Modal):
             elif self.action=='approve': msg=await asyncio.to_thread(lifecycle.approve,self.gid,int(v[0]),self.uid)
             elif self.action=='expire':
                 count=await asyncio.to_thread(lifecycle.reconcile_expired,self.gid,int(v[0]));msg=f'✅ 已整理 {count} 筆到期代言；不會自動扣款'
+            elif self.action=='history':
+                rows=await asyncio.to_thread(lifecycle.history,self.gid,int(v[0]),self.uid)
+                msg='📜 **合約異動紀錄**\n'+('\n'.join(f"{r['created_at']}｜{r['event']}｜{r['details']}" for r in rows) if rows else '尚無異動紀錄')
             elif self.action=='terminate':
                 res=await asyncio.to_thread(lifecycle.terminate,self.gid,int(v[0]),self.uid,v[1]);msg=f"✅ 已終止；約定違約金 {res['agreed_breach_amount']:,}。{res['notice']}"
             else:
@@ -69,7 +72,7 @@ class BreachAction(discord.ui.Button):
         await i.response.send_modal(BreachModal(v.gid,v.uid,self.mode))
 
 class TermsAction(discord.ui.Button):
-    def __init__(self,action,label): super().__init__(label=label,style=discord.ButtonStyle.secondary);self.action=action
+    def __init__(self,action,label): super().__init__(label=label,style=discord.ButtonStyle.secondary,row=0 if action in ('propose','approve','details','terminate','expire') else 1);self.action=action
     async def callback(self,i):
         v=self.view
         if str(i.guild_id)!=v.gid or str(i.user.id)!=v.uid:
@@ -103,13 +106,51 @@ class SettlementPayAction(discord.ui.Button):
             return await i.response.send_message('非本人面板',ephemeral=True)
         await i.response.send_modal(SettlementPayModal(self.view.gid,self.view.uid))
 
+class SettlementDetailsModal(discord.ui.Modal):
+    def __init__(self, gid, uid):
+        super().__init__(title='查看違約和解狀態')
+        self.gid, self.uid = str(gid), str(uid)
+        self.endorsement = discord.ui.TextInput(label='代言編號', max_length=20)
+        self.add_item(self.endorsement)
+
+    async def on_submit(self, interaction):
+        if str(interaction.guild_id) != self.gid or str(interaction.user.id) != self.uid:
+            return await interaction.response.send_message('非本人表單', ephemeral=True)
+        await interaction.response.defer(ephemeral=True, thinking=True)
+        try:
+            record = await asyncio.to_thread(breach.settlement_details, self.gid, int(self.endorsement.value), self.uid)
+            if record is None:
+                message = '尚未建立違約和解協議'
+            else:
+                status = '已付款' if record.get('paid_at') else record['status']
+                message = f"⚖️ 代言 #{record['endorsement_id']}｜{status}｜金額 {record['amount']:,} 金幣｜{record['reason']}"
+        except (ValueError, PermissionError) as exc:
+            message = f'⚠️ {exc}'
+        except Exception:
+            LOG.exception('查詢違約和解失敗')
+            message = '⚠️ 查詢失敗，請查看日誌'
+        await interaction.followup.send(message[:1900], ephemeral=True)
+
+
+class SettlementDetailsAction(discord.ui.Button):
+    def __init__(self):
+        super().__init__(label='📄 和解狀態', style=discord.ButtonStyle.secondary, row=2)
+
+    async def callback(self, interaction):
+        view = self.view
+        if str(interaction.guild_id) != view.gid or str(interaction.user.id) != view.uid:
+            return await interaction.response.send_message('非本人面板', ephemeral=True)
+        await interaction.response.send_modal(SettlementDetailsModal(view.gid, view.uid))
+
+
 class TermsView(discord.ui.View):
     def __init__(self,gid,uid):
         super().__init__(timeout=300);self.gid,self.uid=str(gid),str(uid)
-        for a,l in [('propose','📅 提出／續約'),('approve','✍️ 藝人同意'),('details','📜 查詢條款'),('terminate','🛑 終止代言'),('expire','⌛ 到期整理')]: self.add_item(TermsAction(a,l))
+        for a,l in [('propose','📅 提出／續約'),('approve','✍️ 藝人同意'),('details','📜 查詢條款'),('terminate','🛑 終止代言'),('expire','⌛ 到期整理'),('history','📚 條款歷史')]: self.add_item(TermsAction(a,l))
         self.add_item(BreachAction('propose'))
         self.add_item(BreachAction('accept'))
         self.add_item(SettlementPayAction())
+        self.add_item(SettlementDetailsAction())
 
 class TermsEntry(discord.ui.Button):
     def __init__(self): super().__init__(label='📅 代言合約',style=discord.ButtonStyle.secondary,row=3)
