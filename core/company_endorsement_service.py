@@ -1,4 +1,3 @@
-
 """品牌代言任命、解除及競品風險。"""
 
 from __future__ import annotations
@@ -42,93 +41,10 @@ def _require_brand_owner(db, gid, brand_id, uid):
     return brand
 
 
-def appoint_endorsement(
-    guild_id,
-    brand_id,
-    character_id,
-    tier,
-    scope,
-    actor_id,
-):
-    gid = str(guild_id)
-    bid = str(brand_id)
-    uid = str(actor_id)
-    cid = int(character_id)
-    tier = int(tier)
-    scope = validate_endorsement(tier, scope)
-
-    with transaction() as db:
-        initialize_endorsements(db)
-
-        brand = _require_brand_owner(
-            db, gid, bid, uid
-        )
-
-        character = db.execute(
-            """
-            SELECT owner_id, status
-            FROM characters
-            WHERE guild_id=? AND id=?
-            """,
-            (gid, cid),
-        ).fetchone()
-
-        if character is None or character["status"] != "active":
-            raise ValueError("代言角色尚未啟用")
-
-        # 防止任意指定別人的角色。
-        # 代言授權應由正式申請或當事人確認取得。
-        if str(character["owner_id"]) != uid:
-            raise PermissionError(
-                "非本人角色須先取得正式代言授權；"
-                "目前此入口不直接任命其他玩家角色。"
-            )
-
-        existing = active_endorsements(
-            db, gid, character_id=cid
-        )
-
-        competing = any(
-            row["brand_id"] != bid
-            and row["industry_key"]
-                == str(brand["industry"])
-            for row in existing
-        )
-
-        risk = competitor_risk(
-            [row["tier"] for row in existing],
-            tier,
-            competing_brand=competing,
-        )
-
-        try:
-            cur = db.execute(
-                """
-                INSERT INTO rp_company_endorsements
-                (
-                    guild_id,brand_id,character_id,
-                    tier,scope,industry_key,appointed_by
-                )
-                VALUES (?,?,?,?,?,?,?)
-                """,
-                (
-                    gid, bid, cid, tier, scope,
-                    str(brand["industry"]), uid,
-                ),
-            )
-        except sqlite3.IntegrityError as exc:
-            raise ValueError(
-                "此代言範圍已有有效任命，"
-                "不能重複占用。"
-            ) from exc
-
-        return {
-            "id": int(cur.lastrowid),
-            "title": displayed_endorsement(
-                tier, scope
-            ),
-            "risk": risk,
-        }
+def appoint_endorsement(guild_id, brand_id, character_id, tier, scope, actor_id):
+    """既有入口相容：跨玩家不直接生效，必須使用邀請流程。"""
+    from core.company_endorsement_appointment import request
+    return request(guild_id,brand_id,character_id,tier,scope,actor_id)
 
 
 def end_endorsement(
@@ -163,20 +79,22 @@ def end_endorsement(
         )
 
         db.execute(
-            """
-            UPDATE rp_company_endorsements
-            SET status='ended',
-                ended_at=CURRENT_TIMESTAMP,
-                end_reason=?
-            WHERE guild_id=? AND id=?
-              AND status='active'
-            """,
-            (
-                str(reason)[:300],
-                gid,
-                int(endorsement_id),
-            ),
+            """UPDATE rp_company_endorsements SET status='ended',
+              ended_at=CURRENT_TIMESTAMP,end_reason=?
+              WHERE guild_id=? AND id=? AND status='active'""",
+            (str(reason)[:300],gid,int(endorsement_id)),
         )
+        from core.company_endorsement_lifecycle import _setup, _audit
+        _setup(db)
+        db.execute("""UPDATE rp_endorsement_terms SET status='terminated',updated_at=CURRENT_TIMESTAMP
+              WHERE guild_id=? AND endorsement_id=? AND status IN ('active','proposed')""",
+              (gid,int(endorsement_id)))
+        _audit(db,gid,int(endorsement_id),'terminate',uid,str(reason)[:300])
+        # 新舊入口共用頭銜 ID 時同步結束舊合約，避免兩邊狀態矛盾。
+        if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='rp_endorsement_contracts'").fetchone():
+            cols={r['name'] for r in db.execute('PRAGMA table_info(rp_endorsement_contracts)')}
+            if 'endorsement_id' in cols:
+                db.execute("UPDATE rp_endorsement_contracts SET status='ended' WHERE guild_id=? AND endorsement_id=? AND status='active'",(gid,int(endorsement_id)))
 
     return "✅ 代言任期已結束，歷史紀錄保留。"
 
