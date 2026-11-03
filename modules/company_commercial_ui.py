@@ -133,18 +133,15 @@ class CommercialModal(discord.ui.Modal):
             elif self.action == "appoint":
                 result = await asyncio.to_thread(
                     appoint_endorsement,
-                    self.gid,
-                    values["business"],
-                    int(values["character"]),
-                    int(values["tier"]),
-                    values["scope"],
-                    self.uid,
+                    self.gid, values["business"],int(values["character"]),
+                    int(values["tier"]),values["scope"],self.uid,
                 )
-                message = (
-                    f"✅ 代言 #{result['id']} 已建立\n"
-                    f"{result['title']}\n"
-                    f"競品風險：{result['risk']}"
-                )
+                if result['status']=='pending':
+                    message = (f"📨 代言邀約 #{result['id']} 已送出。\n{result['title']}\n"
+                               "藝人持有人須至 /公司 → 商務管理 → 回覆任命 才會正式生效。")
+                else:
+                    message = (f"✅ 代言 #{result['id']} 已建立\n{result['title']}\n"
+                               f"競品風險：{result['risk']}\n尚未確認的合約條款須另行提出及同意。")
 
             elif self.action == "end":
                 message = await asyncio.to_thread(
@@ -217,6 +214,7 @@ class CompanyCommercialView(discord.ui.View):
             ("endorsement_history", "📜 代言紀錄"),
             ("career", "📈 職位經驗"),
             ("appoint", "🎤 任命代言"),
+            ("reply_invite", "📨 回覆任命"),
             ("end", "📜 結束代言"),
             ("vip", "💎 品牌VIP"),
             ("exposure", "📣 代言曝光"),
@@ -259,6 +257,9 @@ class CommercialActionButton(discord.ui.Button):
 
     async def callback(self, interaction):
         view = self.view
+        if self.action == "reply_invite":
+            await interaction.response.send_message("📨 代言邀約：先查看待回覆紀錄，再填寫邀約編號。",view=AppointmentReplyView(view.gid,view.uid),ephemeral=True)
+            return
         if self.action == "endorsement_history":
             await interaction.response.send_modal(EndorsementHistoryModal(view.gid, view.uid))
             return
@@ -334,3 +335,48 @@ class EndorsementHistoryModal(discord.ui.Modal):
         except Exception:
             LOG.exception('代言紀錄查詢失敗')
             await interaction.followup.send('⚠️ 代言紀錄暫時無法讀取。',ephemeral=True)
+
+
+class AppointmentReplyModal(discord.ui.Modal):
+    def __init__(self,gid,uid):
+        super().__init__(title="回覆代言任命",timeout=300)
+        self.gid,self.uid=str(gid),str(uid)
+        self.invite=discord.ui.TextInput(label="任命邀約編號",max_length=20)
+        self.answer=discord.ui.TextInput(label="接受／拒絕",max_length=2)
+        self.add_item(self.invite);self.add_item(self.answer)
+    async def on_submit(self,i):
+        if str(i.guild_id)!=self.gid or str(i.user.id)!=self.uid:
+            return await i.response.send_message("非本人表單",ephemeral=True)
+        await i.response.defer(ephemeral=True,thinking=True)
+        try:
+            from core.company_endorsement_appointment import decide
+            answer=self.answer.value.strip()
+            if answer not in ('接受','拒絕'): raise ValueError('只能填「接受」或「拒絕」')
+            result=await asyncio.to_thread(decide,self.gid,int(self.invite.value),self.uid,answer=='接受')
+            msg=(f"✅ 已接受邀約，正式代言編號 #{result['id']}" if result['status']=='accepted'
+                 else '已拒絕代言邀約')
+        except (ValueError,PermissionError) as exc: msg=f'⚠️ {exc}'
+        except Exception:
+            LOG.exception('代言任命回覆失敗');msg='⚠️ 無法回覆邀約，請查看日誌'
+        await i.followup.send(msg,ephemeral=True)
+
+class AppointmentReplyView(discord.ui.View):
+    def __init__(self,gid,uid):
+        super().__init__(timeout=300);self.gid,self.uid=str(gid),str(uid)
+    async def interaction_check(self,i):
+        if str(i.guild_id)!=self.gid or str(i.user.id)!=self.uid:
+            await i.response.send_message('非本人面板',ephemeral=True);return False
+        return True
+    @discord.ui.button(label='📬 待回覆任命',style=discord.ButtonStyle.secondary)
+    async def list_invites(self,i,b):
+        await i.response.defer(ephemeral=True,thinking=True)
+        try:
+            from core.company_endorsement_appointment import pending
+            rows=await asyncio.to_thread(pending,self.gid,self.uid)
+            msg='\n'.join(f"#{r['id']}｜{r['brand_id']}｜角色#{r['character_id']}｜T{r['tier']}｜{r['scope']}" for r in rows) or '目前沒有待回覆任命'
+        except Exception:
+            LOG.exception('讀取任命邀約失敗');msg='⚠️ 讀取失敗'
+        await i.followup.send(msg[:1900],ephemeral=True)
+    @discord.ui.button(label='✅ 回覆邀約',style=discord.ButtonStyle.primary)
+    async def respond_invite(self,i,b):
+        await i.response.send_modal(AppointmentReplyModal(self.gid,self.uid))
