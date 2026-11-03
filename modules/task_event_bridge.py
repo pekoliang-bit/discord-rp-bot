@@ -120,3 +120,63 @@ def record_successful_command_interaction(interaction, command_name: str) -> boo
     except Exception:
         LOG.exception('Failed to record tutorial success for %s', command_name)
         return False
+
+
+def tutorial_context(interaction, command_name: str):
+    """(mode, character_id): training/blocked/normal.
+
+    Teaching is only allowed in a character's own bot thread. While every
+    playable character owned by the user is a novice, the required command
+    cannot be run elsewhere; never bypass an administrator's restrictions.
+    This function is read-only; call success marker only after a valid reply.
+    """
+    if command_name not in REQUIRED_COMMANDS:
+        return ('normal', None)
+    gid = getattr(interaction, 'guild_id', None)
+    user = getattr(interaction, 'user', None)
+    cid = getattr(interaction, 'channel_id', None)
+    if not gid or not user or not cid:
+        return ('normal', None)
+    with get_connection() as db:
+        rows = db.execute(
+            "SELECT id FROM characters WHERE guild_id=? AND owner_id=? "
+            "AND status IN ('active','approved') AND character_type='player'",
+            (str(gid), str(user.id)),
+        ).fetchall()
+    if not rows:
+        return ('normal', None)
+    candidates = [int(row['id']) for row in rows]
+    for character_id in candidates:
+        if can_use_training_channel(gid, character_id, user.id, cid, command_name):
+            return ('training', character_id)
+    if all(not progress(gid, character_id)['graduated'] for character_id in candidates):
+        if getattr(getattr(interaction, 'guild', None), 'owner_id', None) == user.id:
+            return ('normal', None)
+        return ('blocked', None)
+    return ('normal', None)
+
+
+async def require_tutorial_channel(interaction, command_name: str):
+    """Return (allowed, training_character_id); block novices outside thread."""
+    mode, character_id = tutorial_context(interaction, command_name)
+    if mode == 'blocked':
+        await interaction.response.send_message(
+            '🎓 尚未完成新手任務，請在自己角色論壇的「機器人使用」帖子'
+            f'開啟 `/{command_name}` 教學。', ephemeral=True,
+        )
+        return False, None
+    return True, character_id if mode == 'training' else None
+
+
+def mark_tutorial_after_reply(interaction, command_name: str, character_id):
+    """Explicit successful UI response hook; never called on error or payments."""
+    if character_id is None or not interaction.response.is_done():
+        return False
+    try:
+        return bool(completed_tutorial_view(
+            interaction.guild_id, character_id, interaction.user.id,
+            interaction.channel_id, command_name,
+        ))
+    except Exception:
+        LOG.exception('Tutorial completion storage failed: %s', command_name)
+        return False
