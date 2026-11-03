@@ -53,3 +53,15 @@ def newbie_required_channel(guild_id, character_id, user_id, channel_id, command
     if is_graduated(guild_id, character_id): return None
     return can_use_training_channel(guild_id, character_id, user_id, channel_id, command)
 
+
+
+def training_status_for_user(guild_id, user_id):
+    """Read-only character-granular progress for UI and support."""
+    from core.database import get_connection
+    with get_connection() as db:
+        rows = db.execute(
+            "SELECT id FROM characters WHERE guild_id=? AND owner_id=? "
+            "AND character_type='player' AND status IN ('active','approved')",
+            (str(guild_id), str(user_id)),
+        ).fetchall()
+    return {int(r['id']): progress(guild_id, int(r['id'])) for r in rows}
