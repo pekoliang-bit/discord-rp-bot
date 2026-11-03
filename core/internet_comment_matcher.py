@@ -12,7 +12,7 @@ from typing import Iterable, Mapping
 
 RELATIONS = frozenset({"neutral", "fan", "superfan", "fansite", "solo_fan", "anti", "cp_fan"})
 
-# 依原始 419 則資料的 speaker 標籤建立明確的對應關係。
+# 依已核准評論資料的 speaker 標籤建立明確的對應關係。
 # 「角色本人／授權官方帳號」不屬於任何虛構網友，永遠不配對。
 ROLE_TOKENS = {
     "neutral": ("路人", "觀眾", "參與者", "消費者", "關注者", "吃瓜", "觀察者", "質疑者", "批評者", "支持者"),
