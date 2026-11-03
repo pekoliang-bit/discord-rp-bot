@@ -97,3 +97,26 @@ class TaskEventBridge(commands.Cog):
 async def setup(bot: commands.Bot):
     initialize()
     await bot.add_cog(TaskEventBridge(bot))
+
+
+def record_successful_command_interaction(interaction, command_name: str) -> bool:
+    """Only call AFTER a successful homepage response; never on error replies.
+
+    Records progress only for a uniquely linked player character in that
+    character's own machine-usage thread. Never bypasses command permissions.
+    """
+    if not getattr(interaction, 'guild_id', None) or not getattr(interaction, 'channel_id', None):
+        return False
+    character_id = character_for_training_thread(
+        interaction.guild_id, interaction.user.id, interaction.channel_id
+    )
+    if character_id is None:
+        return False
+    try:
+        return bool(completed_tutorial_view(
+            interaction.guild_id, character_id, interaction.user.id,
+            interaction.channel_id, command_name
+        ))
+    except Exception:
+        LOG.exception('Failed to record tutorial success for %s', command_name)
+        return False
