@@ -1942,6 +1942,10 @@ class CharacterView(commands.Cog):
         interaction: discord.Interaction,
         角色: str | None = None,
     ):
+        from modules.task_event_bridge import require_tutorial_channel, mark_tutorial_after_reply
+        allowed_tutorial, training_character_id = await require_tutorial_channel(interaction, '查看')
+        if not allowed_tutorial:
+            return
         try:
             actor = Actor.from_interaction(
                 interaction
@@ -2001,6 +2005,7 @@ class CharacterView(commands.Cog):
                 view=CategoryView(actor),
                 ephemeral=True,
             )
+            mark_tutorial_after_reply(interaction, '查看', training_character_id)
 
         except (
             ValueError,
