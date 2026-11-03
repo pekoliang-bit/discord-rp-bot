@@ -246,7 +246,7 @@ def check() -> int:
             )
 
         print()
-        print("[OK] 419 則已核准評論完全相符")
+        print("[OK] 960 則已核准評論完全相符")
         print("結果：PASS")
 
         return 0
