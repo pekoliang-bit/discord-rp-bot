@@ -123,6 +123,16 @@ def seed_catalog(path: Path = SEED_PATH) -> dict[str, Any]:
             raise ValueError(f"12類評論數量須各80則：{dict(counts)}")
         if manifest.get("chat_text_reconciled") is not True:
             raise ValueError("新版960則尚未完成聊天核准原文核對；禁止匯入")
+        approved_text_file = SEED_PATH.parent / "internet_comment_pending_review" / "approved_chat_texts.json"
+        if not approved_text_file.is_file():
+            raise ValueError("缺少 C421～C961 群主核准原文對照，拒絕匯入")
+        approved_texts = json.loads(approved_text_file.read_text(encoding="utf-8-sig"))
+        expected_new = {f"C{i:03d}" for i in range(421, 962)}
+        if not isinstance(approved_texts, dict) or set(approved_texts) != expected_new:
+            raise ValueError("核准原文對照缺少編號或包含額外編號")
+        for entry in approved:
+            if entry["number"] >= 421 and entry["text"] != approved_texts[entry["id"]]:
+                raise ValueError(f"核准原文與正式分檔不一致：{entry['id']}")
     approved.sort(key=lambda v: v["number"])
     return {"catalog_version": manifest.get("catalog_version", "reviewed-419-split-v1"), "approved": approved}
 
