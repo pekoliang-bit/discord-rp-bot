@@ -1245,6 +1245,11 @@ class PlayerApplications(commands.Cog):
                 ),
                 ephemeral=True,
             )
+            try:
+                from modules.task_event_bridge import record_successful_command_interaction
+                record_successful_command_interaction(interaction, '申請')
+            except Exception:
+                pass  # 教學紀錄不得影響原有功能
 
         except (
             PermissionDenied,
