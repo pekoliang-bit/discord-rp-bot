@@ -115,6 +115,15 @@ def answer_termination(guild_id, actor_id, contract_id, approve):
         if approve:
             db.execute("""UPDATE rp_endorsement_contracts SET status='ended'
                 WHERE guild_id=? AND id=? AND status='active'""", (gid, contract_id))
+            # 舊合約對應正式 T4～T10 頭銜時，兩邊一同結束。
+            from core.company_endorsement_lifecycle import _setup, _audit
+            _setup(db)
+            columns={r['name'] for r in db.execute('PRAGMA table_info(rp_endorsement_contracts)')}
+            if 'endorsement_id' in columns and row['endorsement_id'] is not None:
+                eid=int(row['endorsement_id'])
+                db.execute("UPDATE rp_company_endorsements SET status='ended',ended_at=CURRENT_TIMESTAMP,end_reason=? WHERE guild_id=? AND id=? AND status='active'",(request['reason'],gid,eid))
+                db.execute("UPDATE rp_endorsement_terms SET status='terminated',updated_at=CURRENT_TIMESTAMP WHERE guild_id=? AND endorsement_id=? AND status IN ('active','proposed')",(gid,eid))
+                _audit(db,gid,eid,'terminate',uid,'舊合約雙方協議終止：'+str(request['reason'])[:140])
         db.execute("DELETE FROM rp_endorsement_termination WHERE guild_id=? AND contract_id=?", (gid, contract_id))
         db.execute("""INSERT INTO rp_endorsement_history
             (guild_id,contract_id,actor_id,action,reason,recorded_at)
