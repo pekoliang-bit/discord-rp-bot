@@ -722,6 +722,11 @@ class Registration(commands.Cog):
                 "類型、欄位及啟用狀態可由伺服器擁有者編輯。\n"
                 "此系統不會自動發放片酬、粉絲或屬性獎勵。",
                 view=Home(actor),ephemeral=True)
+            try:
+                from modules.task_event_bridge import record_successful_command_interaction
+                record_successful_command_interaction(interaction, '登記')
+            except Exception:
+                pass  # 教學紀錄不得影響原有功能
         except (PermissionDenied,InvalidState,ValueError,sqlite3.Error) as exc:
             await failure(interaction,exc)
 
