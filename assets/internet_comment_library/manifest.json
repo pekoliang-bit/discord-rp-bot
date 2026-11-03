@@ -1,14 +1,14 @@
-
 {
-  "catalog_version": "reviewed-419-split-v1",
-  "description": "Discord RP 已審核網路評論庫",
+  "catalog_version": "reviewed-960-chat-reconciled-v1",
+  "description": "Discord RP 已逐批由群主核准之960則網路留言；C421～C961 原文以聊天審核畫面為準",
   "status": "approved",
-  "expected_approved_count": 419,
+  "chat_text_reconciled": true,
+  "expected_approved_count": 960,
   "initial_target_per_category": 80,
   "category_count": 12,
   "first_comment_id": "C001",
-  "last_comment_id": "C420",
-  "next_comment_id": "C421",
+  "last_comment_id": "C961",
+  "next_comment_id": "C962",
   "preserved_ids": [
     "C074"
   ],
@@ -78,6 +78,83 @@
       "count": 19,
       "first_id": "C402",
       "last_id": "C420"
+    },
+    {
+      "file": "comments_part_10.json",
+      "part": 10,
+      "count": 50,
+      "first_id": "C421",
+      "last_id": "C470"
+    },
+    {
+      "file": "comments_part_11.json",
+      "part": 11,
+      "count": 50,
+      "first_id": "C471",
+      "last_id": "C520"
+    },
+    {
+      "file": "comments_part_12.json",
+      "part": 12,
+      "count": 50,
+      "first_id": "C521",
+      "last_id": "C570"
+    },
+    {
+      "file": "comments_part_13.json",
+      "part": 13,
+      "count": 50,
+      "first_id": "C571",
+      "last_id": "C620"
+    },
+    {
+      "file": "comments_part_14.json",
+      "part": 14,
+      "count": 50,
+      "first_id": "C621",
+      "last_id": "C670"
+    },
+    {
+      "file": "comments_part_15.json",
+      "part": 15,
+      "count": 50,
+      "first_id": "C671",
+      "last_id": "C720"
+    },
+    {
+      "file": "comments_part_16.json",
+      "part": 16,
+      "count": 50,
+      "first_id": "C721",
+      "last_id": "C770"
+    },
+    {
+      "file": "comments_part_17.json",
+      "part": 17,
+      "count": 50,
+      "first_id": "C771",
+      "last_id": "C820"
+    },
+    {
+      "file": "comments_part_18.json",
+      "part": 18,
+      "count": 50,
+      "first_id": "C821",
+      "last_id": "C870"
+    },
+    {
+      "file": "comments_part_19.json",
+      "part": 19,
+      "count": 50,
+      "first_id": "C871",
+      "last_id": "C920"
+    },
+    {
+      "file": "comments_part_20.json",
+      "part": 20,
+      "count": 41,
+      "first_id": "C921",
+      "last_id": "C961"
     }
   ],
   "approval_policy": {
@@ -86,5 +163,12 @@
     "allow_reusing_deleted_ids": false,
     "allow_unauthorized_speaker_impersonation": false,
     "automatic_discord_posting": false
-  }
+  },
+  "approved_ranges": [
+    "C001-C299",
+    "C301-C961"
+  ],
+  "new_chat_reviewed_range": [
+    "C421-C961"
+  ]
 }
