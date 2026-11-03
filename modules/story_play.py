@@ -1376,6 +1376,18 @@ class StoryPlay(commands.Cog):
         interaction: discord.Interaction,
         角色編號: int | None = None,
     ):
+        from modules.task_event_bridge import require_tutorial_channel, mark_tutorial_after_reply
+        allowed, tutorial_character = await require_tutorial_channel(interaction, '劇情')
+        if not allowed:
+            return
+        if tutorial_character is not None:
+            # Training is a non-mutating preview, never starts a story or rewards.
+            await interaction.response.send_message(
+                '📖 劇情中心教學：正式劇情須在對應角色的劇情帖子使用 `/劇情`。'
+                '劇情進度、獎勵與物品只會在正式劇情流程中處理。', ephemeral=True,
+            )
+            mark_tutorial_after_reply(interaction, '劇情', tutorial_character)
+            return
         try:
             choices = available_stories(
                 interaction.guild_id,
