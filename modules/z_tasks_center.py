@@ -110,6 +110,16 @@ class TasksCenter(commands.Cog):
     @app_commands.guild_only()
     @app_commands.describe(角色編號='要操作的本人角色編號',任務編號='要回報的已接任務編號')
     async def tasks(self,i:discord.Interaction,角色編號:int|None=None,任務編號:int|None=None):
+        from modules.task_event_bridge import require_tutorial_channel
+        allowed, tutorial_character = await require_tutorial_channel(i, '任務')
+        if not allowed:
+            return
+        if tutorial_character is not None:
+            if 角色編號 is not None and 角色編號 != tutorial_character:
+                return await i.response.send_message('請使用自己機器人使用帖子所屬角色編號。', ephemeral=True)
+            if 任務編號 is not None:
+                return await i.response.send_message('新手階段不可回報正式任務。', ephemeral=True)
+            角色編號 = tutorial_character
         initialize();seed_newbie(i.guild_id)
         if 角色編號 is None:
             if 任務編號 is not None:
