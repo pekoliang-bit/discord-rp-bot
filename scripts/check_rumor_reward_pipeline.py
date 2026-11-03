@@ -1,225 +1,320 @@
 
-"""Discord RP 傳聞獎懲模組安全檢查。
+"""Discord RP 評論庫部署前檢查。
 
 執行：
-    python -m scripts.check_rumor_reward_pipeline
+    python -m scripts.check_comment_pipeline
 
-使用臨時測試規則，不修改正式規則。
-不寫入資料庫、不發放獎勵、
-不變更玩家或角色資料。
+本工具只讀取評論 JSON。
+不連線 SQLite，不發送 Discord 訊息，
+不修改任何玩家資料。
 """
 
 from __future__ import annotations
 
+import json
 import sys
+from collections import Counter
 from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parent.parent
+LIBRARY = ROOT / "assets" / "internet_comment_library"
 
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
+EXPECTED_COUNT = 960
+TARGET_PER_CATEGORY = 80
+
+EXPECTED_FILES = [
+    f"comments_part_{i:02d}.json"
+    for i in range(1, 21)
+]
+
+CATEGORIES = {
+    1: "日常生活",
+    2: "影視作品",
+    3: "演藝活動",
+    4: "商業活動",
+    5: "粉絲互動",
+    6: "感情關係／CP",
+    7: "爭議事件",
+    8: "公關回應",
+    9: "熱搜話題",
+    10: "營銷號",
+    11: "社會議題",
+    12: "特殊事件",
+}
+
+REQUIRED = {
+    "id",
+    "number",
+    "text",
+    "category_id",
+    "speaker",
+    "emotion",
+    "scene",
+    "trigger_limit",
+    "canonical_id",
+    "requires_authorization",
+}
 
 
-def check(condition: bool, message: str) -> None:
-    if not condition:
-        raise AssertionError(message)
+def load_json(path: Path):
+    with path.open(
+        "r",
+        encoding="utf-8-sig",
+    ) as file:
+        return json.load(file)
 
-    print(f"[OK] {message}")
 
+def check_manifest() -> list[Path]:
+    """核對 manifest 與實際分檔。"""
 
-def expect_value_error(
-    callback,
-    message: str,
-) -> None:
-    try:
-        callback()
-    except ValueError:
-        print(f"[OK] {message}")
-        return
+    manifest_path = LIBRARY / "manifest.json"
 
-    raise AssertionError(
-        f"未正確阻擋：{message}"
+    if not manifest_path.is_file():
+        raise FileNotFoundError(
+            "缺少 manifest.json"
+        )
+
+    manifest = load_json(manifest_path)
+
+    parts = manifest.get("parts")
+
+    if not isinstance(parts, list):
+        raise ValueError(
+            "manifest.parts 必須是清單"
+        )
+
+    names = []
+
+    for part in parts:
+        if isinstance(part, str):
+            name = part
+        elif isinstance(part, dict):
+            name = part.get("file")
+        else:
+            raise ValueError(
+                "manifest 分檔項目無效"
+            )
+
+        if not isinstance(name, str):
+            raise ValueError(
+                "manifest 檔案名稱無效"
+            )
+
+        names.append(name)
+
+    if names != EXPECTED_FILES:
+        raise ValueError(
+            "manifest 的二十個分檔順序或名稱不正確"
+        )
+
+    actual = sorted(
+        path.name
+        for path in LIBRARY.glob(
+            "comments_part_*.json"
+        )
     )
+
+    if actual != EXPECTED_FILES:
+        raise ValueError(
+            "實際評論分檔與預期不一致"
+        )
+
+    paths = [
+        LIBRARY / name
+        for name in names
+    ]
+
+    for path in paths:
+        if not path.is_file():
+            raise FileNotFoundError(
+                f"缺少 {path.name}"
+            )
+
+    return paths
+
+
+def load_comments(paths: list[Path]) -> list[dict]:
+    """讀取並驗證所有分檔。"""
+
+    comments = []
+
+    for index, path in enumerate(paths, 1):
+        data = load_json(path)
+
+        if not isinstance(data, dict):
+            raise ValueError(
+                f"{path.name} 格式無效"
+            )
+
+        if data.get("part") != index:
+            raise ValueError(
+                f"{path.name} 的 part 編號不符"
+            )
+
+        records = data.get("approved")
+
+        if not isinstance(records, list):
+            raise ValueError(
+                f"{path.name} 缺少 approved"
+            )
+
+        if not all(
+            isinstance(item, dict)
+            for item in records
+        ):
+            raise ValueError(
+                f"{path.name} 包含非物件資料"
+            )
+
+        comments.extend(records)
+
+        print(
+            f"[OK] {path.name}: "
+            f"{len(records)} 則"
+        )
+
+    return comments
+
+
+def validate_comments(comments: list[dict]) -> Counter:
+    """驗證 ID、原文、分類及審核狀態。"""
+
+    if len(comments) != EXPECTED_COUNT:
+        raise ValueError(
+            f"預期 {EXPECTED_COUNT} 則，"
+            f"實際 {len(comments)} 則"
+        )
+
+    ids = set()
+    counts = Counter()
+
+    for item in comments:
+        missing = REQUIRED - item.keys()
+
+        if missing:
+            raise ValueError(
+                f"{item.get('id', '?')} "
+                f"缺少 {sorted(missing)}"
+            )
+
+        number = item.get("number")
+        comment_id = item.get("id")
+
+        if type(number) is not int:
+            raise ValueError(
+                f"{comment_id} 的 number 不是整數"
+            )
+
+        expected_id = f"C{number:03d}"
+
+        if comment_id != expected_id:
+            raise ValueError(
+                f"編號不一致：{comment_id}"
+            )
+
+        if comment_id in ids:
+            raise ValueError(
+                f"重複 ID：{comment_id}"
+            )
+
+        ids.add(comment_id)
+
+        category = item["category_id"]
+
+        if (
+            type(category) is not int
+            or category not in CATEGORIES
+        ):
+            raise ValueError(
+                f"{comment_id} 分類無效"
+            )
+
+        if (
+            not isinstance(item["text"], str)
+            or not item["text"].strip()
+        ):
+            raise ValueError(
+                f"{comment_id} 原文無效"
+            )
+
+        if item.get(
+            "status",
+            "approved",
+        ) != "approved":
+            raise ValueError(
+                f"{comment_id} 尚未通過審核"
+            )
+
+        if type(
+            item["requires_authorization"]
+        ) is not bool:
+            raise ValueError(
+                f"{comment_id} 授權欄位必須是布林值"
+            )
+
+        counts[category] += 1
+
+    expected_ids = {
+        f"C{i:03d}"
+        for i in range(1, 962)
+        if i != 300
+    }
+
+    if ids != expected_ids:
+        raise ValueError(
+            "ID 不符合 C001～C961 "
+            "且排除 C300 的正式版本"
+        )
+
+    if "C074" not in ids or "C300" in ids:
+        raise ValueError(
+            "C074／C300 狀態錯誤"
+        )
+
+    return counts
 
 
 def main() -> int:
     print("=" * 55)
-    print("Discord RP 傳聞獎懲安全檢查")
+    print("Discord RP 評論庫部署前檢查")
     print("=" * 55)
 
     try:
-        from core.rumor_reward_planner import (
-            ALLOWED,
-            RuleConfig,
-            make_reward_plan,
-        )
-
-        check(
-            callable(make_reward_plan),
-            "獎懲計算函式可以正常載入",
-        )
-
-        check(
-            "影響指數" not in ALLOWED,
-            "影響指數禁止一般傳聞獎懲",
-        )
-
-        check(
-            "CP好感度" not in ALLOWED,
-            "CP好感度禁止一般傳聞獎懲",
-        )
-
-        if not ALLOWED:
-            raise AssertionError(
-                "沒有可供測試的一般數值欄位"
-            )
-
-        # 使用模組允許的第一個一般數值
-        # 進行測試，不修改正式設定。
-        stat_name = sorted(ALLOWED)[0]
-
-        rules = RuleConfig(
-            version="preflight-test-v1",
-            grade_changes={
-                "S": {stat_name: 10},
-                "A": {stat_name: 8},
-                "B": {stat_name: 5},
-                "C": {stat_name: 2},
-                "D": {stat_name: -3},
-            },
-            tier_percent={
-                1: 100,
-                2: 120,
-                3: 150,
-                4: 180,
-                5: 200,
-            },
-            caps={
-                stat_name: 100,
-            },
-            heat_reference=1000,
-            max_heat_bonus_permille=200,
-        )
-
-        arguments = dict(
-            guild_id="123456789",
-            rumor_id=1001,
-            character_id=2001,
-            grade="A",
-            tier=2,
-            heat=500,
-            rules=rules,
-        )
-
-        first = make_reward_plan(
-            **arguments
-        )
-
-        second = make_reward_plan(
-            **arguments
-        )
-
-        check(
-            first.changes == second.changes,
-            "相同規則產生相同獎懲結果",
-        )
-
-        check(
-            first.fingerprint == second.fingerprint,
-            "相同結算資料產生相同指紋",
-        )
-
-        check(
-            isinstance(
-                first.fingerprint,
-                str,
-            )
-            and len(first.fingerprint) == 64,
-            "SHA-256 結算指紋格式正確",
-        )
-
-        check(
-            stat_name in first.changes,
-            "一般數值獎懲計算正常",
-        )
-
-        check(
-            abs(first.changes[stat_name])
-            <= rules.caps[stat_name],
-            "獎懲不超過單次上限",
-        )
-
-        expect_value_error(
-            lambda: make_reward_plan(
-                **{
-                    **arguments,
-                    "grade": "X",
-                }
-            ),
-            "無效評級遭到拒絕",
-        )
-
-        expect_value_error(
-            lambda: make_reward_plan(
-                **{
-                    **arguments,
-                    "tier": 6,
-                }
-            ),
-            "無效 T 等級遭到拒絕",
-        )
-
-        expect_value_error(
-            lambda: make_reward_plan(
-                **{
-                    **arguments,
-                    "heat": -1,
-                }
-            ),
-            "負數熱度遭到拒絕",
-        )
-
-        forbidden_rules = RuleConfig(
-            version="forbidden-test",
-            grade_changes={
-                "S": {"影響指數": 100},
-                "A": {},
-                "B": {},
-                "C": {},
-                "D": {},
-            },
-            tier_percent={
-                1: 100,
-                2: 100,
-                3: 100,
-                4: 100,
-                5: 100,
-            },
-            caps={
-                "影響指數": 100,
-            },
-            heat_reference=1000,
-            max_heat_bonus_permille=200,
-        )
-
-        expect_value_error(
-            lambda: make_reward_plan(
-                **{
-                    **arguments,
-                    "rules": forbidden_rules,
-                }
-            ),
-            "未授權影響指數獎勵遭到拒絕",
-        )
+        paths = check_manifest()
+        comments = load_comments(paths)
+        counts = validate_comments(comments)
 
         print()
-        print("結果：PASS")
+        print("分類完成進度")
+        print("-" * 55)
+
+        remaining_total = 0
+
+        for category_id, name in CATEGORIES.items():
+            count = counts[category_id]
+            remaining = max(
+                TARGET_PER_CATEGORY - count,
+                0,
+            )
+            remaining_total += remaining
+
+            print(
+                f"{category_id:02d} {name}: "
+                f"{count}/80，"
+                f"尚缺 {remaining}"
+            )
+
+        print("-" * 55)
         print(
-            "傳聞計算測試通過，"
-            "未修改任何正式資料。"
+            f"驗證通過：{len(comments)} 則"
+        )
+        print(
+            f"距離各分類達標尚缺："
+            f"{remaining_total} 則"
         )
 
+        print("結果：PASS")
         return 0
 
     except Exception as exc:
