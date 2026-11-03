@@ -278,10 +278,15 @@ class SystemHub(commands.Cog):
     @app_commands.command(name="總覽", description="查閱指令、活動、獎項、玩法、標籤與角色")
     @app_commands.guild_only()
     async def overview(self, interaction: discord.Interaction):
+        from modules.task_event_bridge import require_tutorial_channel, mark_tutorial_after_reply
+        allowed, tutorial_character = await require_tutorial_channel(interaction, '總覽')
+        if not allowed:
+            return
         try:
             view = OverviewView(self.bot, interaction.user.id, interaction.guild_id)
             embed = view.render()
             await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+            mark_tutorial_after_reply(interaction, '總覽', tutorial_character)
         except Exception:
             LOG.exception("/總覽 開啟失敗：guild=%s user=%s", interaction.guild_id, interaction.user.id)
             if not interaction.response.is_done():
@@ -293,9 +298,14 @@ class SystemHub(commands.Cog):
     @app_commands.command(name="排行", description="查看全服28類排行榜與排名")
     @app_commands.guild_only()
     async def ranking(self, interaction: discord.Interaction):
+        from modules.task_event_bridge import require_tutorial_channel, mark_tutorial_after_reply
+        allowed, tutorial_character = await require_tutorial_channel(interaction, '排行')
+        if not allowed:
+            return
         try:
             view = LeaderboardView(interaction.user.id, interaction.guild_id)
             await interaction.response.send_message(embed=view.render(), view=view, ephemeral=True)
+            mark_tutorial_after_reply(interaction, '排行', tutorial_character)
         except Exception:
             LOG.exception("排行榜查詢失敗")
             if not interaction.response.is_done():
