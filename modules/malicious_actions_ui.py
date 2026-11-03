@@ -113,9 +113,25 @@ class MaliciousActionsUI(commands.Cog):
                            內容='RP 劇情敘述（1～500字）', 匿名='是否隱藏發起角色')
     @app_commands.choices(行動=ACTION_CHOICES, 強度=LEVEL_CHOICES)
     async def malicious(self, interaction: discord.Interaction,
-                        目標角色編號: int, 行動: app_commands.Choice[str],
-                        強度: app_commands.Choice[str], 標題: str, 內容: str,
+                        目標角色編號: int | None = None, 行動: app_commands.Choice[str] | None = None,
+                        強度: app_commands.Choice[str] | None = None, 標題: str | None = None, 內容: str | None = None,
                         匿名: bool = True):
+        from modules.task_event_bridge import require_tutorial_channel, mark_tutorial_after_reply
+        allowed, tutorial_character = await require_tutorial_channel(interaction, '惡意')
+        if not allowed:
+            return
+        if tutorial_character is not None:
+            await interaction.response.send_message(
+                '🛡️ 惡意系統教學：正式行動需要目標、類型、強度及劇情描述，'
+                '並會依規則扣除金幣、判定結果。此處只顯示說明，不執行行動。', ephemeral=True,
+            )
+            mark_tutorial_after_reply(interaction, '惡意', tutorial_character)
+            return
+        if any(value is None for value in (目標角色編號, 行動, 強度, 標題, 內容)):
+            await interaction.response.send_message(
+                '正式使用 `/惡意` 必須填寫目標角色編號、行動、強度、標題與內容。', ephemeral=True,
+            )
+            return
         guild = interaction.guild
         channel = interaction.channel
         if guild is None or not isinstance(channel, discord.Thread) or not isinstance(channel.parent, discord.ForumChannel):
