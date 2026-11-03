@@ -1,4 +1,3 @@
-
 """Discord RP 官方商城主程式。
 
 功能：
@@ -2021,6 +2020,11 @@ class Shop(commands.Cog):
             )
         except (ValueError, InvalidState, PermissionDenied, sqlite3.Error) as exc:
             await interaction.response.send_message(f"⚠️ {exc}", ephemeral=True)
+            try:
+                from modules.task_event_bridge import record_successful_command_interaction
+                record_successful_command_interaction(interaction, '商城')
+            except Exception:
+                pass  # 教學紀錄不得影響原有功能
 
     @management.command(
         name="商城新增",
