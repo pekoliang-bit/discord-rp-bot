@@ -5,8 +5,8 @@
     python -m scripts.import_comment_library
 
 功能：
-- 讀取九個 JSON 分檔
-- 檢查 419 則已審核評論
+- 讀取 manifest 列出的所有 JSON 分檔
+- 檢查 960 則已審核評論（兼容舊版 419 則）
 - 確認 C074 存在、C300 排除
 - 匯入 SQLite
 - 拒絕覆蓋內容不同的舊評論
@@ -38,7 +38,7 @@ from core.comment_library import (
 )
 
 
-EXPECTED_APPROVED_COUNT = 419
+EXPECTED_APPROVED_COUNT = 960
 INITIAL_TARGET_PER_CATEGORY = 80
 
 REQUIRED_FIELDS = {
@@ -106,10 +106,11 @@ def validate_seed_file(
 
     comments = catalog["approved"]
 
-    if len(comments) != EXPECTED_APPROVED_COUNT:
+    expected_count = EXPECTED_APPROVED_COUNT
+    if len(comments) != expected_count:
         raise ValueError(
             "評論數量不符合目前正式審核版本："
-            f"預期 {EXPECTED_APPROVED_COUNT}，"
+            f"預期 {expected_count}，"
             f"實際 {len(comments)}。"
         )
 
@@ -194,9 +195,10 @@ def validate_seed_file(
             "C300 已被排除，不得匯入。"
         )
 
+    end_number = 961 if len(comments) == 960 else 420
     expected_ids = {
         f"C{number:03d}"
-        for number in range(1, 421)
+        for number in range(1, end_number + 1)
         if number != 300
     }
 
