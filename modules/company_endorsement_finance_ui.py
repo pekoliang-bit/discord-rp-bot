@@ -35,7 +35,7 @@ class EndorsementPaymentModal(discord.ui.Modal):
         await interaction.followup.send(msg[:1900],ephemeral=True)
 
 class PaymentAction(discord.ui.Button):
-    def __init__(self,action,label): super().__init__(label=label,style=discord.ButtonStyle.secondary,row=2);self.action=action
+    def __init__(self,action,label): super().__init__(label=label,style=discord.ButtonStyle.secondary,row=2 if action in ('offer','accept','pay') else 3);self.action=action
     async def callback(self,i):
         v=self.view
         if str(i.guild_id)!=v.gid or str(i.user.id)!=v.uid:
