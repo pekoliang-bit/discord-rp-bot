@@ -66,7 +66,10 @@ class KindPick(discord.ui.Select):
         except ValueError as e:return await i.response.send_message(str(e)[:180],ephemeral=True)
         except Exception:return await i.response.send_message('讀取任務失敗，請稍後再試。',ephemeral=True)
         if not rows:return await i.response.send_message('目前沒有符合資格且已發布的任務。',ephemeral=True)
-        text='\n'.join(f"**#{r['id']}** {discord.utils.escape_markdown(r['title'])}（{r['subtype'] or '一般'} Lv.{r['level']}）" for r in rows[:20])
+        from modules.task_conditions import public_minimums
+        text='\n'.join(
+            f"**#{r['id']}** {discord.utils.escape_markdown(r['title'])}（{r['subtype'] or '一般'}）\n"
+            f"最低接取條件：{public_minimums(self.gid,r)}" for r in rows[:12])
         if len(rows)>5:text+='\n\n目前僅顯示前五個接取按鈕；其他任務可稍後由列表分頁擴充。'
         await i.response.send_message(text[:1900],view=ListingsView(i.user.id,self.gid,self.cid,rows),ephemeral=True)
 
@@ -128,9 +131,25 @@ class TasksCenter(commands.Cog):
             if not cs:return await i.response.send_message('請先啟用角色',ephemeral=True)
             return await i.response.send_message('選擇要查看任務的角色：',view=TaskView(i.user.id,cs),ephemeral=True)
         if 任務編號 is not None:
-            try:report(i.guild_id,角色編號,i.user.id,任務編號,i.channel_id)
-            except ValueError as e:return await i.response.send_message(str(e),ephemeral=True)
-            return await i.response.send_message('已送交回報審核；獎勵尚未發放。',ephemeral=True)
+            # Discord 讀取留言歷史可能需要超過 3 秒，先 ACK 避免互動逾時。
+            await i.response.defer(ephemeral=True, thinking=True)
+            try:
+                from modules.task_evidence import find_thread_evidence
+                with get_connection() as db:
+                    active=db.execute('''SELECT accepted_at FROM rp_task_progress WHERE
+                        guild_id=? AND character_id=? AND task_id=? AND status='accepted'
+                        ORDER BY accepted_at DESC LIMIT 1''',
+                        (str(i.guild_id),int(角色編號),int(任務編號))).fetchone()
+                if not active:raise ValueError('找不到可回報的已接取任務')
+                evidence=await find_thread_evidence(i,accepted_at=active['accepted_at'])
+                report(i.guild_id,角色編號,i.user.id,任務編號,i.channel_id,evidence=evidence)
+            except ValueError as e:
+                return await i.followup.send(str(e)[:1800],ephemeral=True)
+            except Exception:
+                import logging
+                logging.getLogger(__name__).exception('任務回報失敗')
+                return await i.followup.send('任務回報失敗，請聯絡管理員檢查紀錄。',ephemeral=True)
+            return await i.followup.send('✅ 留言證據已記錄，回報已送交官方審核；獎勵尚未發放。',ephemeral=True)
         await show_character(i,角色編號)
 
 async def setup(bot):
