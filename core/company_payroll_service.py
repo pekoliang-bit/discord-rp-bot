@@ -1,3 +1,4 @@
+
 """公司正式發薪服務：7／14天制。
 
 沿用既有金流帳本，所有付款寫入同一個 SQLite 交易。
@@ -183,6 +184,7 @@ def pay_salary(
         initialize_contracts(db)
         terms = resolve_payroll_terms(db, gid, bid, cid, employee["salary"], policy["cycle_days"])
         amount = terms.salary
+        contractual_salary = int(amount)
 
         # 等級薪資倍率由正式地位規則統一計算。
         try:
@@ -319,6 +321,13 @@ def pay_salary(
             period.key, amount, uid,
             reference, now_ts,
         ))
+
+        # A salary snapshot is immutable evidence for this paid period.
+        # It does not pretend to reconstruct older, unpaid salary revisions.
+        from core.company_salary_snapshots import save_in_transaction
+        save_in_transaction(db,gid,bid,cid,period.key,
+                            employee["salary"],contractual_salary,
+                            amount,level,int(policy["cycle_days"]),reference)
 
         db.execute("""
             INSERT INTO rp_company_finance_audit
