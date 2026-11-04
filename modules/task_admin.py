@@ -1,3 +1,4 @@
+
 """Official task management via existing /官方 → 內容建立 → 任務 route.
 No standalone slash commands. Permissions are task-scoped grants maintained by guild owner.
 """
@@ -141,7 +142,10 @@ class TaskAdminView(discord.ui.View):
     @discord.ui.button(label='待審清單',row=1)
     async def pending_list(self,i,b):
         rows=pending(i.guild_id)
-        await reply(i,'\n'.join(f"角色#{r['character_id']} 任務#{r['task_id']} 週期:{r['cycle_key']} {r['title']}" for r in rows) or '目前沒有待審回報')
+        await reply(i,'\n'.join(
+            f"角色#{r['character_id']} 任務#{r['task_id']} 週期:{r['cycle_key']} {r['title']}\n"
+            f"證據：{('https://discord.com/channels/'+str(i.guild_id)+'/'+str(r['evidence_channel_id'])+'/'+str(r['evidence_message_id'])) if r['evidence_message_id'] else '未綁定留言'}"
+            for r in rows) or '目前沒有待審回報')
     @discord.ui.button(label='任務清單',row=2)
     async def listing(self,i,b):
         initialize()
@@ -157,6 +161,6 @@ async def open_task_admin(i):
     if not authorized(i):return await reply(i,'僅群主與正式授權的任務管理員可以使用')
     initialize()
     view=TaskAdminView(i.user.id,i.guild_id)
-    msg='📋 **官方任務管理**\n建立、編輯、設定五級門檻與發布／停用。\n未發布任務不會出現在玩家清單；任務金幣與數值可結算；物品獎勵目前待背包整合。'
+    msg='📋 **官方任務管理**\n建立、編輯、設定五級門檻與發布／停用。\n未發布任務不會出現在玩家清單；任務金幣與數值可結算；官方商城正式商品可發入背包；其他不支援商品留待補發。'
     if i.response.is_done():await i.followup.send(msg,view=view,ephemeral=True)
     else:await i.response.send_message(msg,view=view,ephemeral=True)
