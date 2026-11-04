@@ -1,4 +1,3 @@
-
 """夜生活場所預設綁定查詢（資料層；不自動執行未核准行動）。
 
 僅目標伺服器有固定預設頻道。其他伺服器不會繼承別人的 ID；
@@ -10,15 +9,24 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-_SOURCE = Path(__file__).resolve().parent.parent / "assets" / "action_locations" / "nightlife_default_pending.json"
+_SOURCE = (
+    Path(__file__).resolve().parent.parent
+    / "assets"
+    / "action_locations"
+    / "nightlife_default_pending.json"
+)
 
 
 def load_defaults() -> dict:
     return json.loads(_SOURCE.read_text(encoding="utf-8"))
 
 
-def lookup_channel(guild_id: int | str, channel_id: int | str, overrides: dict | None = None) -> dict | None:
-    """查詢綁定；管理員自訂項目優先。任何操作都要另外檢查核准狀態。"""
+def lookup_channel(
+    guild_id: int | str,
+    channel_id: int | str,
+    overrides: dict | None = None
+) -> dict | None:
+    """查詢綁定；管理員自訂項目優先。"""
     guild_id, channel_id = str(guild_id), str(channel_id)
     if overrides is not None and (guild_id, channel_id) in overrides:
         return overrides[(guild_id, channel_id)]
@@ -31,11 +39,22 @@ def lookup_channel(guild_id: int | str, channel_id: int | str, overrides: dict |
     return None
 
 
-def get_reviewable_actions(guild_id: int | str, channel_id: int | str) -> list[dict]:
-    location = lookup_channel(guild_id, channel_id)
+def get_reviewable_actions(
+    guild_id: int | str,
+    channel_id: int | str,
+    overrides: dict | None = None
+) -> list[dict]:
+    location = lookup_channel(guild_id, channel_id, overrides)
     return list(location.get("actions", [])) if location else []
 
 
-def get_executable_actions(guild_id: int | str, channel_id: int | str) -> list[dict]:
-    """待審核內容不會產生可執行行動。"""
-    return [a for a in get_reviewable_actions(guild_id, channel_id) if a.get("approved") is True]
+def get_executable_actions(
+    guild_id: int | str,
+    channel_id: int | str,
+    overrides: dict | None = None
+) -> list[dict]:
+    """只回傳已核准且通過最低價格與獎勵驗證的行動。"""
+    from modules.action_reward_rules import all_valid_actions
+    return all_valid_actions(
+        get_reviewable_actions(guild_id, channel_id, overrides)
+    )
