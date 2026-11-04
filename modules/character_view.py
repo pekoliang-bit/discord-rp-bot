@@ -1921,6 +1921,18 @@ class CharacterDetailView(discord.ui.View):
         except (ValueError,sqlite3.Error,InvalidState,PermissionDenied) as exc:
             await interaction.response.send_message(f'⚠️ {exc}',ephemeral=True)
 
+    @discord.ui.button(label='🎯 點數分配',style=discord.ButtonStyle.primary,row=3)
+    async def leaderboard_points_button(self,interaction,button):
+        if not self.is_own_character:
+            await interaction.response.send_message('只有已啟用角色的持有人可以分配點數。',ephemeral=True)
+            return
+        try:
+            from modules.leaderboard_points_discord import open_points_panel
+            await open_points_panel(interaction,self.character_id)
+        except Exception as exc:
+            if not interaction.response.is_done():
+                await interaction.response.send_message(f'⚠️ 點數面板暫時無法開啟：{exc}',ephemeral=True)
+
     @discord.ui.button(label='⬅️ 返回',style=discord.ButtonStyle.secondary,row=2)
     async def back(self,interaction,button):
         result=find_characters(self.actor,self.category,self.keyword,self.page)
