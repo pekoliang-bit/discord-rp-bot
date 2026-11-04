@@ -1555,7 +1555,9 @@ class AdminToolsView(ManagementView):
         # 公關設定只供群主使用；不新增 Discord 頂層指令。
         if self.owner:
             from modules.rumor_pr_admin_ui import PRStrategyManageButton
+            from modules.rumor_auto_broadcast_ui import RumorAutoManageButton
             self.add_item(PRStrategyManageButton())
+            self.add_item(RumorAutoManageButton())
 
         # A task-only delegate must not see unrelated commerce/admin panels.
         from modules.task_permissions import authorized as task_authorized
@@ -1594,7 +1596,7 @@ class AdminToolsView(ManagementView):
     @discord.ui.button(
         label="🏠 返回官方首頁",
         style=discord.ButtonStyle.secondary,
-        row=2,
+        row=4,
     )
     async def back(self, interaction, button):
         await interaction.response.edit_message(
@@ -1618,6 +1620,7 @@ def management_text(view):
             "✍️ 內容建立：劇情、活動、獎項等",
             "🏪 場景商店：餐廳、診所、酒店等",
             "📣 公關策略：設定分數、啟停與修改版本",
+            "📰 定時傳聞：100則模板、每8小時發布、頻道綁定",
         ])
 
     if view.unavailable:
