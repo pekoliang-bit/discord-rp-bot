@@ -1,3 +1,4 @@
+
 """公司財務分析：區分品牌銷售統計與真正已入帳的資金。
 
 這個模組只提供可稽核的查詢，不根據銷售統計創造金幣。
@@ -77,8 +78,9 @@ def profit_overview(guild_id, business_id, actor_id):
         from core.company_profit_reserve import reserve_account
         reserve = int(account_balance(db, gid, reserve_account(db, gid, bid)))
         from core.company_cashflow_reconcile import cashflow_summary
-        # 使用相同的權限與既有帳本。這個摘要是現金流，不是淨利潤。
         flows = cashflow_summary(gid, bid, uid)
+        from core.company_accounting import report as accounting_report
+        accounting = accounting_report(gid, bid, uid)
         unknown = "\n".join(
             f"・{item['key']}: {item['delta']:+,}"
             for item in flows['unclassified'][:5]
@@ -97,6 +99,8 @@ def profit_overview(guild_id, business_id, actor_id):
             f"已入帳資金流入：{flows['inflow']:,} {currency}\n"
             f"已入帳資金流出：{flows['outflow']:,} {currency}\n"
             f"淨現金流：{flows['net']:+,} {currency}\n"
+            f"已分類現金收支試算：{accounting['cash_basis_result']:+,} {currency}\n"
+            f"未分類公司對外交易：{len(accounting['pending'])} 筆\n"
             f"公司內部互轉：{flows['transfers']} 筆（已排除）\n"
             f"待歸類交易（最近五筆）：\n{unknown}\n\n"
             "⚠️ 銷售統計不等於銀行入帳；試算額不可直接分潤。"
