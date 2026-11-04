@@ -1,17 +1,32 @@
+
 {
   "version": 1,
   "status": "pending_review",
   "target_guild_id": "1544051203493601380",
   "timezone": "Asia/Taipei",
   "category": "培訓學習區",
-  "policy": {"normal_attribute_cost_per_point":300,"course_attribute_cost_per_point":500,"prices_are_minima":true,"min_work_reward":2000,"work_reward_coins_may_vary":true,"work_may_grant_points":true,"specified_skill_reward_pool":"自由點數","point_pool_rules":{"自由點數":"除影響指數以外的合法屬性","專業點數":"主攻賽道及其他技能","技能點數":"專業（主攻及其他技能）與個人才藝"},"unapproved_actions_disabled":true},
+  "policy": {
+    "normal_attribute_cost_per_point": 300,
+    "course_attribute_cost_per_point": 500,
+    "prices_are_minima": true,
+    "min_work_reward": 2000,
+    "work_reward_coins_may_vary": true,
+    "work_may_grant_points": true,
+    "specified_skill_reward_pool": "自由點數",
+    "point_pool_rules": {
+      "自由點數": "除影響指數以外的合法屬性",
+      "專業點數": "主攻賽道及其他技能",
+      "技能點數": "專業（主攻及其他技能）與個人才藝"
+    },
+    "unapproved_actions_disabled": true
+  },
   "locations": [
     {
       "key": "dance_practice_room",
       "name": "歌舞練習室",
-      "channel_id": null,
+      "channel_id": "1545747802133499955",
       "channel_type": "text",
-      "binding_status": "awaiting_channel_link",
+      "binding_status": "bound",
       "actions": [
         {"name":"練習室助理","category":"打工","cost_coins":0,"reward_coins":2500,"attribute":null,"attribute_increase":0,"point_rewards":{},"action_points_cost":1,"approved":false},
         {"name":"舞蹈助教","category":"打工","cost_coins":0,"reward_coins":3500,"attribute":null,"attribute_increase":0,"point_rewards":{"專業點數":3},"action_points_cost":1,"approved":false},
@@ -26,9 +41,9 @@
     {
       "key": "city_library",
       "name": "市立圖書館",
-      "channel_id": null,
+      "channel_id": "1546801896541519872",
       "channel_type": "text",
-      "binding_status": "awaiting_channel_link",
+      "binding_status": "bound",
       "actions": [
         {"name":"圖書整理員","category":"打工","cost_coins":0,"reward_coins":2200,"attribute":null,"attribute_increase":0,"point_rewards":{},"action_points_cost":1,"approved":false},
         {"name":"資料管理助理","category":"打工","cost_coins":0,"reward_coins":3000,"attribute":null,"attribute_increase":0,"point_rewards":{"自由點數":2},"action_points_cost":1,"approved":false},
@@ -41,9 +56,9 @@
     {
       "key": "recording_studio",
       "name": "錄音工作室",
-      "channel_id": null,
+      "channel_id": "1548942125352357888",
       "channel_type": "text",
-      "binding_status": "awaiting_channel_link",
+      "binding_status": "bound",
       "actions": [
         {"name":"錄音助理","category":"打工","cost_coins":0,"reward_coins":2800,"attribute":null,"attribute_increase":0,"point_rewards":{"技能點數":2},"action_points_cost":1,"approved":false},
         {"name":"配音工作","category":"打工","cost_coins":0,"reward_coins":4000,"attribute":null,"attribute_increase":0,"point_rewards":{"專業點數":3},"action_points_cost":1,"approved":false},
@@ -57,9 +72,9 @@
     {
       "key": "acting_classroom",
       "name": "演技教室",
-      "channel_id": null,
+      "channel_id": "1567471457909350400",
       "channel_type": "text",
-      "binding_status": "awaiting_channel_link",
+      "binding_status": "bound",
       "actions": [
         {"name":"課堂助理","category":"打工","cost_coins":0,"reward_coins":2600,"attribute":null,"attribute_increase":0,"point_rewards":{},"action_points_cost":1,"approved":false},
         {"name":"示範演員","category":"打工","cost_coins":0,"reward_coins":4500,"attribute":null,"attribute_increase":0,"point_rewards":{"專業點數":4},"action_points_cost":1,"approved":false},
@@ -73,9 +88,9 @@
     {
       "key": "professional_training_center",
       "name": "專業培訓中心",
-      "channel_id": null,
+      "channel_id": "1567471503140986923",
       "channel_type": "text",
-      "binding_status": "awaiting_channel_link",
+      "binding_status": "bound",
       "actions": [
         {"name":"培訓助理","category":"打工","cost_coins":0,"reward_coins":3000,"attribute":null,"attribute_increase":0,"point_rewards":{},"action_points_cost":1,"approved":false},
         {"name":"專業助教","category":"打工","cost_coins":0,"reward_coins":5000,"attribute":null,"attribute_increase":0,"point_rewards":{"技能點數":5},"action_points_cost":1,"approved":false},
