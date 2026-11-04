@@ -1,4 +1,4 @@
-通告條件篩選：每種作品獨立的 1~5 級模板，管理員可於資料庫覆寫。"""
+"""通告條件篩選：每種作品獨立的 1~5 級模板，管理員可於資料庫覆寫。"""
 from __future__ import annotations
 import json
 from core.database import get_connection, transaction
