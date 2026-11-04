@@ -121,6 +121,7 @@ def charge_verified_pr_action(
     request_key,
     *,
     effect_writer=None,
+    funding_company=None,
 ):
     """執行正式公關付費。
 
@@ -141,4 +142,5 @@ def charge_verified_pr_action(
         request_key,
         effect_writer=effect_writer,
         admin_override=False,
+        funding_company=funding_company,
     )
