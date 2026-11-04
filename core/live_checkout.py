@@ -22,6 +22,8 @@ ORDERS_DDL = """CREATE TABLE IF NOT EXISTS rp_live_sale_orders (
     quantity INTEGER NOT NULL CHECK(quantity BETWEEN 1 AND 99),
     paid_amount INTEGER NOT NULL CHECK(paid_amount >= 0),
     commission_amount INTEGER NOT NULL CHECK(commission_amount >= 0),
+    commission_gross INTEGER NOT NULL DEFAULT 0,
+    platform_fee INTEGER NOT NULL DEFAULT 0,
     request_key TEXT NOT NULL,
     created_at INTEGER NOT NULL,
     UNIQUE(guild_id, request_key)
@@ -31,6 +33,11 @@ ORDERS_DDL = """CREATE TABLE IF NOT EXISTS rp_live_sale_orders (
 def _init(db):
     commerce._init(db)
     db.execute(ORDERS_DDL)
+    cols={r['name'] for r in db.execute('PRAGMA table_info(rp_live_sale_orders)').fetchall()}
+    if 'commission_gross' not in cols:
+        db.execute('ALTER TABLE rp_live_sale_orders ADD COLUMN commission_gross INTEGER NOT NULL DEFAULT 0')
+    if 'platform_fee' not in cols:
+        db.execute('ALTER TABLE rp_live_sale_orders ADD COLUMN platform_fee INTEGER NOT NULL DEFAULT 0')
 
 
 def checkout(guild_id, user_id, buyer_character_id, offer_id, quantity, request_key, *, now=None):
@@ -78,13 +85,18 @@ def checkout(guild_id, user_id, buyer_character_id, offer_id, quantity, request_
         cost = int(cost)
         if cost <= 0:
             raise ValueError('零元商品不適用直播佣金結算')
-        commission = (cost * int(offer['commission_bp'])) // 10000
+        gross_commission = (cost * int(offer['commission_bp'])) // 10000
+        platform_fee = (gross_commission * 20) // 100
+        commission = gross_commission - platform_fee
         payer = get_or_create_account(db, gid, 'character', buyer_id, 'wallet')
         merchant = get_or_create_account(db, gid, 'system', 'official_shop', 'treasury')
         host = get_or_create_account(db, gid, 'character', int(offer['host_character_id']), 'wallet')
         _payment(db, gid, f'shop:buy:{key}', payer, merchant, cost, f'直播官方商城購買 #{offer_id} ×{quantity}')
         if commission:
-            _payment(db, gid, f'shop:commission:{key}', merchant, host, commission, f'直播佣金 #{offer_id}')
+            _payment(db, gid, f'shop:commission:{key}', merchant, host, commission, f'直播佣金（平台抽成後） #{offer_id}')
+        if platform_fee:
+            platform = get_or_create_account(db, gid, 'system', 'live_platform', 'wallet')
+            _payment(db, gid, f'shop:platform:{key}', merchant, platform, platform_fee, f'直播帶貨平台抽成 #{offer_id}')
         shop.adjust_inventory(db, gid, buyer_id, int(product['id']), quantity)
         if product['stock'] is not None:
             db.execute('UPDATE shop_products SET stock=stock-?,updated_at=? WHERE guild_id=? AND id=?',
@@ -92,10 +104,10 @@ def checkout(guild_id, user_id, buyer_character_id, offer_id, quantity, request_
         shop.log_event(db, gid, f'buy:{key}', 'purchase', buyer_id, int(product['id']), quantity)
         order_id = db.execute('''INSERT INTO rp_live_sale_orders
           (guild_id,offer_id,session_id,product_id,buyer_character_id,host_character_id,
-           quantity,paid_amount,commission_amount,request_key,created_at)
-          VALUES(?,?,?,?,?,?,?,?,?,?,?)''',
+           quantity,paid_amount,commission_amount,commission_gross,platform_fee,request_key,created_at)
+          VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)''',
           (gid,int(offer_id),int(offer['session_id']),int(product['id']),buyer_id,
-           int(offer['host_character_id']),quantity,cost,commission,key,int(time.time() if now is None else now))).lastrowid
+           int(offer['host_character_id']),quantity,cost,commission,gross_commission,platform_fee,key,int(time.time() if now is None else now))).lastrowid
         return dict(db.execute('SELECT * FROM rp_live_sale_orders WHERE id=?', (order_id,)).fetchone())
 
 
@@ -103,6 +115,6 @@ def order_totals(guild_id, session_id):
     with get_connection() as db:
         _init(db)
         row = db.execute('''SELECT COUNT(*) AS orders, COALESCE(SUM(quantity),0) AS units,
-            COALESCE(SUM(paid_amount),0) AS sales, COALESCE(SUM(commission_amount),0) AS commissions
+            COALESCE(SUM(paid_amount),0) AS sales, COALESCE(SUM(commission_amount),0) AS commissions, COALESCE(SUM(platform_fee),0) AS platform_fees
             FROM rp_live_sale_orders WHERE guild_id=? AND session_id=?''', (str(guild_id), int(session_id))).fetchone()
         return dict(row)
