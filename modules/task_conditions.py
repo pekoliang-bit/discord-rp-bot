@@ -35,6 +35,10 @@ def evaluate(rules,character):
     jobs=rules.get('occupations') or []
     if not isinstance(jobs,list): return {'eligible':False,'missing':['職業條件設定錯誤']}
     if jobs and character.get('occupation') not in jobs:missing.append('職業不符')
+    allowed=rules.get('allowed_character_ids') or []
+    if allowed and int(character.get('character_id') or 0) not in allowed:missing.append('非指定受邀角色')
+    maximum=rules.get('max_age')
+    if maximum is not None and int(character.get('age') or 0)>int(maximum):missing.append(f'年齡不得超過 {maximum}')
     for field,label in [('cafe_level','咖位'),('age','年齡')]:
         minimum=rules.get('min_'+field)
         if minimum is not None and int(character.get(field) or 0)<int(minimum):
