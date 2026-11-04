@@ -44,6 +44,13 @@ def initialize():
           rules_json TEXT NOT NULL, PRIMARY KEY(guild_id,subtype,level),
           CHECK(level BETWEEN 1 AND 5)
         )''')
+        db.execute('''CREATE TABLE IF NOT EXISTS rp_task_evidence (
+            guild_id TEXT NOT NULL, character_id INTEGER NOT NULL,
+            task_id INTEGER NOT NULL, cycle_key TEXT NOT NULL,
+            message_id TEXT NOT NULL, channel_id TEXT NOT NULL,
+            author_id TEXT NOT NULL, excerpt TEXT NOT NULL,
+            reported_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY(guild_id,character_id,task_id,cycle_key))''')
         db.execute('CREATE INDEX IF NOT EXISTS idx_rp_task_board ON rp_task_definitions(guild_id,kind,status)')
 
 def publish_task(guild_id, code, kind, title, *, description='', subtype='', level=1, requirements=None, rewards=None, report=None, status='draft', starts_at=None, ends_at=None):
