@@ -1,3 +1,4 @@
+
 """公關操作確認前的唯讀報價；最終扣費必須重新驗證。"""
 from __future__ import annotations
 from dataclasses import dataclass
@@ -18,7 +19,7 @@ class PRQuote:
 
 def quote_pr_action(guild_id, actor_id, character_id, rumor_id, strategy, resource):
     gid = str(guild_id).strip()
-    if not gid or not strategy or resource not in ('coins', 'paid_actions'):
+    if not gid or not strategy or resource not in ('coins', 'paid_actions', 'company_coins'):
         raise ValueError('公關報價參數錯誤')
     if type(character_id) is not int or type(rumor_id) is not int or min(character_id, rumor_id) <= 0:
         raise ValueError('角色或案件編號錯誤')
@@ -26,9 +27,15 @@ def quote_pr_action(guild_id, actor_id, character_id, rumor_id, strategy, resour
         ch = db.execute('SELECT owner_id,status FROM characters WHERE guild_id=? AND id=?', (gid,character_id)).fetchone()
         if ch is None or ch['status'] != 'active' or str(ch['owner_id']) != str(actor_id):
             raise PermissionError('只能替自己已啟用的角色操作')
-        case = db.execute('SELECT character_id,status,settle_at FROM rp_company_rumors WHERE guild_id=? AND id=?',(gid,rumor_id)).fetchone()
+        case = db.execute('SELECT character_id,business_id,status,settle_at FROM rp_company_rumors WHERE guild_id=? AND id=?',(gid,rumor_id)).fetchone()
         if case is None or case['status'] != 'active' or int(case['character_id']) != character_id or int(case['settle_at']) <= int(time.time()):
             raise ValueError('傳聞不是可操作的本人未到期案件')
+        if resource == 'company_coins':
+            from core.company_pr_funding import verify_company_payer
+            tier_for_limit = db.execute('SELECT tier FROM rp_rumor_case_tiers WHERE guild_id=? AND rumor_id=?',(gid,rumor_id)).fetchone()
+            if tier_for_limit is None or int(tier_for_limit['tier']) not in PR_COSTS:
+                raise ValueError('案件尚未鎖定正式等級')
+            verify_company_payer(db,gid,str(case['business_id']),actor_id,rumor_id,PR_COSTS[int(tier_for_limit['tier'])][0])
         tier = db.execute('SELECT tier FROM rp_rumor_case_tiers WHERE guild_id=? AND rumor_id=?',(gid,rumor_id)).fetchone()
         if tier is None or int(tier['tier']) not in PR_COSTS:
             raise ValueError('案件尚未鎖定正式 T1～T5 等級')
