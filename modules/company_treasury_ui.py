@@ -396,6 +396,8 @@ class TreasuryDetailView(discord.ui.View):
         # DebtEntry is available only on a selected company, not on the slash-command root.
         self.gid, self.uid = self.guild_id, self.user_id
         self.add_item(DebtEntry())
+        from modules.company_accounting_ui import AccountingEntry
+        self.add_item(AccountingEntry())
 
         # 只有持有人看到管理層額度設定按鈕。
         if self.is_owner:
