@@ -54,7 +54,7 @@ def allocate(
             raise PermissionError("只能分配自己的角色點數")
 
         old = db.execute("""
-            SELECT 1 FROM lb_point_history
+            SELECT character_id, pool, amount, category, target FROM lb_point_history
             WHERE guild_id = ? AND source_key = ?
         """, (
             guild_id,
@@ -62,6 +62,12 @@ def allocate(
         )).fetchone()
 
         if old is not None:
+            if (int(old["character_id"]) != character_id
+                or old["pool"] != pool
+                or int(old["amount"]) != amount
+                or old["category"] != category
+                or old["target"] != target):
+                raise ValueError("相同操作識別碼對應不同分配內容")
             return {"status": "already_processed"}
 
         cursor = db.execute("""
