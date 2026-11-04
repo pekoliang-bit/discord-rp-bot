@@ -7,7 +7,7 @@
 案件等級必須已鎖定，並在扣費交易內重新讀取。
 
 暫時只支援角色自己的錢包或付費行動值。
-公司金庫代付與免費行動值尚未接入。
+公司銀行金幣代付需公司公關權限及正式財務授權；免費行動值尚未接入。
 """
 
 from __future__ import annotations
@@ -113,6 +113,7 @@ def spend_for_pr_action(
     *,
     effect_writer: Optional[Callable] = None,
     admin_override: bool = False,
+    funding_company: str | None = None,
 ):
     """執行正式公關行動扣費。
 
@@ -121,7 +122,7 @@ def spend_for_pr_action(
     effect_writer(conn, effectiveness, action_id)
     必須只進行同一筆 SQLite 交易內的資料庫操作。
 
-    本函式不支援公司金庫代付。
+    公司付款由 funding_company 指定；實際扣費與效果同交易。
     """
 
     gid = str(guild_id)
@@ -154,6 +155,9 @@ def spend_for_pr_action(
             "角色或案件編號不合法。"
         )
 
+    if funding_company is not None and resource != "coins":
+        raise RumorPaymentError("公司付款只能使用金幣")
+
     with transaction() as conn:
         initialize(conn)
 
@@ -185,6 +189,9 @@ def spend_for_pr_action(
             0 if resource == "coins" else 1
         ]
 
+        from core.company_pr_funding import initialize as initialize_company_funding
+        initialize_company_funding(conn)
+        funding_company = str(funding_company) if funding_company is not None else None
         old = _existing(conn, gid, key)
 
         if old:
@@ -199,6 +206,12 @@ def spend_for_pr_action(
                     "相同請求編號已用於不同公關操作。"
                 )
 
+            funded = conn.execute("SELECT business_id FROM rp_company_pr_funding WHERE guild_id=? AND request_key=?",(gid,key)).fetchone()
+            if (str(funded['business_id']) if funded else None) != funding_company:
+                raise RumorPaymentError('相同請求已用於不同公司／個人付款來源')
+            if funding_company is not None:
+                from core.company_pr_funding import verify_company_payer
+                verify_company_payer(conn,gid,funding_company,uid,rid,cost)
             return ChargeResult(
                 int(old["id"]),
                 int(old["cost"]),
@@ -279,10 +292,11 @@ def spend_for_pr_action(
         ]
 
         if resource == "coins":
-            sender = get_or_create_account(
-                conn, gid, "character", cid, "wallet"
-            )
-
+            if funding_company is not None:
+                from core.company_pr_funding import verify_company_payer
+                sender = verify_company_payer(conn,gid,funding_company,uid,rid,cost)
+            else:
+                sender = get_or_create_account(conn,gid,"character",cid,"wallet")
             receiver = get_or_create_account(
                 conn, gid, "system",
                 "rumor-pr-expense", "treasury"
@@ -338,6 +352,9 @@ def spend_for_pr_action(
         )
 
         action_id = int(cur.lastrowid)
+        if funding_company is not None:
+            conn.execute("INSERT INTO rp_company_pr_funding (guild_id,request_key,business_id,actor_id,charge_id,amount) VALUES (?,?,?,?,?,?)",
+                (gid,key,funding_company,uid,action_id,cost))
 
         if effect_writer is not None:
             effect_writer(
