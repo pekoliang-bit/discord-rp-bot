@@ -63,6 +63,7 @@ def invite(guild_id, session_id, host_user_id, target_character_id, *, now=None)
     ts = int(time.time() if now is None else now)
     with transaction() as db:
         _init(db)
+        live._expire(db, gid, ts)
         session = _session(db, gid, session_id)
         if session['stream_type'] != 'group':
             raise ValueError("只有團播場次可以邀請其他角色")
@@ -95,7 +96,7 @@ def pending_for_character(guild_id, owner_user_id, character_id, *, now=None):
         return [dict(r) for r in db.execute("""SELECT i.* FROM rp_live_invitations i JOIN rp_live_sessions s
             ON s.guild_id=i.guild_id AND s.id=i.session_id
             WHERE i.guild_id=? AND i.invitee_character_id=? AND i.invitee_owner_id=? AND i.status='pending'
-            AND i.expires_at>? AND s.status='live' ORDER BY i.id DESC LIMIT 10""", (gid,cid,uid,ts)).fetchall()]
+            AND i.expires_at>? AND s.status='live' AND (s.ends_at IS NULL OR s.ends_at>?) ORDER BY i.id DESC LIMIT 10""", (gid,cid,uid,ts,ts)).fetchall()]
 
 
 def respond(guild_id, invitation_id, user_id, character_id, accept: bool, *, now=None):
@@ -103,6 +104,7 @@ def respond(guild_id, invitation_id, user_id, character_id, accept: bool, *, now
     ts = int(time.time() if now is None else now)
     with transaction() as db:
         _init(db)
+        live._expire(db, gid, ts)
         _active_char(db,gid,uid,cid)
         row = db.execute("SELECT * FROM rp_live_invitations WHERE guild_id=? AND id=? AND invitee_character_id=? AND invitee_owner_id=?", (gid,int(invitation_id),cid,uid)).fetchone()
         if row is None or row['status'] != 'pending':
@@ -137,6 +139,7 @@ def gift(guild_id, session_id, sender_user_id, sender_character_id, gift_name, i
     ts=int(time.time() if now is None else now)
     with transaction() as db:
         _init(db)
+        live._expire(db, gid, ts)
         prior=db.execute("SELECT * FROM rp_live_gifts WHERE guild_id=? AND ledger_key=?",(gid,key)).fetchone()
         if prior:
             if prior['sender_character_id'] != cid or prior['session_id'] != int(session_id):
