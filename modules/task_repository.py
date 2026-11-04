@@ -102,3 +102,54 @@ def accept_task(guild_id,character_id,task_id,cycle_key='once'):
          (guild_id,character_id,task_id,cycle_key,definition_version,snapshot_json)
          VALUES (?,?,?,?,?,?)''',(str(guild_id),int(character_id),int(task_id),cycle_key,row['version'],json.dumps(dict(row),ensure_ascii=False)))
         return cur.rowcount==1
+
+
+# Official editor API; all callers must check permissions before reaching this layer.
+def get_definition(guild_id,task_id):
+    initialize()
+    with get_connection() as db:
+        row=db.execute('SELECT * FROM rp_task_definitions WHERE guild_id=? AND id=?',(str(guild_id),int(task_id))).fetchone()
+    return dict(row) if row else None
+
+def admin_update(guild_id,task_id,expected_version,fields):
+    """Optimistic edit: never changes current acceptances' frozen snapshot."""
+    from modules.task_validation import parse_object,validate_definition
+    allowed={'title','description','subtype','level','requirements_json','rewards_json','report_json','starts_at','ends_at'}
+    if not fields or set(fields)-allowed:raise ValueError('不支援的欄位')
+    before=get_definition(guild_id,task_id)
+    if not before:raise ValueError('找不到任務')
+    if before['status']=='archived':raise ValueError('封存任務禁止直接編輯')
+    draft={**before,**fields}
+    parsed={k:parse_object(draft[k]) for k in ('requirements_json','rewards_json','report_json')}
+    validate_definition({'code':draft['code'],'title':draft['title'],'kind':draft['kind'],'subtype':draft['subtype'],
+      'level':draft['level'],'requirements':parsed['requirements_json'],'rewards':parsed['rewards_json'],
+      'report':parsed['report_json'],'starts_at':draft['starts_at'],'ends_at':draft['ends_at']})
+    updates=[];args=[]
+    for k,v in fields.items():
+        if k in parsed:v=json.dumps(parsed[k],ensure_ascii=False)
+        updates.append(k+'=?');args.append(v)
+    with transaction() as db:
+        cur=db.execute('UPDATE rp_task_definitions SET '+','.join(updates)+',version=version+1 WHERE guild_id=? AND id=? AND version=?',
+                       (*args,str(guild_id),int(task_id),int(expected_version)))
+        if cur.rowcount!=1:raise ValueError('此任務已被其他管理員修改，請重新開啟')
+    return get_definition(guild_id,task_id)
+
+def admin_set_status(guild_id,task_id,status,expected_version):
+    from modules.task_validation import validate_definition
+    if status not in ('draft','published','paused','archived'):raise ValueError('狀態錯誤')
+    before=get_definition(guild_id,task_id)
+    if not before:raise ValueError('找不到任務')
+    if before['status']=='archived':raise ValueError('封存任務不可重新啟用')
+    if status=='published':
+        validate_definition({'code':before['code'],'title':before['title'],'kind':before['kind'],
+          'level':before['level'],'subtype':before['subtype'],
+          'requirements':json.loads(before['requirements_json']), 'rewards':json.loads(before['rewards_json']),
+          'report':json.loads(before['report_json']),'starts_at':before['starts_at'],'ends_at':before['ends_at']},publish=True)
+        if before['kind'] in ('screen','variety','endorsement'):
+            from modules.task_conditions import get_profile
+            get_profile(guild_id,before['subtype'],before['level'])
+    with transaction() as db:
+        cur=db.execute('UPDATE rp_task_definitions SET status=?,version=version+1 WHERE guild_id=? AND id=? AND version=?',
+                        (status,str(guild_id),int(task_id),int(expected_version)))
+        if cur.rowcount!=1:raise ValueError('狀態已改變，請重新開啟')
+    return get_definition(guild_id,task_id)
