@@ -1,3 +1,4 @@
+
 """品牌銷售自動同步服務。
 
 定期將個人店鋪已確認的訂單同步到品牌。
@@ -52,23 +53,77 @@ class CompanyBrandSync(commands.Cog):
                 sync_brand_sales
             )
 
-            # 每次同步時整理已到期合約；不執行任何扣款。
             def expire_across_guilds():
                 with get_connection() as db:
-                    guilds = [r[0] for r in db.execute("SELECT DISTINCT guild_id FROM rp_endorsement_terms WHERE status='active'")] if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='rp_endorsement_terms'").fetchone() else []
-                return sum(reconcile_expired(gid) for gid in guilds)
-            expired = await asyncio.to_thread(expire_across_guilds)
-            if expired: LOG.info('代言合約已到期：%s', expired)
-            due_count=await asyncio.to_thread(scan_due)
-            if due_count: LOG.info('新增代言期款到期提醒：%s',due_count)
-            private_count = await asyncio.to_thread(sync_private_notices)
+                    guilds = [
+                        r[0]
+                        for r in db.execute(
+                            "SELECT DISTINCT guild_id "
+                            "FROM rp_endorsement_terms "
+                            "WHERE status='active'"
+                        )
+                    ] if db.execute(
+                        "SELECT 1 FROM sqlite_master "
+                        "WHERE type='table' "
+                        "AND name='rp_endorsement_terms'"
+                    ).fetchone() else []
+                return sum(
+                    reconcile_expired(gid)
+                    for gid in guilds
+                )
+
+            expired = await asyncio.to_thread(
+                expire_across_guilds
+            )
+            if expired:
+                LOG.info('代言合約已到期：%s', expired)
+
+            due_count = await asyncio.to_thread(scan_due)
+            if due_count:
+                LOG.info(
+                    '新增代言期款到期提醒：%s',
+                    due_count,
+                )
+
+            private_count = await asyncio.to_thread(
+                sync_private_notices
+            )
             if private_count:
-                LOG.info('代言事件已排入角色專屬論壇私人通知：%s',private_count)
-            sent=await asyncio.to_thread(forward_due_notices)
-            if sent: LOG.info('代言期款提醒轉入通知佇列：%s',sent)
-            notices = await asyncio.to_thread(sync_to_notification_updates)
+                LOG.info(
+                    '代言事件已排入角色專屬論壇私人通知：%s',
+                    private_count,
+                )
+
+            sent = await asyncio.to_thread(
+                forward_due_notices
+            )
+            if sent:
+                LOG.info(
+                    '代言期款提醒轉入通知佇列：%s',
+                    sent,
+                )
+
+            from core.company_operations_notices import (
+                sync as sync_company_operations,
+            )
+            company_events = await asyncio.to_thread(
+                sync_company_operations
+            )
+            if company_events:
+                LOG.info(
+                    '公司經營事件已登錄通知彙總：%s 筆',
+                    company_events,
+                )
+
+            notices = await asyncio.to_thread(
+                sync_to_notification_updates
+            )
             if notices:
-                LOG.info("品牌通知已移交至通知彙總佇列：%s 筆。", notices)
+                LOG.info(
+                    "品牌通知已移交至通知彙總佇列：%s 筆。",
+                    notices,
+                )
+
             if count:
                 LOG.info(
                     "品牌營業額同步完成：新增 %s 筆交易。",
@@ -91,15 +146,10 @@ class CompanyBrandSync(commands.Cog):
 
     @sales_sync.before_loop
     async def before_sales_sync(self):
-
         await self.bot.wait_until_ready()
 
 
 async def setup(bot):
-
     initialize_progress()
     initialize_bridge()
-
-    await bot.add_cog(
-        CompanyBrandSync(bot)
-    )
+    await bot.add_cog(CompanyBrandSync(bot))
