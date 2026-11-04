@@ -34,6 +34,14 @@ def _init(db):
     )''')
     db.execute('''CREATE INDEX IF NOT EXISTS idx_rp_live_sessions_guild_host
                   ON rp_live_sessions(guild_id,host_character_id,status)''')
+    db.execute('''CREATE INDEX IF NOT EXISTS idx_rp_live_sessions_risk_window ON rp_live_sessions(guild_id,host_character_id,started_at)''')
+    db.execute('''CREATE TABLE IF NOT EXISTS rp_live_frequency_risks (
+        guild_id TEXT NOT NULL, session_id INTEGER NOT NULL, character_id INTEGER NOT NULL,
+        occupation TEXT NOT NULL, window_start INTEGER NOT NULL,
+        count_in_7_days INTEGER NOT NULL, flagged_at INTEGER NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending_effect_rules',
+        PRIMARY KEY(guild_id,session_id)
+    )''')
     db.execute('''CREATE TABLE IF NOT EXISTS rp_live_members (
         guild_id TEXT NOT NULL,
         session_id INTEGER NOT NULL,
@@ -46,7 +54,7 @@ def _init(db):
 
 def settings(guild_id):
     """Conservative live-stream defaults shared by gift and team logic."""
-    return {'max_members': 10, 'platform_fee_pct': 10}
+    return {'max_members': 10, 'platform_fee_pct': 20, 'frequency_window_days': 7, 'non_influencer_free_sessions': 5}
 
 
 def _expire(db, gid, now):
@@ -73,7 +81,7 @@ def start(guild_id, user_id, character_id, title, kind, duration_mode,
     ts = int(time.time() if now is None else now)
     with transaction() as db:
         _init(db)
-        char = db.execute('''SELECT id FROM characters WHERE guild_id=? AND owner_id=?
+        char = db.execute('''SELECT id,occupation FROM characters WHERE guild_id=? AND owner_id=?
                              AND id=? AND status='active' ''', (gid, uid, cid)).fetchone()
         if not char:
             raise PermissionError('只能使用自己已啟用的角色開播')
@@ -94,6 +102,18 @@ def start(guild_id, user_id, character_id, title, kind, duration_mode,
             (gid,cid,uid,title,kind,duration_mode,duration_minutes,ts,end)).lastrowid
         db.execute('''INSERT INTO rp_live_members(guild_id,session_id,character_id,owner_id,share_bp)
                       VALUES(?,?,?,?,0)''',(gid,sid,cid,uid))
+        # Rolling 7*24-hour window; each started broadcast counts once, including sales.
+        # Influencer is the exempt occupation. Other occupations have risk starting #6.
+        if '網紅' not in str(char['occupation'] or ''):
+            window_start = ts - 7 * 24 * 60 * 60
+            count = db.execute('''SELECT COUNT(*) FROM rp_live_sessions
+                WHERE guild_id=? AND host_character_id=? AND started_at>? AND started_at<=?''',
+                (gid,cid,window_start,ts)).fetchone()[0]
+            if count > 5:
+                db.execute('''INSERT INTO rp_live_frequency_risks
+                    (guild_id,session_id,character_id,occupation,window_start,count_in_7_days,flagged_at)
+                    VALUES(?,?,?,?,?,?,?)''',
+                    (gid,sid,cid,str(char['occupation'] or ''),window_start,count,ts))
         return sid
 
 
@@ -125,3 +145,17 @@ def stop(guild_id, user_id, session_id, *, now=None):
             raise ValueError('這場直播已結束')
         db.execute("UPDATE rp_live_sessions SET status='ended',stopped_at=? WHERE guild_id=? AND id=?",(ts,gid,sid))
         return dict(db.execute('SELECT * FROM rp_live_sessions WHERE guild_id=? AND id=?',(gid,sid)).fetchone())
+
+
+def frequency_status(guild_id, character_id, *, now=None):
+    """7-day live-start count and pending risk events, without invented penalties."""
+    gid,cid=str(guild_id),int(character_id)
+    ts=int(time.time() if now is None else now)
+    with get_connection() as db:
+        _init(db)
+        row=db.execute("SELECT occupation FROM characters WHERE guild_id=? AND id=?",(gid,cid)).fetchone()
+        if not row: raise LookupError('找不到角色')
+        occupation=str(row['occupation'] or '')
+        count=db.execute("SELECT COUNT(*) FROM rp_live_sessions WHERE guild_id=? AND host_character_id=? AND started_at>? AND started_at<=?",(gid,cid,ts-604800,ts)).fetchone()[0]
+        risks=[dict(r) for r in db.execute("SELECT * FROM rp_live_frequency_risks WHERE guild_id=? AND character_id=? ORDER BY session_id DESC LIMIT 20",(gid,cid)).fetchall()]
+        return {'occupation':occupation,'is_influencer': '網紅' in occupation,'count_in_7_days':int(count),'threshold':5,'at_risk': '網紅' not in occupation and count>5,'risk_events':risks}
