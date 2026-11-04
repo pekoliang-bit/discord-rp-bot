@@ -298,6 +298,10 @@ def configure_position(
                     "且升職門檻必須逐級提高。"
                 )
 
+        # Save future position salary edits; do not retroactively price old wages.
+        from core.company_salary_snapshots import capture_position_revision
+        capture_position_revision(db,gid,company,rank,salary,uid)
+
         db.execute(
             """
             INSERT INTO company_job_positions (
