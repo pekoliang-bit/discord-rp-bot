@@ -1587,13 +1587,13 @@ class ContentTypeSelect(
         )
 
     async def callback(self, i):
-        if not owner(i):
-            return await tell(
-                i,
-                "⛔ 僅限群主使用。"
-            )
+        from modules.task_permissions import authorized as task_authorized
+        if not owner(i) and not task_authorized(i):
+            return await tell(i, "⛔ 沒有內容建立權限。")
 
         selected = self.values[0]
+        if not owner(i) and selected != "mission":
+            return await tell(i, "⛔ 任務授權只適用於任務管理。")
 
         if selected == "extra_characters":
             from modules.extra_character_manager import ExtraCharacterView
@@ -1722,10 +1722,16 @@ class ContentView(discord.ui.View):
         super().__init__(timeout=600)
         self.user_id = i.user.id
         self.guild_id = i.guild_id
-        self.add_item(ContentTypeSelect())
+        if owner(i):
+            self.add_item(ContentTypeSelect())
+        else:
+            selector = ContentTypeSelect()
+            selector.options = [x for x in selector.options if x.value == "mission"]
+            self.add_item(selector)
 
     async def interaction_check(self, i):
-        if i.user.id != self.user_id or i.guild_id != self.guild_id or not owner(i):
+        from modules.task_permissions import authorized as task_authorized
+        if i.user.id != self.user_id or i.guild_id != self.guild_id or not (owner(i) or task_authorized(i)):
             await tell(i, "⛔ 這不是你的管理面板，或你的權限不足。")
             return False
         return True
@@ -1755,11 +1761,9 @@ class ContentButton(
         )
 
     async def callback(self, i):
-        if not owner(i):
-            return await tell(
-                i,
-                "⛔ 只有群主可以建立官方內容。",
-            )
+        from modules.task_permissions import authorized as task_authorized
+        if not owner(i) and not task_authorized(i):
+            return await tell(i, "⛔ 沒有內容建立權限。")
 
         try:
             view = ContentView(i)
