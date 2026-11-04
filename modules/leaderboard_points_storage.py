@@ -1,4 +1,3 @@
-
 """排行榜可分配點數儲存層。"""
 
 from core.database import get_connection, transaction
@@ -106,6 +105,17 @@ def grant_points(
         ))
 
         if cursor.rowcount == 0:
+            existing = db.execute("""
+                SELECT character_id, pool, amount, category
+                FROM lb_point_history
+                WHERE guild_id = ? AND source_key = ?
+            """, (str(guild_id), str(source_key))).fetchone()
+            if (existing is None
+                or int(existing["character_id"]) != int(character_id)
+                or existing["pool"] != pool
+                or int(existing["amount"]) != amount
+                or existing["category"] != "grant"):
+                raise ValueError("點數發放來源鍵重複且內容不同")
             return False
 
         db.execute("""
