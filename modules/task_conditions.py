@@ -1,4 +1,4 @@
-"""通告條件篩選：每種作品獨立的 1~5 級模板，管理員可於資料庫覆寫。"""
+通告條件篩選：每種作品獨立的 1~5 級模板，管理員可於資料庫覆寫。"""
 from __future__ import annotations
 import json
 from core.database import get_connection, transaction
@@ -47,3 +47,27 @@ def evaluate(rules,character):
         value=(character.get('attributes') or {}).get(attr,0)
         if int(value)<int(minimum):missing.append(f'{attr}需達 {minimum}')
     return {'eligible':not missing,'missing':missing}
+
+
+def public_minimums(guild_id, task):
+    """Player-facing minimum requirements; never disclose admin preset level."""
+    import json
+    rules=json.loads(task.get('requirements_json') or '{}')
+    if task['kind'] in ('screen','variety','endorsement'):
+        try:
+            base=get_profile(guild_id,task['subtype'],task['level'])
+        except ValueError:
+            return '尚未設定正式最低條件'
+        rules={**base,**rules}
+    bits=[]
+    if rules.get('min_cafe_level') is not None:
+        bits.append('咖位 LV'+str(rules['min_cafe_level'])+' 以上')
+    if rules.get('min_age') is not None: bits.append('年齡 '+str(rules['min_age'])+' 以上')
+    if rules.get('max_age') is not None: bits.append('年齡 '+str(rules['max_age'])+' 以下')
+    for name,minimum in (rules.get('min_attributes') or {}).items():
+        bits.append(f'{name} {minimum} 以上')
+    if rules.get('occupations'):
+        bits.append('職業：'+'／'.join(rules['occupations'][:6]))
+    if rules.get('allowed_character_ids'):
+        bits.append('限定邀請角色')
+    return '、'.join(bits) if bits else '符合已發布的基本接取條件'
