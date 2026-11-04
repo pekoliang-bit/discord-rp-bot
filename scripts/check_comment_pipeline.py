@@ -20,12 +20,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 LIBRARY = ROOT / "assets" / "internet_comment_library"
 
-EXPECTED_COUNT = 419
+EXPECTED_COUNT = 960
 TARGET_PER_CATEGORY = 80
 
 EXPECTED_FILES = [
     f"comments_part_{i:02d}.json"
-    for i in range(1, 10)
+    for i in range(1, 21)
 ]
 
 CATEGORIES = {
@@ -76,7 +76,6 @@ def check_manifest() -> list[Path]:
         )
 
     manifest = load_json(manifest_path)
-
     parts = manifest.get("parts")
 
     if not isinstance(parts, list):
@@ -105,7 +104,7 @@ def check_manifest() -> list[Path]:
 
     if names != EXPECTED_FILES:
         raise ValueError(
-            "manifest 的九個分檔順序或名稱不正確"
+            "manifest 的二十個分檔順序或名稱不正確"
         )
 
     actual = sorted(
@@ -257,13 +256,13 @@ def validate_comments(comments: list[dict]) -> Counter:
 
     expected_ids = {
         f"C{i:03d}"
-        for i in range(1, 421)
+        for i in range(1, 962)
         if i != 300
     }
 
     if ids != expected_ids:
         raise ValueError(
-            "ID 不符合 C001～C420 "
+            "ID 不符合 C001～C961 "
             "且排除 C300 的正式版本"
         )
 
