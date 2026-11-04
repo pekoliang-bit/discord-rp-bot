@@ -1,4 +1,3 @@
-
 """生活休閒區：預設地點、頻道綁定與待審核行動。
 
 功能：
@@ -122,60 +121,9 @@ def get_reviewable_actions(
 
 
 def validate_action(action: dict[str, Any]) -> tuple[bool, str]:
-    """驗證行動基本規則。
-
-    此處只檢查設定資料。
-    實際屬性是否存在，仍須由角色系統確認。
-    """
-    category = action.get("category")
-
-    if category not in VALID_CATEGORIES:
-        return False, "未知的行動分類"
-
-    try:
-        cost = int(action.get("cost_coins", 0))
-        reward = int(action.get("reward_coins", 0))
-        increase = int(action.get("attribute_increase", 0))
-        points = int(action.get("action_points_cost", 0))
-    except (TypeError, ValueError):
-        return False, "行動數值格式不正確"
-
-    if min(cost, reward, increase, points) < 0:
-        return False, "金錢、成長與行動值不可為負數"
-
-    attribute = action.get("attribute")
-
-    if increase > 0 and not attribute:
-        return False, "增加屬性時必須指定屬性"
-
-    if attribute in REGULATED_ATTRIBUTES and increase > 0:
-        return False, "特殊管制數值不可透過一般場所購買"
-
-    if category == "打工":
-        if cost != 0:
-            return False, "打工不應收取課程費用"
-
-        if reward < 2000:
-            return False, "打工金幣低於最低限制"
-
-        if points != 1:
-            return False, "打工必須消耗 1 行動值"
-
-    elif category == "活動":
-        if points != 1:
-            return False, "一般消費活動必須消耗 1 行動值"
-
-        if increase > 0 and cost != increase * 300:
-            return False, "一般活動每點應為 300 金幣"
-
-    elif category == "課程":
-        if points != 0:
-            return False, "課程不應消耗行動值"
-
-        if increase > 0 and cost != increase * 500:
-            return False, "課程每點應為 500 金幣"
-
-    return True, "OK"
+    """沿用共用驗證，300／500 為底價而非固定價格。"""
+    from modules.action_reward_rules import validate_action as shared_validate
+    return shared_validate(action)
 
 
 def get_executable_actions(
