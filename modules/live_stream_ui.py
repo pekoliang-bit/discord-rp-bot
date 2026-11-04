@@ -157,10 +157,18 @@ class StartModal(discord.ui.Modal, title="建立直播間"):
             )
             return
 
+        risk = await asyncio.to_thread(
+            live.frequency_status, interaction.guild.id, self.character_id
+        )
+        risk_text = (
+            f"\n⚠️ 近 7 天已開播 {risk['count_in_7_days']} 次：非網紅職業已進入過度直播風險；具體負面效果待規則核准。"
+            if risk['at_risk'] else ""
+        )
         await interaction.followup.send(
             f"🔴 已開播！場次 #{session_id}\n"
             f"標題：{self.live_title.value}\n"
-            "模擬打賞僅作為展示，不會自動加入錢包。",
+            "真實贈禮收入扣除 20% 平台費後結算為金幣；模擬打賞不計入錢包。"
+            f"{risk_text}",
             ephemeral=True,
         )
 
@@ -1542,7 +1550,8 @@ class CheckoutOfferModal(
                 f"✅ 已完成直播訂單 #{result['id']}\n"
                 f"支付：{result['paid_amount']:,} 金幣\n"
                 f"主播佣金："
-                f"{result['commission_amount']:,} 金幣\n"
+                f"{result['commission_amount']:,} 金幣（扣除平台 20% 後）\n"
+                f"平台抽成：{result['platform_fee']:,} 金幣\n"
                 "商品已加入角色背包。",
                 ephemeral=True,
             )
