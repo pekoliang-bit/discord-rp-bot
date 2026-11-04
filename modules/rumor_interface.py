@@ -401,6 +401,14 @@ FORM_DEFINITIONS = {
 }
 
 
+def _company_for_rumor(gid,rid):
+    from core.database import get_connection
+    with get_connection() as db:
+        r=db.execute('SELECT business_id FROM rp_company_rumors WHERE guild_id=? AND id=?',(str(gid),int(rid))).fetchone()
+        if not r: raise ValueError('找不到傳聞案件')
+        return str(r['business_id'])
+
+
 class PRConfirmView(discord.ui.View):
     """報價為參考，付款時會重新檢查條件。"""
 
@@ -457,11 +465,12 @@ class PRConfirmView(discord.ui.View):
                 self.resource,
                 f"pr-confirm:{interaction.id}",
                 trusted=True,
+                funding_company=(await asyncio.to_thread(_company_for_rumor,self.guild_id,self.rumor_id)) if self.resource == 'company_coins' else None,
             )
 
             unit = (
                 "金幣"
-                if data.resource == "coins"
+                if data.resource in ('coins','company_coins')
                 else "付費行動值"
             )
 
@@ -560,7 +569,7 @@ class PRPaymentModal(
     )
 
     resource = discord.ui.TextInput(
-        label="支付方式：金幣／行動值",
+        label="支付方式：金幣／行動值／公司金庫",
         placeholder="金幣",
         max_length=10,
     )
@@ -583,13 +592,14 @@ class PRPaymentModal(
             resource = {
                 "金幣": "coins",
                 "行動值": "paid_actions",
+                "公司金庫": "company_coins",
             }.get(
                 self.resource.value.strip()
             )
 
             if resource is None:
                 raise ValueError(
-                    "支付方式僅能填金幣或行動值"
+                    "支付方式只能填金幣、行動值或公司金庫"
                 )
 
             strategy = self.strategy.value.strip()
@@ -606,7 +616,7 @@ class PRPaymentModal(
 
             unit = (
                 "金幣"
-                if resource == "coins"
+                if resource in ('coins','company_coins')
                 else "付費行動值"
             )
 
