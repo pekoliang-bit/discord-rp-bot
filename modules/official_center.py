@@ -146,13 +146,10 @@ def require_owner(interaction):
 def is_management_user(interaction):
     if is_owner(interaction):
         return True
-
     if interaction.guild_id is None:
         return False
-
-    return bool(
-        Actor.from_interaction(interaction).is_admin
-    )
+    from modules.task_permissions import authorized as task_authorized
+    return bool(Actor.from_interaction(interaction).is_admin or task_authorized(interaction))
 
 
 def require_management_user(interaction):
@@ -1560,9 +1557,17 @@ class AdminToolsView(ManagementView):
             from modules.rumor_pr_admin_ui import PRStrategyManageButton
             self.add_item(PRStrategyManageButton())
 
+        # A task-only delegate must not see unrelated commerce/admin panels.
+        from modules.task_permissions import authorized as task_authorized
+        task_only = task_authorized(interaction) and not self.owner and not Actor.from_interaction(interaction).is_admin
         for index, (label, module_name, class_name, owner_only) in enumerate(tools):
-            if owner_only and not self.owner:
+            if task_only and label != "內容建立":
                 continue
+            if owner_only and not self.owner:
+                # Task managers only receive the content builder; other owner-only tools stay hidden.
+                from modules.task_permissions import authorized as task_authorized
+                if label != "內容建立" or not task_authorized(interaction):
+                    continue
 
             try:
                 button = load_management_button(
