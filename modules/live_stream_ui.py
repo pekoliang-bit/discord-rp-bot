@@ -1,4 +1,3 @@
-
 """Discord RP 網路直播系統。
 
 唯一斜線指令：/網路
@@ -1704,17 +1703,11 @@ class LiveStreamCog(commands.Cog):
             else ""
         )
 
+        from modules.network_group_ui import CharacterPicker
         await interaction.response.send_message(
-            "🌐 **網路中心**\n"
-            "選擇角色後，可以操作直播、"
-            "團播、禮物、團隊、PK 與帶貨。\n"
-            "所有功能均使用按鈕，"
-            "不新增其他斜線指令。"
-            + note,
-            view=NetworkView(
-                interaction.user.id,
-                characters,
-            ),
+            "🌐 **網路中心**\n第一步選擇角色，第二步選擇網路帳號，"
+            "再進入直播、群組及其他網路功能。" + note,
+            view=CharacterPicker(interaction.user.id, characters),
             ephemeral=True,
         )
         try:
