@@ -21,4 +21,13 @@ def decide(guild_id,actor_id,owner_id,character_id,task_id,cycle_key,approved):
         ('completed' if approved else 'accepted',int(bool(approved)),str(guild_id),int(character_id),int(task_id),str(cycle_key)))
         if changed.rowcount!=1:raise ValueError('任務不存在、已審核或狀態不符')
     log(guild_id,actor_id,'approve' if approved else 'reject',task_id,{'character_id':character_id,'cycle_key':cycle_key})
-    return True
+    if approved:
+        # 核准與發獎分開：即使發放失敗，仍保留 completed 供安全重試。
+        from modules.task_rewards import settle_reward
+        try:
+            return settle_reward(guild_id,character_id,task_id,cycle_key)
+        except Exception as exc:
+            import logging
+            logging.getLogger(__name__).exception('任務審核後發獎失敗，留待重試')
+            return {'claimed':False,'error':str(exc)[:200]}
+    return {'claimed':False,'rejected':True}
