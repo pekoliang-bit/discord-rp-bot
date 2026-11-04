@@ -110,9 +110,14 @@ class ReviewModal(discord.ui.Modal,title='審核任務回報'):
         try:
             action=str(self.decision).strip().lower()
             if action not in ('approve','reject'):raise ValueError('請選 approve 或 reject')
-            decide(i.guild_id,i.user.id,i.guild.owner_id,int(str(self.character_id)),int(str(self.task_id)),str(self.cycle),action=='approve')
+            result=decide(i.guild_id,i.user.id,i.guild.owner_id,int(str(self.character_id)),int(str(self.task_id)),str(self.cycle),action=='approve')
         except (ValueError,TypeError,PermissionError) as e:return await reply(i,'審核失敗：'+str(e))
-        await reply(i,'✅ 回報已處理。核准代表任務完成；金幣／物品尚待正式獎勵服務發放。')
+        if action=='reject':
+            await reply(i,'✅ 回報已退回，玩家可依規則重新回報。')
+        elif result.get('claimed'):
+            await reply(i,'✅ 回報通過；金幣及數值獎勵已結算（若有配置）。')
+        else:
+            await reply(i,'✅ 回報通過，但有獎勵尚待發放：'+str(result.get('error') or result.get('items') or '請執行補發檢查'))
 
 class TaskAdminView(discord.ui.View):
     def __init__(self,user_id,guild_id):
@@ -152,6 +157,6 @@ async def open_task_admin(i):
     if not authorized(i):return await reply(i,'僅群主與正式授權的任務管理員可以使用')
     initialize()
     view=TaskAdminView(i.user.id,i.guild_id)
-    msg='📋 **官方任務管理**\n建立、編輯、設定五級門檻與發布／停用。\n未發布任務不會出現在玩家清單；任務獎勵目前仍待正式金流／背包接線。'
+    msg='📋 **官方任務管理**\n建立、編輯、設定五級門檻與發布／停用。\n未發布任務不會出現在玩家清單；任務金幣與數值可結算；物品獎勵目前待背包整合。'
     if i.response.is_done():await i.followup.send(msg,view=view,ephemeral=True)
     else:await i.response.send_message(msg,view=view,ephemeral=True)
