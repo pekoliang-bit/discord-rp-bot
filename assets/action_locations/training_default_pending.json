@@ -1,0 +1,90 @@
+{
+  "version": 1,
+  "status": "pending_review",
+  "target_guild_id": "1544051203493601380",
+  "timezone": "Asia/Taipei",
+  "category": "培訓學習區",
+  "policy": {"normal_attribute_cost_per_point":300,"course_attribute_cost_per_point":500,"prices_are_minima":true,"min_work_reward":2000,"work_reward_coins_may_vary":true,"work_may_grant_points":true,"specified_skill_reward_pool":"自由點數","point_pool_rules":{"自由點數":"除影響指數以外的合法屬性","專業點數":"主攻賽道及其他技能","技能點數":"專業（主攻及其他技能）與個人才藝"},"unapproved_actions_disabled":true},
+  "locations": [
+    {
+      "key": "dance_practice_room",
+      "name": "歌舞練習室",
+      "channel_id": null,
+      "channel_type": "text",
+      "binding_status": "awaiting_channel_link",
+      "actions": [
+        {"name":"練習室助理","category":"打工","cost_coins":0,"reward_coins":2500,"attribute":null,"attribute_increase":0,"point_rewards":{},"action_points_cost":1,"approved":false},
+        {"name":"舞蹈助教","category":"打工","cost_coins":0,"reward_coins":3500,"attribute":null,"attribute_increase":0,"point_rewards":{"專業點數":3},"action_points_cost":1,"approved":false},
+        {"name":"自主歌唱練習","category":"活動","cost_coins":900,"reward_coins":0,"attribute":"歌唱","attribute_increase":3,"point_rewards":{},"action_points_cost":1,"approved":false},
+        {"name":"舞蹈排練","category":"活動","cost_coins":1500,"reward_coins":0,"attribute":"舞蹈","attribute_increase":5,"point_rewards":{},"action_points_cost":1,"approved":false},
+        {"name":"自學練習","category":"課程","cost_coins":500,"reward_coins":0,"attribute":null,"attribute_increase":0,"point_rewards":{"自由點數":1},"action_points_cost":0,"approved":false},
+        {"name":"才藝指導","category":"課程","cost_coins":2000,"reward_coins":0,"attribute":null,"attribute_increase":0,"point_rewards":{"技能點數":4},"action_points_cost":0,"approved":false},
+        {"name":"名師聲樂指導","category":"課程","cost_coins":2500,"reward_coins":0,"attribute":"歌唱","attribute_increase":5,"point_rewards":{},"action_points_cost":0,"approved":false},
+        {"name":"全日封閉特訓","category":"課程","cost_coins":5000,"reward_coins":0,"attribute":null,"attribute_increase":0,"point_rewards":{"自由點數":10},"action_points_cost":0,"approved":false}
+      ]
+    },
+    {
+      "key": "city_library",
+      "name": "市立圖書館",
+      "channel_id": null,
+      "channel_type": "text",
+      "binding_status": "awaiting_channel_link",
+      "actions": [
+        {"name":"圖書整理員","category":"打工","cost_coins":0,"reward_coins":2200,"attribute":null,"attribute_increase":0,"point_rewards":{},"action_points_cost":1,"approved":false},
+        {"name":"資料管理助理","category":"打工","cost_coins":0,"reward_coins":3000,"attribute":null,"attribute_increase":0,"point_rewards":{"自由點數":2},"action_points_cost":1,"approved":false},
+        {"name":"閱讀研究","category":"活動","cost_coins":900,"reward_coins":0,"attribute":"才智","attribute_increase":3,"point_rewards":{},"action_points_cost":1,"approved":false},
+        {"name":"專題研究","category":"活動","cost_coins":1500,"reward_coins":0,"attribute":"才智","attribute_increase":5,"point_rewards":{},"action_points_cost":1,"approved":false},
+        {"name":"知識研習","category":"課程","cost_coins":1500,"reward_coins":0,"attribute":"才智","attribute_increase":3,"point_rewards":{},"action_points_cost":0,"approved":false},
+        {"name":"進階研究指導","category":"課程","cost_coins":2500,"reward_coins":0,"attribute":"才智","attribute_increase":5,"point_rewards":{},"action_points_cost":0,"approved":false}
+      ]
+    },
+    {
+      "key": "recording_studio",
+      "name": "錄音工作室",
+      "channel_id": null,
+      "channel_type": "text",
+      "binding_status": "awaiting_channel_link",
+      "actions": [
+        {"name":"錄音助理","category":"打工","cost_coins":0,"reward_coins":2800,"attribute":null,"attribute_increase":0,"point_rewards":{"技能點數":2},"action_points_cost":1,"approved":false},
+        {"name":"配音工作","category":"打工","cost_coins":0,"reward_coins":4000,"attribute":null,"attribute_increase":0,"point_rewards":{"專業點數":3},"action_points_cost":1,"approved":false},
+        {"name":"歌曲試錄","category":"活動","cost_coins":900,"reward_coins":0,"attribute":"歌唱","attribute_increase":3,"point_rewards":{},"action_points_cost":1,"approved":false},
+        {"name":"專業錄音體驗","category":"活動","cost_coins":1500,"reward_coins":0,"attribute":"歌唱","attribute_increase":5,"point_rewards":{},"action_points_cost":1,"approved":false},
+        {"name":"基礎發聲","category":"課程","cost_coins":1500,"reward_coins":0,"attribute":"歌唱","attribute_increase":3,"point_rewards":{},"action_points_cost":0,"approved":false},
+        {"name":"配音技巧指導","category":"課程","cost_coins":2500,"reward_coins":0,"attribute":null,"attribute_increase":0,"point_rewards":{"自由點數":5},"action_points_cost":0,"approved":false},
+        {"name":"專業聲樂特訓","category":"課程","cost_coins":5000,"reward_coins":0,"attribute":"歌唱","attribute_increase":10,"point_rewards":{},"action_points_cost":0,"approved":false}
+      ]
+    },
+    {
+      "key": "acting_classroom",
+      "name": "演技教室",
+      "channel_id": null,
+      "channel_type": "text",
+      "binding_status": "awaiting_channel_link",
+      "actions": [
+        {"name":"課堂助理","category":"打工","cost_coins":0,"reward_coins":2600,"attribute":null,"attribute_increase":0,"point_rewards":{},"action_points_cost":1,"approved":false},
+        {"name":"示範演員","category":"打工","cost_coins":0,"reward_coins":4500,"attribute":null,"attribute_increase":0,"point_rewards":{"專業點數":4},"action_points_cost":1,"approved":false},
+        {"name":"即興表演","category":"活動","cost_coins":900,"reward_coins":0,"attribute":"演繹","attribute_increase":3,"point_rewards":{},"action_points_cost":1,"approved":false},
+        {"name":"劇本排練","category":"活動","cost_coins":1500,"reward_coins":0,"attribute":"演繹","attribute_increase":5,"point_rewards":{},"action_points_cost":1,"approved":false},
+        {"name":"表演基礎","category":"課程","cost_coins":1500,"reward_coins":0,"attribute":"演繹","attribute_increase":3,"point_rewards":{},"action_points_cost":0,"approved":false},
+        {"name":"角色塑造","category":"課程","cost_coins":2500,"reward_coins":0,"attribute":"演繹","attribute_increase":5,"point_rewards":{},"action_points_cost":0,"approved":false},
+        {"name":"專業演繹特訓","category":"課程","cost_coins":5000,"reward_coins":0,"attribute":"演繹","attribute_increase":10,"point_rewards":{},"action_points_cost":0,"approved":false}
+      ]
+    },
+    {
+      "key": "professional_training_center",
+      "name": "專業培訓中心",
+      "channel_id": null,
+      "channel_type": "text",
+      "binding_status": "awaiting_channel_link",
+      "actions": [
+        {"name":"培訓助理","category":"打工","cost_coins":0,"reward_coins":3000,"attribute":null,"attribute_increase":0,"point_rewards":{},"action_points_cost":1,"approved":false},
+        {"name":"專業助教","category":"打工","cost_coins":0,"reward_coins":5000,"attribute":null,"attribute_increase":0,"point_rewards":{"技能點數":5},"action_points_cost":1,"approved":false},
+        {"name":"綜合技能練習","category":"活動","cost_coins":900,"reward_coins":0,"attribute":null,"attribute_increase":0,"point_rewards":{"自由點數":3},"action_points_cost":1,"approved":false},
+        {"name":"專業能力測試","category":"活動","cost_coins":1500,"reward_coins":0,"attribute":null,"attribute_increase":0,"point_rewards":{"自由點數":5},"action_points_cost":1,"approved":false},
+        {"name":"基礎技能訓練","category":"課程","cost_coins":1500,"reward_coins":0,"attribute":null,"attribute_increase":0,"point_rewards":{"自由點數":3},"action_points_cost":0,"approved":false},
+        {"name":"專業技能指導","category":"課程","cost_coins":2500,"reward_coins":0,"attribute":null,"attribute_increase":0,"point_rewards":{"自由點數":5},"action_points_cost":0,"approved":false},
+        {"name":"高階封閉培訓","category":"課程","cost_coins":5000,"reward_coins":0,"attribute":null,"attribute_increase":0,"point_rewards":{"自由點數":10},"action_points_cost":0,"approved":false}
+      ]
+    }
+  ]
+}
