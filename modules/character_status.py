@@ -292,14 +292,42 @@ def review_character(guild_id, character_id, *, now=None):
         maintenance = float(state["maintenance"])
         last_review = parse_time(state["last_review"]) or now
         elapsed_days = max(0, int((now - last_review).total_seconds() // 86400))
-        # 影響指數優先：直接降至影響門檻所允許的最高地位。
+        # 路人已出道的初始咖位保護：只豁免初始咖位的影響門檻。
+        # 不修改正式影響指數，也不豁免下一級晉升門檻。
+        try:
+            extra_config = json.loads(character["settings_json"] or "{}")
+        except (TypeError, ValueError):
+            extra_config = {}
+        if not isinstance(extra_config, dict):
+            extra_config = {}
+        initial_extra_level = 1
+        if extra_config.get("character_category") == "extra":
+            try:
+                initial_extra_level = int(extra_config.get(
+                    "initial_status_level",
+                    extra_config.get("status_level", 1),
+                ))
+            except (TypeError, ValueError):
+                initial_extra_level = 1
+        initial_extra_level = min(9, max(1, initial_extra_level))
+        initial_rank_protected = (
+            extra_config.get("character_category") == "extra"
+            and level <= initial_extra_level
+        )
         influence = attrs.get("影響指數", 0)
-        if influence < levels[level - 1][4]:
+        if not initial_rank_protected and influence < levels[level - 1][4]:
             level = max((i for i in range(1, level + 1) if influence >= levels[i - 1][4]), default=1)
             maintenance = 100
             state["warning_active"] = 0
             messages.append(f"🚨 影響指數不足：地位立即下降至 LV{level} {levels[level-1][1]}。")
-        score, hard_pass = score_for(level, attrs, tracking, skill_value, stale_days, levels=levels, disabled=disabled, config=config, auxiliary_attrs=auxiliary_attrs)
+        # 保護只作用於維持分數；以複本計算，絕不寫回影響指數。
+        maintenance_attrs = attrs
+        if initial_rank_protected and level <= initial_extra_level:
+            maintenance_attrs = dict(attrs)
+            maintenance_attrs["影響指數"] = max(
+                influence, levels[level - 1][4]
+            )
+        score, hard_pass = score_for(level, maintenance_attrs, tracking, skill_value, stale_days, levels=levels, disabled=disabled, config=config, auxiliary_attrs=auxiliary_attrs)
         other_ok = ("流量熱度" in disabled or attrs.get("流量熱度", 0) >= levels[level-1][2]) and ("商業價值" in disabled or attrs.get("商業價值", 0) >= levels[level-1][3]) and score >= 80
         if not other_ok and level > 1:
             if not state["warning_active"]:
@@ -311,7 +339,13 @@ def review_character(guild_id, character_id, *, now=None):
                     level -= 1
                     maintenance = 100
                     messages.append(f"📉 地位下降至 LV{level} {levels[level-1][1]}。")
-                    score, hard_pass = score_for(level, attrs, tracking, skill_value, stale_days, levels=levels, disabled=disabled, config=config, auxiliary_attrs=auxiliary_attrs)
+                    lower_attrs = attrs
+                    if initial_rank_protected and level <= initial_extra_level:
+                        lower_attrs = dict(attrs)
+                        lower_attrs["影響指數"] = max(
+                            influence, levels[level - 1][4]
+                        )
+                    score, hard_pass = score_for(level, lower_attrs, tracking, skill_value, stale_days, levels=levels, disabled=disabled, config=config, auxiliary_attrs=auxiliary_attrs)
                     if hard_pass and score >= 80:
                         break
         else:
