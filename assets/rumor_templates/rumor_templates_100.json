@@ -1,0 +1,705 @@
+{
+  "version": 1,
+  "templates": [
+    {
+      "id": "P001",
+      "polarity": "positive",
+      "category": "工作",
+      "text": "{角色}近期的工作邀約似乎排得滿滿，業內傳出有重量級企劃正在洽談。",
+      "character_count": 1
+    },
+    {
+      "id": "P002",
+      "polarity": "positive",
+      "category": "工作",
+      "text": "有工作人員透露，{角色}在拍攝現場經常主動協助新人。",
+      "character_count": 1
+    },
+    {
+      "id": "P003",
+      "polarity": "positive",
+      "category": "商業",
+      "text": "品牌方疑似正在接觸{角色}，外界猜測新一季代言名單會有驚喜。",
+      "character_count": 1
+    },
+    {
+      "id": "P004",
+      "polarity": "positive",
+      "category": "工作",
+      "text": "{角色}最近頻繁出入錄音室，粉絲開始期待新的音樂作品。",
+      "character_count": 1
+    },
+    {
+      "id": "P005",
+      "polarity": "positive",
+      "category": "人際",
+      "text": "有幕後花絮顯示，{角色}和工作團隊相處得相當融洽。",
+      "character_count": 1
+    },
+    {
+      "id": "P006",
+      "polarity": "positive",
+      "category": "私生活",
+      "text": "{角色}被目擊在休息日獨自逛書店，低調模樣引起討論。",
+      "character_count": 1
+    },
+    {
+      "id": "P007",
+      "polarity": "positive",
+      "category": "工作",
+      "text": "一位製作人公開稱讚{角色}對作品細節的要求。",
+      "character_count": 1
+    },
+    {
+      "id": "P008",
+      "polarity": "positive",
+      "category": "商業",
+      "text": "有消息稱，{角色}參與的品牌合作可能推出限定款。",
+      "character_count": 1
+    },
+    {
+      "id": "P009",
+      "polarity": "positive",
+      "category": "工作",
+      "text": "{角色}新作品尚未正式宣布，就已有觀眾自發整理期待清單。",
+      "character_count": 1
+    },
+    {
+      "id": "P010",
+      "polarity": "positive",
+      "category": "人際",
+      "text": "{角色}在活動後特地留下向幕後工作人員道謝。",
+      "character_count": 1
+    },
+    {
+      "id": "P011",
+      "polarity": "positive",
+      "category": "工作",
+      "text": "據說{角色}為了一場戲反覆練習，現場工作人員印象深刻。",
+      "character_count": 1
+    },
+    {
+      "id": "P012",
+      "polarity": "positive",
+      "category": "工作",
+      "text": "近日有關{角色}參與大型舞台的猜測悄悄增加。",
+      "character_count": 1
+    },
+    {
+      "id": "P013",
+      "polarity": "positive",
+      "category": "商業",
+      "text": "{角色}近期的造型受到時尚帳號關注，可能成為下一波流行話題。",
+      "character_count": 1
+    },
+    {
+      "id": "P014",
+      "polarity": "positive",
+      "category": "工作",
+      "text": "{角色}在訪談中談到未來規劃，被解讀為即將跨足新領域。",
+      "character_count": 1
+    },
+    {
+      "id": "P015",
+      "polarity": "positive",
+      "category": "私生活",
+      "text": "網友分享與{角色}偶遇的經驗，表示對方態度很有禮貌。",
+      "character_count": 1
+    },
+    {
+      "id": "P016",
+      "polarity": "positive",
+      "category": "人際",
+      "text": "{角色}在公開場合為合作夥伴鼓掌的畫面被大量轉發。",
+      "character_count": 1
+    },
+    {
+      "id": "P017",
+      "polarity": "positive",
+      "category": "工作",
+      "text": "傳出{角色}正在嘗試過去較少接觸的作品類型。",
+      "character_count": 1
+    },
+    {
+      "id": "P018",
+      "polarity": "positive",
+      "category": "商業",
+      "text": "{角色}疑似受邀參與國際品牌活動，行程尚未正式公布。",
+      "character_count": 1
+    },
+    {
+      "id": "P019",
+      "polarity": "positive",
+      "category": "工作",
+      "text": "一段排練片段流出後，{角色}的專業表現受到不少肯定。",
+      "character_count": 1
+    },
+    {
+      "id": "P020",
+      "polarity": "positive",
+      "category": "人際",
+      "text": "{角色}和{角色2}在共同活動上默契十足，觀眾期待再度合作。",
+      "character_count": 2
+    },
+    {
+      "id": "P021",
+      "polarity": "positive",
+      "category": "工作",
+      "text": "有評論人看好{角色}今年在獎季的表現。",
+      "character_count": 1
+    },
+    {
+      "id": "P022",
+      "polarity": "positive",
+      "category": "商業",
+      "text": "{角色}代言的系列商品被討論到缺貨，品牌尚未公布最新銷量。",
+      "character_count": 1
+    },
+    {
+      "id": "P023",
+      "polarity": "positive",
+      "category": "私生活",
+      "text": "{角色}最近分享的日常照片，意外讓一間小店受到關注。",
+      "character_count": 1
+    },
+    {
+      "id": "P024",
+      "polarity": "positive",
+      "category": "工作",
+      "text": "粉絲發現{角色}悄悄更新了工作履歷，猜測有新計畫。",
+      "character_count": 1
+    },
+    {
+      "id": "P025",
+      "polarity": "positive",
+      "category": "人際",
+      "text": "公開花絮裡，{角色}替{角色2}整理服裝的畫面引起善意討論。",
+      "character_count": 2
+    },
+    {
+      "id": "P026",
+      "polarity": "positive",
+      "category": "工作",
+      "text": "有傳言指出{角色}近期正在準備一場特別演出。",
+      "character_count": 1
+    },
+    {
+      "id": "P027",
+      "polarity": "positive",
+      "category": "商業",
+      "text": "{角色}被拍到出現在品牌總部附近，引起合作猜測。",
+      "character_count": 1
+    },
+    {
+      "id": "P028",
+      "polarity": "positive",
+      "category": "工作",
+      "text": "{角色}參與的作品在社群上逐漸累積好評，討論度持續上升。",
+      "character_count": 1
+    },
+    {
+      "id": "P029",
+      "polarity": "positive",
+      "category": "私生活",
+      "text": "有網友說在公益活動現場看見{角色}，但主辦單位尚未證實。",
+      "character_count": 1
+    },
+    {
+      "id": "P030",
+      "polarity": "positive",
+      "category": "人際",
+      "text": "{角色}最近公開稱讚{角色2}的作品，引發跨圈合作期待。",
+      "character_count": 2
+    },
+    {
+      "id": "P031",
+      "polarity": "positive",
+      "category": "工作",
+      "text": "{角色}的舊舞台被重新翻出，觀眾驚訝於當年的表現。",
+      "character_count": 1
+    },
+    {
+      "id": "P032",
+      "polarity": "positive",
+      "category": "商業",
+      "text": "外界猜測{角色}可能會參與某個新品牌的創意企劃。",
+      "character_count": 1
+    },
+    {
+      "id": "P033",
+      "polarity": "positive",
+      "category": "工作",
+      "text": "{角色}在直播中透露正在學習新技能，粉絲猜測與工作有關。",
+      "character_count": 1
+    },
+    {
+      "id": "P034",
+      "polarity": "positive",
+      "category": "人際",
+      "text": "{角色}與劇組一起慶功的照片，看起來氣氛相當熱絡。",
+      "character_count": 1
+    },
+    {
+      "id": "P035",
+      "polarity": "positive",
+      "category": "工作",
+      "text": "有人表示{角色}最近常出現在排練場，似乎有大型舞台準備中。",
+      "character_count": 1
+    },
+    {
+      "id": "P036",
+      "polarity": "positive",
+      "category": "商業",
+      "text": "{角色}的穿搭被品牌官方轉發，合作傳聞隨之出現。",
+      "character_count": 1
+    },
+    {
+      "id": "P037",
+      "polarity": "positive",
+      "category": "工作",
+      "text": "傳出{角色}有機會在下一部作品中挑戰重要角色。",
+      "character_count": 1
+    },
+    {
+      "id": "P038",
+      "polarity": "positive",
+      "category": "私生活",
+      "text": "{角色}的寵物照片意外引起熱議，網友開始猜牠的名字。",
+      "character_count": 1
+    },
+    {
+      "id": "P039",
+      "polarity": "positive",
+      "category": "人際",
+      "text": "有幕後人員形容{角色}在現場相當照顧整個團隊。",
+      "character_count": 1
+    },
+    {
+      "id": "P040",
+      "polarity": "positive",
+      "category": "工作",
+      "text": "{角色}與{角色2}同時出現在製作名單中，合作傳聞逐漸升溫。",
+      "character_count": 2
+    },
+    {
+      "id": "P041",
+      "polarity": "positive",
+      "category": "工作",
+      "text": "{角色}的新造型曝光後，粉絲猜測新作品風格將有所突破。",
+      "character_count": 1
+    },
+    {
+      "id": "P042",
+      "polarity": "positive",
+      "category": "商業",
+      "text": "業界盛傳{角色}有望成為新系列活動的特別嘉賓。",
+      "character_count": 1
+    },
+    {
+      "id": "P043",
+      "polarity": "positive",
+      "category": "工作",
+      "text": "{角色}近期接受多家媒體訪問，被猜測即將進入宣傳期。",
+      "character_count": 1
+    },
+    {
+      "id": "P044",
+      "polarity": "positive",
+      "category": "人際",
+      "text": "{角色}與{角色2}互相推薦作品，讓不少人期待聯名企劃。",
+      "character_count": 2
+    },
+    {
+      "id": "P045",
+      "polarity": "positive",
+      "category": "工作",
+      "text": "一段未公開的舞台彩排消息，讓{角色}的粉絲興奮不已。",
+      "character_count": 1
+    },
+    {
+      "id": "P046",
+      "polarity": "positive",
+      "category": "商業",
+      "text": "市場傳出{角色}參與的商品企劃可能增加新款式。",
+      "character_count": 1
+    },
+    {
+      "id": "P047",
+      "polarity": "positive",
+      "category": "私生活",
+      "text": "有目擊者稱{角色}私下喜歡逛展覽，粉絲熱議藝術品味。",
+      "character_count": 1
+    },
+    {
+      "id": "P048",
+      "polarity": "positive",
+      "category": "工作",
+      "text": "{角色}被發現關注一個新劇組的官方帳號，外界猜測合作機會。",
+      "character_count": 1
+    },
+    {
+      "id": "P049",
+      "polarity": "positive",
+      "category": "人際",
+      "text": "{角色}最近在公開場合提起{角色2}，語氣充滿欣賞。",
+      "character_count": 2
+    },
+    {
+      "id": "P050",
+      "polarity": "positive",
+      "category": "工作",
+      "text": "有傳言稱{角色}將在紀念活動帶來從未公開的驚喜。",
+      "character_count": 1
+    },
+    {
+      "id": "N001",
+      "polarity": "negative",
+      "category": "工作",
+      "text": "{角色}最近取消一場公開行程，粉絲擔心是否與工作安排有關。",
+      "character_count": 1
+    },
+    {
+      "id": "N002",
+      "polarity": "negative",
+      "category": "商業",
+      "text": "網友發現{角色}合作品牌的宣傳素材悄悄下架，原因尚不明。",
+      "character_count": 1
+    },
+    {
+      "id": "N003",
+      "polarity": "negative",
+      "category": "工作",
+      "text": "有傳聞稱{角色}的新作品進度延後，團隊尚未對外說明。",
+      "character_count": 1
+    },
+    {
+      "id": "N004",
+      "polarity": "negative",
+      "category": "人際",
+      "text": "{角色}與{角色2}在活動上幾乎沒有互動，引發不合猜測。",
+      "character_count": 2
+    },
+    {
+      "id": "N005",
+      "polarity": "negative",
+      "category": "工作",
+      "text": "有人質疑{角色}近期的舞台狀態不如以往，粉絲則持不同意見。",
+      "character_count": 1
+    },
+    {
+      "id": "N006",
+      "polarity": "negative",
+      "category": "商業",
+      "text": "{角色}代言的產品評價兩極，部分消費者要求品牌說明。",
+      "character_count": 1
+    },
+    {
+      "id": "N007",
+      "polarity": "negative",
+      "category": "私生活",
+      "text": "{角色}連續數日沒有更新社群，網友猜測是否正在休息。",
+      "character_count": 1
+    },
+    {
+      "id": "N008",
+      "polarity": "negative",
+      "category": "工作",
+      "text": "{角色}在採訪中的一句話被斷章取義，相關討論持續擴大。",
+      "character_count": 1
+    },
+    {
+      "id": "N009",
+      "polarity": "negative",
+      "category": "人際",
+      "text": "有網友將{角色}與{角色2}的不同訪談放在一起比較，引發猜測。",
+      "character_count": 2
+    },
+    {
+      "id": "N010",
+      "polarity": "negative",
+      "category": "其他",
+      "text": "{角色}的一張舊照片被重新翻出，網友對當時造型評價不一。",
+      "character_count": 1
+    },
+    {
+      "id": "N011",
+      "polarity": "negative",
+      "category": "工作",
+      "text": "{角色}近期宣傳活動較少，外界猜測是不是有檔期調整。",
+      "character_count": 1
+    },
+    {
+      "id": "N012",
+      "polarity": "negative",
+      "category": "商業",
+      "text": "有人認為{角色}的新合作風格與過往形象落差過大。",
+      "character_count": 1
+    },
+    {
+      "id": "N013",
+      "polarity": "negative",
+      "category": "工作",
+      "text": "{角色}的某段表演片段引發技術方面的討論，評價出現分歧。",
+      "character_count": 1
+    },
+    {
+      "id": "N014",
+      "polarity": "negative",
+      "category": "人際",
+      "text": "{角色}未出席{角色2}的公開活動，網友猜測雙方是否忙於各自行程。",
+      "character_count": 2
+    },
+    {
+      "id": "N015",
+      "polarity": "negative",
+      "category": "私生活",
+      "text": "{角色}被拍到神情疲憊，粉絲呼籲外界不要過度揣測。",
+      "character_count": 1
+    },
+    {
+      "id": "N016",
+      "polarity": "negative",
+      "category": "工作",
+      "text": "某篇匿名投稿聲稱{角色}臨時更改工作計畫，目前缺乏證實。",
+      "character_count": 1
+    },
+    {
+      "id": "N017",
+      "polarity": "negative",
+      "category": "商業",
+      "text": "{角色}相關周邊定價引發討論，部分粉絲認為售價偏高。",
+      "character_count": 1
+    },
+    {
+      "id": "N018",
+      "polarity": "negative",
+      "category": "工作",
+      "text": "{角色}新作公布後，有觀眾質疑選角方向，支持者則表示期待。",
+      "character_count": 1
+    },
+    {
+      "id": "N019",
+      "polarity": "negative",
+      "category": "人際",
+      "text": "網友注意到{角色}與{角色2}近期較少同框，合作關係成為話題。",
+      "character_count": 2
+    },
+    {
+      "id": "N020",
+      "polarity": "negative",
+      "category": "其他",
+      "text": "{角色}的一則社群貼文被解讀成在回應某個爭議，但沒有明確證據。",
+      "character_count": 1
+    },
+    {
+      "id": "N021",
+      "polarity": "negative",
+      "category": "工作",
+      "text": "有傳聞指出{角色}的排練進度可能受場地調整影響。",
+      "character_count": 1
+    },
+    {
+      "id": "N022",
+      "polarity": "negative",
+      "category": "商業",
+      "text": "某合作方尚未公布{角色}的完整宣傳資訊，引起等待中的粉絲抱怨。",
+      "character_count": 1
+    },
+    {
+      "id": "N023",
+      "polarity": "negative",
+      "category": "工作",
+      "text": "{角色}在現場活動的收音表現受到討論，網友對原因各有猜測。",
+      "character_count": 1
+    },
+    {
+      "id": "N024",
+      "polarity": "negative",
+      "category": "人際",
+      "text": "{角色}和{角色2}在節目裡的一句玩笑，被部分網友誤讀成爭執。",
+      "character_count": 2
+    },
+    {
+      "id": "N025",
+      "polarity": "negative",
+      "category": "私生活",
+      "text": "有關{角色}私下行程的猜測越傳越廣，部分粉絲呼籲尊重隱私。",
+      "character_count": 1
+    },
+    {
+      "id": "N026",
+      "polarity": "negative",
+      "category": "工作",
+      "text": "{角色}原定曝光的企劃內容遲遲未公布，網友議論是否延期。",
+      "character_count": 1
+    },
+    {
+      "id": "N027",
+      "polarity": "negative",
+      "category": "商業",
+      "text": "有人認為{角色}近期代言接得太密集，擔心作品曝光被沖淡。",
+      "character_count": 1
+    },
+    {
+      "id": "N028",
+      "polarity": "negative",
+      "category": "工作",
+      "text": "{角色}公開的預告畫面被批評剪輯節奏混亂，但是否由本人決定仍不清楚。",
+      "character_count": 1
+    },
+    {
+      "id": "N029",
+      "polarity": "negative",
+      "category": "人際",
+      "text": "{角色}與{角色2}在受訪時對同一件事說法略有不同，引發解讀。",
+      "character_count": 2
+    },
+    {
+      "id": "N030",
+      "polarity": "negative",
+      "category": "其他",
+      "text": "{角色}的名字意外登上熱搜，原來是過去的舊話題再度發酵。",
+      "character_count": 1
+    },
+    {
+      "id": "N031",
+      "polarity": "negative",
+      "category": "工作",
+      "text": "網友抱怨{角色}的活動通知過於臨時，部分觀眾來不及安排。",
+      "character_count": 1
+    },
+    {
+      "id": "N032",
+      "polarity": "negative",
+      "category": "商業",
+      "text": "{角色}合作推出的限定商品供貨不足，引發搶購抱怨。",
+      "character_count": 1
+    },
+    {
+      "id": "N033",
+      "polarity": "negative",
+      "category": "工作",
+      "text": "有評論認為{角色}的新作品題材較保守，粉絲則期待完整成品。",
+      "character_count": 1
+    },
+    {
+      "id": "N034",
+      "polarity": "negative",
+      "category": "戀情",
+      "text": "{角色}與{角色2}被注意到有相似配件，網友猜測是否只是巧合。",
+      "character_count": 2
+    },
+    {
+      "id": "N035",
+      "polarity": "negative",
+      "category": "私生活",
+      "text": "{角色}近期頻繁往返不同城市，粉絲擔心休息時間不足。",
+      "character_count": 1
+    },
+    {
+      "id": "N036",
+      "polarity": "negative",
+      "category": "工作",
+      "text": "{角色}在活動中沒有回應某個熱門問題，引起部分網友不滿。",
+      "character_count": 1
+    },
+    {
+      "id": "N037",
+      "polarity": "negative",
+      "category": "商業",
+      "text": "{角色}合作的品牌突然調整宣傳日期，外界猜測是否另有安排。",
+      "character_count": 1
+    },
+    {
+      "id": "N038",
+      "polarity": "negative",
+      "category": "人際",
+      "text": "有剪輯帳號把{角色}和{角色2}的反應並列，試圖暗示彼此有心結。",
+      "character_count": 2
+    },
+    {
+      "id": "N039",
+      "polarity": "negative",
+      "category": "其他",
+      "text": "{角色}的舊訪談再次被討論，部分觀眾認為當時的表達不夠清楚。",
+      "character_count": 1
+    },
+    {
+      "id": "N040",
+      "polarity": "negative",
+      "category": "工作",
+      "text": "{角色}一段排練影像被質疑狀態欠佳，完整影像尚未公開。",
+      "character_count": 1
+    },
+    {
+      "id": "N041",
+      "polarity": "negative",
+      "category": "商業",
+      "text": "部分粉絲認為{角色}的合作品牌與其既有風格不太搭。",
+      "character_count": 1
+    },
+    {
+      "id": "N042",
+      "polarity": "negative",
+      "category": "工作",
+      "text": "{角色}原訂的宣傳訪談取消，主辦單位尚未說明原因。",
+      "character_count": 1
+    },
+    {
+      "id": "N043",
+      "polarity": "negative",
+      "category": "人際",
+      "text": "{角色}沒有在社群上回覆{角色2}的祝福，引發無端揣測。",
+      "character_count": 2
+    },
+    {
+      "id": "N044",
+      "polarity": "negative",
+      "category": "戀情",
+      "text": "有網友因{角色}與{角色2}出現在同一地點，就開始猜測兩人的關係。",
+      "character_count": 2
+    },
+    {
+      "id": "N045",
+      "polarity": "negative",
+      "category": "私生活",
+      "text": "{角色}近期公開露面時話變少了，粉絲提醒大家不要過度解讀。",
+      "character_count": 1
+    },
+    {
+      "id": "N046",
+      "polarity": "negative",
+      "category": "工作",
+      "text": "部分網友對{角色}的新舞台服裝提出批評，造型團隊尚未回應。",
+      "character_count": 1
+    },
+    {
+      "id": "N047",
+      "polarity": "negative",
+      "category": "商業",
+      "text": "{角色}參與的宣傳企劃被批評資訊不夠透明，品牌仍在補充說明。",
+      "character_count": 1
+    },
+    {
+      "id": "N048",
+      "polarity": "negative",
+      "category": "工作",
+      "text": "一份未經確認的行程表提到{角色}，內容真偽仍有待查證。",
+      "character_count": 1
+    },
+    {
+      "id": "N049",
+      "polarity": "negative",
+      "category": "人際",
+      "text": "有觀眾覺得{角色}與{角色2}的節目互動略顯尷尬，也有人認為只是剪輯效果。",
+      "character_count": 2
+    },
+    {
+      "id": "N050",
+      "polarity": "negative",
+      "category": "其他",
+      "text": "{角色}的新照片因修圖風格引發兩派討論，網友意見不一。",
+      "character_count": 1
+    }
+  ]
+}
