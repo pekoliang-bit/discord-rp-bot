@@ -1,3 +1,4 @@
+
 """Review submitted tasks; approval records completion, never claims to have paid rewards."""
 from __future__ import annotations
 from core.database import transaction,get_connection
@@ -9,7 +10,11 @@ def pending(guild_id,limit=20):
     initialize()
     with get_connection() as db:
         return [dict(row) for row in db.execute("""SELECT p.guild_id,p.character_id,p.task_id,p.cycle_key,p.accepted_at,
-        d.title FROM rp_task_progress p JOIN rp_task_definitions d ON d.id=p.task_id AND d.guild_id=p.guild_id
+        d.title,e.channel_id AS evidence_channel_id,e.message_id AS evidence_message_id,
+        e.excerpt AS evidence_excerpt FROM rp_task_progress p
+        JOIN rp_task_definitions d ON d.id=p.task_id AND d.guild_id=p.guild_id
+        LEFT JOIN rp_task_evidence e ON e.guild_id=p.guild_id AND e.character_id=p.character_id
+        AND e.task_id=p.task_id AND e.cycle_key=p.cycle_key
         WHERE p.guild_id=? AND p.status='submitted' ORDER BY p.accepted_at LIMIT ?""", (str(guild_id),min(50,max(1,int(limit)))))]
 
 def decide(guild_id,actor_id,owner_id,character_id,task_id,cycle_key,approved):
