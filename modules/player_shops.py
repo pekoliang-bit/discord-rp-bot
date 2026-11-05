@@ -1,4 +1,3 @@
-
 """個人商店：七級規模、申請審核、保證金與營業額考核。"""
 from __future__ import annotations
 
@@ -18,6 +17,7 @@ from core.database import (
     account_balance,
 )
 from core.economy import _payment
+from modules import player_shop_channels
 from core.permissions import (
     Actor,
     require_admin,
@@ -942,6 +942,13 @@ class PlayerShops(commands.Cog):
         await asyncio.to_thread(
             check_supervision
         )
+        # Discord 暫時故障時，已核准商店可在下一輪自動補建頻道。
+        for guild in self.bot.guilds:
+            try:
+                await player_shop_channels.provision(guild)
+            except Exception:
+                import logging
+                logging.getLogger(__name__).exception('個人商店頻道補建失敗')
 
     @monitor.before_loop
     async def before_monitor(self):
@@ -1033,17 +1040,29 @@ class PlayerShops(commands.Cog):
         通過: bool,
         意見: str = "",
     ):
-        await self.respond(
-            interaction,
-            lambda: approve_store(
-                Actor.from_interaction(
-                    interaction
-                ),
-                申請編號,
-                通過,
-                意見,
-            ),
-        )
+        if interaction.guild_id is None:
+            await interaction.response.send_message('請在伺服器使用。', ephemeral=True)
+            return
+        await interaction.response.defer(ephemeral=True)
+        try:
+            result = await asyncio.to_thread(
+                approve_store, Actor.from_interaction(interaction), 申請編號, 通過, 意見)
+        except (ValueError, InvalidState, PermissionDenied, sqlite3.Error) as exc:
+            await interaction.followup.send(f'⚠️ {exc}', ephemeral=True)
+            return
+        if 通過 and str(result).startswith('✅'):
+            try:
+                # 審核完成後才操作 Discord，不讓頻道建立失敗回滾金錢交易。
+                count, error = await player_shop_channels.provision(interaction.guild)
+                if error:
+                    result += f'\n⚠️ 商店頻道尚未全部建立：{error}（定期自動補建）'
+                elif count:
+                    result += f'\n🏬 已建立 {count} 個待補建的商店頻道。'
+            except Exception:
+                import logging
+                logging.getLogger(__name__).exception('個人商店頻道建立失敗')
+                result += '\n⚠️ 頻道建立失敗，系統將稍後補建。'
+        await interaction.followup.send(str(result)[:1900], ephemeral=True)
 
     async def waiting_command(
         self,
