@@ -22,6 +22,7 @@ class CompanyGroupTests(unittest.TestCase):
             CREATE TABLE rp_business_entities (
                 guild_id TEXT,
                 business_id TEXT,
+                name TEXT,
                 kind TEXT,
                 owner_id TEXT,
                 status TEXT,
@@ -33,10 +34,10 @@ class CompanyGroupTests(unittest.TestCase):
     def add(self, name, kind, owner="100"):
         self.db.execute("""
             INSERT INTO rp_business_entities
-            (guild_id, business_id, kind,
+            (guild_id, business_id, name, kind,
              owner_id, status)
-            VALUES ('1', ?, ?, ?, 'active')
-        """, (name, kind, owner))
+            VALUES ('1', ?, ?, ?, ?, 'active')
+        """, (name, name, kind, owner))
 
     def test_brand_not_counted(self):
         for i in range(10):
@@ -60,12 +61,9 @@ class CompanyGroupTests(unittest.TestCase):
 
         self.add("C4", "company")
 
-        self.assertEqual(
-            len(validate_group_application(
-                self.db, "1", "100"
-            )),
-            5,
-        )
+        result = validate_group_application(self.db, "1", "100")
+        self.assertEqual(result["company_count"], 5)
+        self.assertTrue(result["automatic_eligible"])
 
     def test_only_own_companies(self):
         for i in range(5):
@@ -77,6 +75,24 @@ class CompanyGroupTests(unittest.TestCase):
             ),
             (),
         )
+
+    def test_direct_group_application_without_five_companies(self):
+        result = validate_group_application(
+            self.db, "1", "100", method="direct"
+        )
+        self.assertTrue(result["direct_eligible"])
+
+    def test_existing_group_blocks_duplicate(self):
+        self.add("G1", "group")
+        with self.assertRaises(ValueError):
+            validate_group_application(self.db, "1", "100", method="direct")
+
+    def test_parented_company_not_eligible_for_auto_group(self):
+        for i in range(5):
+            self.add(f"C{i}", "company")
+        self.db.execute("UPDATE rp_business_entities SET parent_id='OTHER' WHERE business_id='C0'")
+        with self.assertRaises(ValueError):
+            validate_group_application(self.db, "1", "100")
 
     def test_group_attachment(self):
         for i in range(5):
