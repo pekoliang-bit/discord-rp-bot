@@ -1,4 +1,3 @@
-
 """集團旗下公司歸屬管理。
 
 僅提供同一 SQLite 交易內使用的函式。
@@ -107,6 +106,10 @@ def attach_all_owned(
     group_id,
     actor_id,
 ):
+    group = get_group(db, guild_id, group_id)
+    if str(group["owner_id"]) != str(actor_id):
+        raise PermissionError("只有集團董事長能管理旗下公司")
+
     rows = db.execute(
         """
         SELECT business_id
