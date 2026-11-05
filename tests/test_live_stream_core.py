@@ -70,5 +70,16 @@ class LiveStreamCoreTests(unittest.TestCase):
         with self.assertRaises(PermissionError):
             live_stream.start(123,101,1,'Official','official','realtime')
 
+    def test_new_broadcast_after_fixed_session_auto_expires(self):
+        first = live_stream.start(123, 101, 1, 'Fixed', 'personal', 'fixed', 15, now=100)
+        second = live_stream.start(123, 101, 1, 'New', 'personal', 'realtime', now=1000)
+        self.assertNotEqual(first, second)
+        with database.get_connection() as db:
+            old = db.execute('SELECT status,stopped_at FROM rp_live_sessions WHERE id=?', (first,)).fetchone()
+        self.assertEqual(old['status'], 'ended')
+        self.assertEqual(old['stopped_at'], 1000)
+        self.assertEqual(live_stream.current(123, 1, now=1001)['id'], second)
+
+
 if __name__ == '__main__':
     unittest.main()
