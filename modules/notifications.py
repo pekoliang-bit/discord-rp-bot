@@ -29,7 +29,7 @@ LOG = logging.getLogger(__name__)
 KINDS = {
     'main': '📢 主通知', 'character': '👤 角色相關',
     'event': '🎉 活動頻道', 'private': '🔒 私人通知帖',
-    'rumor': '🗣️ 流言蜚語',
+    'rumor': '🗣️ 傳聞',
 }
 # 公告固定顯示順序；沒有變更的分類不會出現在當期公告。
 UPDATE_CATEGORIES = (
@@ -48,6 +48,14 @@ CATEGORY_LABELS = dict(UPDATE_CATEGORIES)
 LEGACY_CATEGORY = {'system': 'system', 'role': 'character', 'company': 'company',
                    'bank': 'other', 'faction': 'faction', 'activity': 'activity',
                    'shop': 'shop', 'rumor': 'other', 'content': 'other', 'other': 'other'}
+# 首次部署預設；不覆寫群主在 /通知 已儲存的頻道。
+DEFAULT_NOTIFICATION_GUILD = '1544051203493601380'
+DEFAULT_NOTIFICATION_CHANNELS = {
+    'main': '1567786757020323960',
+    'event': '1567786824326189238',
+    'rumor': '1545703079691689994',
+}
+
 VALID_LINK = re.compile(r'^https://(?:discord\.com/channels/|(?:www\.)?discordapp\.com/channels/)[0-9]+/[0-9]+(?:/[0-9]+)?/?(?:\?.*)?$', re.I)
 
 
@@ -114,6 +122,10 @@ def initialize():
         db.execute('''CREATE TABLE IF NOT EXISTS notification_channels (
             guild_id TEXT NOT NULL, kind TEXT NOT NULL, channel_id TEXT NOT NULL,
             PRIMARY KEY(guild_id, kind))''')
+        db.executemany("""INSERT OR IGNORE INTO notification_channels
+            (guild_id,kind,channel_id) VALUES (?,?,?)""",
+            ((DEFAULT_NOTIFICATION_GUILD, kind, channel)
+             for kind, channel in DEFAULT_NOTIFICATION_CHANNELS.items()))
         db.execute('''CREATE TABLE IF NOT EXISTS notification_preferences (
             guild_id TEXT NOT NULL, event_type TEXT NOT NULL,
             enabled INTEGER NOT NULL DEFAULT 1, PRIMARY KEY(guild_id, event_type))''')
