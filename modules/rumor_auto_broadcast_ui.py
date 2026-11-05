@@ -2,7 +2,10 @@
 """在 /官方 管理功能中心嵌入「定時傳聞」設定，不新增頂層斜線指令。"""
 from __future__ import annotations
 
+import asyncio
 import logging
+import os
+
 import discord
 from discord.ext import commands, tasks
 
@@ -35,14 +38,23 @@ def summary(gid):
         else "—"
     )
 
+    jobs = auto.recent_job_status(gid)
+
+    last = "；".join(
+        f"{j['state']}（重試 {j['attempts']} 次）"
+        for j in jobs[:3]
+    ) or "尚無紀錄"
+
     return (
-        f"📰 **定時傳聞管理**\n"
+        "📰 **定時傳聞管理**\n"
         f"發布頻道：{channel}\n"
         f"狀態：{state}\n"
-        f"發布週期：每 8 小時一則\n"
+        "發布週期：每 8 小時一則\n"
         f"下一次：{next_due}\n"
         "傳聞正面 50／負面 50；"
         "角色必須已啟用且未關閉整體及對應分類的傳聞授權。\n"
+        f"最近排程：{last}\n"
+        "正式案件需群主已啟用分級、複雜度與獎懲規則。\n"
         "所有內容均為遊戲內虛構傳聞，"
         "並非已證實的事實。"
     )
@@ -192,7 +204,7 @@ class RumorAutoView(discord.ui.View):
     async def back(self, i, b):
         from modules.official_center import (
             AdminToolsView,
-            management_text
+            management_text,
         )
 
         view = AdminToolsView(i)
@@ -238,82 +250,174 @@ class RumorAutoCog(commands.Cog):
 
     @tasks.loop(minutes=1)
     async def auto_publish(self):
-        import asyncio
+        from core.rumor_auto_case_bridge import (
+            create_linked_case,
+            reconcile_unlinked,
+        )
 
         guild_ids = await asyncio.to_thread(
             auto.due_guild_ids
         )
 
         for gid in guild_ids:
-            guild = self.bot.get_guild(
-                int(gid)
+            if self.bot.get_guild(int(gid)):
+                try:
+                    await asyncio.to_thread(
+                        auto.claim,
+                        gid,
+                    )
+                except Exception:
+                    LOG.exception(
+                        "傳聞排程建檔失敗 guild=%s",
+                        gid,
+                    )
+
+        # 發送前持久化佇列；故障後保留重試。
+        job_ids = await asyncio.to_thread(
+            auto.pending_jobs
+        )
+
+        for job_id in job_ids:
+            job = await asyncio.to_thread(
+                auto.lease_job,
+                job_id,
             )
 
+            if not job:
+                continue
+
+            entry = job["entry"]
+            gid = job["guild_id"]
+
+            guild = self.bot.get_guild(int(gid))
+
             if guild is None:
+                await asyncio.to_thread(
+                    auto.mark_retry,
+                    job_id,
+                    "伺服器暫時無法存取",
+                )
                 continue
 
             try:
-                entry = await asyncio.to_thread(
-                    auto.claim,
-                    gid
-                )
-
-                if entry is None:
-                    continue
-
-                # 發布前重新確認角色傳聞授權及排程狀態。
-                if not await asyncio.to_thread(
-                    auto.still_consented,
-                    gid,
-                    entry
+                # 未發布前，重新檢查角色授權。
+                if (
+                    not job["message_id"]
+                    and not await asyncio.to_thread(
+                        auto.still_consented,
+                        gid,
+                        entry,
+                    )
                 ):
+                    await asyncio.to_thread(
+                        auto.skip_job,
+                        job_id,
+                        "已停用或角色撤回授權",
+                    )
                     continue
 
                 channel = guild.get_channel(
                     int(entry["channel_id"])
                 )
 
+                if channel is None:
+                    channel = await guild.fetch_channel(
+                        int(entry["channel_id"])
+                    )
+
                 if not isinstance(
                     channel,
                     discord.TextChannel
                 ):
-                    LOG.warning(
-                        "傳聞發布頻道不可用 guild=%s channel=%s",
-                        gid,
-                        entry["channel_id"]
+                    raise ValueError(
+                        "發布目標不是文字頻道"
                     )
-                    continue
 
-                label = (
-                    "正面"
-                    if entry["polarity"] == "positive"
-                    else "負面"
+                message_id = job["message_id"]
+
+                if not message_id:
+                    # 使用固定工作單 ID 避免重啟後重複發文。
+                    marker = f"[RP-RUMOR:{job_id}]"
+
+                    async for msg in channel.history(
+                        limit=100
+                    ):
+                        if (
+                            msg.author.id == self.bot.user.id
+                            and marker in msg.content
+                        ):
+                            message_id = str(msg.id)
+                            break
+
+                    if not message_id:
+                        polarity = (
+                            "正面"
+                            if entry["polarity"] == "positive"
+                            else "負面"
+                        )
+
+                        msg = await channel.send(
+                            (
+                                f"📰 **娛樂圈傳聞｜"
+                                f"{polarity}・未經證實**\n"
+                                f'{entry["text"]}\n\n'
+                                "*此為虛構 RP 事件，"
+                                "並非真實新聞。*\n"
+                                f"||{marker}||"
+                            ),
+                            allowed_mentions=(
+                                discord.AllowedMentions.none()
+                            ),
+                        )
+
+                        message_id = str(msg.id)
+
+                    await asyncio.to_thread(
+                        auto.mark_sent,
+                        job_id,
+                        message_id,
+                    )
+
+                # 正式案件使用既有核准規則。
+                rumor_id, reason = await asyncio.to_thread(
+                    create_linked_case,
+                    job_id,
                 )
 
-                message = await channel.send(
-                    (
-                        f"📰 **娛樂圈傳聞｜"
-                        f"{label}・未經證實**\n"
-                        f'{entry["text"]}\n\n'
-                        "*本訊息為伺服器內的虛構 RP 事件，"
-                        "並非真實新聞。*"
-                    ),
-                    allowed_mentions=(
-                        discord.AllowedMentions.none()
+                if reason:
+                    LOG.warning(
+                        "傳聞已刊登，正式案件待設定 job=%s: %s",
+                        job_id,
+                        reason,
                     )
+
+                await asyncio.to_thread(
+                    auto.finish_job,
+                    job_id,
+                    rumor_id,
+                )
+
+            except Exception as exc:
+                LOG.exception(
+                    "定時傳聞發布或登錄失敗 job=%s",
+                    job_id,
                 )
 
                 await asyncio.to_thread(
-                    auto.record_post,
-                    entry,
-                    message.id
+                    auto.mark_retry,
+                    job_id,
+                    exc,
                 )
 
-            except Exception:
-                LOG.exception(
-                    "定時傳聞發布失敗 guild=%s",
-                    gid
-                )
+        # 補齊規則後，可回補案件而不重發訊息。
+        if os.getenv(
+            "RUMOR_AUTO_CASE_RECONCILE",
+            "1",
+        ) == "1":
+            await asyncio.to_thread(
+                reconcile_unlinked,
+                20,
+            )
 
     @auto_publish.before_loop
     async def before_auto_publish(self):
