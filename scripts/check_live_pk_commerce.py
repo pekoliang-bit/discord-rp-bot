@@ -32,6 +32,7 @@ def run():
         sys.modules['core.database']=database
         live=types.ModuleType('core.live_stream')
         live._init=lambda db: None
+        live._expire=lambda db,gid,now: None
         sys.modules['core.live_stream']=live
         for name in ('live_pk','live_commerce'):
             spec=importlib.util.spec_from_file_location('core.'+name,ROOT/'core'/f'{name}.py')
@@ -39,10 +40,10 @@ def run():
         pk=sys.modules['core.live_pk'];sale=sys.modules['core.live_commerce']
         with tx() as db:
             db.executescript('''CREATE TABLE characters(id INTEGER PRIMARY KEY,guild_id TEXT,owner_id TEXT,status TEXT);
-            CREATE TABLE rp_live_sessions(id INTEGER PRIMARY KEY,guild_id TEXT,host_character_id INTEGER,owner_id TEXT,stream_type TEXT,status TEXT);
+            CREATE TABLE rp_live_sessions(id INTEGER PRIMARY KEY,guild_id TEXT,host_character_id INTEGER,owner_id TEXT,stream_type TEXT,status TEXT,ends_at INTEGER);
             CREATE TABLE rp_live_gifts(id INTEGER PRIMARY KEY,guild_id TEXT,session_id INTEGER,gross_amount INTEGER,created_at INTEGER);
             INSERT INTO characters VALUES(1,'1','10','active'),(2,'1','20','active'),(3,'1','30','active');
-            INSERT INTO rp_live_sessions VALUES(101,'1',1,'10','pk','live'),(102,'1',2,'20','pk','live'),(103,'1',3,'30','sales','live');''')
+            INSERT INTO rp_live_sessions VALUES(101,'1',1,'10','pk','live',NULL),(102,'1',2,'20','pk','live',NULL),(103,'1',3,'30','sales','live',NULL);''')
         mid=pk.challenge(1,10,101,102,now=1000)
         assert len(pk.pending(1,20,2,now=1001))==1
         try:pk.respond(1,10,2,mid,True,now=1002);raise AssertionError('owner bypass')
@@ -55,7 +56,7 @@ def run():
         final=pk.finish(1,10,mid,now=1200)
         assert final['winner_character_id']==1
         assert pk.finish(1,10,mid,now=1300)['challenger_score']==100
-        offer=sale.propose_offer(1,30,103,'product-1','ååç²',500,10)
+        offer=sale.propose_offer(1,30,103,'product-1','Ã¥ÂÂÃ¥ÂÂÃ§ÂÂ²',500,10)
         assert sale.offers(1,103)[0]['status']=='pending_verification'
         try:sale.verify_offer(1,offer,{'product_ref':'product-1','unit_price':500,'available_stock':10});raise AssertionError('approval bypass')
         except PermissionError:pass
