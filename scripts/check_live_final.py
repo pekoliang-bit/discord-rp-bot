@@ -54,7 +54,7 @@ def run():
         modules=types.ModuleType('modules'); modules.__path__=[str(ROOT/'modules')]; modules.shop=shop
         sys.modules['modules']=modules; sys.modules['modules.shop']=shop
 
-        sid=live_stream.start('100','111',1,'帶貨測試','sales')
+        sid=live_stream.start('100','111',1,'帶貨測試','sales','realtime')
         oid=live_commerce.propose_offer('100','111',sid,'7','舞台燈',100,3,1000)
         try:
             live_shop_adapter.verify_official_offer('100',oid)
@@ -62,14 +62,14 @@ def run():
         except PermissionError: pass
         live_shop_adapter.verify_official_offer('100',oid,authorized=True)
         first=live_checkout.checkout('100','222',2,oid,2,'checkout-1')
-        assert first['paid_amount']==200 and first['commission_amount']==20
+        assert first['paid_amount']==200 and first['commission_gross']==20 and first['platform_fee']==4 and first['commission_amount']==16
         same=live_checkout.checkout('100','222',2,oid,2,'checkout-1')
         assert same['id']==first['id']
         with database.get_connection() as db:
             buyer=get_or_create_account(db,'100','character',2,'wallet')
             host=get_or_create_account(db,'100','character',1,'wallet')
             assert account_balance(db,'100',buyer)==800
-            assert account_balance(db,'100',host)==20
+            assert account_balance(db,'100',host)==16
             assert db.execute('SELECT stock FROM shop_products WHERE id=7').fetchone()[0]==3
             assert db.execute('SELECT quantity FROM shop_inventory WHERE character_id=2 AND product_id=7').fetchone()[0]==2
         try:
@@ -77,7 +77,7 @@ def run():
             raise AssertionError('超出帶貨數量上限未阻擋')
         except ValueError: pass
         summary=live_checkout.order_totals('100',sid)
-        assert summary['orders']==1 and summary['units']==2 and summary['sales']==200 and summary['commissions']==20
+        assert summary['orders']==1 and summary['units']==2 and summary['sales']==200 and summary['commissions']==16
         print('PASS: 官方驗證權限、購買與分潤、原子帳本、庫存、重複交易、限額、業績')
 
 
