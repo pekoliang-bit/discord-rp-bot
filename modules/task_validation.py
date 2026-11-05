@@ -50,7 +50,7 @@ def validate_rewards(rewards):
 def validate_report(report):
     report=parse_object(report)
     if set(report)-{'mode','channel_id'}:raise ValueError('不支援的回報欄位')
-    if report.get('mode','manual') not in ('manual','automatic'):raise ValueError('回報方式錯誤')
+    if report.get('mode','manual') not in ('manual','automatic','character_story'):raise ValueError('回報方式錯誤')
     if report.get('mode','manual')=='manual' and not str(report.get('channel_id','')).isdigit():raise ValueError('人工回報必須指定討論串 ID')
     return report
 
