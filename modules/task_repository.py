@@ -51,6 +51,10 @@ def initialize():
             author_id TEXT NOT NULL, excerpt TEXT NOT NULL,
             reported_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY(guild_id,character_id,task_id,cycle_key))''')
+        db.execute('''CREATE TABLE IF NOT EXISTS rp_screen_cast_slots (
+          guild_id TEXT NOT NULL, task_id INTEGER NOT NULL, production_key TEXT NOT NULL,
+          slot_key TEXT NOT NULL, capacity INTEGER NOT NULL CHECK(capacity>=1),
+          PRIMARY KEY(guild_id,task_id))''')
         db.execute('CREATE INDEX IF NOT EXISTS idx_rp_task_board ON rp_task_definitions(guild_id,kind,status)')
 
 def publish_task(guild_id, code, kind, title, *, description='', subtype='', level=1, requirements=None, rewards=None, report=None, status='draft', starts_at=None, ends_at=None):
@@ -102,6 +106,21 @@ def accept_task(guild_id,character_id,task_id,cycle_key='once'):
     with transaction() as db:
         row=db.execute("SELECT * FROM rp_task_definitions WHERE id=? AND guild_id=? AND status='published'",(int(task_id),str(guild_id))).fetchone()
         if not row: raise ValueError('任務未發布或不存在')
+        # 同部作品每角色只能接一職位；名額在 IMMEDIATE 交易內核對。
+        cast=db.execute('SELECT * FROM rp_screen_cast_slots WHERE guild_id=? AND task_id=?',
+                        (str(guild_id),int(task_id))).fetchone()
+        if cast:
+            other=db.execute('''SELECT 1 FROM rp_task_progress p
+                 JOIN rp_screen_cast_slots s ON s.guild_id=p.guild_id AND s.task_id=p.task_id
+                 WHERE p.guild_id=? AND p.character_id=? AND s.production_key=?
+                 AND p.status NOT IN ('expired') LIMIT 1''',
+                 (str(guild_id),int(character_id),cast['production_key'])).fetchone()
+            if other: raise ValueError('同一角色在本作品已接取其他演出職位')
+            used=db.execute('''SELECT COUNT(*) AS cnt FROM rp_task_progress p
+                 JOIN rp_screen_cast_slots s ON s.guild_id=p.guild_id AND s.task_id=p.task_id
+                 WHERE p.guild_id=? AND p.task_id=? AND p.status NOT IN ('expired')''',
+                 (str(guild_id),int(task_id))).fetchone()['cnt']
+            if used>=cast['capacity']:raise ValueError('本職位已額滿')
         now=datetime.now(timezone.utc).isoformat()
         if (row['starts_at'] and row['starts_at']>now) or (row['ends_at'] and row['ends_at']<=now):
             raise ValueError('任務不在開放時間')
