@@ -468,6 +468,22 @@ class Notifications(commands.Cog):
                     channel = None
             if channel is None or getattr(channel,'guild',None) != guild:
                 continue
+            # Fail closed for private notifications: only post to the matching
+            # character forum if permissions are demonstrably private.
+            if row['kind'] == 'private':
+                from modules.character_forums import _private_forum_is_secure, marker
+                with get_connection() as db:
+                    owner_row = db.execute(
+                        "SELECT owner_id FROM characters WHERE guild_id=? AND id=?",
+                        (row['guild_id'], row['character_id']),
+                    ).fetchone()
+                forum = getattr(channel, 'parent', None)
+                if (not owner_row or not isinstance(channel, discord.Thread)
+                        or forum is None
+                        or forum.topic != marker(row['guild_id'], row['character_id'])
+                        or not _private_forum_is_secure(forum, owner_row['owner_id'])):
+                    LOG.warning("私人通知 #%s 暫緩：論壇權限或角色綁定尚未核實", row['id'])
+                    continue
             try:
                 is_announcement = bool(row['dedupe_key'] and row['dedupe_key'].startswith('bulletin-'))
                 active_categories = None
