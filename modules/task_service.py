@@ -30,7 +30,7 @@ def eligible(guild_id, task, character):
     if task['kind'] in ('screen','variety','endorsement'):
         try: base=get_profile(guild_id,task['subtype'],task['level'])
         except ValueError as e:return {'eligible':False,'missing':[str(e)]}
-        merged={**base,**rules}
+        merged={**base,**rules, 'min_attributes': {**base.get('min_attributes', {}), **rules.get('min_attributes', {})}}
     else: merged=rules
     if merged.get('min_cafe_level') is not None and character.get('cafe_level') is None:
         return {'eligible':False,'missing':['角色尚未建立正式咖位資料，請先初始化角色地位']}
@@ -47,7 +47,7 @@ def board(guild_id,character_id,user_id,kind):
         slots=get_daily_slots(guild_id,character_id,user_id)
         ids={int(r['task_id']) for r in slots['tasks']}
         return [t for t in list_tasks(guild_id,kind) if int(t['id']) in ids and eligible(guild_id,t,character)['eligible']]
-    return [t for t in list_tasks(guild_id,kind) if eligible(guild_id,t,character)['eligible']]
+    return [t for t in list_tasks(guild_id,kind) if not (kind=='screen' and int(t['level'])>3) and eligible(guild_id,t,character)['eligible']]
 
 def accept(guild_id,character_id,user_id,task_id):
     initialize()
@@ -56,12 +56,32 @@ def accept(guild_id,character_id,user_id,task_id):
     with get_connection() as db:
         row=db.execute('SELECT * FROM rp_task_definitions WHERE guild_id=? AND id=? AND status="published"',(str(guild_id),int(task_id))).fetchone()
     if not row or row['kind']=='newbie': raise ValueError('通告未開放')
+    if row['kind']=='screen' and int(row['level'])>3: raise ValueError('第 4～5 級影視作品尚未開放')
     t=dict(row)
     now=datetime.now(timezone.utc).isoformat()
     if (t['starts_at'] and t['starts_at']>now) or (t['ends_at'] and t['ends_at']<=now):raise ValueError('通告尚未開始或已結束')
     check=eligible(guild_id,t,char)
     if not check['eligible']:raise ValueError('資格不符：'+'；'.join(check['missing']))
     cycle='once'
+    if str(t.get('code','')).startswith('screen_basic_'):
+        # 冷卻期按真實時間計算，且不能同時接取同一個未結算的基礎工作。
+        from datetime import timedelta
+        from modules.task_screen_seed import BASE_JOBS
+        key=t['code'][len('screen_basic_'):]
+        hours=next((j[6] for j in BASE_JOBS if j[0]==key),24)
+        with get_connection() as db:
+            previous=db.execute('''SELECT accepted_at,status FROM rp_task_progress
+              WHERE guild_id=? AND character_id=? AND task_id=?
+              ORDER BY accepted_at DESC LIMIT 1''',
+              (str(guild_id),int(character_id),int(task_id))).fetchone()
+        if previous:
+            if previous['status'] in ('accepted','submitted','completed'):
+                raise ValueError('此基礎工作尚未完成結算，不能重複接取')
+            t0=datetime.fromisoformat(previous['accepted_at'].replace('Z','+00:00'))
+            if t0.tzinfo is None:t0=t0.replace(tzinfo=timezone.utc)
+            if datetime.now(timezone.utc)-t0<timedelta(hours=hours):
+                raise ValueError(f'此基礎工作需間隔 {hours} 小時才能再次接取')
+        cycle='basic:'+datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%f')
     if t['kind']=='daily':
         from modules.task_daily import current_cycle, daily_task_in_current_cycle
         if not daily_task_in_current_cycle(guild_id,character_id,task_id):
@@ -86,9 +106,15 @@ def report(guild_id,character_id,user_id,task_id,channel_id,*,evidence=None):
         if not r: raise ValueError('沒有可回報的已接取任務')
         snapshot=json.loads(r['snapshot_json'])
         settings=json.loads(snapshot.get('report_json') or '{}')
-        if settings.get('mode','manual') != 'manual':
+        if settings.get('mode','manual') not in ('manual', 'character_story'):
             raise ValueError('此任務應由系統自動結算，不接受人工回報')
         required=settings.get('channel_id')
+        if settings.get('mode') == 'character_story':
+            link=db.execute("SELECT story_id FROM character_forum_links WHERE guild_id=? AND character_id=?",
+                            (str(guild_id), int(character_id))).fetchone()
+            required=link['story_id'] if link else None
+            if not required:
+                raise ValueError('尚未建立角色專屬「劇情討論」帖子，請聯絡管理員')
         if not required or str(required)!=str(channel_id):
             raise ValueError('請在通告指定的討論串回報')
         if snapshot.get('kind')=='daily':
