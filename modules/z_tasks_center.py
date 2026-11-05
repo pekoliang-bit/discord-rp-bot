@@ -8,6 +8,7 @@ from modules.task_repository import initialize
 from modules.task_newbie import character_owner, progress, bot_thread_id, record_success
 from modules.task_defaults import seed_newbie
 from modules.task_screen_seed import seed_screen_tasks
+from modules.task_variety_seed import seed_variety_tasks
 from modules.task_service import board, accept, report
 
 KINDS={'daily':'☀️ 日常任務','screen':'🎬 影視通告','variety':'🎤 綜藝通告',
@@ -45,6 +46,8 @@ class AcceptButton(discord.ui.Button):
             return await i.response.send_message(str(e)[:180],ephemeral=True)
         except Exception:
             return await i.response.send_message('暫時無法接取，請稍後再試。',ephemeral=True)
+        if isinstance(accepted,str) and accepted.startswith('applied:'):
+            return await i.response.send_message('✅ 常駐申請已送交官方審核，申請編號 #'+accepted.split(':',1)[1]+'；審核通過才會占用席位。',ephemeral=True)
         await i.response.send_message('✅ 接取成功。請在角色論壇的「劇情討論」帖子發表演出內容，再於該帖子使用 `/任務` 填寫角色及任務編號回報。' if accepted else '已接取過此通告，不會重複建立紀錄。',ephemeral=True)
 
 class PageButton(discord.ui.Button):
@@ -143,7 +146,7 @@ class TasksCenter(commands.Cog):
             if 任務編號 is not None:
                 return await i.response.send_message('新手階段不可回報正式任務。', ephemeral=True)
             角色編號 = tutorial_character
-        initialize();seed_newbie(i.guild_id);seed_screen_tasks(i.guild_id)
+        initialize();seed_newbie(i.guild_id);seed_screen_tasks(i.guild_id);seed_variety_tasks(i.guild_id)
         if 角色編號 is None:
             if 任務編號 is not None:
                 return await i.response.send_message('回報任務時須填寫角色編號。',ephemeral=True)
