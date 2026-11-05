@@ -1,4 +1,3 @@
-
 """Live PK matches. Consent-based, scored from actual recorded gifts; no minted rewards.
 
 Only imported by /網路 UI. Every operation verifies guild and role ownership.
@@ -57,6 +56,30 @@ def _session(db, gid, session_id):
     return row
 
 
+def _expire_stale_invites(db, gid, now):
+    """Free slots held by expired invitations or ended broadcasts.
+
+    Only pending invitations are touched: an active PK retains its
+    settlement history until a host explicitly finishes it.
+    """
+    db.execute(
+        """UPDATE rp_live_pk_matches SET status='expired'
+           WHERE guild_id=? AND status='pending' AND (
+             expires_at<=? OR NOT EXISTS (
+               SELECT 1 FROM rp_live_sessions s
+               WHERE s.guild_id=rp_live_pk_matches.guild_id
+                 AND s.id=rp_live_pk_matches.challenger_session_id
+                 AND s.status='live'
+             ) OR NOT EXISTS (
+               SELECT 1 FROM rp_live_sessions s
+               WHERE s.guild_id=rp_live_pk_matches.guild_id
+                 AND s.id=rp_live_pk_matches.opponent_session_id
+                 AND s.status='live'
+             )
+           )""", (gid, int(now))
+    )
+
+
 def _free(db, gid, sid):
     if db.execute(
         """SELECT 1 FROM rp_live_pk_matches
@@ -85,6 +108,7 @@ def challenge(
     with transaction() as db:
         _init(db)
         live._expire(db, gid, ts)
+        _expire_stale_invites(db, gid, ts)
 
         a = _session(db, gid, challenger_session_id)
         b = _session(db, gid, opponent_session_id)
@@ -145,18 +169,20 @@ def pending(
                    JOIN rp_live_sessions s
                      ON s.guild_id=p.guild_id
                     AND s.id=p.opponent_session_id
+                   JOIN rp_live_sessions challenger
+                     ON challenger.guild_id=p.guild_id
+                    AND challenger.id=p.challenger_session_id
                    WHERE p.guild_id=?
                      AND p.opponent_character_id=?
                      AND s.owner_id=?
                      AND p.status='pending'
                      AND p.expires_at>?
                      AND s.status='live'
-                     AND (
-                         s.ends_at IS NULL
-                         OR s.ends_at>?
-                     )
+                     AND challenger.status='live'
+                     AND (s.ends_at IS NULL OR s.ends_at>?)
+                     AND (challenger.ends_at IS NULL OR challenger.ends_at>?)
                    ORDER BY p.id DESC""",
-                (gid, int(character_id), uid, ts, ts)
+                (gid, int(character_id), uid, ts, ts, ts)
             ).fetchall()
         ]
 
