@@ -9,6 +9,7 @@ from modules.task_newbie import character_owner, progress, bot_thread_id, record
 from modules.task_defaults import seed_newbie
 from modules.task_screen_seed import seed_screen_tasks
 from modules.task_variety_seed import seed_variety_tasks
+from modules.task_commercial_seed import seed_commercial_tasks
 from modules.task_service import board, accept, report
 
 KINDS={'daily':'☀️ 日常任務','screen':'🎬 影視通告','variety':'🎤 綜藝通告',
@@ -146,7 +147,7 @@ class TasksCenter(commands.Cog):
             if 任務編號 is not None:
                 return await i.response.send_message('新手階段不可回報正式任務。', ephemeral=True)
             角色編號 = tutorial_character
-        initialize();seed_newbie(i.guild_id);seed_screen_tasks(i.guild_id);seed_variety_tasks(i.guild_id)
+        initialize();seed_newbie(i.guild_id);seed_screen_tasks(i.guild_id);seed_variety_tasks(i.guild_id);seed_commercial_tasks(i.guild_id)
         if 角色編號 is None:
             if 任務編號 is not None:
                 return await i.response.send_message('回報任務時須填寫角色編號。',ephemeral=True)
