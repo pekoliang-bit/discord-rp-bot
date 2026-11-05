@@ -21,7 +21,7 @@ async def inform(interaction,text):
     else: await interaction.response.send_message(text,ephemeral=True)
 
 class CreateAccountModal(discord.ui.Modal,title='建立角色網路帳號'):
-    handle=discord.ui.TextInput(label='帳號名稱（不用輸入 @）',placeholder='例如：star_001',max_length=32)
+    handle=discord.ui.TextInput(label='帳號名稱（不用輸入 @）',placeholder='支援中文、日文等其他語言',max_length=80)
     def __init__(self,character_id): super().__init__(); self.character_id=character_id
     async def on_submit(self,interaction):
         try:
@@ -34,7 +34,7 @@ class AccountPicker(PrivateView):
     def __init__(self,owner,character,accounts):
         super().__init__(owner); self.character=character
         if accounts:
-            sel=discord.ui.Select(placeholder='選擇要使用的角色網路帳號',options=[discord.SelectOption(label='@'+a['handle'],value=str(a['id'])) for a in accounts[:25]])
+            sel=discord.ui.Select(placeholder='選擇要使用的角色網路帳號',options=[discord.SelectOption(label=('@'+a['handle'])[:100],value=str(a['id'])) for a in accounts[:25]])
             async def chosen(interaction):
                 account=int(sel.values[0])
                 try:
@@ -51,7 +51,9 @@ class CharacterPicker(PrivateView):
         sel=discord.ui.Select(placeholder='第一步：選擇角色',options=[discord.SelectOption(label=f'{name[:70]} (#{cid})',value=str(cid)) for cid,name in characters[:25]])
         async def chosen(interaction):
             cid=int(sel.values[0])
-            try: ac=await asyncio.to_thread(ng.accounts,interaction.guild.id,interaction.user.id,cid)
+            try:
+                await asyncio.to_thread(ng.ensure_default_accounts,interaction.guild.id,cid)
+                ac=await asyncio.to_thread(ng.accounts,interaction.guild.id,interaction.user.id,cid)
             except (ValueError,PermissionError) as e: await inform(interaction,f'⚠️ {e}'); return
             await interaction.response.send_message('第二步：選擇角色的網路帳號；沒有帳號可先建立。',view=AccountPicker(interaction.user.id,cid,ac),ephemeral=True)
         sel.callback=chosen; self.add_item(sel)
