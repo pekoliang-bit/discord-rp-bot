@@ -68,6 +68,37 @@ POSTS = (
 )
 
 
+
+def _forum_access_overwrites(guild, owner, bot_member):
+    """Explicit per-forum overwrites; forum posts inherit forum visibility."""
+    return {
+        guild.default_role: discord.PermissionOverwrite(view_channel=False),
+        owner: discord.PermissionOverwrite(view_channel=True, send_messages=True,
+                                           send_messages_in_threads=True, read_message_history=True),
+        bot_member: discord.PermissionOverwrite(view_channel=True, manage_channels=True,
+                                                manage_threads=True, send_messages=True,
+                                                send_messages_in_threads=True, read_message_history=True),
+    }
+
+
+def _private_forum_is_secure(forum, owner_id):
+    """Conservatively reject public or third-party explicit permission overwrites."""
+    if not isinstance(forum, discord.ForumChannel):
+        return False
+    default = forum.overwrites_for(forum.guild.default_role)
+    if default.view_channel is not False:
+        return False
+    owner = forum.guild.get_member(int(owner_id))
+    if owner is None or forum.overwrites_for(owner).view_channel is not True:
+        return False
+    for target, permissions in forum.overwrites.items():
+        if target.id in (forum.guild.default_role.id, owner.id, forum.guild.me.id):
+            continue
+        if permissions.view_channel is True:
+            return False
+    return True
+
+
 # ==========================================
 # 資料庫
 # ==========================================
@@ -285,6 +316,18 @@ class CharacterForums(commands.Cog):
                 character_id,
             )
 
+            owner_id = int(character["owner_id"])
+            owner = guild.get_member(owner_id)
+            if owner is None:
+                try:
+                    owner = await guild.fetch_member(owner_id)
+                except (discord.NotFound, discord.Forbidden, discord.HTTPException) as exc:
+                    raise PermissionError("無法確認角色擁有者，停止建立私人論壇") from exc
+            bot_member = guild.me
+            if bot_member is None:
+                raise PermissionError("無法確認機器人伺服器成員身分")
+            overwrites = _forum_access_overwrites(guild, owner, bot_member)
+
             forum = (
                 guild.get_channel(
                     int(data["forum_id"])
@@ -332,6 +375,7 @@ class CharacterForums(commands.Cog):
                             character["name"] + suffix
                         )[:100],
                         category=category,
+                        overwrites=overwrites,
                         topic=marker(
                             guild.id,
                             character_id,
@@ -348,6 +392,16 @@ class CharacterForums(commands.Cog):
                     "forum_id",
                     forum.id,
                 )
+
+            # Repair legacy forums before creating or delivering private posts.
+            # Restrict both @everyone and any previously granted third-party roles.
+            if not _private_forum_is_secure(forum, owner_id):
+                await forum.edit(
+                    overwrites=overwrites,
+                    reason=f"角色 #{character_id} 私人論壇權限修復",
+                )
+            if not _private_forum_is_secure(forum, owner_id):
+                raise PermissionError("私人論壇權限未能確認，禁止發布私人內容")
 
             data = get_link(
                 guild.id,
@@ -533,7 +587,8 @@ class CharacterForums(commands.Cog):
                         )
                     if (record is not None
                             and str(record["forum_id"]) == str(forum.id)
-                            and str(record["thread_id"]) == str(data["bot_id"])):
+                            and str(record["thread_id"]) == str(data["bot_id"])
+                            and _private_forum_is_secure(forum, character["owner_id"])):
                         continue
 
             try:
