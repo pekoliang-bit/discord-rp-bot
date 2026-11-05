@@ -48,6 +48,7 @@ def insert_case_and_snapshot(
     complexity_version: str,
     rules: RuleConfig,
     trusted: bool = False,
+    published_at: int | None = None,
 ) -> int:
     """在呼叫者的同一筆 SQLite 交易內建立案件。"""
 
@@ -90,7 +91,20 @@ def insert_case_and_snapshot(
     data = _rule_data(rules)
     encoded = _json(data)
     digest = _digest(data)
-    now = int(time.time())
+
+    # 系統自動刊登可指定真正的 Discord 發文時間。
+    # 其他正常建案流程仍使用目前時間。
+    now = (
+        int(time.time())
+        if published_at is None
+        else int(published_at)
+    )
+
+    if published_at is not None and (
+        now < 1_577_836_800
+        or now > int(time.time()) + 60
+    ):
+        raise ValueError("傳聞發布時間不合法")
 
     cur = db.execute(
         """
