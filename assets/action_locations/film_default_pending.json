@@ -1,0 +1,149 @@
+
+{
+  "version": 1,
+  "status": "pending_review",
+  "target_guild_id": "1544051203493601380",
+  "timezone": "Asia/Taipei",
+  "category": "影視娛樂區",
+  "policy": {
+    "normal_attribute_cost_per_point": 300,
+    "course_attribute_cost_per_point": 500,
+    "prices_are_minima": true,
+    "min_work_reward": 2000,
+    "work_reward_coins_may_vary": true,
+    "work_may_grant_points": true,
+    "work_action_points": 1,
+    "activity_action_points": 1,
+    "course_action_points": 0,
+    "attributes_can_only_increase": true,
+    "specified_skill_reward_pool": "自由點數",
+    "point_pool_rules": {
+      "自由點數": "除影響指數以外的合法屬性",
+      "專業點數": "主攻賽道及其他技能",
+      "技能點數": "專業技能及個人才藝"
+    },
+    "regulated_attributes_excluded": true,
+    "unapproved_actions_disabled": true,
+    "record_transactions": true,
+    "validate_attribute_mapping": true,
+    "allow_guild_customization": true,
+    "formal_notice_separation": {
+      "enabled": true,
+      "grant_formal_work_credit": false,
+      "grant_casting_role": false,
+      "grant_filmography": false,
+      "grant_production_salary": false,
+      "grant_formal_qualification": false,
+      "bypass_casting_requirements": false,
+      "notes": "一般場所行動只提供普通打工、練習及培訓獎勵。電影、電視劇、MV正式出演、片酬、資歷、選角及作品紀錄由正式通告系統獨立結算。"
+    }
+  },
+  "locations": [
+    {
+      "key": "television_station",
+      "name": "電視台",
+      "channel_id": "1548942181723545620",
+      "channel_type": "text",
+      "binding_status": "bound",
+      "actions": [
+        {"name":"節目現場助理","category":"打工","cost_coins":0,"reward_coins":2800,"attribute":null,"attribute_increase":0,"point_rewards":{},"action_points_cost":1,"approved":false},
+        {"name":"節目企劃助理","category":"打工","cost_coins":0,"reward_coins":3500,"attribute":null,"attribute_increase":0,"point_rewards":{"自由點數":2},"action_points_cost":1,"approved":false},
+        {"name":"現場觀眾帶動員","category":"打工","cost_coins":0,"reward_coins":3800,"attribute":null,"attribute_increase":0,"point_rewards":{"專業點數":2},"action_points_cost":1,"approved":false},
+        {"name":"節目主持助理","category":"打工","cost_coins":0,"reward_coins":4500,"attribute":null,"attribute_increase":0,"point_rewards":{"專業點數":3},"action_points_cost":1,"approved":false},
+        {"name":"節目錄製觀摩","category":"活動","cost_coins":900,"reward_coins":0,"attribute":"綜藝","attribute_increase":3,"point_rewards":{},"action_points_cost":1,"approved":false},
+        {"name":"即興綜藝挑戰","category":"活動","cost_coins":1800,"reward_coins":0,"attribute":"綜藝","attribute_increase":5,"point_rewards":{},"action_points_cost":1,"approved":false},
+        {"name":"模擬主持錄製","category":"活動","cost_coins":2400,"reward_coins":0,"attribute":"主持","attribute_increase":7,"point_rewards":{},"action_points_cost":1,"approved":false},
+        {"name":"節目創意工作坊","category":"活動","cost_coins":3000,"reward_coins":0,"attribute":null,"attribute_increase":0,"point_rewards":{"自由點數":8},"action_points_cost":1,"approved":false},
+        {"name":"基礎主持訓練","category":"課程","cost_coins":1500,"reward_coins":0,"attribute":"主持","attribute_increase":3,"point_rewards":{},"action_points_cost":0,"approved":false},
+        {"name":"綜藝反應指導","category":"課程","cost_coins":3000,"reward_coins":0,"attribute":"綜藝","attribute_increase":5,"point_rewards":{},"action_points_cost":0,"approved":false},
+        {"name":"節目企劃實務","category":"課程","cost_coins":3500,"reward_coins":0,"attribute":null,"attribute_increase":0,"point_rewards":{"技能點數":6},"action_points_cost":0,"approved":false},
+        {"name":"高階主持特訓","category":"課程","cost_coins":6000,"reward_coins":0,"attribute":"主持","attribute_increase":10,"point_rewards":{},"action_points_cost":0,"approved":false}
+      ]
+    },
+    {
+      "key": "film_city",
+      "name": "影視城",
+      "channel_id": "1567769960246284338",
+      "channel_type": "text",
+      "binding_status": "bound",
+      "formal_notice_separation": true,
+      "actions": [
+        {"name":"片場清潔人員","category":"打工","cost_coins":0,"reward_coins":2500,"attribute":null,"attribute_increase":0,"point_rewards":{},"action_points_cost":1,"approved":false},
+        {"name":"道具管理助理","category":"打工","cost_coins":0,"reward_coins":3200,"attribute":null,"attribute_increase":0,"point_rewards":{"技能點數":2},"action_points_cost":1,"approved":false},
+        {"name":"場記助理","category":"打工","cost_coins":0,"reward_coins":4000,"attribute":null,"attribute_increase":0,"point_rewards":{"專業點數":2},"action_points_cost":1,"approved":false},
+        {"name":"動作替身助理","category":"打工","cost_coins":0,"reward_coins":4800,"attribute":null,"attribute_increase":0,"point_rewards":{"技能點數":3},"action_points_cost":1,"approved":false},
+        {"name":"影視場景參觀","category":"活動","cost_coins":900,"reward_coins":0,"attribute":"才智","attribute_increase":3,"point_rewards":{},"action_points_cost":1,"approved":false},
+        {"name":"片場情境演練","category":"活動","cost_coins":1500,"reward_coins":0,"attribute":"演繹","attribute_increase":5,"point_rewards":{},"action_points_cost":1,"approved":false},
+        {"name":"動作鏡頭練習","category":"活動","cost_coins":2400,"reward_coins":0,"attribute":null,"attribute_increase":0,"point_rewards":{"技能點數":7},"action_points_cost":1,"approved":false},
+        {"name":"鏡頭試戲模擬","category":"活動","cost_coins":3000,"reward_coins":0,"attribute":"演繹","attribute_increase":9,"point_rewards":{},"action_points_cost":1,"approved":false,"notes":"僅為模擬練習，不代表正式試鏡或錄取。"},
+        {"name":"鏡頭表演基礎","category":"課程","cost_coins":1500,"reward_coins":0,"attribute":"演繹","attribute_increase":3,"point_rewards":{},"action_points_cost":0,"approved":false},
+        {"name":"角色動作設計","category":"課程","cost_coins":3000,"reward_coins":0,"attribute":null,"attribute_increase":0,"point_rewards":{"技能點數":5},"action_points_cost":0,"approved":false},
+        {"name":"影視場面調度","category":"課程","cost_coins":4000,"reward_coins":0,"attribute":null,"attribute_increase":0,"point_rewards":{"技能點數":7},"action_points_cost":0,"approved":false},
+        {"name":"高階鏡頭表演","category":"課程","cost_coins":5500,"reward_coins":0,"attribute":"演繹","attribute_increase":10,"point_rewards":{},"action_points_cost":0,"approved":false}
+      ]
+    },
+    {
+      "key": "photo_studio",
+      "name": "攝影棚",
+      "channel_id": "1548944788030623744",
+      "channel_type": "text",
+      "binding_status": "bound",
+      "actions": [
+        {"name":"攝影棚助理","category":"打工","cost_coins":0,"reward_coins":2800,"attribute":null,"attribute_increase":0,"point_rewards":{},"action_points_cost":1,"approved":false},
+        {"name":"燈光設備助理","category":"打工","cost_coins":0,"reward_coins":3500,"attribute":null,"attribute_increase":0,"point_rewards":{"技能點數":2},"action_points_cost":1,"approved":false},
+        {"name":"造型助理","category":"打工","cost_coins":0,"reward_coins":4000,"attribute":null,"attribute_increase":0,"point_rewards":{"技能點數":3},"action_points_cost":1,"approved":false},
+        {"name":"攝影技術助理","category":"打工","cost_coins":0,"reward_coins":4800,"attribute":null,"attribute_increase":0,"point_rewards":{"技能點數":4},"action_points_cost":1,"approved":false},
+        {"name":"個人形象拍攝","category":"活動","cost_coins":1500,"reward_coins":0,"attribute":"容貌","attribute_increase":5,"point_rewards":{},"action_points_cost":1,"approved":false},
+        {"name":"鏡頭表情訓練","category":"活動","cost_coins":1800,"reward_coins":0,"attribute":"演繹","attribute_increase":6,"point_rewards":{},"action_points_cost":1,"approved":false},
+        {"name":"時尚造型拍攝","category":"活動","cost_coins":2400,"reward_coins":0,"attribute":null,"attribute_increase":0,"point_rewards":{"自由點數":7},"action_points_cost":1,"approved":false},
+        {"name":"創意主題攝影","category":"活動","cost_coins":3000,"reward_coins":0,"attribute":null,"attribute_increase":0,"point_rewards":{"技能點數":9},"action_points_cost":1,"approved":false},
+        {"name":"基礎攝影技術","category":"課程","cost_coins":1500,"reward_coins":0,"attribute":null,"attribute_increase":0,"point_rewards":{"技能點數":3},"action_points_cost":0,"approved":false},
+        {"name":"光影構圖指導","category":"課程","cost_coins":3000,"reward_coins":0,"attribute":null,"attribute_increase":0,"point_rewards":{"技能點數":5},"action_points_cost":0,"approved":false},
+        {"name":"鏡頭表現指導","category":"課程","cost_coins":4000,"reward_coins":0,"attribute":"演繹","attribute_increase":7,"point_rewards":{},"action_points_cost":0,"approved":false},
+        {"name":"高級攝影實務","category":"課程","cost_coins":6000,"reward_coins":0,"attribute":null,"attribute_increase":0,"point_rewards":{"技能點數":10},"action_points_cost":0,"approved":false}
+      ]
+    },
+    {
+      "key": "film_production_studio",
+      "name": "電影製片廠",
+      "channel_id": "1567469558477099058",
+      "channel_type": "text",
+      "binding_status": "bound",
+      "actions": [
+        {"name":"製片行政助理","category":"打工","cost_coins":0,"reward_coins":3000,"attribute":null,"attribute_increase":0,"point_rewards":{},"action_points_cost":1,"approved":false},
+        {"name":"剪輯助理","category":"打工","cost_coins":0,"reward_coins":3800,"attribute":null,"attribute_increase":0,"point_rewards":{"技能點數":2},"action_points_cost":1,"approved":false},
+        {"name":"副導演助理","category":"打工","cost_coins":0,"reward_coins":4800,"attribute":null,"attribute_increase":0,"point_rewards":{"技能點數":3},"action_points_cost":1,"approved":false},
+        {"name":"後期製作助理","category":"打工","cost_coins":0,"reward_coins":5500,"attribute":null,"attribute_increase":0,"point_rewards":{"技能點數":4},"action_points_cost":1,"approved":false},
+        {"name":"電影製作觀摩","category":"活動","cost_coins":900,"reward_coins":0,"attribute":"才智","attribute_increase":3,"point_rewards":{},"action_points_cost":1,"approved":false},
+        {"name":"分鏡創作練習","category":"活動","cost_coins":1800,"reward_coins":0,"attribute":null,"attribute_increase":0,"point_rewards":{"技能點數":5},"action_points_cost":1,"approved":false},
+        {"name":"模擬導演拍攝","category":"活動","cost_coins":2700,"reward_coins":0,"attribute":null,"attribute_increase":0,"point_rewards":{"技能點數":8},"action_points_cost":1,"approved":false},
+        {"name":"短片創作實驗","category":"活動","cost_coins":3600,"reward_coins":0,"attribute":null,"attribute_increase":0,"point_rewards":{"自由點數":10},"action_points_cost":1,"approved":false,"notes":"實驗短片不自動計入正式作品履歷。"},
+        {"name":"電影製作基礎","category":"課程","cost_coins":1500,"reward_coins":0,"attribute":null,"attribute_increase":0,"point_rewards":{"技能點數":3},"action_points_cost":0,"approved":false},
+        {"name":"劇本創作技巧","category":"課程","cost_coins":3000,"reward_coins":0,"attribute":null,"attribute_increase":0,"point_rewards":{"技能點數":5},"action_points_cost":0,"approved":false},
+        {"name":"剪輯與後製","category":"課程","cost_coins":4500,"reward_coins":0,"attribute":null,"attribute_increase":0,"point_rewards":{"技能點數":8},"action_points_cost":0,"approved":false},
+        {"name":"導演實務特訓","category":"課程","cost_coins":6000,"reward_coins":0,"attribute":null,"attribute_increase":0,"point_rewards":{"技能點數":10},"action_points_cost":0,"approved":false}
+      ]
+    },
+    {
+      "key": "radio_station",
+      "name": "廣播電台",
+      "channel_id": "1567469635060633740",
+      "channel_type": "text",
+      "binding_status": "bound",
+      "actions": [
+        {"name":"電台行政助理","category":"打工","cost_coins":0,"reward_coins":2500,"attribute":null,"attribute_increase":0,"point_rewards":{},"action_points_cost":1,"approved":false},
+        {"name":"音訊設備助理","category":"打工","cost_coins":0,"reward_coins":3200,"attribute":null,"attribute_increase":0,"point_rewards":{"技能點數":2},"action_points_cost":1,"approved":false},
+        {"name":"廣播節目助理","category":"打工","cost_coins":0,"reward_coins":4000,"attribute":null,"attribute_increase":0,"point_rewards":{"專業點數":2},"action_points_cost":1,"approved":false},
+        {"name":"新聞播報助理","category":"打工","cost_coins":0,"reward_coins":4500,"attribute":null,"attribute_increase":0,"point_rewards":{"專業點數":3},"action_points_cost":1,"approved":false},
+        {"name":"廣播節目觀摩","category":"活動","cost_coins":900,"reward_coins":0,"attribute":"主持","attribute_increase":3,"point_rewards":{},"action_points_cost":1,"approved":false},
+        {"name":"聲音表情練習","category":"活動","cost_coins":1500,"reward_coins":0,"attribute":null,"attribute_increase":0,"point_rewards":{"技能點數":5},"action_points_cost":1,"approved":false},
+        {"name":"模擬電台訪談","category":"活動","cost_coins":2100,"reward_coins":0,"attribute":"主持","attribute_increase":7,"point_rewards":{},"action_points_cost":1,"approved":false},
+        {"name":"廣播劇配音體驗","category":"活動","cost_coins":2700,"reward_coins":0,"attribute":null,"attribute_increase":0,"point_rewards":{"技能點數":8},"action_points_cost":1,"approved":false},
+        {"name":"基礎發音訓練","category":"課程","cost_coins":1500,"reward_coins":0,"attribute":null,"attribute_increase":0,"point_rewards":{"技能點數":3},"action_points_cost":0,"approved":false},
+        {"name":"廣播播報技巧","category":"課程","cost_coins":3000,"reward_coins":0,"attribute":"主持","attribute_increase":5,"point_rewards":{},"action_points_cost":0,"approved":false},
+        {"name":"專業配音指導","category":"課程","cost_coins":4500,"reward_coins":0,"attribute":null,"attribute_increase":0,"point_rewards":{"技能點數":8},"action_points_cost":0,"approved":false},
+        {"name":"高階聲音表演","category":"課程","cost_coins":6000,"reward_coins":0,"attribute":null,"attribute_increase":0,"point_rewards":{"技能點數":10},"action_points_cost":0,"approved":false}
+      ]
+    }
+  ]
+}
