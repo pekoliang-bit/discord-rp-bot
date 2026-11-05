@@ -33,6 +33,9 @@ def get_profile(guild_id,subtype,level):
         # 各職位具體條件在任務定義中；此處只提供已批准五級基準。
         return {'min_cafe_level': SCREEN_LEAD_CAFE[subtype][int(level)-1],
                 'min_attributes': {'演繹': SCREEN_MAIN_SKILL[int(level)-1]}}
+    # 綜藝每份通告有明確職位門檻，不用影視主演模板蓋過飛行嘉賓。
+    if subtype in ('訪談','競技綜藝','音樂綜藝','生活綜藝','真人秀'):
+        return {}
     # 沒有經批准的模板不能假裝門檻為零；預留示範並要求正式上架前設定。
     raise ValueError(f'{subtype} 第 {level} 級尚未設定正式門檻')
 
