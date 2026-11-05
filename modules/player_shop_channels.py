@@ -38,6 +38,19 @@ def category_for(guild_id):
     return DEFAULT_CATEGORY if str(guild_id) == DEFAULT_GUILD else None
 
 
+def set_category(guild_id, category_id):
+    """Store an explicitly chosen Discord CategoryChannel for this server."""
+    category_id = int(category_id)
+    if category_id <= 0:
+        raise ValueError('分類 ID 不正確')
+    initialize()
+    with transaction() as db:
+        db.execute("""INSERT INTO rp_player_shop_channel_settings(guild_id,category_id)
+            VALUES(?,?) ON CONFLICT(guild_id)
+            DO UPDATE SET category_id=excluded.category_id""",
+            (str(guild_id), str(category_id)))
+
+
 def unlinked_shops(guild_id):
     initialize()
     with get_connection() as db:
