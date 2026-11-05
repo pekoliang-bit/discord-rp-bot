@@ -47,7 +47,16 @@ def board(guild_id,character_id,user_id,kind):
         slots=get_daily_slots(guild_id,character_id,user_id)
         ids={int(r['task_id']) for r in slots['tasks']}
         return [t for t in list_tasks(guild_id,kind) if int(t['id']) in ids and eligible(guild_id,t,character)['eligible']]
-    return [t for t in list_tasks(guild_id,kind) if not (kind=='screen' and int(t['level'])>3) and eligible(guild_id,t,character)['eligible']]
+    choices=[t for t in list_tasks(guild_id,kind) if not (kind in ('screen','variety') and int(t['level'])>3) and eligible(guild_id,t,character)['eligible']]
+    if kind=='variety':
+        from modules.task_variety_cast import check_episode_access
+        filtered=[]
+        for t in choices:
+            try:check_episode_access(guild_id,character_id,t)
+            except ValueError:continue
+            filtered.append(t)
+        return filtered
+    return choices
 
 def accept(guild_id,character_id,user_id,task_id):
     initialize()
@@ -56,12 +65,17 @@ def accept(guild_id,character_id,user_id,task_id):
     with get_connection() as db:
         row=db.execute('SELECT * FROM rp_task_definitions WHERE guild_id=? AND id=? AND status="published"',(str(guild_id),int(task_id))).fetchone()
     if not row or row['kind']=='newbie': raise ValueError('通告未開放')
-    if row['kind']=='screen' and int(row['level'])>3: raise ValueError('第 4～5 級影視作品尚未開放')
+    if row['kind'] in ('screen','variety') and int(row['level'])>3: raise ValueError('第 4～5 級作品尚未開放')
     t=dict(row)
     now=datetime.now(timezone.utc).isoformat()
     if (t['starts_at'] and t['starts_at']>now) or (t['ends_at'] and t['ends_at']<=now):raise ValueError('通告尚未開始或已結束')
     check=eligible(guild_id,t,char)
     if not check['eligible']:raise ValueError('資格不符：'+'；'.join(check['missing']))
+    if t['kind']=='variety' and str(t.get('code','')).startswith('variety_'):
+        from modules.task_variety_cast import _task_cast_key,apply,check_episode_access
+        if _task_cast_key(t['code']):
+            return 'applied:'+str(apply(guild_id,character_id,t))
+        check_episode_access(guild_id,character_id,t)
     cycle='once'
     if str(t.get('code','')).startswith('screen_basic_'):
         # 冷卻期按真實時間計算，且不能同時接取同一個未結算的基礎工作。
