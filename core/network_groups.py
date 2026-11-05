@@ -6,6 +6,8 @@
 from __future__ import annotations
 import re
 import sqlite3
+import json
+import unicodedata
 from core.database import transaction, get_connection
 
 DEFAULT_GUILD = '1544051203493601380'
@@ -23,6 +25,7 @@ SCHEMA = (
     '''CREATE TABLE IF NOT EXISTS rp_network_accounts (
         id INTEGER PRIMARY KEY AUTOINCREMENT, guild_id TEXT NOT NULL,
         character_id INTEGER NOT NULL, handle TEXT NOT NULL COLLATE NOCASE,
+        account_kind TEXT NOT NULL DEFAULT 'custom',
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
         UNIQUE(guild_id, handle), UNIQUE(guild_id, character_id, id)
     )''',
@@ -47,7 +50,93 @@ SCHEMA = (
 )
 
 def _init(db):
-    for sql in SCHEMA: db.execute(sql)
+    for sql in SCHEMA:
+        db.execute(sql)
+    cols = {r['name'] for r in db.execute('PRAGMA table_info(rp_network_accounts)')}
+    if 'account_kind' not in cols:
+        db.execute("ALTER TABLE rp_network_accounts ADD COLUMN account_kind TEXT NOT NULL DEFAULT 'custom'")
+    db.execute("""CREATE UNIQUE INDEX IF NOT EXISTS ix_rp_network_default_accounts
+        ON rp_network_accounts(guild_id, character_id, account_kind)
+        WHERE account_kind IN ('personal', 'official')""")
+
+
+def normalize_handle(value):
+    value = unicodedata.normalize('NFC', str(value or '').strip())
+    if value.casefold() in ('@everyone', '@here'):
+        raise ValueError('帳號名稱不可為群體提及')
+    if value.startswith('@'):
+        value = value[1:].strip()
+    if not value or len(value) > 80:
+        raise ValueError('帳號名稱需為 1～80 個字元')
+    if any(unicodedata.category(c).startswith('C') for c in value):
+        raise ValueError('帳號名稱不可包含控制或不可見字元')
+    if '@everyone' in value.casefold() or '@here' in value.casefold():
+        raise ValueError('帳號名稱不可包含群體提及')
+    return value
+
+
+def _available_handle(db, guild_id, proposed):
+    base = normalize_handle(proposed)
+    existing = {r['handle'].casefold() for r in db.execute(
+        'SELECT handle FROM rp_network_accounts WHERE guild_id=?', (str(guild_id),))}
+    candidate = base
+    idx = 2
+    while candidate.casefold() in existing:
+        suffix = f'-{idx}'
+        candidate = base[:80 - len(suffix)] + suffix
+        idx += 1
+    return candidate
+
+
+def ensure_default_accounts(guild, character):
+    """對已啟用角色冪等補齊本帳、官方帳號。"""
+    with transaction() as db:
+        _init(db)
+        row = db.execute("""SELECT id,name,settings_json FROM characters
+            WHERE guild_id=? AND id=? AND status='active'""",
+            (str(guild),int(character))).fetchone()
+        if row is None:
+            raise ValueError('找不到已啟用角色')
+        try:
+            profile = json.loads(row['settings_json'] or '{}')
+        except (ValueError,TypeError):
+            profile = {}
+        if not isinstance(profile,dict):
+            profile = {}
+        display = str(profile.get('stage_name') or row['name']).strip() or str(row['name'])
+        names = {'personal': display, 'official': display + 'Oficial'}
+        for kind, proposed in names.items():
+            exists = db.execute("""SELECT id FROM rp_network_accounts
+                WHERE guild_id=? AND character_id=? AND account_kind=?""",
+                (str(guild),int(character),kind)).fetchone()
+            if exists:
+                continue
+            proposed = normalize_handle(proposed[:80])
+            custom = db.execute("""SELECT id,handle FROM rp_network_accounts
+                WHERE guild_id=? AND character_id=? AND account_kind='custom'""",
+                (str(guild),int(character))).fetchall()
+            adopted = next((r for r in custom if r['handle'].casefold()==proposed.casefold()),None)
+            if adopted:
+                db.execute('UPDATE rp_network_accounts SET account_kind=? WHERE id=?',(kind,adopted['id']))
+            else:
+                handle = _available_handle(db,guild,proposed)
+                db.execute("""INSERT INTO rp_network_accounts
+                    (guild_id,character_id,handle,account_kind) VALUES(?,?,?,?)""",
+                    (str(guild),int(character),handle,kind))
+        return [dict(r) for r in db.execute("""SELECT * FROM rp_network_accounts
+            WHERE guild_id=? AND character_id=? ORDER BY id""",(str(guild),int(character)))]
+
+
+def missing_default_characters(guild,limit=100):
+    with get_connection() as db:
+        _init(db)
+        rows=db.execute("""SELECT c.id FROM characters c
+            WHERE c.guild_id=? AND c.status='active' AND (
+              SELECT COUNT(DISTINCT a.account_kind) FROM rp_network_accounts a
+              WHERE a.guild_id=c.guild_id AND a.character_id=c.id
+              AND a.account_kind IN ('personal','official')) < 2
+            ORDER BY c.id LIMIT ?""",(str(guild),int(limit))).fetchall()
+        return [int(r['id']) for r in rows]
 
 def _require_char(db,guild,user,character):
     row=db.execute('SELECT id,name FROM characters WHERE guild_id=? AND owner_id=? AND id=? AND status=\'active\'',(str(guild),str(user),int(character))).fetchone()
@@ -67,11 +156,11 @@ def accounts(guild,user,character):
         return [dict(r) for r in db.execute('SELECT * FROM rp_network_accounts WHERE guild_id=? AND character_id=? ORDER BY id',(str(guild),int(character))).fetchall()]
 
 def create_account(guild,user,character,handle):
-    handle=str(handle).strip().lstrip('@')
-    if not re.fullmatch(r'[A-Za-z0-9_\.\-]{3,32}',handle):
-        raise ValueError('帳號名稱須為 3～32 字，使用英數、底線、句點或連字號')
+    handle=normalize_handle(handle)
     with transaction() as db:
         _init(db); _require_char(db,guild,user,character)
+        if any(r['handle'].casefold() == handle.casefold() for r in db.execute('SELECT handle FROM rp_network_accounts WHERE guild_id=?', (str(guild),))):
+            raise ValueError('此網路帳號名稱已被使用')
         try:
             cur=db.execute('INSERT INTO rp_network_accounts(guild_id,character_id,handle) VALUES(?,?,?)',(str(guild),int(character),handle))
         except sqlite3.IntegrityError: raise ValueError('此網路帳號名稱已被使用') from None
