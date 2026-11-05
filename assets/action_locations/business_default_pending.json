@@ -1,0 +1,195 @@
+
+{
+  "version": 2,
+  "status": "pending_review",
+  "target_guild_id": "1544051203493601380",
+  "timezone": "Asia/Taipei",
+  "category": "商業經貿區",
+  "category_id": "1548941879314489424",
+  "policy": {
+    "normal_attribute_cost_per_point": 300,
+    "course_attribute_cost_per_point": 500,
+    "prices_are_minima": true,
+    "min_work_reward": 2000,
+    "work_reward_coins_may_vary": true,
+    "work_may_grant_points": true,
+    "work_action_points": 1,
+    "activity_action_points": 1,
+    "course_action_points": 0,
+    "unapproved_actions_disabled": true,
+    "record_transactions": true,
+    "point_pool_rules": {
+      "自由點數": "除影響指數外的合法屬性",
+      "專業點數": "主攻賽道及其他技能",
+      "技能點數": "專業及個人才藝"
+    },
+    "formal_system_separation": {
+      "grant_company_ownership": false,
+      "grant_employment_contract": false,
+      "grant_brand_endorsement": false,
+      "grant_equity": false,
+      "grant_bank_balance": false,
+      "grant_shop_inventory": false,
+      "grant_fan_or_traffic_reward": false,
+      "notes": "一般行動不能取代公司、代言、銀行、商城、網路及正式合作系統。"
+    }
+  },
+  "shop_channel_management": {
+    "enabled": true,
+    "trigger": "approved_shop_channel_application",
+    "category_id": "1548941879314489424",
+    "new_shop_channel_type": "text",
+    "create_if_missing": true,
+    "move_existing_channel": true,
+    "preserve_existing_permissions": true,
+    "inherit_category_permissions_on_create": true,
+    "store_owner_id": true,
+    "store_channel_id": true,
+    "store_application_id": true,
+    "prevent_duplicate_creation": true,
+    "default_allow_location_action": false,
+    "other_guilds_use_own_category": true
+  },
+  "bank_robbery": {
+    "enabled": false,
+    "configuration_status": "pending_review",
+    "location_key": "bank",
+    "trigger": "successful_bank_command_action",
+    "probability": null,
+    "cooldown_seconds": null,
+    "outcome_rules": null,
+    "affect_player_balance": false,
+    "affect_bank_deposits": false,
+    "notes": "等待確認搶劫機率、冷卻時間及事件結果；未設定前不會觸發。"
+  },
+  "action_record_format": [
+    "name",
+    "category",
+    "cost_coins",
+    "reward_coins",
+    "attribute",
+    "attribute_increase",
+    "point_pool",
+    "point_amount",
+    "action_points_cost"
+  ],
+  "locations": [
+    {
+      "key": "fashion_design_company",
+      "name": "時裝設計公司",
+      "channel_id": "1548941921492279306",
+      "channel_type": "text",
+      "binding_status": "bound",
+      "allowed_commands": ["行動"],
+      "action_enabled": true,
+      "approved": false,
+      "actions": [
+        ["服裝整理助理","打工",0,2500,null,0,null,0,1],
+        ["設計部門助理","打工",0,3500,null,0,"技能點數",2,1],
+        ["造型搭配師","打工",0,4500,null,0,"技能點數",3,1],
+        ["高級服裝設計助理","打工",0,5500,null,0,"自由點數",4,1],
+        ["時尚趨勢研究","活動",1200,0,"才智",3,null,0,1],
+        ["服裝搭配實踐","活動",1800,0,null,0,"技能點數",5,1],
+        ["創意服裝設計","活動",3000,0,null,0,"技能點數",8,1],
+        ["時裝系列企劃","活動",4000,0,null,0,"自由點數",10,1],
+        ["基礎服裝設計","課程",1500,0,null,0,"技能點數",3,0],
+        ["時尚造型指導","課程",3000,0,null,0,"技能點數",5,0],
+        ["高級服裝剪裁","課程",4500,0,null,0,"技能點數",8,0],
+        ["精品設計特訓","課程",6000,0,null,0,"技能點數",10,0]
+      ]
+    },
+    {
+      "key": "talent_agency",
+      "name": "經紀公司",
+      "channel_id": "1548941960604156024",
+      "channel_type": "text",
+      "binding_status": "bound",
+      "allowed_commands": ["行動"],
+      "action_enabled": true,
+      "approved": false,
+      "actions": [
+        ["行政助理","打工",0,2500,null,0,null,0,1],
+        ["宣傳企劃助理","打工",0,3500,null,0,"自由點數",2,1],
+        ["藝人行程助理","打工",0,4500,null,0,"自由點數",3,1],
+        ["商務合作助理","打工",0,5500,null,0,"自由點數",4,1],
+        ["娛樂產業研究","活動",900,0,"才智",3,null,0,1],
+        ["公關情境模擬","活動",1800,0,"公關",5,null,0,1],
+        ["商務談判演練","活動",2700,0,null,0,"自由點數",8,1],
+        ["藝人發展企劃","活動",3600,0,null,0,"自由點數",10,1],
+        ["經紀管理基礎","課程",1500,0,null,0,"自由點數",3,0],
+        ["藝人公關指導","課程",3000,0,"公關",5,null,0,0],
+        ["商務合作實務","課程",4500,0,null,0,"自由點數",8,0],
+        ["高級經紀管理","課程",6000,0,null,0,"自由點數",10,0]
+      ]
+    },
+    {
+      "key": "celebrity_studio",
+      "name": "明星工作室",
+      "channel_id": "1548942065105244180",
+      "channel_type": "text",
+      "binding_status": "bound",
+      "allowed_commands": ["行動"],
+      "action_enabled": true,
+      "approved": false,
+      "actions": [
+        ["工作室行政助理","打工",0,2500,null,0,null,0,1],
+        ["社群內容助理","打工",0,3500,null,0,"自由點數",2,1],
+        ["藝人造型助理","打工",0,4000,null,0,"技能點數",3,1],
+        ["專案執行助理","打工",0,5000,null,0,"自由點數",4,1],
+        ["個人形象規劃","活動",1200,0,"容貌",3,null,0,1],
+        ["社群內容創作","活動",1800,0,null,0,"自由點數",5,1],
+        ["作品集製作","活動",3000,0,null,0,"技能點數",8,1],
+        ["個人發展企劃","活動",4000,0,null,0,"自由點數",10,1],
+        ["個人品牌基礎","課程",1500,0,null,0,"自由點數",3,0],
+        ["社群企劃指導","課程",3000,0,null,0,"自由點數",5,0],
+        ["藝人形象管理","課程",4500,0,null,0,"自由點數",8,0],
+        ["個人品牌進階","課程",6000,0,null,0,"自由點數",10,0]
+      ]
+    },
+    {
+      "key": "bank",
+      "name": "銀行",
+      "channel_id": "1545747674731515976",
+      "channel_type": "text",
+      "binding_status": "bound",
+      "allowed_commands": ["銀行"],
+      "action_enabled": false,
+      "robbery_event_enabled": false,
+      "actions": []
+    },
+    {
+      "key": "department_store",
+      "name": "百貨公司",
+      "channel_id": "1567792904703840277",
+      "channel_type": "text",
+      "binding_status": "bound",
+      "allowed_commands": ["行動"],
+      "action_enabled": true,
+      "approved": false,
+      "actions": [
+        ["百貨服務人員","打工",0,2500,null,0,null,0,1],
+        ["專櫃銷售助理","打工",0,3500,null,0,"自由點數",2,1],
+        ["商品陳列設計師","打工",0,4500,null,0,"技能點數",3,1],
+        ["VIP客戶接待","打工",0,5500,null,0,"自由點數",4,1],
+        ["時尚購物體驗","活動",1200,0,"容貌",3,null,0,1],
+        ["商品展示研究","活動",1800,0,null,0,"自由點數",5,1],
+        ["VIP購物體驗","活動",3000,0,"公關",8,null,0,1],
+        ["精品搭配體驗","活動",4000,0,null,0,"自由點數",10,1],
+        ["零售服務基礎","課程",1500,0,null,0,"自由點數",3,0],
+        ["商品銷售技巧","課程",3000,0,null,0,"自由點數",5,0],
+        ["精品鑑賞指導","課程",4500,0,null,0,"技能點數",8,0],
+        ["高級顧客服務","課程",6000,0,null,0,"自由點數",10,0]
+      ]
+    },
+    {
+      "key": "mall",
+      "name": "商城",
+      "channel_id": "1567789004026286110",
+      "channel_type": "text",
+      "binding_status": "bound",
+      "allowed_commands": ["商城"],
+      "action_enabled": false,
+      "actions": []
+    }
+  ]
+}
