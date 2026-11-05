@@ -82,23 +82,58 @@ def account_info(guild,user,account):
         _init(db); return _require_account(db,guild,user,account)
 
 def settings(guild):
+    """Read guild bindings, falling back to original defaults for unset fields."""
+    import json
     with get_connection() as db:
         _init(db)
-        row=db.execute('SELECT * FROM rp_network_settings WHERE guild_id=?',(str(guild),)).fetchone()
-    from json import loads
+        row = db.execute(
+            'SELECT * FROM rp_network_settings WHERE guild_id=?', (str(guild),)
+        ).fetchone()
+    default = str(guild) == DEFAULT_GUILD
+    result = {
+        'category_id': DEFAULT_CATEGORY if default else None,
+        'global_channel_id': DEFAULT_GLOBAL if default else None,
+        'factions': DEFAULT_FACTIONS.copy() if default else {},
+    }
     if row:
-        return {'category_id':int(row['category_id']) if row['category_id'] else None,'global_channel_id':int(row['global_channel_id']) if row['global_channel_id'] else None,'factions':loads(row['faction_channels_json'])}
-    if str(guild)==DEFAULT_GUILD:
-        return {'category_id':DEFAULT_CATEGORY,'global_channel_id':DEFAULT_GLOBAL,'factions':DEFAULT_FACTIONS.copy()}
-    return {'category_id':None,'global_channel_id':None,'factions':{}}
+        for field in ('category_id', 'global_channel_id'):
+            if row[field]:
+                result[field] = int(row[field])
+        try:
+            factions = json.loads(row['faction_channels_json'] or '{}')
+            if isinstance(factions, dict):
+                result['factions'].update({str(k): int(v) for k, v in factions.items() if v})
+        except (ValueError, TypeError):
+            pass
+    return result
 
-def set_settings(guild,*,category_id=None,global_channel_id=None):
+
+def set_settings(guild, *, category_id=None, global_channel_id=None,
+                 faction_name=None, faction_channel_id=None):
+    """Update only supplied values; do not erase pre-existing faction bindings."""
+    import json
+    old = settings(guild)  # Must happen before opening a write transaction.
+    if category_id is not None:
+        old['category_id'] = int(category_id)
+    if global_channel_id is not None:
+        old['global_channel_id'] = int(global_channel_id)
+    if faction_name is not None:
+        name = str(faction_name).strip()
+        if not name or faction_channel_id is None:
+            raise ValueError('請指定群組名稱與頻道 ID')
+        old['factions'][name] = int(faction_channel_id)
     with transaction() as db:
         _init(db)
-        old=settings(guild)
-        db.execute('''INSERT INTO rp_network_settings(guild_id,category_id,global_channel_id)
-        VALUES(?,?,?) ON CONFLICT(guild_id) DO UPDATE SET category_id=excluded.category_id,global_channel_id=excluded.global_channel_id''',
-        (str(guild),str(category_id or old['category_id'] or '') or None,str(global_channel_id or old['global_channel_id'] or '') or None))
+        db.execute("""INSERT INTO rp_network_settings
+            (guild_id,category_id,global_channel_id,faction_channels_json)
+            VALUES(?,?,?,?)
+            ON CONFLICT(guild_id) DO UPDATE SET
+            category_id=excluded.category_id,
+            global_channel_id=excluded.global_channel_id,
+            faction_channels_json=excluded.faction_channels_json""",
+            (str(guild), str(old['category_id']) if old['category_id'] else None,
+             str(old['global_channel_id']) if old['global_channel_id'] else None,
+             json.dumps(old['factions'], ensure_ascii=False)))
 
 def begin_group(guild,user,account,name):
     name=str(name).strip()
