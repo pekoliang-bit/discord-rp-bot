@@ -160,7 +160,63 @@ class TaskAdminView(discord.ui.View):
 async def open_task_admin(i):
     if not authorized(i):return await reply(i,'僅群主與正式授權的任務管理員可以使用')
     initialize()
-    view=TaskAdminView(i.user.id,i.guild_id)
+    view=VarietyTaskAdminView(i.user.id,i.guild_id)
     msg='📋 **官方任務管理**\n建立、編輯、設定五級門檻與發布／停用。\n未發布任務不會出現在玩家清單；任務金幣與數值可結算；官方商城正式商品可發入背包；其他不支援商品留待補發。'
     if i.response.is_done():await i.followup.send(msg,view=view,ephemeral=True)
     else:await i.response.send_message(msg,view=view,ephemeral=True)
+
+# 綜藝專屬管理入口以原本 /官方 → 任務管理 View 掛載，不新增 slash 指令。
+class VarietyCastDecision(discord.ui.Modal,title='綜藝常駐錄取審核'):
+    application_id=discord.ui.TextInput(label='綜藝申請編號',max_length=12)
+    decision=discord.ui.TextInput(label='approve 或 reject',max_length=10)
+    async def on_submit(self,i):
+        if not authorized(i):return await reply(i,'沒有審核權限')
+        from modules.task_variety_cast import decide
+        try:
+            d=str(self.decision).strip().lower()
+            if d not in ('approve','reject'):raise ValueError('請輸入 approve 或 reject')
+            decide(i.guild_id,int(str(self.application_id)),i.user.id,i.guild.owner_id,d=='approve')
+        except (ValueError,PermissionError) as e:return await reply(i,str(e))
+        await reply(i,'✅ 已'+('錄取常駐嘉賓，後續可接取該節目已公告期數。' if d=='approve' else '拒絕申請。'))
+
+class VarietyNewEpisode(discord.ui.Modal,title='發布綜藝下一期'):
+    show_key=discord.ui.TextInput(label='節目代碼（night/cook/escape...）',max_length=40)
+    episode=discord.ui.TextInput(label='期數（整數）',max_length=5)
+    async def on_submit(self,i):
+        if not authorized(i):return await reply(i,'沒有發布權限')
+        from modules.task_variety_seed import publish_episode
+        try:n=publish_episode(i.guild_id,str(self.show_key).strip(),int(str(self.episode)))
+        except ValueError as e:return await reply(i,str(e))
+        await reply(i,f'✅ 期數已檢查；新增 {n} 個通告職位（已存在的保持不變）。')
+
+class VarietyBroadcast(discord.ui.Modal,title='綜藝正式播出與曝光結算'):
+    show_key=discord.ui.TextInput(label='節目代碼',max_length=40)
+    episode=discord.ui.TextInput(label='期數',max_length=5)
+    performance=discord.ui.TextInput(label='表現倍數 0.5 / 1 / 1.5 / 2',default='1',max_length=5)
+    async def on_submit(self,i):
+        if not authorized(i):return await reply(i,'沒有播出權限')
+        from modules.task_variety_cast import broadcast
+        try:
+            count=broadcast(i.guild_id,str(self.show_key).strip(),int(str(self.episode)),i.user.id,i.guild.owner_id,float(str(self.performance)))
+        except (ValueError,PermissionError) as e:return await reply(i,str(e))
+        except Exception:
+            import logging
+            logging.getLogger(__name__).exception('綜藝播出獎勵失敗')
+            return await reply(i,'播出處理中斷；可重試，獎勵具有冪等保護。')
+        await reply(i,f'✅ 綜藝已播出，已處理 {count} 名完成當期錄製的演出者（重試不會重複發獎）。')
+
+async def _variety_pending(i):
+    from modules.task_variety_cast import pending
+    rows=pending(i.guild_id)
+    await reply(i,'\n'.join(f"#{r['id']} 《{r['title']}》角色#{r['character_id']}：{r['seat']}" for r in rows) or '目前沒有待審的綜藝常駐申請')
+
+# 子類實現 UI 新按鈕，保持原本 TaskAdminView 與其他官方管理不受影響。
+class VarietyTaskAdminView(TaskAdminView):
+    @discord.ui.button(label='綜藝待審',row=2)
+    async def variety_pending(self,i,b):await _variety_pending(i)
+    @discord.ui.button(label='審核綜藝',row=2)
+    async def variety_review(self,i,b):await i.response.send_modal(VarietyCastDecision())
+    @discord.ui.button(label='綜藝下一期',row=3)
+    async def variety_episode(self,i,b):await i.response.send_modal(VarietyNewEpisode())
+    @discord.ui.button(label='綜藝播出',row=3)
+    async def variety_air(self,i,b):await i.response.send_modal(VarietyBroadcast())
