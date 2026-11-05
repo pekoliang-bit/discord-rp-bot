@@ -5,10 +5,10 @@
 /角色論壇補建
 
 功能：
-- 群主指定角色論壇分類
+- 群主分別指定女性與男性角色論壇分類
 - 偵測 approved / active 角色
 - 自動建立角色專屬 ForumChannel
-- 建立通知、詢問、劇情討論三個貼文
+- 建立通知、詢問、劇情討論、機器人使用四個貼文
 - 記錄 ID，防止重複建立
 - 機器人重啟後自動補建
 """
@@ -16,6 +16,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import sqlite3
 
@@ -26,6 +27,22 @@ from discord.ext import commands, tasks
 from core.database import get_connection, transaction
 
 LOG = logging.getLogger(__name__)
+
+# 本伺服器的既定分類預設值；其他伺服器由各自群主綁定。
+DEFAULT_GUILD_ID = "1544051203493601380"
+DEFAULT_FEMALE_CATEGORY_ID = "1567786100460625972"
+DEFAULT_MALE_CATEGORY_ID = "1567786323773759588"
+
+
+def normalize_gender(value):
+    """僅接受明確的男女值；不猜測未知性別。"""
+    value = str(value or "").strip().casefold()
+    if value in {"女", "女性", "female", "f", "woman", "girl"}:
+        return "female"
+    if value in {"男", "男性", "male", "m", "man", "boy"}:
+        return "male"
+    return None
+
 
 POSTS = (
     (
@@ -61,9 +78,22 @@ def initialize():
             CREATE TABLE IF NOT EXISTS
             character_forum_settings (
                 guild_id TEXT PRIMARY KEY,
-                category_id TEXT NOT NULL
+                category_id TEXT NOT NULL DEFAULT '',
+                female_category_id TEXT,
+                male_category_id TEXT
             )
         """)
+
+        setting_cols = {
+            row["name"] for row in db.execute(
+                "PRAGMA table_info(character_forum_settings)"
+            )
+        }
+        for column in ("female_category_id", "male_category_id"):
+            if column not in setting_cols:
+                db.execute(
+                    f"ALTER TABLE character_forum_settings ADD COLUMN {column} TEXT"
+                )
 
         db.execute("""
             CREATE TABLE IF NOT EXISTS
@@ -83,18 +113,38 @@ def initialize():
             db.execute("ALTER TABLE character_forum_links ADD COLUMN bot_id TEXT")
 
 
-def get_category(guild_id):
+def get_categories(guild_id):
+    """回傳女性／男性分類。舊版單分類設定不會被錯用為另一性別。"""
     with get_connection() as db:
         row = db.execute(
-            """
-            SELECT category_id
-            FROM character_forum_settings
-            WHERE guild_id=?
-            """,
+            """SELECT female_category_id, male_category_id
+               FROM character_forum_settings WHERE guild_id=?""",
             (str(guild_id),),
         ).fetchone()
+    female = row["female_category_id"] if row else None
+    male = row["male_category_id"] if row else None
+    if str(guild_id) == DEFAULT_GUILD_ID:
+        female = female or DEFAULT_FEMALE_CATEGORY_ID
+        male = male or DEFAULT_MALE_CATEGORY_ID
+    return {
+        "female": int(female) if female else None,
+        "male": int(male) if male else None,
+    }
 
-    return int(row["category_id"]) if row else None
+
+def get_category(guild_id, gender=None):
+    """保留相容入口；必須指定性別才會回傳分類。"""
+    return get_categories(guild_id).get(normalize_gender(gender))
+
+
+def character_gender(character):
+    try:
+        data = json.loads(character.get("settings_json") or "{}")
+        if not isinstance(data, dict):
+            return None
+        return normalize_gender(data.get("gender"))
+    except (ValueError, TypeError):
+        return None
 
 
 def get_characters(guild_id):
@@ -105,7 +155,8 @@ def get_characters(guild_id):
                 id,
                 name,
                 owner_id,
-                character_type
+                character_type,
+                settings_json
             FROM characters
             WHERE guild_id=?
               AND status = 'active'
@@ -213,21 +264,13 @@ class CharacterForums(commands.Cog):
     async def ensure_forum(self, guild, character):
         character_id = character["id"]
 
-        category_id = get_category(guild.id)
-
-        category = (
-            guild.get_channel(category_id)
-            if category_id
-            else None
-        )
-
-        if not isinstance(
-            category,
-            discord.CategoryChannel,
-        ):
-            raise ValueError(
-                "尚未設定有效的角色論壇分類。"
-            )
+        gender = character_gender(character)
+        if gender is None:
+            raise ValueError("角色性別尚未明確設定為男或女，無法建立論壇。")
+        category_id = get_category(guild.id, gender)
+        category = guild.get_channel(category_id) if category_id else None
+        if not isinstance(category, discord.CategoryChannel):
+            raise ValueError("尚未設定有效的對應性別角色論壇分類。")
 
         key = (guild.id, character_id)
 
@@ -259,7 +302,7 @@ class CharacterForums(commands.Cog):
                 forum = next(
                     (
                         channel
-                        for channel in category.channels
+                        for channel in guild.channels
                         if isinstance(
                             channel,
                             discord.ForumChannel,
@@ -273,6 +316,10 @@ class CharacterForums(commands.Cog):
                 )
 
                 if forum is None:
+                    if len(category.channels) >= 50:
+                        raise ValueError(
+                            f"{category.name} 分類已達 50 個頻道上限，請群主調整分類。"
+                        )
                     suffix = (
                         "_npc"
                         if character["character_type"]
@@ -352,6 +399,16 @@ class CharacterForums(commands.Cog):
                         ),
                         None,
                     )
+
+                    if thread is None:
+                        # 已封存的論壇帖子可能不在 forum.threads 快取裡。
+                        try:
+                            async for archived in forum.archived_threads(limit=None):
+                                if archived.name == title:
+                                    thread = archived
+                                    break
+                        except discord.HTTPException:
+                            LOG.warning("無法檢查論壇 #%s 的封存帖子", forum.id)
 
                     if thread is None:
                         content = body
@@ -516,7 +573,7 @@ class CharacterForums(commands.Cog):
     async def scan(self):
         async with self._cycle_lock:
             for guild in self.bot.guilds:
-                if get_category(guild.id):
+                if any(get_categories(guild.id).values()):
                     await self.run_scan(guild)
 
     @scan.before_loop
@@ -529,58 +586,45 @@ class CharacterForums(commands.Cog):
 
     @app_commands.command(
         name="角色論壇設定",
-        description="指定二審通過後的角色論壇分類",
+        description="分別指定女性與男性角色專屬論壇分類",
     )
     @app_commands.guild_only()
     async def set_category(
         self,
         interaction: discord.Interaction,
-        分類: discord.CategoryChannel,
+        女性分類: discord.CategoryChannel,
+        男性分類: discord.CategoryChannel,
     ):
-        if (
-            interaction.guild.owner_id
-            != interaction.user.id
-        ):
+        if interaction.guild.owner_id != interaction.user.id:
             await interaction.response.send_message(
-                "⛔ 只有群主可以設定。",
-                ephemeral=True,
+                "⛔ 只有群主可以設定。", ephemeral=True,
             )
             return
-
         me = interaction.guild.me
-
-        if (
-            me is None
-            or not me.guild_permissions.manage_channels
-        ):
+        if me is None or not me.guild_permissions.manage_channels:
             await interaction.response.send_message(
-                "⚠️ 機器人需要管理頻道權限。",
-                ephemeral=True,
+                "⚠️ 機器人需要管理頻道權限。", ephemeral=True,
             )
             return
-
+        if 女性分類.id == 男性分類.id:
+            await interaction.response.send_message(
+                "⚠️ 男女論壇分類不可相同。", ephemeral=True,
+            )
+            return
         with transaction() as db:
             db.execute(
-                """
-                INSERT INTO character_forum_settings(
-                    guild_id,
-                    category_id
-                )
-                VALUES (?,?)
-                ON CONFLICT(guild_id)
-                DO UPDATE SET
-                    category_id=excluded.category_id
-                """,
-                (
-                    str(interaction.guild_id),
-                    str(分類.id),
-                ),
+                """INSERT INTO character_forum_settings(
+                       guild_id, category_id, female_category_id, male_category_id
+                   ) VALUES (?, '', ?, ?)
+                   ON CONFLICT(guild_id) DO UPDATE SET
+                       female_category_id=excluded.female_category_id,
+                       male_category_id=excluded.male_category_id""",
+                (str(interaction.guild_id), str(女性分類.id), str(男性分類.id)),
             )
-
         await interaction.response.send_message(
-            "✅ 已設定角色專屬論壇分類："
-            f"**{分類.name}**。\n"
-            "系統將自動補建已通過二審的角色論壇。",
+            f"✅ 女性論壇：**{女性分類.name}**\n"
+            f"✅ 男性論壇：**{男性分類.name}**\n"
+            "後續新建論壇會依角色性別分流；既有論壇不會自動搬移。",
             ephemeral=True,
         )
 
@@ -607,9 +651,7 @@ class CharacterForums(commands.Cog):
             )
             return
 
-        if not get_category(
-            interaction.guild_id
-        ):
+        if not all(get_categories(interaction.guild_id).values()):
             await interaction.response.send_message(
                 "⚠️ 請先使用 /角色論壇設定。",
                 ephemeral=True,
