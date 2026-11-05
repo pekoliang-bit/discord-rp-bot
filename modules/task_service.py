@@ -77,12 +77,17 @@ def accept(guild_id,character_id,user_id,task_id):
             return 'applied:'+str(apply(guild_id,character_id,t))
         check_episode_access(guild_id,character_id,t)
     cycle='once'
-    if str(t.get('code','')).startswith('screen_basic_'):
+    if str(t.get('code','')).startswith(('screen_basic_', 'commercial_basic_')):
         # 冷卻期按真實時間計算，且不能同時接取同一個未結算的基礎工作。
         from datetime import timedelta
         from modules.task_screen_seed import BASE_JOBS
-        key=t['code'][len('screen_basic_'):]
-        hours=next((j[6] for j in BASE_JOBS if j[0]==key),24)
+        if t['code'].startswith('commercial_basic_'):
+            from modules.task_commercial_seed import JOBS_BY_CODE
+            config=JOBS_BY_CODE.get(t['code'])
+            hours=int(config[6]) if config else 24
+        else:
+            key=t['code'][len('screen_basic_'):]
+            hours=next((j[6] for j in BASE_JOBS if j[0]==key),24)
         with get_connection() as db:
             previous=db.execute('''SELECT accepted_at,status FROM rp_task_progress
               WHERE guild_id=? AND character_id=? AND task_id=?
