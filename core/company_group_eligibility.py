@@ -89,9 +89,19 @@ def validate_group_application(
     check_group_creation(
         method=method,
         company_count=result["company_count"],
-        owns_group=bool(
-            result["existing_group_id"]
-        ),
+        owns_group=bool(result["existing_group_id"]),
     )
-
+    if method == "automatic" and not result["automatic_eligible"]:
+        raise ValueError("自動成立集團只能使用尚未歸屬其他集團的自有公司。")
     return result
+
+
+def eligible_companies(db, guild_id, owner_id):
+    """相容舊版呼叫：回傳現任持有人名下的有效正式公司。"""
+    return owned_companies(db, guild_id, owner_id)
+
+
+def attach_owned_companies(db, guild_id, owner_id, group_id):
+    """相容舊版參數順序；仍由正式權限檢查執行歸屬。"""
+    from core.company_group_membership import attach_all_owned
+    return attach_all_owned(db, guild_id, group_id, owner_id)
