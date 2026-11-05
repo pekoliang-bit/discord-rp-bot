@@ -1,0 +1,117 @@
+
+{
+  "version": 1,
+  "status": "pending_review",
+  "target_guild_id": "1544051203493601380",
+  "timezone": "Asia/Taipei",
+  "category": "藝文特區",
+  "policy": {
+    "normal_attribute_cost_per_point": 300,
+    "course_attribute_cost_per_point": 500,
+    "prices_are_minima": true,
+    "min_work_reward": 2000,
+    "work_reward_coins_may_vary": true,
+    "work_may_grant_points": true,
+    "work_action_points": 1,
+    "activity_action_points": 1,
+    "course_action_points": 0,
+    "attributes_can_only_increase": true,
+    "specified_skill_reward_pool": "自由點數",
+    "point_pool_rules": {
+      "自由點數": "除影響指數以外的合法屬性",
+      "專業點數": "主攻賽道及其他技能",
+      "技能點數": "專業技能及個人才藝"
+    },
+    "regulated_attributes_excluded": true,
+    "unapproved_actions_disabled": true,
+    "record_transactions": true,
+    "validate_attribute_mapping": true,
+    "allow_guild_customization": true
+  },
+  "locations": [
+    {
+      "key": "theater",
+      "name": "劇院",
+      "channel_id": "1548945111457603604",
+      "channel_type": "text",
+      "binding_status": "bound",
+      "actions": [
+        {"name":"劇場場務","category":"打工","cost_coins":0,"reward_coins":2500,"attribute":null,"attribute_increase":0,"point_rewards":{},"action_points_cost":1,"approved":false},
+        {"name":"舞台燈光助理","category":"打工","cost_coins":0,"reward_coins":3200,"attribute":null,"attribute_increase":0,"point_rewards":{"技能點數":2},"action_points_cost":1,"approved":false},
+        {"name":"劇場替補演員","category":"打工","cost_coins":0,"reward_coins":4500,"attribute":null,"attribute_increase":0,"point_rewards":{"專業點數":3},"action_points_cost":1,"approved":false},
+        {"name":"舞台監督助理","category":"打工","cost_coins":0,"reward_coins":5000,"attribute":null,"attribute_increase":0,"point_rewards":{"自由點數":3},"action_points_cost":1,"approved":false},
+        {"name":"觀賞舞台劇","category":"活動","cost_coins":900,"reward_coins":0,"attribute":"演繹","attribute_increase":3,"point_rewards":{},"action_points_cost":1,"approved":false},
+        {"name":"劇本圍讀","category":"活動","cost_coins":1500,"reward_coins":0,"attribute":"演繹","attribute_increase":5,"point_rewards":{},"action_points_cost":1,"approved":false},
+        {"name":"舞台試演","category":"活動","cost_coins":2400,"reward_coins":0,"attribute":"演繹","attribute_increase":8,"point_rewards":{},"action_points_cost":1,"approved":false},
+        {"name":"劇場幕後參訪","category":"活動","cost_coins":1800,"reward_coins":0,"attribute":null,"attribute_increase":0,"point_rewards":{"自由點數":5},"action_points_cost":1,"approved":false},
+        {"name":"舞台基礎表演","category":"課程","cost_coins":1500,"reward_coins":0,"attribute":"演繹","attribute_increase":3,"point_rewards":{},"action_points_cost":0,"approved":false},
+        {"name":"角色情緒塑造","category":"課程","cost_coins":3000,"reward_coins":0,"attribute":"演繹","attribute_increase":5,"point_rewards":{},"action_points_cost":0,"approved":false},
+        {"name":"專業舞台指導","category":"課程","cost_coins":4000,"reward_coins":0,"attribute":"演繹","attribute_increase":8,"point_rewards":{},"action_points_cost":0,"approved":false},
+        {"name":"舞台統籌實務","category":"課程","cost_coins":3500,"reward_coins":0,"attribute":null,"attribute_increase":0,"point_rewards":{"技能點數":5},"action_points_cost":0,"approved":false}
+      ]
+    },
+    {
+      "key": "music_center",
+      "name": "音樂中心",
+      "channel_id": "1548945156999356567",
+      "channel_type": "text",
+      "binding_status": "bound",
+      "actions": [
+        {"name":"音樂中心工作人員","category":"打工","cost_coins":0,"reward_coins":2500,"attribute":null,"attribute_increase":0,"point_rewards":{},"action_points_cost":1,"approved":false},
+        {"name":"樂器維護助理","category":"打工","cost_coins":0,"reward_coins":3200,"attribute":null,"attribute_increase":0,"point_rewards":{"技能點數":2},"action_points_cost":1,"approved":false},
+        {"name":"伴奏樂手","category":"打工","cost_coins":0,"reward_coins":4000,"attribute":null,"attribute_increase":0,"point_rewards":{"技能點數":3},"action_points_cost":1,"approved":false},
+        {"name":"音樂會領唱","category":"打工","cost_coins":0,"reward_coins":5000,"attribute":null,"attribute_increase":0,"point_rewards":{"專業點數":4},"action_points_cost":1,"approved":false},
+        {"name":"音樂鑑賞","category":"活動","cost_coins":900,"reward_coins":0,"attribute":null,"attribute_increase":0,"point_rewards":{"技能點數":3},"action_points_cost":1,"approved":false},
+        {"name":"樂器即興演奏","category":"活動","cost_coins":1500,"reward_coins":0,"attribute":null,"attribute_increase":0,"point_rewards":{"技能點數":5},"action_points_cost":1,"approved":false},
+        {"name":"現場演唱","category":"活動","cost_coins":2100,"reward_coins":0,"attribute":"歌唱","attribute_increase":7,"point_rewards":{},"action_points_cost":1,"approved":false},
+        {"name":"音樂創作交流","category":"活動","cost_coins":2400,"reward_coins":0,"attribute":null,"attribute_increase":0,"point_rewards":{"自由點數":6},"action_points_cost":1,"approved":false},
+        {"name":"基礎樂理","category":"課程","cost_coins":1500,"reward_coins":0,"attribute":null,"attribute_increase":0,"point_rewards":{"技能點數":3},"action_points_cost":0,"approved":false},
+        {"name":"樂器演奏指導","category":"課程","cost_coins":2500,"reward_coins":0,"attribute":null,"attribute_increase":0,"point_rewards":{"技能點數":5},"action_points_cost":0,"approved":false},
+        {"name":"專業音樂創作","category":"課程","cost_coins":4000,"reward_coins":0,"attribute":null,"attribute_increase":0,"point_rewards":{"技能點數":7},"action_points_cost":0,"approved":false},
+        {"name":"高階聲樂訓練","category":"課程","cost_coins":5000,"reward_coins":0,"attribute":"歌唱","attribute_increase":10,"point_rewards":{},"action_points_cost":0,"approved":false}
+      ]
+    },
+    {
+      "key": "art_museum",
+      "name": "美術館",
+      "channel_id": "1567469876925435964",
+      "channel_type": "text",
+      "binding_status": "bound",
+      "actions": [
+        {"name":"美術館接待員","category":"打工","cost_coins":0,"reward_coins":2300,"attribute":null,"attribute_increase":0,"point_rewards":{},"action_points_cost":1,"approved":false},
+        {"name":"展品維護助理","category":"打工","cost_coins":0,"reward_coins":3000,"attribute":null,"attribute_increase":0,"point_rewards":{"技能點數":2},"action_points_cost":1,"approved":false},
+        {"name":"美術導覽員","category":"打工","cost_coins":0,"reward_coins":3800,"attribute":null,"attribute_increase":0,"point_rewards":{"自由點數":3},"action_points_cost":1,"approved":false},
+        {"name":"展覽策展助理","category":"打工","cost_coins":0,"reward_coins":4500,"attribute":null,"attribute_increase":0,"point_rewards":{"技能點數":4},"action_points_cost":1,"approved":false},
+        {"name":"藝術作品鑑賞","category":"活動","cost_coins":900,"reward_coins":0,"attribute":"才智","attribute_increase":3,"point_rewards":{},"action_points_cost":1,"approved":false},
+        {"name":"素描創作","category":"活動","cost_coins":1500,"reward_coins":0,"attribute":null,"attribute_increase":0,"point_rewards":{"技能點數":5},"action_points_cost":1,"approved":false},
+        {"name":"美學交流沙龍","category":"活動","cost_coins":2100,"reward_coins":0,"attribute":null,"attribute_increase":0,"point_rewards":{"自由點數":6},"action_points_cost":1,"approved":false},
+        {"name":"藝術專題研究","category":"活動","cost_coins":2700,"reward_coins":0,"attribute":"才智","attribute_increase":8,"point_rewards":{},"action_points_cost":1,"approved":false},
+        {"name":"基礎素描","category":"課程","cost_coins":1500,"reward_coins":0,"attribute":null,"attribute_increase":0,"point_rewards":{"技能點數":3},"action_points_cost":0,"approved":false},
+        {"name":"色彩構成","category":"課程","cost_coins":2500,"reward_coins":0,"attribute":null,"attribute_increase":0,"point_rewards":{"技能點數":5},"action_points_cost":0,"approved":false},
+        {"name":"美術創作指導","category":"課程","cost_coins":4000,"reward_coins":0,"attribute":null,"attribute_increase":0,"point_rewards":{"技能點數":8},"action_points_cost":0,"approved":false},
+        {"name":"藝術史研習","category":"課程","cost_coins":3000,"reward_coins":0,"attribute":"才智","attribute_increase":5,"point_rewards":{},"action_points_cost":0,"approved":false}
+      ]
+    },
+    {
+      "key": "exhibition_center",
+      "name": "展覽中心",
+      "channel_id": "1567469927299022908",
+      "channel_type": "text",
+      "binding_status": "bound",
+      "actions": [
+        {"name":"展覽服務人員","category":"打工","cost_coins":0,"reward_coins":2500,"attribute":null,"attribute_increase":0,"point_rewards":{},"action_points_cost":1,"approved":false},
+        {"name":"展場佈置助理","category":"打工","cost_coins":0,"reward_coins":3200,"attribute":null,"attribute_increase":0,"point_rewards":{"技能點數":2},"action_points_cost":1,"approved":false},
+        {"name":"展覽活動主持","category":"打工","cost_coins":0,"reward_coins":4500,"attribute":null,"attribute_increase":0,"point_rewards":{"專業點數":3},"action_points_cost":1,"approved":false},
+        {"name":"專案執行助理","category":"打工","cost_coins":0,"reward_coins":5000,"attribute":null,"attribute_increase":0,"point_rewards":{"自由點數":4},"action_points_cost":1,"approved":false},
+        {"name":"參觀主題展覽","category":"活動","cost_coins":900,"reward_coins":0,"attribute":"才智","attribute_increase":3,"point_rewards":{},"action_points_cost":1,"approved":false},
+        {"name":"展覽交流會","category":"活動","cost_coins":1500,"reward_coins":0,"attribute":"公關","attribute_increase":5,"point_rewards":{},"action_points_cost":1,"approved":false},
+        {"name":"藝術創作展示","category":"活動","cost_coins":2400,"reward_coins":0,"attribute":null,"attribute_increase":0,"point_rewards":{"技能點數":8},"action_points_cost":1,"approved":false},
+        {"name":"專業展覽論壇","category":"活動","cost_coins":3000,"reward_coins":0,"attribute":null,"attribute_increase":0,"point_rewards":{"自由點數":8},"action_points_cost":1,"approved":false},
+        {"name":"基礎展場規劃","category":"課程","cost_coins":1500,"reward_coins":0,"attribute":null,"attribute_increase":0,"point_rewards":{"技能點數":3},"action_points_cost":0,"approved":false},
+        {"name":"展覽企劃指導","category":"課程","cost_coins":3000,"reward_coins":0,"attribute":null,"attribute_increase":0,"point_rewards":{"技能點數":5},"action_points_cost":0,"approved":false},
+        {"name":"活動主持實務","category":"課程","cost_coins":3500,"reward_coins":0,"attribute":"主持","attribute_increase":7,"point_rewards":{},"action_points_cost":0,"approved":false},
+        {"name":"高階策展管理","category":"課程","cost_coins":5000,"reward_coins":0,"attribute":null,"attribute_increase":0,"point_rewards":{"自由點數":8},"action_points_cost":0,"approved":false}
+      ]
+    }
+  ]
+}
