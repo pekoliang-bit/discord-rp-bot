@@ -1,4 +1,3 @@
-
 """薪資週期管理介面原始碼契約測試。"""
 
 import ast
@@ -44,17 +43,12 @@ class PayrollUIPatchTests(unittest.TestCase):
 
     def test_ui_integration(self):
         source = UI.read_text(encoding="utf-8")
-
-        self.assertIn(
-            "PayrollCycleButton",
-            source,
-            "尚未執行 apply_payroll_ui.py",
-        )
-
-        self.assertIn(
-            "PayrollCycleSummaryButton",
-            source,
-        )
+        self.assertIn("PayrollCycleSummaryButton", source)
+        self.assertIn("self.add_item(PayrollCycleSummaryButton())", source)
+        self.assertIn("async def payroll_cycle(", source)
+        # A single setting button; do not duplicate the existing entry.
+        self.assertNotIn("self.add_item(PayrollCycleButton())", source)
+        self.assertIn('self.business_kind == "company"', source)
 
     def test_old_functions_preserved(self):
         source = UI.read_text(encoding="utf-8")
