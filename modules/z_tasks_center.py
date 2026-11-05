@@ -7,6 +7,7 @@ from core.database import get_connection
 from modules.task_repository import initialize
 from modules.task_newbie import character_owner, progress, bot_thread_id, record_success
 from modules.task_defaults import seed_newbie
+from modules.task_screen_seed import seed_screen_tasks
 from modules.task_service import board, accept, report
 
 KINDS={'daily':'☀️ 日常任務','screen':'🎬 影視通告','variety':'🎤 綜藝通告',
@@ -44,13 +45,36 @@ class AcceptButton(discord.ui.Button):
             return await i.response.send_message(str(e)[:180],ephemeral=True)
         except Exception:
             return await i.response.send_message('暫時無法接取，請稍後再試。',ephemeral=True)
-        await i.response.send_message('✅ 接取成功。請依通告指定的討論串完成內容，再使用 `/任務` 填寫角色及任務編號回報。' if accepted else '已接取過此通告，不會重複建立紀錄。',ephemeral=True)
+        await i.response.send_message('✅ 接取成功。請在角色論壇的「劇情討論」帖子發表演出內容，再於該帖子使用 `/任務` 填寫角色及任務編號回報。' if accepted else '已接取過此通告，不會重複建立紀錄。',ephemeral=True)
+
+class PageButton(discord.ui.Button):
+    def __init__(self,label,direction):
+        super().__init__(label=label,style=discord.ButtonStyle.secondary)
+        self.direction=direction
+    async def callback(self,i):
+        view=self.view
+        if not isinstance(view,ListingsView):return
+        view.page=max(0,min((len(view.rows)-1)//5,view.page+self.direction))
+        view.populate()
+        await i.response.edit_message(content=view.summary(),view=view)
 
 class ListingsView(discord.ui.View):
     def __init__(self,uid,gid,cid,rows):
         super().__init__(timeout=300)
-        self.uid=uid
-        for task in rows[:5]:self.add_item(AcceptButton(gid,cid,task))
+        self.uid,self.gid,self.cid,self.rows,self.page=uid,gid,cid,rows,0
+        self.populate()
+    def populate(self):
+        self.clear_items()
+        for task in self.rows[self.page*5:self.page*5+5]:self.add_item(AcceptButton(self.gid,self.cid,task))
+        if len(self.rows)>5:
+            self.add_item(PageButton('上一頁',-1))
+            self.add_item(PageButton('下一頁',1))
+    def summary(self):
+        from modules.task_conditions import public_minimums
+        from discord.utils import escape_markdown
+        page=self.rows[self.page*5:self.page*5+5]
+        text='\n'.join(f"**#{r['id']}** {escape_markdown(r['title'])}（{r['subtype'] or '一般'}）\n最低接取條件：{public_minimums(self.gid,r)}" for r in page)
+        return (f'🎬 通告 {self.page+1}/{(len(self.rows)+4)//5} 頁\n'+text)[:1900]
     async def interaction_check(self,i):
         if i.user.id!=self.uid:
             await i.response.send_message('請使用自己的任務面板',ephemeral=True)
@@ -66,12 +90,8 @@ class KindPick(discord.ui.Select):
         except ValueError as e:return await i.response.send_message(str(e)[:180],ephemeral=True)
         except Exception:return await i.response.send_message('讀取任務失敗，請稍後再試。',ephemeral=True)
         if not rows:return await i.response.send_message('目前沒有符合資格且已發布的任務。',ephemeral=True)
-        from modules.task_conditions import public_minimums
-        text='\n'.join(
-            f"**#{r['id']}** {discord.utils.escape_markdown(r['title'])}（{r['subtype'] or '一般'}）\n"
-            f"最低接取條件：{public_minimums(self.gid,r)}" for r in rows[:12])
-        if len(rows)>5:text+='\n\n目前僅顯示前五個接取按鈕；其他任務可稍後由列表分頁擴充。'
-        await i.response.send_message(text[:1900],view=ListingsView(i.user.id,self.gid,self.cid,rows),ephemeral=True)
+        view=ListingsView(i.user.id,self.gid,self.cid,rows)
+        await i.response.send_message(view.summary(),view=view,ephemeral=True)
 
 class KindsView(discord.ui.View):
     def __init__(self,uid,gid,cid,kinds):
@@ -123,7 +143,7 @@ class TasksCenter(commands.Cog):
             if 任務編號 is not None:
                 return await i.response.send_message('新手階段不可回報正式任務。', ephemeral=True)
             角色編號 = tutorial_character
-        initialize();seed_newbie(i.guild_id)
+        initialize();seed_newbie(i.guild_id);seed_screen_tasks(i.guild_id)
         if 角色編號 is None:
             if 任務編號 is not None:
                 return await i.response.send_message('回報任務時須填寫角色編號。',ephemeral=True)
