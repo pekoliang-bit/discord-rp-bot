@@ -6,6 +6,7 @@ import json
 import random
 import re
 import time
+import uuid
 from pathlib import Path
 
 from core.database import get_connection, transaction
@@ -78,14 +79,41 @@ def initialize():
         """)
 
         db.execute("""
+            CREATE TABLE IF NOT EXISTS rp_rumor_auto_outbox (
+                id TEXT PRIMARY KEY,
+                guild_id TEXT NOT NULL,
+                channel_id TEXT NOT NULL,
+                scheduled_at INTEGER NOT NULL,
+                payload_json TEXT NOT NULL,
+                state TEXT NOT NULL DEFAULT 'pending',
+                message_id TEXT,
+                rumor_id INTEGER,
+                attempts INTEGER NOT NULL DEFAULT 0,
+                retry_at INTEGER NOT NULL,
+                lease_until INTEGER NOT NULL DEFAULT 0,
+                last_error TEXT,
+                created_at INTEGER NOT NULL,
+                UNIQUE(guild_id, scheduled_at)
+            )
+        """)
+
+        db.execute("""
+            CREATE INDEX IF NOT EXISTS idx_rumor_auto_outbox_due
+            ON rp_rumor_auto_outbox(
+                state,
+                retry_at,
+                lease_until
+            )
+        """)
+
+        db.execute("""
             CREATE INDEX IF NOT EXISTS idx_rumor_auto_history
             ON rp_rumor_autopost_log(guild_id, id)
         """)
 
-        # 首次部署才建立預設值。
-        # INSERT OR IGNORE 不會覆蓋群主已有設定。
         now = int(time.time())
 
+        # 不覆蓋群主已存在的設定。
         db.execute("""
             INSERT OR IGNORE INTO rp_rumor_autopost_settings
             (
@@ -294,7 +322,7 @@ def due_guild_ids(now=None):
 
 
 def _eligible(db, guild_id, category):
-    # 預設允許；角色持有人明確關閉則排除。
+    # 與原傳聞系統使用同一組授權資料表。
     rows = db.execute("""
         SELECT c.id, c.name
         FROM characters c
@@ -319,10 +347,7 @@ def _eligible(db, guild_id, category):
         str(guild_id),
     )).fetchall()
 
-    return [
-        dict(row)
-        for row in rows
-    ]
+    return [dict(row) for row in rows]
 
 
 def choose_entry(db, guild_id, *, rng=None):
@@ -406,21 +431,21 @@ def choose_entry(db, guild_id, *, rng=None):
 
 
 def claim(guild_id, *, now=None):
-    """預約到期時段，避免重複發布。"""
+    """到期時段先寫入持久化待發佇列。"""
 
     initialize()
-
-    if now is None:
-        now = int(time.time())
-
-    now = int(now)
+    now = int(time.time()) if now is None else int(now)
+    gid = str(guild_id)
 
     with transaction() as db:
-        setting = db.execute("""
+        setting = db.execute(
+            """
             SELECT *
             FROM rp_rumor_autopost_settings
-            WHERE guild_id = ?
-        """, (str(guild_id),)).fetchone()
+            WHERE guild_id=?
+            """,
+            (gid,)
+        ).fetchone()
 
         if (
             not setting
@@ -431,31 +456,267 @@ def claim(guild_id, *, now=None):
         ):
             return None
 
-        selection = choose_entry(
-            db,
-            guild_id
-        )
+        scheduled = int(setting["next_due"])
+        entry = choose_entry(db, gid)
+
+        if entry is None:
+            # 沒有可用的授權角色，下一週期再嘗試。
+            db.execute(
+                """
+                UPDATE rp_rumor_autopost_settings
+                SET next_due=?
+                WHERE guild_id=?
+                """,
+                (now + INTERVAL, gid)
+            )
+            return None
+
+        payload = {
+            "guild_id": gid,
+            "channel_id": str(setting["channel_id"]),
+            **entry,
+        }
+
+        job_id = uuid.uuid4().hex
 
         db.execute("""
-            UPDATE rp_rumor_autopost_settings
-            SET next_due = ?
-            WHERE guild_id = ?
-              AND enabled = 1
-              AND next_due <= ?
+            INSERT OR IGNORE INTO rp_rumor_auto_outbox
+            (
+                id,
+                guild_id,
+                channel_id,
+                scheduled_at,
+                payload_json,
+                retry_at,
+                created_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?)
         """, (
-            now + INTERVAL,
-            str(guild_id),
+            job_id,
+            gid,
+            payload["channel_id"],
+            scheduled,
+            json.dumps(payload, ensure_ascii=False),
+            now,
             now,
         ))
 
-        if not selection:
+        db.execute("""
+            UPDATE rp_rumor_autopost_settings
+            SET next_due=?
+            WHERE guild_id=?
+              AND next_due=?
+        """, (
+            now + INTERVAL,
+            gid,
+            scheduled,
+        ))
+
+        return payload
+
+
+def pending_jobs(now=None, limit=50):
+    initialize()
+    now = int(time.time()) if now is None else int(now)
+
+    with get_connection() as db:
+        rows = db.execute("""
+            SELECT id
+            FROM rp_rumor_auto_outbox
+            WHERE state IN ('pending','sending','sent')
+              AND retry_at<=?
+              AND lease_until<=?
+            ORDER BY created_at
+            LIMIT ?
+        """, (
+            now,
+            now,
+            max(1, min(int(limit), 100))
+        )).fetchall()
+
+    return [row["id"] for row in rows]
+
+
+def lease_job(job_id, now=None):
+    initialize()
+    now = int(time.time()) if now is None else int(now)
+
+    with transaction() as db:
+        result = db.execute("""
+            UPDATE rp_rumor_auto_outbox
+            SET state=CASE
+                    WHEN state='pending'
+                    THEN 'sending'
+                    ELSE state
+                END,
+                lease_until=?,
+                attempts=attempts+1
+            WHERE id=?
+              AND state IN ('pending','sending','sent')
+              AND retry_at<=?
+              AND lease_until<=?
+        """, (
+            now + 180,
+            job_id,
+            now,
+            now,
+        ))
+
+        if result.rowcount != 1:
             return None
 
+        row = db.execute("""
+            SELECT *
+            FROM rp_rumor_auto_outbox
+            WHERE id=?
+        """, (job_id,)).fetchone()
+
         return {
-            "guild_id": str(guild_id),
-            "channel_id": setting["channel_id"],
-            **selection,
+            **dict(row),
+            "entry": json.loads(row["payload_json"]),
         }
+
+
+def mark_sent(job_id, message_id):
+    with transaction() as db:
+        db.execute("""
+            UPDATE rp_rumor_auto_outbox
+            SET message_id=?,
+                state='sent',
+                lease_until=0,
+                retry_at=0,
+                last_error=NULL
+            WHERE id=?
+              AND state IN ('pending','sending','sent')
+        """, (
+            str(message_id),
+            job_id,
+        ))
+
+
+def mark_retry(job_id, error):
+    with transaction() as db:
+        row = db.execute("""
+            SELECT attempts
+            FROM rp_rumor_auto_outbox
+            WHERE id=?
+        """, (job_id,)).fetchone()
+
+        if row:
+            delay = min(
+                3600,
+                60 * (2 ** min(int(row["attempts"]) - 1, 6))
+            )
+
+            db.execute("""
+                UPDATE rp_rumor_auto_outbox
+                SET lease_until=0,
+                    retry_at=?,
+                    last_error=?
+                WHERE id=?
+                  AND state IN ('pending','sending','sent')
+            """, (
+                int(time.time()) + delay,
+                str(error)[:300],
+                job_id,
+            ))
+
+
+def finish_job(job_id, rumor_id=None):
+    """完成發布登錄；多次呼叫不重複新增紀錄。"""
+
+    with transaction() as db:
+        row = db.execute("""
+            SELECT *
+            FROM rp_rumor_auto_outbox
+            WHERE id=?
+        """, (job_id,)).fetchone()
+
+        if row is None or not row["message_id"]:
+            raise ValueError("尚未有發布訊息")
+
+        entry = json.loads(row["payload_json"])
+
+        if (
+            rumor_id is not None
+            and row["rumor_id"] not in (None, rumor_id)
+        ):
+            raise ValueError("已綁定其他案件")
+
+        db.execute("""
+            INSERT INTO rp_rumor_autopost_log
+            (
+                guild_id,
+                channel_id,
+                template_id,
+                character_ids_json,
+                posted_text,
+                discord_message_id,
+                created_at
+            )
+            SELECT ?,?,?,?,?,?,?
+            WHERE NOT EXISTS (
+                SELECT 1
+                FROM rp_rumor_autopost_log
+                WHERE guild_id=?
+                  AND discord_message_id=?
+            )
+        """, (
+            entry["guild_id"],
+            entry["channel_id"],
+            entry["template_id"],
+            json.dumps(entry["character_ids"]),
+            entry["text"],
+            str(row["message_id"]),
+            int(time.time()),
+            entry["guild_id"],
+            str(row["message_id"]),
+        ))
+
+        db.execute("""
+            UPDATE rp_rumor_auto_outbox
+            SET state='done',
+                lease_until=0,
+                rumor_id=COALESCE(rumor_id, ?),
+                last_error=NULL
+            WHERE id=?
+        """, (rumor_id, job_id))
+
+
+def skip_job(job_id, reason):
+    with transaction() as db:
+        db.execute("""
+            UPDATE rp_rumor_auto_outbox
+            SET state='skipped',
+                lease_until=0,
+                last_error=?
+            WHERE id=?
+        """, (
+            str(reason)[:300],
+            job_id,
+        ))
+
+
+def recent_job_status(gid):
+    initialize()
+
+    with get_connection() as db:
+        return [
+            dict(row)
+            for row in db.execute("""
+                SELECT
+                    id,
+                    state,
+                    attempts,
+                    last_error,
+                    rumor_id,
+                    created_at
+                FROM rp_rumor_auto_outbox
+                WHERE guild_id=?
+                ORDER BY created_at DESC
+                LIMIT 5
+            """, (str(gid),))
+        ]
 
 
 def still_consented(guild_id, entry):
@@ -474,14 +735,13 @@ def still_consented(guild_id, entry):
         setting = db.execute("""
             SELECT channel_id, enabled
             FROM rp_rumor_autopost_settings
-            WHERE guild_id = ?
+            WHERE guild_id=?
         """, (str(guild_id),)).fetchone()
 
         return bool(
             setting
             and setting["enabled"]
-            and setting["channel_id"]
-                == entry["channel_id"]
+            and setting["channel_id"] == entry["channel_id"]
             and all(
                 character_id in available
                 for character_id in selected
@@ -507,9 +767,7 @@ def record_post(entry, message_id):
             entry["guild_id"],
             entry["channel_id"],
             entry["template_id"],
-            json.dumps(
-                entry["character_ids"]
-            ),
+            json.dumps(entry["character_ids"]),
             entry["text"],
             str(message_id),
             int(time.time()),
@@ -518,10 +776,7 @@ def record_post(entry, message_id):
 
 def recent_posts(guild_id, limit=5):
     initialize()
-    limit = max(
-        1,
-        min(10, int(limit))
-    )
+    limit = max(1, min(10, int(limit)))
 
     with get_connection() as db:
         rows = db.execute("""
@@ -531,7 +786,7 @@ def recent_posts(guild_id, limit=5):
                 channel_id,
                 created_at
             FROM rp_rumor_autopost_log
-            WHERE guild_id = ?
+            WHERE guild_id=?
             ORDER BY id DESC
             LIMIT ?
         """, (
@@ -539,7 +794,4 @@ def recent_posts(guild_id, limit=5):
             limit,
         )).fetchall()
 
-    return [
-        dict(row)
-        for row in rows
-    ]
+    return [dict(row) for row in rows]
