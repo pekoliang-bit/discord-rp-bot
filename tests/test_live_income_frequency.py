@@ -71,5 +71,19 @@ class LiveIncomeFrequencyTests(unittest.TestCase):
         self.assertIn('platform_fee',columns)
         self.assertIn('commission_gross',columns)
 
+    def test_fifth_stream_has_no_risk_and_sixth_has_one_event(self):
+        for index in range(5):
+            ts = 500000 + index * 10
+            session_id = live_stream.start(123, 11, 1, str(index), 'personal', 'realtime', now=ts)
+            live_stream.stop(123, 11, session_id, now=ts + 1)
+        self.assertEqual(live_stream.frequency_status(123, 1, now=500050)['count_in_7_days'], 5)
+        self.assertFalse(live_stream.frequency_status(123, 1, now=500050)['risk_events'])
+        live_stream.start(123, 11, 1, 'sixth', 'sales', 'realtime', now=500060)
+        status = live_stream.frequency_status(123, 1, now=500061)
+        self.assertEqual(status['count_in_7_days'], 6)
+        self.assertEqual(len(status['risk_events']), 1)
+        self.assertEqual(status['risk_events'][0]['count_in_7_days'], 6)
+
+
 if __name__ == '__main__':
     unittest.main()
