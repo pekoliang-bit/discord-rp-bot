@@ -1,32 +1,31 @@
 
-"""Discord RP /行動：場所頻道辨識與行動預覽。
+"""Discord RP /行動：五大分區場所行動預覽入口。
 
-目前支援四個分區：
-1. 夜生活娛樂區（3 個地點）
-2. 生活休閒區（7 個地點）
-3. 培訓學習區（5 個地點）
-4. 藝文特區（4 個地點）
-
-合計：19 個地點、158 項待審核行動。
+目前支援：
+1. 夜生活娛樂區
+2. 生活休閒區
+3. 培訓學習區
+4. 藝文特區
+5. 影視娛樂區
 
 功能：
-- 根據伺服器 ID、頻道 ID 自動辨識地點。
+- 按伺服器及頻道 ID 辨識場所。
 - 支援打工、活動、課程。
-- 玩家只能查看已核准的行動。
 - 伺服器擁有者可預覽待審核行動。
-- 驗證金幣、行動值、屬性及點數規則。
-- 防止其他使用者操作原開啟者的選單。
-- 支援超過 25 項行動時分頁。
+- 玩家只看得到已核准且驗證通過的行動。
+- 選單只允許原使用者操作。
+- 支援每頁最多 25 項行動。
+- 防止普通行動冒充正式影視通告。
 - 不新增其他頂層 Slash 指令。
 
-安全限制：
-- 不直接執行任何行動。
-- 不扣除金幣或行動值。
-- 不發放金幣、屬性及點數。
-- 不修改角色資料。
-- 不自動核准待審核行動。
+安全預覽模式：
+- 不扣款、不發薪。
+- 不扣除行動值。
+- 不發放屬性或點數。
+- 不修改作品履歷。
+- 不自動核准任何行動。
 
-此模組目前為預覽版本，正式結算將於後續整合。
+正式交易及群主自訂設定需另外接入。
 """
 
 from __future__ import annotations
@@ -43,24 +42,21 @@ from modules import (
     leisure_location_defaults,
     training_location_defaults,
     arts_location_defaults,
+    film_location_defaults,
 )
-
 from modules.action_reward_rules import validate_action
 
 
 LOG = logging.getLogger(__name__)
 
-VALID_CATEGORIES = (
-    "打工",
-    "活動",
-    "課程",
-)
+VALID_CATEGORIES = ("打工", "活動", "課程")
 
 PROVIDERS = (
     action_location_defaults,
     leisure_location_defaults,
     training_location_defaults,
     arts_location_defaults,
+    film_location_defaults,
 )
 
 PAGE_SIZE = 25
@@ -71,7 +67,7 @@ def resolve_location(
     guild_id: int | str,
     channel_id: int | str,
 ) -> tuple[dict | None, Any | None]:
-    """依據伺服器及頻道 ID 尋找對應地點。"""
+    """依伺服器與頻道查詢場所。"""
 
     for provider in PROVIDERS:
         try:
@@ -79,92 +75,75 @@ def resolve_location(
                 guild_id,
                 channel_id,
             )
-
-            if location is not None:
-                return location, provider
-
         except Exception:
             LOG.exception(
-                "查詢行動地點失敗："
-                "guild=%s channel=%s provider=%s",
+                "場所查詢失敗：guild=%s channel=%s provider=%s",
                 guild_id,
                 channel_id,
                 provider.__name__,
             )
+            continue
+
+        if location is not None:
+            return location, provider
 
     return None, None
 
 
 def describe_action(action: dict) -> str:
-    """將行動效果轉換為玩家可閱讀的文字。"""
+    """顯示金幣、屬性、點數及行動值。"""
 
     parts = []
 
     reward = int(action.get("reward_coins", 0))
     cost = int(action.get("cost_coins", 0))
 
-    if reward > 0:
-        parts.append(
-            f"金幣 +{reward:,}"
-        )
+    if reward:
+        parts.append(f"金幣 +{reward:,}")
 
-    if cost > 0:
-        parts.append(
-            f"花費 {cost:,} 金幣"
-        )
+    if cost:
+        parts.append(f"花費 {cost:,} 金幣")
 
     attribute = action.get("attribute")
-    increase = int(
-        action.get("attribute_increase", 0)
-    )
+    increase = int(action.get("attribute_increase", 0))
 
-    if attribute and increase > 0:
+    if attribute and increase:
         skill_name = action.get("skill_name")
 
         if skill_name:
-            parts.append(
-                f"{skill_name} +{increase}"
-            )
+            parts.append(f"{skill_name} +{increase}")
         else:
-            parts.append(
-                f"{attribute} +{increase}"
-            )
+            parts.append(f"{attribute} +{increase}")
 
-    point_rewards = action.get(
-        "point_rewards", {}
-    )
+    point_rewards = action.get("point_rewards") or {}
 
     if isinstance(point_rewards, dict):
         for pool, amount in point_rewards.items():
             if int(amount) > 0:
-                parts.append(
-                    f"{pool} +{int(amount)}"
-                )
+                parts.append(f"{pool} +{int(amount)}")
 
-    health = int(
-        action.get("health_delta", 0)
-    )
+    health = int(action.get("health_delta", 0))
 
-    if health != 0:
-        parts.append(
-            f"健康 {health:+d}"
-        )
+    if health:
+        parts.append(f"健康 {health:+d}")
 
-    action_points = int(
-        action.get("action_points_cost", 0)
-    )
+    ap = int(action.get("action_points_cost", 0))
+    parts.append(f"行動值 -{ap}")
 
-    parts.append(
-        f"行動值 -{action_points}"
-    )
+    return "｜".join(parts) or "無額外獎勵"
 
-    return "｜".join(parts)
+
+def is_formal_notice_action(action: dict) -> bool:
+    """防止場所普通行動被標記為正式通告。"""
+
+    return action.get("formal_notice") is True
 
 
 def get_action_status(action: dict) -> str:
-    """取得行動目前的核准與驗證狀態。"""
-
     valid, reason = validate_action(action)
+
+    if is_formal_notice_action(action):
+        return "設定異常：普通行動不可作為正式通告"
 
     if not valid:
         return f"設定異常：{reason}"
@@ -180,7 +159,7 @@ def get_category_actions(
     category: str,
     owner_preview: bool = False,
 ) -> list[dict]:
-    """取得指定地點與分類的行動。"""
+    """依身分過濾可預覽的行動。"""
 
     if category not in VALID_CATEGORIES:
         return []
@@ -200,6 +179,9 @@ def get_category_actions(
         if action.get("approved") is not True:
             continue
 
+        if is_formal_notice_action(action):
+            continue
+
         valid, _ = validate_action(action)
 
         if valid:
@@ -209,19 +191,18 @@ def get_category_actions(
 
 
 class ActionChoice(discord.ui.Select):
-    """行動選擇器，僅供預覽。"""
+    """行動選項：只查看資料，不執行。"""
 
     def __init__(
         self,
         location_name: str,
         category: str,
         actions: list[dict],
-        page: int = 0,
+        page: int,
     ):
         self.location_name = location_name
         self.category = category
         self.actions = actions
-        self.page = page
 
         start = page * PAGE_SIZE
         end = start + PAGE_SIZE
@@ -239,7 +220,7 @@ class ActionChoice(discord.ui.Select):
             options.append(
                 discord.SelectOption(
                     label=str(
-                        action.get("name", "未命名行動")
+                        action.get("name") or "未命名行動"
                     )[:100],
                     value=str(index),
                     description=description[:100],
@@ -247,10 +228,7 @@ class ActionChoice(discord.ui.Select):
             )
 
         super().__init__(
-            placeholder=(
-                f"選擇{category}項目"
-                "（預覽模式）"
-            )[:150],
+            placeholder=f"選擇{category}項目（預覽）",
             options=options,
             min_values=1,
             max_values=1,
@@ -262,10 +240,7 @@ class ActionChoice(discord.ui.Select):
     ):
         view = self.view
 
-        if not isinstance(
-            view,
-            ActionPreview,
-        ):
+        if not isinstance(view, ActionPreview):
             await interaction.response.send_message(
                 "選單狀態異常，請重新使用 /行動。",
                 ephemeral=True,
@@ -279,38 +254,37 @@ class ActionChoice(discord.ui.Select):
 
         if index < 0 or index >= len(self.actions):
             await interaction.response.send_message(
-                "找不到這項行動，請重新選擇。",
+                "找不到此行動。",
                 ephemeral=True,
             )
             return
 
         action = self.actions[index]
-
         valid, reason = validate_action(action)
 
-        status = get_action_status(action)
-
         message = (
-            f"**{self.location_name}｜"
-            f"{self.category}**\n\n"
+            f"**{self.location_name}｜{self.category}**\n\n"
             f"**{action.get('name', '未命名行動')}**\n\n"
             f"{describe_action(action)}\n\n"
-            f"審核狀態：{status}\n"
+            f"審核狀態：{get_action_status(action)}\n"
             f"規則檢查："
             f"{'通過' if valid else reason}"
         )
 
-        notes = action.get("notes")
+        if action.get("notes"):
+            message += f"\n備註：{action['notes']}"
 
-        if notes:
+        if view.provider is film_location_defaults:
             message += (
-                f"\n備註：{notes}"
+                "\n\n**影視通告隔離規則**"
+                "\n此行動不代表正式作品錄取，"
+                "不產生正式片酬、作品履歷、"
+                "演出資歷或卡司紀錄。"
             )
 
         message += (
-            "\n\n目前為安全預覽模式。"
-            "\n不會扣除金幣、行動值，"
-            "也不會發放任何獎勵。"
+            "\n\n目前為預覽模式，"
+            "不會扣款、發薪、配點或扣除行動值。"
         )
 
         await interaction.response.send_message(
@@ -320,31 +294,30 @@ class ActionChoice(discord.ui.Select):
 
 
 class ActionPreview(discord.ui.View):
-    """支援選單分頁及使用者限制。"""
+    """行動分頁選單。"""
 
     def __init__(
         self,
         location: dict,
+        provider: Any,
         category: str,
         actions: list[dict],
         user_id: int,
+        owner_preview: bool,
     ):
-        super().__init__(
-            timeout=VIEW_TIMEOUT
-        )
+        super().__init__(timeout=VIEW_TIMEOUT)
 
         self.location = location
+        self.provider = provider
         self.category = category
         self.actions = actions
         self.user_id = user_id
+        self.owner_preview = owner_preview
 
         self.current_page = 0
-
         self.total_pages = max(
             1,
-            (
-                len(actions) + PAGE_SIZE - 1
-            ) // PAGE_SIZE,
+            (len(actions) + PAGE_SIZE - 1) // PAGE_SIZE,
         )
 
         self.refresh_items()
@@ -353,12 +326,9 @@ class ActionPreview(discord.ui.View):
         self,
         interaction: discord.Interaction,
     ) -> bool:
-        """只有原本開啟選單的人可以操作。"""
-
         if interaction.user.id != self.user_id:
             await interaction.response.send_message(
-                "這不是你的行動選單，"
-                "請自行使用 /行動。",
+                "這不是你的行動選單，請自行使用 /行動。",
                 ephemeral=True,
             )
             return False
@@ -372,8 +342,6 @@ class ActionPreview(discord.ui.View):
         return await self.check_user(interaction)
 
     def refresh_items(self):
-        """重建目前頁面的選單與分頁按鈕。"""
-
         self.clear_items()
 
         self.add_item(
@@ -385,44 +353,60 @@ class ActionPreview(discord.ui.View):
             )
         )
 
-        if self.total_pages > 1:
-            previous_button = discord.ui.Button(
-                label="上一頁",
-                emoji="◀️",
-                style=discord.ButtonStyle.secondary,
-                disabled=self.current_page <= 0,
-                row=1,
+        if self.total_pages <= 1:
+            return
+
+        previous_button = discord.ui.Button(
+            label="上一頁",
+            emoji="◀️",
+            style=discord.ButtonStyle.secondary,
+            disabled=self.current_page == 0,
+            row=1,
+        )
+
+        next_button = discord.ui.Button(
+            label="下一頁",
+            emoji="▶️",
+            style=discord.ButtonStyle.secondary,
+            disabled=(
+                self.current_page >= self.total_pages - 1
+            ),
+            row=1,
+        )
+
+        previous_button.callback = self.previous_page
+        next_button.callback = self.next_page
+
+        self.add_item(previous_button)
+        self.add_item(next_button)
+
+    def build_page_message(self) -> str:
+        mode = (
+            "群主待審核預覽"
+            if self.owner_preview
+            else "已核准行動預覽"
+        )
+
+        message = (
+            f"**{self.location['name']}｜{self.category}**\n"
+            f"共 {len(self.actions)} 項\n"
+            f"第 {self.current_page + 1}"
+            f"／{self.total_pages} 頁\n"
+            f"{mode}\n\n"
+            "目前尚未開放實際結算。"
+        )
+
+        if self.provider is film_location_defaults:
+            message += (
+                "\n普通行動與正式影視通告分開結算。"
             )
 
-            next_button = discord.ui.Button(
-                label="下一頁",
-                emoji="▶️",
-                style=discord.ButtonStyle.secondary,
-                disabled=(
-                    self.current_page
-                    >= self.total_pages - 1
-                ),
-                row=1,
-            )
-
-            previous_button.callback = (
-                self.previous_page
-            )
-
-            next_button.callback = (
-                self.next_page
-            )
-
-            self.add_item(previous_button)
-            self.add_item(next_button)
+        return message
 
     async def previous_page(
         self,
         interaction: discord.Interaction,
     ):
-        if not await self.check_user(interaction):
-            return
-
         if self.current_page > 0:
             self.current_page -= 1
 
@@ -437,9 +421,6 @@ class ActionPreview(discord.ui.View):
         self,
         interaction: discord.Interaction,
     ):
-        if not await self.check_user(interaction):
-            return
-
         if self.current_page < self.total_pages - 1:
             self.current_page += 1
 
@@ -450,22 +431,7 @@ class ActionPreview(discord.ui.View):
             view=self,
         )
 
-    def build_page_message(self) -> str:
-        """產生目前分頁的標題與說明。"""
-
-        return (
-            f"**{self.location['name']}｜"
-            f"{self.category}**\n"
-            f"共 {len(self.actions)} 項行動。\n"
-            f"第 {self.current_page + 1}"
-            f"／{self.total_pages} 頁\n\n"
-            "目前為行動預覽模式，"
-            "尚未開放實際結算。"
-        )
-
     async def on_timeout(self):
-        """選單超時後停止接受互動。"""
-
         for item in self.children:
             item.disabled = True
 
@@ -473,20 +439,14 @@ class ActionPreview(discord.ui.View):
 
 
 class LocationActionCommands(commands.Cog):
-    """Discord /行動 斜線指令。"""
+    """統一 /行動 指令。"""
 
-    def __init__(
-        self,
-        bot: commands.Bot,
-    ):
+    def __init__(self, bot: commands.Bot):
         self.bot = bot
 
     @app_commands.command(
         name="行動",
-        description=(
-            "在所在地點查看打工、"
-            "活動及課程"
-        ),
+        description="在目前地點查看打工、活動及課程",
     )
     @app_commands.guild_only()
     @app_commands.describe(
@@ -518,7 +478,7 @@ class LocationActionCommands(commands.Cog):
 
         if guild is None or channel is None:
             await interaction.response.send_message(
-                "請在伺服器的地點頻道使用 /行動。",
+                "請在伺服器內的地點頻道使用 /行動。",
                 ephemeral=True,
             )
             return
@@ -537,35 +497,28 @@ class LocationActionCommands(commands.Cog):
 
         if location is None:
             await interaction.response.send_message(
-                "此頻道尚未綁定行動地點。\n"
-                "請確認頻道設定，"
-                "或聯絡伺服器管理員。",
+                "此頻道尚未綁定行動地點。",
                 ephemeral=True,
             )
             return
 
-        is_owner = (
-            interaction.user.id
-            == guild.owner_id
-        )
+        is_owner = interaction.user.id == guild.owner_id
 
         actions = get_category_actions(
-            location=location,
-            category=類別,
+            location,
+            類別,
             owner_preview=is_owner,
         )
 
         if not actions:
-            if is_owner:
-                message = (
-                    f"**{location['name']}**\n"
-                    f"目前沒有設定「{類別}」項目。"
+            message = (
+                f"**{location['name']}｜{類別}**\n"
+                + (
+                    "目前沒有設定這個類別的行動。"
+                    if is_owner
+                    else "目前沒有已審核開放的行動。"
                 )
-            else:
-                message = (
-                    f"**{location['name']}｜{類別}**\n"
-                    "目前沒有已審核開放的行動。"
-                )
+            )
 
             await interaction.response.send_message(
                 message,
@@ -575,45 +528,18 @@ class LocationActionCommands(commands.Cog):
 
         view = ActionPreview(
             location=location,
+            provider=provider,
             category=類別,
             actions=actions,
             user_id=interaction.user.id,
+            owner_preview=is_owner,
         )
 
-        if is_owner:
-            description = (
-                "群主預覽："
-                "包含尚未核准的行動。"
-            )
-        else:
-            description = (
-                "玩家預覽："
-                "只顯示已核准的行動。"
-            )
-
-        message = (
-            f"**{location['name']}｜{類別}**\n"
-            f"共 {len(actions)} 項。\n"
-            f"{description}\n\n"
-            "目前尚未開放實際交易、"
-            "行動值扣除及獎勵發放。"
+        await interaction.response.send_message(
+            view.build_page_message(),
+            view=view,
+            ephemeral=True,
         )
-
-        try:
-            await interaction.response.send_message(
-                message,
-                view=view,
-                ephemeral=True,
-            )
-
-        except discord.HTTPException:
-            LOG.exception(
-                "/行動 預覽傳送失敗："
-                "guild=%s channel=%s user=%s",
-                guild.id,
-                channel.id,
-                interaction.user.id,
-            )
 
     @action.error
     async def action_error(
@@ -621,10 +547,8 @@ class LocationActionCommands(commands.Cog):
         interaction: discord.Interaction,
         error: app_commands.AppCommandError,
     ):
-        """統一處理指令執行例外。"""
-
         LOG.error(
-            "/行動 執行失敗",
+            "/行動 指令錯誤",
             exc_info=(
                 type(error),
                 error,
@@ -634,7 +558,7 @@ class LocationActionCommands(commands.Cog):
 
         message = (
             "行動系統暫時無法顯示，"
-            "請稍後重新執行。"
+            "請確認場所設定。"
         )
 
         try:
@@ -648,36 +572,29 @@ class LocationActionCommands(commands.Cog):
                     message,
                     ephemeral=True,
                 )
-
         except discord.HTTPException:
-            LOG.exception(
-                "無法回覆 /行動 錯誤訊息"
-            )
+            LOG.exception("無法傳送 /行動 錯誤訊息")
 
 
 async def setup(bot: commands.Bot):
-    """由主程式自動載入擴充模組。"""
+    """載入 Discord Cog。"""
 
     if bot.tree.get_command("行動") is not None:
         LOG.warning(
-            "已有 /行動 指令，"
-            "略過重複註冊。"
+            "已有 /行動 指令，略過重複註冊。"
         )
         return
 
-    if bot.get_cog("LocationActionCommands"):
+    if bot.get_cog("LocationActionCommands") is not None:
         LOG.warning(
-            "LocationActionCommands 已載入，"
-            "略過重複載入。"
+            "LocationActionCommands 已存在。"
         )
         return
 
-    await bot.add_cog(
-        LocationActionCommands(bot)
-    )
+    await bot.add_cog(LocationActionCommands(bot))
 
     LOG.info(
-        "已載入 /行動 預覽系統："
-        "夜生活、生活休閒、"
-        "培訓學習、藝文特區"
+        "已載入 /行動 預覽："
+        "夜生活、生活休閒、培訓學習、"
+        "藝文特區、影視娛樂區"
     )
