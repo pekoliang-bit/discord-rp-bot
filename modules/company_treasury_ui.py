@@ -385,6 +385,7 @@ class TreasuryDetailView(discord.ui.View):
         guild_id,
         business_id,
         is_owner,
+        business_kind="company",
     ):
         super().__init__(timeout=600)
 
@@ -392,6 +393,7 @@ class TreasuryDetailView(discord.ui.View):
         self.guild_id = str(guild_id)
         self.business_id = str(business_id)
         self.is_owner = bool(is_owner)
+        self.business_kind = str(business_kind)
         from modules.company_wage_debt_ui import DebtEntry
         # DebtEntry is available only on a selected company, not on the slash-command root.
         self.gid, self.uid = self.guild_id, self.user_id
@@ -404,6 +406,12 @@ class TreasuryDetailView(discord.ui.View):
             self.add_item(
                 OwnerSpendingLimitButton()
             )
+
+        # The setting button already exists below. Add only the read-only
+        # summary, avoiding a second button that changes the same setting.
+        if self.business_kind == "company":
+            from modules.company_payroll_ui import PayrollCycleSummaryButton
+            self.add_item(PayrollCycleSummaryButton())
 
     async def interaction_check(self, interaction):
         if (
@@ -469,8 +477,8 @@ class TreasuryDetailView(discord.ui.View):
 
     @discord.ui.button(label="⚙️ 發薪週期", style=discord.ButtonStyle.secondary, row=2)
     async def payroll_cycle(self, interaction, button):
-        if not self.is_owner:
-            return await interaction.response.send_message("只有公司持有人能設定發薪週期。", ephemeral=True)
+        if not self.is_owner or self.business_kind != "company":
+            return await interaction.response.send_message("只有正式公司持有人能設定發薪週期。", ephemeral=True)
         await interaction.response.send_modal(PayrollCycleModal(
             self.user_id, self.guild_id, self.business_id))
 
@@ -684,6 +692,7 @@ class TreasuryCompanySelect(discord.ui.Select):
                 parent.guild_id,
                 business_id,
                 selected["is_owner"],
+                selected["kind"],
             ),
         )
 
