@@ -182,7 +182,99 @@ class GroupsView(PrivateView):
     async def decline(self,interaction,button): await interaction.response.send_modal(GroupActionModal(self.account,'decline'))
     @discord.ui.button(label='退出群組',emoji='🚪',row=1)
     async def leave(self,interaction,button): await interaction.response.send_modal(GroupActionModal(self.account,'leave'))
+    @discord.ui.button(label='頻道綁定（群主）',emoji='⚙️',row=3)
+    async def bindings(self,interaction,button):
+        if not interaction.guild or interaction.user.id != interaction.guild.owner_id:
+            await inform(interaction,'⛔ 僅群主可以開啟頻道綁定設定。')
+            return
+        await interaction.response.send_message(
+            binding_status(interaction.guild_id),
+            view=ChannelBindingsView(interaction.user.id), ephemeral=True)
+
     @discord.ui.button(label='全員大群',emoji='🌐',row=2)
     async def general(self,interaction,button):
         s=ng.settings(interaction.guild.id)
         await inform(interaction,f'🌐 全員大群：<#{s["global_channel_id"]}>' if s['global_channel_id'] else '尚未綁定全員大群頻道')
+
+
+class ChannelBindingModal(discord.ui.Modal, title='頻道綁定設定'):
+    channel_id = discord.ui.TextInput(label='Discord 頻道 ID', placeholder='貼上數字 ID', min_length=15, max_length=22)
+
+    def __init__(self, kind: str, label: str):
+        super().__init__()
+        self.kind = kind
+        self.title = f'設定：{label}'
+
+    async def on_submit(self, interaction: discord.Interaction):
+        if not interaction.guild or interaction.user.id != interaction.guild.owner_id:
+            await inform(interaction, '⛔ 只有群主可以修改頻道綁定。')
+            return
+        try:
+            cid = int(str(self.channel_id).strip())
+            channel = interaction.guild.get_channel(cid)
+            if self.kind in ('network_category', 'shop_category'):
+                valid = isinstance(channel, discord.CategoryChannel)
+                expected = '分類'
+            else:
+                valid = isinstance(channel, discord.TextChannel)
+                expected = '文字頻道'
+            if not valid:
+                raise ValueError(f'指定 ID 不是本伺服器的{expected}，或機器人尚未取得頻道資料。')
+            if self.kind == 'network_category':
+                await asyncio.to_thread(ng.set_settings, interaction.guild_id, category_id=cid)
+            elif self.kind == 'network_global':
+                await asyncio.to_thread(ng.set_settings, interaction.guild_id, global_channel_id=cid)
+            elif self.kind == 'shop_category':
+                from modules.player_shop_channels import set_category
+                await asyncio.to_thread(set_category, interaction.guild_id, cid)
+            elif self.kind.startswith('faction:'):
+                await asyncio.to_thread(ng.set_settings, interaction.guild_id,
+                    faction_name=self.kind.split(':', 1)[1], faction_channel_id=cid)
+            else:
+                raise ValueError('未知設定類型')
+            await inform(interaction, f'✅ 已儲存 {self.title}：{channel.mention}（{cid}）')
+        except (ValueError, TypeError) as exc:
+            await inform(interaction, f'⚠️ {exc}')
+        except Exception:
+            LOG.exception('頻道設定更新失敗')
+            await inform(interaction, '⚠️ 設定儲存失敗，請查看機器人日誌。')
+
+
+class ChannelBindingsView(PrivateView):
+    """Owner-only configuration; entries are retained in SQLite across restarts."""
+    def __init__(self, owner_id):
+        super().__init__(owner_id)
+        options = [
+            discord.SelectOption(label='網路群組分類', value='network_category'),
+            discord.SelectOption(label='網路全員大群', value='network_global'),
+            discord.SelectOption(label='商業經貿分類', value='shop_category'),
+        ]
+        options.extend(discord.SelectOption(label=f'預設群組：{name}'[:100], value=f'faction:{name}')
+                       for name in ng.DEFAULT_FACTIONS)
+        select = discord.ui.Select(placeholder='選擇要修改的頻道綁定', options=options)
+        async def selected(interaction):
+            value = select.values[0]
+            label = next(x.label for x in options if x.value == value)
+            await interaction.response.send_modal(ChannelBindingModal(value, label))
+        select.callback = selected
+        self.add_item(select)
+
+    async def interaction_check(self, interaction):
+        if not await super().interaction_check(interaction):
+            return False
+        if not interaction.guild or interaction.user.id != interaction.guild.owner_id:
+            await inform(interaction, '⛔ 僅群主可修改頻道設定。')
+            return False
+        return True
+
+
+def binding_status(guild_id):
+    from modules.player_shop_channels import category_for
+    s = ng.settings(guild_id)
+    def show(value):
+        return f'<#{value}>' if value else '尚未設定'
+    rows = [f"網路群組分類：{show(s['category_id'])}",
+            f"全員大群：{show(s['global_channel_id'])}",
+            f"商業經貿分類：{show(category_for(guild_id))}"]
+    rows.extend(f'{name}：{show(cid)}' for name, cid in s['factions'].items())
+    return '⚙️ **群主頻道綁定設定**\n' + '\n'.join(rows)
