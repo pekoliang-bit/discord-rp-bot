@@ -69,6 +69,12 @@ def main():
 
     original = TARGET.read_text(encoding="utf-8")
 
+    # Newer versions already expose a safe cycle-setting button;
+    # duplicate controls would confuse players and may exceed View limits.
+    if "self.add_item(PayrollCycleSummaryButton())" in original:
+        print("薪資管理介面已接入（設定及查閱），無需重複修改。")
+        return
+
     if NEW in original:
         print("薪資管理介面已經接入，無需重複修改。")
         return
