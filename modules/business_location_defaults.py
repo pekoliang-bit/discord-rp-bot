@@ -1,4 +1,3 @@
-
 """商業經貿區預設場所、專用指令與行動資料查詢。
 
 - 4 個 /行動 場所，48 項待審核行動
@@ -125,6 +124,12 @@ def get_category_id(
     """
     if custom_category_id is not None:
         return int(custom_category_id)
+
+    # Share one authoritative per-guild setting with personal shop channels.
+    from modules.player_shop_channels import category_for
+    configured = category_for(guild_id)
+    if configured is not None:
+        return configured
 
     if str(guild_id) == TARGET_GUILD_ID:
         return int(CATEGORY_ID)
