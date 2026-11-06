@@ -77,7 +77,15 @@ class ListingsView(discord.ui.View):
         from modules.task_conditions import public_minimums
         from discord.utils import escape_markdown
         page=self.rows[self.page*5:self.page*5+5]
-        text='\n'.join(f"**#{r['id']}** {escape_markdown(r['title'])}（{r['subtype'] or '一般'}）\n最低接取條件：{public_minimums(self.gid,r)}" for r in page)
+        from core.work_schedule import task_slot
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+        lines=[]
+        for r in page:
+            schedule=task_slot(self.gid,r['id'])
+            date_line=(f"\n📅 正式檔期：{datetime.fromisoformat(schedule['starts_at']).astimezone(ZoneInfo('Asia/Taipei')).strftime('%m/%d %H:%M')} ～ {datetime.fromisoformat(schedule['ends_at']).astimezone(ZoneInfo('Asia/Taipei')).strftime('%m/%d %H:%M')}（台灣時間）" if schedule else "\n📅 未設定正式檔期（目前不鎖日曆）")
+            lines.append(f"**#{r['id']}** {escape_markdown(r['title'])}（{r['subtype'] or '一般'}）\n最低接取條件：{public_minimums(self.gid,r)}"+date_line)
+        text='\n'.join(lines)
         return (f'🎬 通告 {self.page+1}/{(len(self.rows)+4)//5} 頁\n'+text)[:1900]
     async def interaction_check(self,i):
         if i.user.id!=self.uid:
