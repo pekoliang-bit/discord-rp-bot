@@ -50,6 +50,20 @@ class LeaderboardView(discord.ui.View):
             visible=rows[self.page*PAGE_SIZE:(self.page+1)*PAGE_SIZE]
             embed.description='\n'.join(f"**#{r['rank']}**｜{discord.utils.escape_markdown(str(r['character_name']))[:65]}｜{r['score']:,}" for r in visible)
             embed.set_footer(text=f'第 {self.page+1}/{pages} 頁｜相同分數並列名次')
+        # 排行榜14/30天結算倒數：用每服持久化錨點，不於重啟時重設。
+        try:
+            from modules.leaderboard_config import get_config
+            from modules.leaderboard_cycle import settlement_countdown
+            conf=get_config(self.guild_id)
+            if conf and conf.get('enabled'):
+                times=settlement_countdown(conf['anchor_utc'])
+                embed.add_field(name='⏳ 排行榜結算倒數', value=(
+                    f"小結算（14天）：{times['14d']['remaining']}\n"
+                    f"大結算（30天）：{times['30d']['remaining']}"),inline=False)
+            else:
+                embed.add_field(name='⏳ 排行榜結算倒數',value='本伺服器尚未啟用正式排行榜結算，無法推算倒數。',inline=False)
+        except Exception:
+            embed.add_field(name='⏳ 排行榜結算倒數',value='暫時無法讀取結算設定。',inline=False)
         self.previous.disabled=self.page<=0
         self.next_page.disabled=status!='ready' or (self.page+1)*PAGE_SIZE>=len(rows)
         return embed
