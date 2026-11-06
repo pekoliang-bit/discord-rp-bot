@@ -1,11 +1,23 @@
-"""不同排行榜的收款身分解析，僅產生操作計畫，不動金流。"""
+"""依正式排行榜身分識別收款路由；不執行任何金流變更。"""
 from __future__ import annotations
-from modules.leaderboard_payout_identity import expected_type,validate_identity
-class RecipientNotReady(ValueError):pass
-def resolve(board,entity_key):
+from modules.leaderboard_payout_identity import validate_identity
+
+class RecipientNotReady(ValueError):
+    pass
+
+ROUTES = {'character':'character_wallet','company':'company_treasury',
+          'group':'group_treasury','shop':'shop_ledger','faction':'faction_treasury',
+          'cp':'pair_split','social_account':'social_account_ledger'}
+
+
+def resolve(board,entity_key,*,db=None,guild_id=None):
     parsed=validate_identity(board,entity_key)
-    recipient_type=parsed['entity_type'];rid=str(parsed['entity_id'])
-    if not rid.strip():raise RecipientNotReady('獲獎單位缺少 ID')
-    # 帳戶類型不可猜成 character wallet。所有非角色獎勵先維持封鎖。
-    route={'character':'character_wallet','company':'company_treasury','group':'group_treasury','shop':'shop_ledger','faction':'faction_treasury','cp':'pair_split','social_account':'social_account_ledger'}[recipient_type]
-    return {'board':board,'entity_type':recipient_type,'entity_id':rid,'route':route,'requires_verified_adapter':recipient_type!='character'}
+    kind=parsed['entity_type'];eid=str(parsed['entity_id'])
+    if not eid.strip():raise RecipientNotReady('獲獎單位缺少 ID')
+    plan={'board':board,'entity_type':kind,'entity_id':eid,'route':ROUTES[kind],
+          'requires_verified_adapter':kind!='character'}
+    if db is not None:
+        if guild_id is None:raise ValueError('查詢真實收款帳戶時必須提供 guild_id')
+        from modules.leaderboard_account_adapter import inspect_account
+        plan['account']=inspect_account(db,guild_id,board,entity_key)
+    return plan
