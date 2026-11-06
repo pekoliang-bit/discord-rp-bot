@@ -1,4 +1,3 @@
-
 """排行榜獎勵資料安全驗證。"""
 
 from modules.leaderboard_catalog import BOARD_NAMES
@@ -83,6 +82,9 @@ def validate_reward(reward):
             raise ValueError(
                 f"非法獎勵數量：{name}"
             )
+
+    if "reward_version" not in reward or not isinstance(reward["reward_version"], str):
+        raise ValueError("獎勵必須標明版本，不得匿名入帳")
 
     if reward.get("requires_adapter") is not True:
         raise ValueError(
