@@ -687,6 +687,38 @@ def make_character_embed(
         inline=False,
     )
 
+    if detail_page == 0:
+        try:
+            from core.work_schedule import display_lines
+            schedule_text = display_lines(actor.guild_id, character_id)
+        except Exception:
+            LOG.exception('讀取角色工作檔期失敗：%s',character_id)
+            schedule_text = '檔期資料暫時無法讀取。'
+        embed.add_field(name='📅 工作檔期／倒數',value=schedule_text,inline=False)
+        # /查看 同步顯示排行榜14/30天結算剩餘時間，與工作檔期分開。
+        try:
+            from modules.leaderboard_config import get_config
+            from modules.leaderboard_cycle import settlement_countdown
+            rank_config=get_config(actor.guild_id)
+            if rank_config and rank_config.get('enabled'):
+                rank_times=settlement_countdown(rank_config['anchor_utc'])
+                embed.add_field(name='🏆 排行榜結算',
+                    value=(f"小結算剩餘：{rank_times['14d']['remaining']}\n"
+                           f"總結算剩餘：{rank_times['30d']['remaining']}"),inline=False)
+        except Exception:
+            LOG.exception('排行榜結算倒數暫時無法讀取：%s',actor.guild_id)
+
+        try:
+            from core.work_schedule import missing_registration
+            missed=missing_registration(actor.guild_id,character_id,4)
+            if missed:
+                lines=[f"#{r['task_id']} {str(r['title'])[:30]}（{r['reason']}）" for r in missed]
+                embed.add_field(name='⚠️ 工作檔期待確認',
+                    value='以下是已接取但尚未完成檔期登記的工作，請洽官方核對並補登記：\n'+'\n'.join(lines),inline=False)
+        except Exception:
+            LOG.exception('工作檔期漏登提醒暫時無法讀取：%s',character_id)
+
+
     public_lines = []
 
     for key, label in PUBLIC_FIELDS.items():
