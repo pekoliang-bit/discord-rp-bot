@@ -106,6 +106,11 @@ def accept_task(guild_id,character_id,task_id,cycle_key='once'):
     with transaction() as db:
         row=db.execute("SELECT * FROM rp_task_definitions WHERE id=? AND guild_id=? AND status='published'",(int(task_id),str(guild_id))).fetchone()
         if not row: raise ValueError('任務未發布或不存在')
+        # 同一任務同一週期重複點擊屬冪等，不應在其他席位檢查前報錯。
+        previous=db.execute('''SELECT 1 FROM rp_task_progress
+            WHERE guild_id=? AND character_id=? AND task_id=? AND cycle_key=?''',
+            (str(guild_id),int(character_id),int(task_id),str(cycle_key))).fetchone()
+        if previous:return False
         # 同部作品每角色只能接一職位；名額在 IMMEDIATE 交易內核對。
         cast=db.execute('SELECT * FROM rp_screen_cast_slots WHERE guild_id=? AND task_id=?',
                         (str(guild_id),int(task_id))).fetchone()
@@ -124,6 +129,13 @@ def accept_task(guild_id,character_id,task_id,cycle_key='once'):
         now=datetime.now(timezone.utc).isoformat()
         if (row['starts_at'] and row['starts_at']>now) or (row['ends_at'] and row['ends_at']<=now):
             raise ValueError('任務不在開放時間')
+        # 按任務週期查詢冪等；只有新接取的任務才可以鎖定工作檔期。
+        existing=db.execute('''SELECT 1 FROM rp_task_progress
+          WHERE guild_id=? AND character_id=? AND task_id=? AND cycle_key=?''',
+          (str(guild_id),int(character_id),int(task_id),str(cycle_key))).fetchone()
+        if existing:return False
+        from core.work_schedule import book_in_transaction
+        book_in_transaction(db,guild_id,character_id,row,cycle_key)
         cur=db.execute('''INSERT OR IGNORE INTO rp_task_progress
          (guild_id,character_id,task_id,cycle_key,definition_version,snapshot_json)
          VALUES (?,?,?,?,?,?)''',(str(guild_id),int(character_id),int(task_id),cycle_key,row['version'],json.dumps(dict(row),ensure_ascii=False)))
