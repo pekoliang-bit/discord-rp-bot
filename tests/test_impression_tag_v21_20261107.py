@@ -1,3 +1,4 @@
+
 """V2.1 catalogue and initial-tag constraints; offline using isolated SQLite."""
 import tempfile
 import unittest
@@ -27,33 +28,33 @@ class TagV21Tests(unittest.TestCase):
     def test_catalog_162_and_unique(self):
         rows = tags.catalog()
         self.assertEqual(len(rows), 162)
-        self.assertEqual(len({row['æ¨ç±¤åç¨±'] for row in rows}), 162)
-        self.assertEqual({row['ææå¯©æ ¸çæ'] for row in rows}, {'å·²æ ¸å'})
+        self.assertEqual(len({row['標籤名稱'] for row in rows}), 162)
+        self.assertEqual({row['效果審核狀態'] for row in rows}, {'已核准'})
 
     def test_seed_and_old_defaults(self):
         names = {row['name'] for row in tags.tags('731111')}
-        self.assertTrue({row['æ¨ç±¤åç¨±'] for row in tags.catalog()}.issubset(names))
-        self.assertNotIn('æº«æç¾é', names)
+        self.assertTrue({row['標籤名稱'] for row in tags.catalog()}.issubset(names))
+        self.assertNotIn('溫文爾雅', names)
 
     def test_initial_player_limit_two(self):
-        names = [r['æ¨ç±¤åç¨±'] for r in tags.catalog()]
+        names = [r['標籤名稱'] for r in tags.catalog()]
         self.assertEqual(tags.replace_initial('731111', 5, '101', '101', names[:2]), names[:2])
         with self.assertRaises(ValueError):
             tags.replace_initial('731111', 5, '101', '101', names[:3])
         self.assertEqual(len(tags.held('731111', 5)), 2)
 
     def test_npc_three(self):
-        names = [r['æ¨ç±¤åç¨±'] for r in tags.catalog()]
+        names = [r['標籤名稱'] for r in tags.catalog()]
         tags.seed('731111')
         self.assertEqual(len(tags.replace_initial('731111',6,'102','102',names[:3])),3)
 
     def test_owner_isolation(self):
         tags.seed('731111')
         with self.assertRaises(PermissionError):
-            tags.replace_initial('731111',5,'102','102',[tags.catalog()[0]['æ¨ç±¤åç¨±']])
+            tags.replace_initial('731111',5,'102','102',[tags.catalog()[0]['標籤名稱']])
 
     def test_more_than_five_acquired_via_rumor(self):
-        names = [r['æ¨ç±¤åç¨±'] for r in tags.catalog()]
+        names = [r['標籤名稱'] for r in tags.catalog()]
         tags.seed('731111')
         tags.replace_initial('731111',5,'101','101',names[:2])
         tags.rumor_change('731111',5,add=names[2:9],source_ref='case-1')
@@ -63,17 +64,17 @@ class TagV21Tests(unittest.TestCase):
 
     def test_approved_effect_does_not_credit_attributes(self):
         item=tags.catalog()[0]
-        public=tags.effect_metadata('731111',item['æ¨ç±¤åç¨±'])
-        private=tags.effect_metadata('731111',item['æ¨ç±¤åç¨±'],privileged=True)
+        public=tags.effect_metadata('731111',item['標籤名稱'])
+        private=tags.effect_metadata('731111',item['標籤名稱'],privileged=True)
         self.assertIsNone(public['effect'])
-        self.assertEqual(private['approval'],'å·²æ ¸å')
+        self.assertEqual(private['approval'],'已核准')
         self.assertTrue(private['numeric_effect_active'])
 
     def test_rule_percentages_use_exact_source_values(self):
-        rules=tags.numeric_rules('èå°é»æ´')
+        rules=tags.numeric_rules('舞台黑洞')
         self.assertEqual([rule['relative_percent'] for rule in rules],[10,-5])
         self.assertEqual(tags.apply_relative(0.20,10), 0.22000000000000003)
-        self.assertEqual(tags.numeric_rules('èç³»'),[])
+        self.assertEqual(tags.numeric_rules('萌系'),[])
 
     def test_all_python_sources_parse(self):
         import ast
