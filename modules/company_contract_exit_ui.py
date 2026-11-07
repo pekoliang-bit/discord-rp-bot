@@ -105,7 +105,6 @@ class ExitModal(discord.ui.Modal):
             else:
                 result = await asyncio.to_thread(
                     finalize_exit,
-    list_exit_cases,
                     self.gid, number, self.uid,
                 )
         except (
