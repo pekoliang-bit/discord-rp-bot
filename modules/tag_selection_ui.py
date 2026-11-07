@@ -1,31 +1,35 @@
 """玩家初始標籤：可分頁搜尋、限定角色擁有者。"""
+import logging
 import discord
 from discord.ext import commands
 from modules.tag_library import tags, held, replace_initial, initial_limit, seed
+
+LOG = logging.getLogger(__name__)
 
 class TagSearch(discord.ui.Modal,title='搜尋標籤庫'):
     word=discord.ui.TextInput(label='標籤關鍵字（留空顯示全部）',required=False,max_length=40)
     def __init__(self,view): super().__init__();self.target=view
     async def on_submit(self,i):
         self.target.keyword=str(self.word.value).strip();self.target.page=0
-        await i.response.edit_message(content=self.target.caption(),view=self.target)
+        self.target.refresh()
+        await i.response.send_message(content=self.target.caption(),view=self.target,ephemeral=True)
 
 class TagPick(discord.ui.Select):
     def __init__(self,parent):
         pool=parent.pool();page=pool[parent.page*25:(parent.page+1)*25]
         opts=[discord.SelectOption(label=r['name'],value=r['name'],default=r['name'] in parent.selected) for r in page]
         if not opts: opts=[discord.SelectOption(label='沒有相符標籤',value='__empty__')]
-        super().__init__(placeholder='選擇本頁標籤（可複選）',min_values=0,max_values=min(parent.limit,len(page)),options=opts,disabled=not bool(page),row=0)
-        self.parent=parent
+        super().__init__(placeholder='選擇本頁標籤（可複選）',min_values=0,max_values=max(1,min(parent.limit,len(page))),options=opts,disabled=not bool(page),row=0)
+        self.picker_view=parent
     async def callback(self,i):
-        page_names={r['name'] for r in self.parent.pool()[self.parent.page*25:(self.parent.page+1)*25]}
-        kept=[x for x in self.parent.selected if x not in page_names]
+        page_names={r['name'] for r in self.picker_view.pool()[self.picker_view.page*25:(self.picker_view.page+1)*25]}
+        kept=[x for x in self.picker_view.selected if x not in page_names]
         chosen=[x for x in self.values if x!='__empty__']
-        if len(kept)+len(chosen)>self.parent.limit:
-            return await i.response.send_message(f'最多選 {self.parent.limit} 個，請取消其他頁的選擇。',ephemeral=True)
-        self.parent.selected=kept+chosen
-        self.parent.refresh()
-        await i.response.edit_message(content=self.parent.caption(),view=self.parent)
+        if len(kept)+len(chosen)>self.picker_view.limit:
+            return await i.response.send_message(f'最多選 {self.picker_view.limit} 個，請取消其他頁的選擇。',ephemeral=True)
+        self.picker_view.selected=kept+chosen
+        self.picker_view.refresh()
+        await i.response.edit_message(content=self.picker_view.caption(),view=self.parent)
 
 class TagSelectionView(discord.ui.View):
     def __init__(self,gid,cid,owner_id,actor_id,kind,*,force=False,notice=''):
@@ -66,8 +70,19 @@ class TagSelectionView(discord.ui.View):
         await i.response.edit_message(content=f'✅ 角色 #{self.cid} 初始標籤：'+('、'.join(self.selected) or '無'),view=None)
 
 async def show_tag_picker(i,cid,kind,owner_id,*,force=False,notice=''):
-    view=TagSelectionView(i.guild_id,cid,owner_id,i.user.id,kind,force=force,notice=notice)
-    if i.response.is_done():await i.followup.send(view.caption(),view=view,ephemeral=True)
-    else:await i.response.send_message(view.caption(),view=view,ephemeral=True)
+    try:
+        view = TagSelectionView(i.guild_id, cid, owner_id, i.user.id, kind, force=force, notice=notice)
+        caption = view.caption()
+        if i.response.is_done():
+            await i.followup.send(caption, view=view, ephemeral=True)
+        else:
+            await i.response.send_message(caption, view=view, ephemeral=True)
+    except Exception as exc:
+        LOG.exception('角色標籤選單開啟失敗 guild=%s character=%s',i.guild_id,cid)
+        msg = f'⚠️ 標籤選單開啟失敗（{type(exc).__name__}），請查看 Railway Logs。'
+        if i.response.is_done():
+            await i.followup.send(msg, ephemeral=True)
+        else:
+            await i.response.send_message(msg, ephemeral=True)
 
 async def setup(bot:commands.Bot):pass
