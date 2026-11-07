@@ -4,7 +4,30 @@
   "target_guild_id": "1544051203493601380",
   "timezone": "Asia/Taipei",
   "category": "生活休閒區",
-  "policy": {"normal_attribute_cost_per_point":300,"course_attribute_cost_per_point":500,"min_work_reward":2000,"work_action_points":1,"activity_action_points":1,"course_action_points":0,"attributes_can_only_increase":true,"regulated_attributes_excluded":true,"unapproved_actions_disabled":true,"record_transactions":true,"validate_attribute_mapping":true,"allow_guild_customization":true,"normal_attribute_cost_per_point_is_minimum":true,"course_attribute_cost_per_point_is_minimum":true,"point_pool_rules":{"自由點數":"除影響指數以外的合法屬性","專業點數":"主攻賽道、其他技能","技能點數":"專業（主攻及其他技能）、個人才藝"},"specified_skill_point_reward_target":"自由點數"},
+  "policy": {
+    "normal_attribute_cost_per_point": 300,
+    "course_attribute_cost_per_point": 500,
+    "min_work_reward": 2000,
+    "work_action_points": 1,
+    "activity_action_points": 1,
+    "course_action_points": 0,
+    "attributes_can_only_increase": true,
+    "regulated_attributes_excluded": true,
+    "unapproved_actions_disabled": true,
+    "record_transactions": true,
+    "validate_attribute_mapping": true,
+    "allow_guild_customization": true,
+    "normal_attribute_cost_per_point_is_minimum": true,
+    "course_attribute_cost_per_point_is_minimum": true,
+    "point_pool_rules": {
+      "自由點數": "除影響指數以外的合法屬性",
+      "專業點數": "主攻賽道、其他技能",
+      "技能點數": "專業（主攻及其他技能）、個人才藝"
+    },
+    "specified_skill_point_reward_target": "自由點數",
+    "medical_services_are_separate": true,
+    "beauty_center_non_medical_only": true
+  },
   "locations": [
     {
       "key": "beauty_center",
@@ -12,12 +35,87 @@
       "channel_id": "1546798240295297094",
       "channel_type": "text",
       "actions": [
-        {"name":"美容助理","category":"打工","cost_coins":0,"reward_coins":3000,"attribute":null,"attribute_increase":0,"action_points_cost":1,"approved":false},
-        {"name":"化妝師","category":"打工","cost_coins":0,"reward_coins":3000,"attribute":"其他技能","skill_name":"化妝","attribute_increase":3,"action_points_cost":1,"approved":false},
-        {"name":"美容保養","category":"活動","cost_coins":1500,"reward_coins":0,"attribute":"容貌","attribute_increase":5,"action_points_cost":1,"approved":false},
-        {"name":"造型改造","category":"活動","cost_coins":3000,"reward_coins":0,"attribute":"容貌","attribute_increase":10,"action_points_cost":1,"approved":false},
-        {"name":"基礎美妝課","category":"課程","cost_coins":1500,"reward_coins":0,"attribute":"其他技能","skill_name":"化妝","attribute_increase":3,"action_points_cost":0,"approved":false},
-        {"name":"形象管理課","category":"課程","cost_coins":2500,"reward_coins":0,"attribute":"其他技能","skill_name":"形象管理","attribute_increase":5,"action_points_cost":0,"approved":false}
+        {
+          "name": "美容助理",
+          "category": "打工",
+          "cost_coins": 0,
+          "reward_coins": 3000,
+          "attribute": null,
+          "attribute_increase": 0,
+          "action_points_cost": 1,
+          "approved": false
+        },
+        {
+          "name": "化妝師",
+          "category": "打工",
+          "cost_coins": 0,
+          "reward_coins": 3000,
+          "attribute": "其他技能",
+          "skill_name": "化妝",
+          "attribute_increase": 3,
+          "action_points_cost": 1,
+          "approved": false
+        },
+        {
+          "name": "護膚保養",
+          "category": "活動",
+          "cost_coins": 1500,
+          "reward_coins": 0,
+          "attribute": "容貌",
+          "attribute_increase": 5,
+          "action_points_cost": 1,
+          "approved": false,
+          "notes": "一般肌膚清潔與保養，不含醫療診療或藥品。"
+        },
+        {
+          "name": "美甲造型體驗",
+          "category": "活動",
+          "cost_coins": 3000,
+          "reward_coins": 0,
+          "attribute": "容貌",
+          "attribute_increase": 10,
+          "action_points_cost": 1,
+          "approved": false,
+          "notes": "僅為非侵入性美甲與造型，不含整形或醫療美容。"
+        },
+        {
+          "name": "基礎美妝課",
+          "category": "課程",
+          "cost_coins": 1500,
+          "reward_coins": 0,
+          "attribute": "其他技能",
+          "skill_name": "化妝",
+          "attribute_increase": 3,
+          "action_points_cost": 0,
+          "approved": false
+        },
+        {
+          "name": "美甲設計課",
+          "category": "課程",
+          "cost_coins": 2500,
+          "reward_coins": 0,
+          "attribute": "其他技能",
+          "skill_name": "美甲",
+          "attribute_increase": 5,
+          "action_points_cost": 0,
+          "approved": false
+        }
+      ],
+      "description": "日常非侵入性護膚、化妝、美甲與造型；醫療診療、疾病手術、小整形和大整形均由醫院處理。",
+      "service_scope": [
+        "日常護膚",
+        "肌膚保養",
+        "清潔與保濕",
+        "一般化妝",
+        "美甲",
+        "非醫療造型"
+      ],
+      "excluded_services": [
+        "醫療診治",
+        "處方與侵入性醫美",
+        "疾病手術",
+        "小整形",
+        "大整形"
       ]
     },
     {
@@ -26,12 +124,68 @@
       "channel_id": "1546797716699619429",
       "channel_type": "text",
       "actions": [
-        {"name":"公園維護","category":"打工","cost_coins":0,"reward_coins":3000,"attribute":null,"attribute_increase":0,"action_points_cost":1,"approved":false},
-        {"name":"戶外活動協助","category":"打工","cost_coins":0,"reward_coins":3000,"attribute":null,"attribute_increase":0,"action_points_cost":1,"approved":false},
-        {"name":"晨跑","category":"活動","cost_coins":900,"reward_coins":0,"attribute":"其他技能","skill_name":"體能","attribute_increase":3,"action_points_cost":1,"approved":false},
-        {"name":"戶外社交活動","category":"活動","cost_coins":1500,"reward_coins":0,"attribute":"公關","attribute_increase":5,"action_points_cost":1,"approved":false},
-        {"name":"戶外體能訓練","category":"課程","cost_coins":1500,"reward_coins":0,"attribute":"其他技能","skill_name":"體能","attribute_increase":3,"action_points_cost":0,"approved":false},
-        {"name":"戶外表演指導","category":"課程","cost_coins":2500,"reward_coins":0,"attribute":"個人才藝","attribute_increase":5,"action_points_cost":0,"approved":false}
+        {
+          "name": "公園維護",
+          "category": "打工",
+          "cost_coins": 0,
+          "reward_coins": 3000,
+          "attribute": null,
+          "attribute_increase": 0,
+          "action_points_cost": 1,
+          "approved": false
+        },
+        {
+          "name": "戶外活動協助",
+          "category": "打工",
+          "cost_coins": 0,
+          "reward_coins": 3000,
+          "attribute": null,
+          "attribute_increase": 0,
+          "action_points_cost": 1,
+          "approved": false
+        },
+        {
+          "name": "晨跑",
+          "category": "活動",
+          "cost_coins": 900,
+          "reward_coins": 0,
+          "attribute": "其他技能",
+          "skill_name": "體能",
+          "attribute_increase": 3,
+          "action_points_cost": 1,
+          "approved": false
+        },
+        {
+          "name": "戶外社交活動",
+          "category": "活動",
+          "cost_coins": 1500,
+          "reward_coins": 0,
+          "attribute": "公關",
+          "attribute_increase": 5,
+          "action_points_cost": 1,
+          "approved": false
+        },
+        {
+          "name": "戶外體能訓練",
+          "category": "課程",
+          "cost_coins": 1500,
+          "reward_coins": 0,
+          "attribute": "其他技能",
+          "skill_name": "體能",
+          "attribute_increase": 3,
+          "action_points_cost": 0,
+          "approved": false
+        },
+        {
+          "name": "戶外表演指導",
+          "category": "課程",
+          "cost_coins": 2500,
+          "reward_coins": 0,
+          "attribute": "個人才藝",
+          "attribute_increase": 5,
+          "action_points_cost": 0,
+          "approved": false
+        }
       ]
     },
     {
@@ -40,12 +194,70 @@
       "channel_id": "1548940842700505228",
       "channel_type": "text",
       "actions": [
-        {"name":"咖啡廳服務生","category":"打工","cost_coins":0,"reward_coins":3000,"attribute":null,"attribute_increase":0,"action_points_cost":1,"approved":false},
-        {"name":"咖啡師","category":"打工","cost_coins":0,"reward_coins":3000,"attribute":"其他技能","skill_name":"咖啡製作","attribute_increase":3,"action_points_cost":1,"approved":false},
-        {"name":"咖啡品鑑","category":"活動","cost_coins":900,"reward_coins":0,"attribute":"其他技能","skill_name":"咖啡品鑑","attribute_increase":3,"action_points_cost":1,"approved":false},
-        {"name":"社交聚會","category":"活動","cost_coins":1500,"reward_coins":0,"attribute":"公關","attribute_increase":5,"action_points_cost":1,"approved":false},
-        {"name":"咖啡拉花課","category":"課程","cost_coins":1500,"reward_coins":0,"attribute":"其他技能","skill_name":"咖啡拉花","attribute_increase":3,"action_points_cost":0,"approved":false},
-        {"name":"專業飲品製作","category":"課程","cost_coins":2500,"reward_coins":0,"attribute":"其他技能","skill_name":"飲品製作","attribute_increase":5,"action_points_cost":0,"approved":false}
+        {
+          "name": "咖啡廳服務生",
+          "category": "打工",
+          "cost_coins": 0,
+          "reward_coins": 3000,
+          "attribute": null,
+          "attribute_increase": 0,
+          "action_points_cost": 1,
+          "approved": false
+        },
+        {
+          "name": "咖啡師",
+          "category": "打工",
+          "cost_coins": 0,
+          "reward_coins": 3000,
+          "attribute": "其他技能",
+          "skill_name": "咖啡製作",
+          "attribute_increase": 3,
+          "action_points_cost": 1,
+          "approved": false
+        },
+        {
+          "name": "咖啡品鑑",
+          "category": "活動",
+          "cost_coins": 900,
+          "reward_coins": 0,
+          "attribute": "其他技能",
+          "skill_name": "咖啡品鑑",
+          "attribute_increase": 3,
+          "action_points_cost": 1,
+          "approved": false
+        },
+        {
+          "name": "社交聚會",
+          "category": "活動",
+          "cost_coins": 1500,
+          "reward_coins": 0,
+          "attribute": "公關",
+          "attribute_increase": 5,
+          "action_points_cost": 1,
+          "approved": false
+        },
+        {
+          "name": "咖啡拉花課",
+          "category": "課程",
+          "cost_coins": 1500,
+          "reward_coins": 0,
+          "attribute": "其他技能",
+          "skill_name": "咖啡拉花",
+          "attribute_increase": 3,
+          "action_points_cost": 0,
+          "approved": false
+        },
+        {
+          "name": "專業飲品製作",
+          "category": "課程",
+          "cost_coins": 2500,
+          "reward_coins": 0,
+          "attribute": "其他技能",
+          "skill_name": "飲品製作",
+          "attribute_increase": 5,
+          "action_points_cost": 0,
+          "approved": false
+        }
       ]
     },
     {
@@ -54,12 +266,71 @@
       "channel_id": "1548941378397020211",
       "channel_type": "text",
       "actions": [
-        {"name":"健身房櫃檯","category":"打工","cost_coins":0,"reward_coins":3000,"attribute":null,"attribute_increase":0,"action_points_cost":1,"approved":false},
-        {"name":"健身教練","category":"打工","cost_coins":0,"reward_coins":3000,"attribute":"其他技能","skill_name":"體能","attribute_increase":3,"action_points_cost":1,"approved":false},
-        {"name":"自主健身","category":"活動","cost_coins":900,"reward_coins":0,"attribute":"其他技能","skill_name":"體能","attribute_increase":3,"action_points_cost":1,"approved":false},
-        {"name":"體能挑戰","category":"活動","cost_coins":1500,"reward_coins":0,"attribute":"其他技能","skill_name":"體能","attribute_increase":5,"action_points_cost":1,"approved":false},
-        {"name":"健身指導","category":"課程","cost_coins":1500,"reward_coins":0,"attribute":"其他技能","skill_name":"體能","attribute_increase":3,"action_points_cost":0,"approved":false},
-        {"name":"專業體能特訓","category":"課程","cost_coins":5000,"reward_coins":0,"attribute":"其他技能","skill_name":"體能","attribute_increase":10,"action_points_cost":0,"approved":false}
+        {
+          "name": "健身房櫃檯",
+          "category": "打工",
+          "cost_coins": 0,
+          "reward_coins": 3000,
+          "attribute": null,
+          "attribute_increase": 0,
+          "action_points_cost": 1,
+          "approved": false
+        },
+        {
+          "name": "健身教練",
+          "category": "打工",
+          "cost_coins": 0,
+          "reward_coins": 3000,
+          "attribute": "其他技能",
+          "skill_name": "體能",
+          "attribute_increase": 3,
+          "action_points_cost": 1,
+          "approved": false
+        },
+        {
+          "name": "自主健身",
+          "category": "活動",
+          "cost_coins": 900,
+          "reward_coins": 0,
+          "attribute": "其他技能",
+          "skill_name": "體能",
+          "attribute_increase": 3,
+          "action_points_cost": 1,
+          "approved": false
+        },
+        {
+          "name": "體能挑戰",
+          "category": "活動",
+          "cost_coins": 1500,
+          "reward_coins": 0,
+          "attribute": "其他技能",
+          "skill_name": "體能",
+          "attribute_increase": 5,
+          "action_points_cost": 1,
+          "approved": false
+        },
+        {
+          "name": "健身指導",
+          "category": "課程",
+          "cost_coins": 1500,
+          "reward_coins": 0,
+          "attribute": "其他技能",
+          "skill_name": "體能",
+          "attribute_increase": 3,
+          "action_points_cost": 0,
+          "approved": false
+        },
+        {
+          "name": "專業體能特訓",
+          "category": "課程",
+          "cost_coins": 5000,
+          "reward_coins": 0,
+          "attribute": "其他技能",
+          "skill_name": "體能",
+          "attribute_increase": 10,
+          "action_points_cost": 0,
+          "approved": false
+        }
       ]
     },
     {
@@ -68,12 +339,70 @@
       "channel_id": "1567471301470326875",
       "channel_type": "text",
       "actions": [
-        {"name":"餐廳服務生","category":"打工","cost_coins":0,"reward_coins":3000,"attribute":null,"attribute_increase":0,"action_points_cost":1,"approved":false},
-        {"name":"餐廳廚師","category":"打工","cost_coins":0,"reward_coins":3000,"attribute":"其他技能","skill_name":"廚藝","attribute_increase":3,"action_points_cost":1,"approved":false},
-        {"name":"美食品鑑","category":"活動","cost_coins":900,"reward_coins":0,"attribute":"其他技能","skill_name":"美食品鑑","attribute_increase":3,"action_points_cost":1,"approved":false},
-        {"name":"餐廳聚餐","category":"活動","cost_coins":1500,"reward_coins":0,"attribute":"公關","attribute_increase":5,"action_points_cost":1,"approved":false},
-        {"name":"基礎烹飪課","category":"課程","cost_coins":1500,"reward_coins":0,"attribute":"其他技能","skill_name":"廚藝","attribute_increase":3,"action_points_cost":0,"approved":false},
-        {"name":"專業廚藝指導","category":"課程","cost_coins":5000,"reward_coins":0,"attribute":"其他技能","skill_name":"廚藝","attribute_increase":10,"action_points_cost":0,"approved":false}
+        {
+          "name": "餐廳服務生",
+          "category": "打工",
+          "cost_coins": 0,
+          "reward_coins": 3000,
+          "attribute": null,
+          "attribute_increase": 0,
+          "action_points_cost": 1,
+          "approved": false
+        },
+        {
+          "name": "餐廳廚師",
+          "category": "打工",
+          "cost_coins": 0,
+          "reward_coins": 3000,
+          "attribute": "其他技能",
+          "skill_name": "廚藝",
+          "attribute_increase": 3,
+          "action_points_cost": 1,
+          "approved": false
+        },
+        {
+          "name": "美食品鑑",
+          "category": "活動",
+          "cost_coins": 900,
+          "reward_coins": 0,
+          "attribute": "其他技能",
+          "skill_name": "美食品鑑",
+          "attribute_increase": 3,
+          "action_points_cost": 1,
+          "approved": false
+        },
+        {
+          "name": "餐廳聚餐",
+          "category": "活動",
+          "cost_coins": 1500,
+          "reward_coins": 0,
+          "attribute": "公關",
+          "attribute_increase": 5,
+          "action_points_cost": 1,
+          "approved": false
+        },
+        {
+          "name": "基礎烹飪課",
+          "category": "課程",
+          "cost_coins": 1500,
+          "reward_coins": 0,
+          "attribute": "其他技能",
+          "skill_name": "廚藝",
+          "attribute_increase": 3,
+          "action_points_cost": 0,
+          "approved": false
+        },
+        {
+          "name": "專業廚藝指導",
+          "category": "課程",
+          "cost_coins": 5000,
+          "reward_coins": 0,
+          "attribute": "其他技能",
+          "skill_name": "廚藝",
+          "attribute_increase": 10,
+          "action_points_cost": 0,
+          "approved": false
+        }
       ]
     },
     {
@@ -82,12 +411,69 @@
       "channel_id": "1567471346466955264",
       "channel_type": "text",
       "actions": [
-        {"name":"商店店員","category":"打工","cost_coins":0,"reward_coins":3000,"attribute":null,"attribute_increase":0,"action_points_cost":1,"approved":false},
-        {"name":"商品推廣人員","category":"打工","cost_coins":0,"reward_coins":3000,"attribute":"其他技能","skill_name":"銷售","attribute_increase":3,"action_points_cost":1,"approved":false},
-        {"name":"服裝搭配體驗","category":"活動","cost_coins":1500,"reward_coins":0,"attribute":"容貌","attribute_increase":5,"action_points_cost":1,"approved":false},
-        {"name":"街頭表演","category":"活動","cost_coins":1500,"reward_coins":0,"attribute":"個人才藝","attribute_increase":5,"action_points_cost":1,"approved":false},
-        {"name":"時尚穿搭課","category":"課程","cost_coins":1500,"reward_coins":0,"attribute":"其他技能","skill_name":"時尚搭配","attribute_increase":3,"action_points_cost":0,"approved":false},
-        {"name":"專業銷售技巧","category":"課程","cost_coins":2500,"reward_coins":0,"attribute":"其他技能","skill_name":"銷售","attribute_increase":5,"action_points_cost":0,"approved":false}
+        {
+          "name": "商店店員",
+          "category": "打工",
+          "cost_coins": 0,
+          "reward_coins": 3000,
+          "attribute": null,
+          "attribute_increase": 0,
+          "action_points_cost": 1,
+          "approved": false
+        },
+        {
+          "name": "商品推廣人員",
+          "category": "打工",
+          "cost_coins": 0,
+          "reward_coins": 3000,
+          "attribute": "其他技能",
+          "skill_name": "銷售",
+          "attribute_increase": 3,
+          "action_points_cost": 1,
+          "approved": false
+        },
+        {
+          "name": "服裝搭配體驗",
+          "category": "活動",
+          "cost_coins": 1500,
+          "reward_coins": 0,
+          "attribute": "容貌",
+          "attribute_increase": 5,
+          "action_points_cost": 1,
+          "approved": false
+        },
+        {
+          "name": "街頭表演",
+          "category": "活動",
+          "cost_coins": 1500,
+          "reward_coins": 0,
+          "attribute": "個人才藝",
+          "attribute_increase": 5,
+          "action_points_cost": 1,
+          "approved": false
+        },
+        {
+          "name": "時尚穿搭課",
+          "category": "課程",
+          "cost_coins": 1500,
+          "reward_coins": 0,
+          "attribute": "其他技能",
+          "skill_name": "時尚搭配",
+          "attribute_increase": 3,
+          "action_points_cost": 0,
+          "approved": false
+        },
+        {
+          "name": "專業銷售技巧",
+          "category": "課程",
+          "cost_coins": 2500,
+          "reward_coins": 0,
+          "attribute": "其他技能",
+          "skill_name": "銷售",
+          "attribute_increase": 5,
+          "action_points_cost": 0,
+          "approved": false
+        }
       ]
     },
     {
@@ -96,13 +482,96 @@
       "channel_id": "1567471583679750174",
       "channel_type": "text",
       "actions": [
-        {"name":"公益行政協助","category":"打工","cost_coins":0,"reward_coins":3000,"attribute":null,"attribute_increase":0,"action_points_cost":1,"approved":false},
-        {"name":"公益活動助理","category":"打工","cost_coins":0,"reward_coins":3000,"attribute":null,"attribute_increase":0,"action_points_cost":1,"approved":false},
-        {"name":"志願服務","category":"活動","cost_coins":0,"reward_coins":0,"attribute":null,"attribute_increase":0,"action_points_cost":1,"notes":"公益紀錄，特殊獎勵須依正式任務規則","approved":false},
-        {"name":"公益宣傳","category":"活動","cost_coins":1500,"reward_coins":0,"attribute":"公關","attribute_increase":5,"action_points_cost":1,"notes":"不得直接增加影響指數","approved":false},
-        {"name":"公益企劃課","category":"課程","cost_coins":1500,"reward_coins":0,"attribute":"其他技能","skill_name":"活動企劃","attribute_increase":3,"action_points_cost":0,"approved":false},
-        {"name":"溝通技巧訓練","category":"課程","cost_coins":2500,"reward_coins":0,"attribute":"其他技能","skill_name":"溝通","attribute_increase":5,"action_points_cost":0,"approved":false}
+        {
+          "name": "公益行政協助",
+          "category": "打工",
+          "cost_coins": 0,
+          "reward_coins": 3000,
+          "attribute": null,
+          "attribute_increase": 0,
+          "action_points_cost": 1,
+          "approved": false
+        },
+        {
+          "name": "公益活動助理",
+          "category": "打工",
+          "cost_coins": 0,
+          "reward_coins": 3000,
+          "attribute": null,
+          "attribute_increase": 0,
+          "action_points_cost": 1,
+          "approved": false
+        },
+        {
+          "name": "志願服務",
+          "category": "活動",
+          "cost_coins": 0,
+          "reward_coins": 0,
+          "attribute": null,
+          "attribute_increase": 0,
+          "action_points_cost": 1,
+          "notes": "公益紀錄，特殊獎勵須依正式任務規則",
+          "approved": false
+        },
+        {
+          "name": "公益宣傳",
+          "category": "活動",
+          "cost_coins": 1500,
+          "reward_coins": 0,
+          "attribute": "公關",
+          "attribute_increase": 5,
+          "action_points_cost": 1,
+          "notes": "不得直接增加影響指數",
+          "approved": false
+        },
+        {
+          "name": "公益企劃課",
+          "category": "課程",
+          "cost_coins": 1500,
+          "reward_coins": 0,
+          "attribute": "其他技能",
+          "skill_name": "活動企劃",
+          "attribute_increase": 3,
+          "action_points_cost": 0,
+          "approved": false
+        },
+        {
+          "name": "溝通技巧訓練",
+          "category": "課程",
+          "cost_coins": 2500,
+          "reward_coins": 0,
+          "attribute": "其他技能",
+          "skill_name": "溝通",
+          "attribute_increase": 5,
+          "action_points_cost": 0,
+          "approved": false
+        }
+      ]
+    },
+    {
+      "key": "hospital",
+      "name": "醫院",
+      "channel_id": "1567998859362304100",
+      "channel_type": "text",
+      "binding_status": "bound",
+      "location_type": "medical_service",
+      "action_enabled": false,
+      "service_enabled": false,
+      "service_command_entry": "/行動（醫療服務選單待接入）",
+      "actions": [],
+      "notes": "醫療服務獨立於一般打工/活動/課程；詳見 medical_default_pending.json。",
+      "description": "醫院專用：看診、檢查、疾病治療、手術、住院復健，以及分級小整形／大整形。所有醫療項目待審核，不得自動結算。",
+      "service_catalog": "medical_default_pending.json",
+      "service_groups": [
+        "門診",
+        "檢查",
+        "治療",
+        "手術",
+        "照護",
+        "小整形",
+        "大整形"
       ]
     }
-  ]
+  ],
+  "medical_services_file": "medical_default_pending.json"
 }
