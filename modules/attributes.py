@@ -413,17 +413,14 @@ def calculate_initial(
 
     schema = validate_schema(schema)
 
+    secondary = None
     if len(args) == 2:
         general, talent = args
 
     elif len(args) == 3:
         secondary, general, talent = args
 
-        if secondary not in (None, ""):
-            raise ValueError(
-                "新版角色沒有副賽道，"
-                "請更新創角畫面。"
-            )
+        secondary = secondary or None
 
     else:
         raise TypeError(
@@ -450,6 +447,7 @@ def calculate_initial(
             main,
             general,
             talent,
+            secondary,
         )
 
     except InvalidState as exc:
@@ -483,17 +481,14 @@ def allocate_initial(
     初始配點不得增加影響指數。
     """
 
+    secondary = None
     if len(args) == 2:
         general_raw, talent_raw = args
 
     elif len(args) == 3:
         secondary, general_raw, talent_raw = args
 
-        if secondary not in (None, ""):
-            raise ValueError(
-                "副賽道已取消，"
-                "請重新選擇主攻。"
-            )
+        secondary = secondary or None
 
     else:
         raise TypeError(
@@ -583,6 +578,7 @@ def allocate_initial(
         values = calculate_initial(
             schema,
             main,
+            secondary,
             general,
             talent,
         )
@@ -619,16 +615,8 @@ def allocate_initial(
 
         settings["main_track"] = main
 
-        # 清理舊版副賽道資料。
-        settings.pop(
-            "secondary_track",
-            None,
-        )
-
-        settings.pop(
-            "wizard_secondary",
-            None,
-        )
+        settings['secondary_track'] = secondary
+        settings['wizard_secondary'] = secondary
 
         # ----------------------------------
         # 保存屬性版本
