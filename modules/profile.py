@@ -881,6 +881,7 @@ class Profile(commands.Cog):
                 character_id,
                 approve=approve,
                 reason=reason,
+                guild_owner_id=interaction.guild.owner_id if interaction.guild else None,
             )
 
             await reply(
@@ -983,6 +984,11 @@ class Profile(commands.Cog):
                         "角色狀態已變更，請重試。"
                     )
 
+                from core.character_creation_consent import persist_rumor_consent
+                from core.character_proxy_identity import activate as activate_proxy
+                persist_rumor_consent(conn,actor.guild_id,character_id,read_settings(character))
+                activate_proxy(conn,actor.guild_id,character_id)
+
                 audit(
                     conn,
                     actor,
@@ -1009,7 +1015,9 @@ class Profile(commands.Cog):
                     f"🎉 角色 #{character_id} "
                     "已正式啟用！\n"
                     "初始屬性驗證：通過\n"
-                    "雙重審核：通過"
+                    "雙重審核：通過\n"
+                    "🎭 角色專屬代理發言身分已建立，編號沿用角色 ID；"
+                    "機器人使用方式將於角色通知帖子說明。"
                 ),
             )
 
