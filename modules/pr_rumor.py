@@ -320,9 +320,6 @@ class RumorView(discord.ui.View):
         text = "\n".join(f"#{r['id']}｜角色#{r['character_id']}｜{r['title']}｜{r['status']}｜<t:{r['settle_at']}:F>" for r in rows)
         await interaction.response.send_message(text[:1900] if text else "目前沒有可查看的案件。", ephemeral=True)
 
-    @discord.ui.button(label="🔐 授權開關", style=discord.ButtonStyle.secondary)
-    async def consent(self, interaction, button):
-        await interaction.response.send_modal(ConsentModal())
 
 
 class RumorButton(discord.ui.Button):
