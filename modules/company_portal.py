@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import json
 import re
 import sqlite3
@@ -13,6 +14,8 @@ from discord.ext import commands
 
 from core.database import get_connection
 from modules.world_terms import term, organization_terms
+
+LOG = logging.getLogger(__name__)
 
 from modules.company_workforce import (
     apply_job,
@@ -42,6 +45,13 @@ def company_context(gid: str, uid: str):
     uid = str(uid)
 
     init_business()
+    with get_connection() as db:
+        has_workforce_tables = db.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='company_employees'"
+        ).fetchone() is not None
+    if not has_workforce_tables:
+        from modules.company_workforce import initialize as init_workforce
+        init_workforce()
 
     with get_connection() as db:
 
@@ -955,10 +965,17 @@ class CompanyPanel(discord.ui.View):
                    WHERE guild_id = ? AND user_id = ? AND status = 'active'""",
                 (self.gid, self.uid),
             ).fetchall()
-        can_review = is_owner or any(
-            bool({"recruit", "work_review"} & set(json.loads(row["permissions"] or "[]")))
-            for row in rows
-        )
+        def has_review_permission(row):
+            try:
+                data = json.loads(row["permissions"] or "[]")
+            except (ValueError, TypeError):
+                LOG.warning("忽略格式錯誤的公司管理權限資料 guild=%s", self.gid)
+                return False
+            return isinstance(data, list) and bool({"recruit", "work_review"} & set(
+                item for item in data if isinstance(item, str)
+            ))
+
+        can_review = is_owner or any(has_review_permission(row) for row in rows)
 
         # 財務、品牌與 VIP 都有獨立授權判斷；非持有人但獲授權的
         # 管理者也必須能從同一個 /公司 面板進入。
@@ -1225,24 +1242,23 @@ class CompanyPortal(commands.Cog):
                 str(interaction.user.id),
             )
 
-        except sqlite3.Error:
-            return await interaction.followup.send(
-                "公司資料讀取失敗，請聯絡管理員。",
-                ephemeral=True,
-            )
-
-        await interaction.followup.send(
-            panel_text(
-                owned,
-                employees,
-                interaction.guild_id,
-            )[:1900],
-            view=CompanyPanel(
+            panel = CompanyPanel(
                 str(interaction.user.id),
                 str(interaction.guild_id),
                 bool(owned),
-            ),
-            ephemeral=True,
+            )
+            message = panel_text(owned, employees, interaction.guild_id)[:1900]
+        except Exception as exc:
+            LOG.exception("/公司 面板載入失敗 guild=%s user=%s",
+                          interaction.guild_id, interaction.user.id)
+            await interaction.followup.send(
+                f"⚠️ 公司面板無法開啟（{type(exc).__name__}），請查看 Railway Deploy Logs。",
+                ephemeral=True,
+            )
+            return
+
+        await interaction.followup.send(
+            message, view=panel, ephemeral=True,
         )
         try:
             from modules.task_event_bridge import record_successful_command_interaction
