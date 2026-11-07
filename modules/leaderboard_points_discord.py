@@ -5,6 +5,7 @@ import discord
 from modules.leaderboard_points_catalog import available_targets
 from modules.leaderboard_points_storage import get_balance
 from modules.leaderboard_points_confirmation import create_request, confirm_request
+from modules.action_professional_points import get_balance as get_professional_balance
 
 
 class AmountModal(discord.ui.Modal, title="排行榜點數分配確認"):
@@ -101,7 +102,7 @@ class PointPanel(discord.ui.View):
         for item in list(self.children):
             if isinstance(item, TargetSelect):
                 self.remove_item(item)
-        targets = available_targets(self.pool)
+        targets = available_targets('skill' if self.pool == 'professional' else self.pool)
         names = targets["attributes" if self.category == "attribute" else "skills"]
         if names:
             self.add_item(TargetSelect(self.owner_id, self.guild_id,
@@ -115,9 +116,11 @@ class PointPanel(discord.ui.View):
 
     def _description(self):
         balances = get_balance(self.guild_id, self.character_id)
-        return (f"🎯 **排行榜點數分配**\n自由點數：{balances['free']}｜"
-                f"技能點數：{balances['skill']}\n"
-                f"目前：{'自由點數' if self.pool == 'free' else '技能點數'}／"
+        professional = get_professional_balance(self.guild_id, self.character_id)
+        pool_name = {'free':'自由點數','skill':'技能點數','professional':'專業點數'}[self.pool]
+        return (f"🎯 **角色點數分配**\n自由點數：{balances['free']}｜"
+                f"技能點數：{balances['skill']}｜專業點數：{professional}\n"
+                f"目前：{pool_name}／"
                 f"{'屬性' if self.category == 'attribute' else '技能'}")
 
     @discord.ui.button(label="自由點數", style=discord.ButtonStyle.secondary, row=1)
@@ -128,6 +131,11 @@ class PointPanel(discord.ui.View):
     @discord.ui.button(label="技能點數", style=discord.ButtonStyle.secondary, row=1)
     async def skill(self, interaction, button):
         self.pool = "skill"; self.category = "skill"; self._build()
+        await interaction.response.edit_message(content=self._description(), view=self)
+
+    @discord.ui.button(label="專業點數", style=discord.ButtonStyle.secondary, row=1)
+    async def professional(self, interaction, button):
+        self.pool = "professional"; self.category = "skill"; self._build()
         await interaction.response.edit_message(content=self._description(), view=self)
 
     @discord.ui.button(label="屬性", style=discord.ButtonStyle.secondary, row=2)
