@@ -531,6 +531,31 @@ class CharacterForums(commands.Cog):
                             character_id,
                         )
 
+            # 通知角色持有人：只在身分啟用、論壇權限通過後發送一次。
+            info=get_link(guild.id,character_id)
+            notice_id=info.get('notice_id')
+            if notice_id:
+                from core.character_proxy_identity import claim_notice,unclaim_notice
+                with transaction() as db:
+                    new_notice=claim_notice(db,guild.id,character_id)
+                if new_notice:
+                    try:
+                        notice_thread=guild.get_thread(int(notice_id))
+                        if notice_thread is None:
+                            notice_thread=await guild.fetch_channel(int(notice_id))
+                        await notice_thread.send(
+                            f"<@{character['owner_id']}> 🎭 **角色專屬代理發言已建立**\n"
+                            f"角色：{character['name']}\n角色編號：#{character_id}（與角色資料庫編號一致）\n"
+                            "於有 Webhook 權限的頻道輸入 `@小助手 [#角色編號] 訊息` 即可代理發言。\n"
+                            "若群主已開啟訊息內容授權與 RP_PROXY_MESSAGE_CONTENT_ENABLED，"
+                            "也能直接輸入 `[#123] 大家好！`。\n"
+                            "僅持有人可使用，角色停用後不能再發言。",
+                            allowed_mentions=discord.AllowedMentions(users=True,roles=False,everyone=False))
+                    except (discord.HTTPException,ValueError):
+                        with transaction() as db:
+                            unclaim_notice(db,guild.id,character_id)
+                        LOG.exception('角色 #%s 代理通知發送失敗，留待下次補送',character_id)
+
             return forum
 
     # --------------------------------------
