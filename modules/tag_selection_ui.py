@@ -10,9 +10,10 @@ class TagSearch(discord.ui.Modal,title='搜尋標籤庫'):
     word=discord.ui.TextInput(label='標籤關鍵字（留空顯示全部）',required=False,max_length=40)
     def __init__(self,view): super().__init__();self.target=view
     async def on_submit(self,i):
+        await i.response.defer(ephemeral=True, thinking=True)
         self.target.keyword=str(self.word.value).strip();self.target.page=0
         self.target.refresh()
-        await i.response.send_message(content=self.target.caption(),view=self.target,ephemeral=True)
+        await i.followup.send(content=self.target.caption(),view=self.target,ephemeral=True)
 
 class TagPick(discord.ui.Select):
     def __init__(self,parent):
@@ -27,9 +28,10 @@ class TagPick(discord.ui.Select):
         chosen=[x for x in self.values if x!='__empty__']
         if len(kept)+len(chosen)>self.picker_view.limit:
             return await i.response.send_message(f'最多選 {self.picker_view.limit} 個，請取消其他頁的選擇。',ephemeral=True)
+        await i.response.defer()
         self.picker_view.selected=kept+chosen
         self.picker_view.refresh()
-        await i.response.edit_message(content=self.picker_view.caption(),view=self.parent)
+        await i.edit_original_response(content=self.picker_view.caption(),view=self.picker_view)
 
 class TagSelectionView(discord.ui.View):
     def __init__(self,gid,cid,owner_id,actor_id,kind,*,force=False,notice=''):
@@ -55,19 +57,20 @@ class TagSelectionView(discord.ui.View):
         return True
     @discord.ui.button(label='上一頁',style=discord.ButtonStyle.secondary,row=1)
     async def previous(self,i,b):
-        self.page=max(0,self.page-1);self.refresh();await i.response.edit_message(content=self.caption(),view=self)
+        await i.response.defer();self.page=max(0,self.page-1);self.refresh();await i.edit_original_response(content=self.caption(),view=self)
     @discord.ui.button(label='下一頁',style=discord.ButtonStyle.secondary,row=1)
     async def next(self,i,b):
-        self.page=min(max(0,(len(self.pool())-1)//25),self.page+1);self.refresh();await i.response.edit_message(content=self.caption(),view=self)
+        await i.response.defer();self.page=min(max(0,(len(self.pool())-1)//25),self.page+1);self.refresh();await i.edit_original_response(content=self.caption(),view=self)
     @discord.ui.button(label='搜尋',style=discord.ButtonStyle.secondary,row=1)
     async def search(self,i,b):await i.response.send_modal(TagSearch(self))
     @discord.ui.button(label='清除選擇',style=discord.ButtonStyle.secondary,row=2)
-    async def clear(self,i,b):self.selected=[];self.refresh();await i.response.edit_message(content=self.caption(),view=self)
+    async def clear(self,i,b):await i.response.defer();self.selected=[];self.refresh();await i.edit_original_response(content=self.caption(),view=self)
     @discord.ui.button(label='保存初始標籤',style=discord.ButtonStyle.success,row=2)
     async def save(self,i,b):
+        await i.response.defer()
         try: replace_initial(self.gid,self.cid,self.owner_id,i.user.id,self.selected,force=self.force)
-        except (ValueError,PermissionError) as exc:return await i.response.send_message(f'⚠️ {exc}',ephemeral=True)
-        await i.response.edit_message(content=f'✅ 角色 #{self.cid} 初始標籤：'+('、'.join(self.selected) or '無'),view=None)
+        except (ValueError,PermissionError) as exc:return await i.followup.send(f'⚠️ {exc}',ephemeral=True)
+        await i.edit_original_response(content=f'✅ 角色 #{self.cid} 初始標籤：'+('、'.join(self.selected) or '無'),view=None)
 
 async def show_tag_picker(i,cid,kind,owner_id,*,force=False,notice=''):
     try:
