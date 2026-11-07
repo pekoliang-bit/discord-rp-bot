@@ -1,4 +1,3 @@
-
 """玩家網路帳號與群組資料；Discord 頻道建立由 UI 負責。
 
 所有操作者都透過 Discord user_id -> active character -> account 授權。
@@ -70,6 +69,8 @@ def accounts(guild,user,character):
 
 def create_account(guild,user,character,handle):
     handle=unicodedata.normalize('NFC', str(handle)).strip()
+    if handle.casefold() in ('@everyone', '@here', 'everyone', 'here'):
+        raise ValueError('帳號名稱不可使用 Discord 全員提及名稱')
     if handle.startswith('@'):
         handle=handle[1:].strip()
     if (not handle or len(handle)>80 or any(unicodedata.category(ch)[0]=='C' for ch in handle)):
@@ -237,3 +238,41 @@ def undo_accept(guild,user,account,group):
     with transaction() as db:
         _init(db); _require_account(db,guild,user,account)
         db.execute("UPDATE rp_network_group_members SET state='invited' WHERE group_id=? AND account_id=? AND state='joined' AND group_id IN (SELECT id FROM rp_network_groups WHERE guild_id=?)",(int(group),int(account),str(guild)))
+
+# Backward-compatible entry points used by the scheduled backfill cog.
+def ensure_default_accounts(guild_id, character_id):
+    """Create missing automatic accounts for an active character, idempotently."""
+    from core.network_account_autocreate import ensure_character_accounts
+    account_ids = ensure_character_accounts(guild_id, character_id)
+    if not account_ids:
+        return []
+    marks = ','.join('?' for _ in account_ids)
+    with get_connection() as db:
+        rows = db.execute(
+            f'SELECT * FROM rp_network_accounts WHERE guild_id=? '
+            f'AND character_id=? AND id IN ({marks}) ORDER BY id',
+            (str(guild_id), int(character_id), *account_ids),
+        ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def missing_default_characters(guild_id, limit=100):
+    """Find active characters missing at least one auto-managed account."""
+    from core.network_account_autocreate import initialize
+    if not isinstance(limit, int) or isinstance(limit, bool) or not 1 <= limit <= 1000:
+        raise ValueError('limit 必須介於 1～1000')
+    with transaction() as db:
+        initialize(db)
+    with get_connection() as db:
+        rows = db.execute('''SELECT c.id FROM characters c
+            WHERE c.guild_id=? AND c.status='active'
+            AND (NOT EXISTS (
+                SELECT 1 FROM rp_network_accounts a
+                WHERE a.guild_id=c.guild_id AND a.character_id=c.id
+                AND a.account_kind='personal')
+              OR NOT EXISTS (
+                SELECT 1 FROM rp_network_accounts a
+                WHERE a.guild_id=c.guild_id AND a.character_id=c.id
+                AND a.account_kind='official'))
+            ORDER BY c.id LIMIT ?''', (str(guild_id), limit)).fetchall()
+    return [int(row['id']) for row in rows]
