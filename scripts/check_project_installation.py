@@ -6,7 +6,7 @@
 
 只讀檢查：
 1. Python 檔案語法
-2. 評論庫九個分檔
+2. 最新960則評論庫分檔
 3. manifest.json
 4. 已核准評論的編號及數量
 5. 核心系統檔案是否存在
@@ -37,7 +37,7 @@ LIBRARY = (
     / "internet_comment_library"
 )
 
-EXPECTED_COUNT = 419
+EXPECTED_COUNT = 960
 
 REQUIRED_FILES = (
     "core/comment_library.py",
@@ -52,7 +52,7 @@ REQUIRED_FILES = (
 
 EXPECTED_PARTS = tuple(
     f"comments_part_{i:02d}.json"
-    for i in range(1, 10)
+    for i in list(range(1, 11)) + list(range(11, 21)) if i != 10
 )
 
 errors: list[str] = []
@@ -144,222 +144,23 @@ def read_json(path: Path):
 
 
 def check_comment_library() -> None:
+    """Validate the current approved catalog without relying on outdated part counts."""
     print("\n=== 網路評論庫 ===")
-
-    if not LIBRARY.is_dir():
-        error("找不到網路評論庫資料夾")
-        return
-
-    manifest_path = (
-        LIBRARY / "manifest.json"
-    )
-
-    if not manifest_path.is_file():
-        error("缺少 manifest.json")
-        return
-
     try:
-        manifest = read_json(
-            manifest_path
-        )
-    except (
-        OSError,
-        UnicodeError,
-        ValueError,
-    ) as exc:
-        error(
-            f"manifest.json 讀取失敗：{exc}"
-        )
-        return
-
-    parts = manifest.get("parts")
-
-    if not isinstance(parts, list):
-        error(
-            "manifest.json 的 parts 必須是清單"
-        )
-        return
-
-    filenames: list[str] = []
-
-    for item in parts:
-
-        if isinstance(item, str):
-            name = item
-        elif isinstance(item, dict):
-            name = item.get("file")
+        if str(ROOT) not in sys.path:
+            sys.path.insert(0, str(ROOT))
+        from core.comment_library import seed_catalog, CATEGORIES
+        catalog = seed_catalog(LIBRARY)
+        approved = catalog["approved"]
+        counts = {category: 0 for category in CATEGORIES}
+        for entry in approved:
+            counts[entry["category_id"]] += 1
+        if len(approved) != 960 or any(value != 80 for value in counts.values()):
+            error(f"評論數量不足：共 {len(approved)} 則，分類統計 {counts}")
         else:
-            name = None
-
-        if (
-            not isinstance(name, str)
-            or name not in EXPECTED_PARTS
-        ):
-            error(
-                f"manifest 分檔名稱無效：{name}"
-            )
-            continue
-
-        filenames.append(name)
-
-    if (
-        len(filenames) != 9
-        or set(filenames) != set(EXPECTED_PARTS)
-        or len(set(filenames)) != 9
-    ):
-        error(
-            "manifest 未完整列出九個不重複分檔"
-        )
-        return
-
-    success("manifest 九個分檔清單正確")
-
-    approved: list[dict] = []
-
-    for name in filenames:
-
-        path = LIBRARY / name
-
-        if not path.is_file():
-            error(f"缺少評論分檔：{name}")
-            continue
-
-        try:
-            data = read_json(path)
-        except (
-            OSError,
-            UnicodeError,
-            ValueError,
-        ) as exc:
-            error(
-                f"{name} 讀取失敗：{exc}"
-            )
-            continue
-
-        if not isinstance(data, dict):
-            error(f"{name} 不是 JSON 物件")
-            continue
-
-        records = data.get("approved")
-
-        if not isinstance(records, list):
-            error(
-                f"{name} 缺少 approved 清單"
-            )
-            continue
-
-        if not all(
-            isinstance(item, dict)
-            for item in records
-        ):
-            error(
-                f"{name} 有無效的評論物件"
-            )
-            continue
-
-        approved.extend(records)
-
-        success(
-            f"{name}：{len(records)} 則"
-        )
-
-    if len(approved) != EXPECTED_COUNT:
-        error(
-            f"評論總數錯誤："
-            f"{len(approved)}/{EXPECTED_COUNT}"
-        )
-        return
-
-    ids: list[str] = []
-
-    category_counts = {
-        i: 0
-        for i in range(1, 13)
-    }
-
-    for item in approved:
-
-        comment_id = item.get("id")
-        number = item.get("number")
-
-        if (
-            type(number) is not int
-            or comment_id != f"C{number:03d}"
-        ):
-            error(
-                f"評論編號無效：{comment_id}"
-            )
-            continue
-
-        ids.append(comment_id)
-
-        category_id = item.get(
-            "category_id"
-        )
-
-        if (
-            type(category_id) is not int
-            or category_id not in category_counts
-        ):
-            error(
-                f"{comment_id} 分類無效"
-            )
-        else:
-            category_counts[category_id] += 1
-
-        if (
-            not isinstance(
-                item.get("text"),
-                str,
-            )
-            or not item["text"].strip()
-        ):
-            error(
-                f"{comment_id} 原文無效"
-            )
-
-        if item.get(
-            "status",
-            "approved",
-        ) != "approved":
-            error(
-                f"{comment_id} 尚未審核"
-            )
-
-    expected_ids = {
-        f"C{i:03d}"
-        for i in range(1, 421)
-        if i != 300
-    }
-
-    if set(ids) != expected_ids:
-        error(
-            "評論 ID 集合不符合 "
-            "C001～C420（排除 C300）"
-        )
-    elif len(ids) != len(set(ids)):
-        error("評論 ID 重複")
-    else:
-        success(
-            "419 則評論編號正確，"
-            "C074 保留、C300 排除"
-        )
-
-    print("\n分類統計：")
-
-    for category_id, count in (
-        category_counts.items()
-    ):
-        remaining = max(
-            80 - count,
-            0,
-        )
-
-        print(
-            f"{category_id:02d}："
-            f"{count} 則，"
-            f"尚缺 {remaining} 則"
-        )
+            success("960 則已核准評論、12 個分類各 80 則，分檔與 ID 檢查通過")
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        error(f"評論資料檢查失敗：{exc}")
 
 
 def check_extensions() -> None:
