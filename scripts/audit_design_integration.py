@@ -16,8 +16,8 @@ def collect():
     from modules.medical_service_rules import load_services
     catalog=load_services()
     return [
-       {'system':'/行動','feature':'醫院新版服務資料','status':'整合資料且安全預覽','evidence':'assets/action_locations/medical_default_pending.json','ok':len(catalog['services'])==10},
-       {'system':'/行動','feature':'普通行動實際扣款／發薪／給點','status':'未完成；目前只有預覽','evidence':'modules/location_action_commands.py','ok':False},
+       {'system':'/行動','feature':'醫院新版服務資料','status':'整合新版醫院設定，仍維持待審核與私密預覽','evidence':'assets/action_locations/medical_default_pending.json','ok':len(catalog['services'])==10},
+       {'system':'/行動','feature':'普通行動實際扣款／發薪／給點','status':'已接已核准行動之原子交易；付費行動值可消耗，免費行動值及健康連動待完成','evidence':'core/action_execution.py','ok':exists('core/action_execution.py') and contains('modules/location_action_commands.py','ActionExecuteView')},
        {'system':'/任務','feature':'共用檔期核心','status':'存在；仍需實際Discord操作驗證','evidence':'core/work_schedule.py','ok':exists('core/work_schedule.py')},
        {'system':'/任務','feature':'正式代言快速建檔完整串接','status':'未經端到端驗證','evidence':'modules/task_admin.py','ok':False},
        {'system':'/任務','feature':'破格選角、帶資、口碑完整流程','status':'未完成最終規格與完整驗收','evidence':'任務設定包：02、07、09','ok':False},
