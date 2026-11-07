@@ -948,132 +948,98 @@ class ManagerPermissionsModal(OwnedModal):
 # 公司互動面板
 # ============================================================
 
-class CompanyPanel(discord.ui.View):
-
-    def __init__(self, uid, gid, is_owner):
-
-        super().__init__(timeout=600)
-
-        self.uid = str(uid)
-        self.gid = str(gid)
-        self.is_owner = is_owner
-
-        # 不擁有公司但獲得招募／工作審核授權的管理者，也要看得到入口。
+def _company_review_access(gid: str, uid: str, *, is_owner: bool) -> bool:
+    """Check delegated HR rights without making the main portal depend on admin UI."""
+    if is_owner:
+        return True
+    try:
         with get_connection() as db:
             rows = db.execute(
-                """SELECT permissions FROM rp_business_managers
-                   WHERE guild_id = ? AND user_id = ? AND status = 'active'""",
-                (self.gid, self.uid),
+                "SELECT permissions FROM rp_business_managers "
+                "WHERE guild_id=? AND user_id=? AND status='active'",
+                (str(gid), str(uid)),
             ).fetchall()
-        def has_review_permission(row):
+    except sqlite3.Error:
+        LOG.exception("公司審核權限讀取失敗 guild=%s", gid)
+        return False
+    for row in rows:
+        try:
+            permission_list = json.loads(row['permissions'] or '[]')
+            if isinstance(permission_list, list) and {'recruit', 'work_review'} & {
+                    value for value in permission_list if isinstance(value, str)}:
+                return True
+        except (ValueError, TypeError):
+            LOG.warning("公司管理權限格式錯誤 guild=%s", gid)
+    return False
+
+
+class CompanyManagementPanel(discord.ui.View):
+    """Second page for management functions; prevents crowding the employee homepage."""
+    def __init__(self, uid: str, gid: str, is_owner: bool):
+        super().__init__(timeout=600)
+        self.uid, self.gid, self.is_owner = str(uid), str(gid), bool(is_owner)
+        can_review = _company_review_access(gid, uid, is_owner=self.is_owner)
+        entries = (
+            ('modules.company_treasury_ui', 'CompanyTreasuryButton', 0),
+            ('modules.company_brand_ui', 'BrandManagementButton', 0),
+            ('modules.company_vip_ui', 'CompanyVIPButton', 0),
+            ('modules.company_contract_management_ui', 'CompanyContractEntry', 1),
+            ('modules.company_group_management_ui', 'CompanyGroupEntry', 1),
+            ('modules.company_commercial_ui', 'CompanyCommercialEntry', 1),
+        )
+        # A broken optional subsystem may not prevent the other entrances opening.
+        for module_name, class_name, row in entries:
             try:
-                data = json.loads(row["permissions"] or "[]")
-            except (ValueError, TypeError):
-                LOG.warning("忽略格式錯誤的公司管理權限資料 guild=%s", self.gid)
-                return False
-            return isinstance(data, list) and bool({"recruit", "work_review"} & set(
-                item for item in data if isinstance(item, str)
-            ))
-
-        can_review = is_owner or any(has_review_permission(row) for row in rows)
-
-        # 財務、品牌與 VIP 都有獨立授權判斷；非持有人但獲授權的
-        # 管理者也必須能從同一個 /公司 面板進入。
-        from modules.company_treasury_ui import CompanyTreasuryButton
-        from modules.company_brand_ui import BrandManagementButton
-        from modules.company_vip_ui import CompanyVIPButton
-
-        for button in (
-            CompanyTreasuryButton(),
-            BrandManagementButton(),
-            CompanyVIPButton(),
-        ):
-            button.row = 3
+                import importlib
+                entry = getattr(importlib.import_module(module_name), class_name)()
+                entry.row = row
+                self.add_item(entry)
+            except Exception:
+                LOG.exception("公司進階功能入口初始化失敗: %s.%s", module_name, class_name)
+        admin_actions = []
+        if self.is_owner:
+            admin_actions.extend([
+                ('⚙️ 職位設定', PositionModal, 2),
+                ('👥 任命管理層', InviteManagerModal, 3),
+                ('🔐 設定授權', ManagerPermissionsModal, 3),
+            ])
+        if can_review:
+            admin_actions.extend([
+                ('📋 待審清單', OwnerLookupModal, 2),
+                ('✅ 人事審核', ReviewModal, 2),
+            ])
+        for label, modal_class, row in admin_actions:
+            button = discord.ui.Button(label=label, style=discord.ButtonStyle.secondary, row=row)
+            async def on_click(interaction, selected_modal=modal_class):
+                await interaction.response.send_modal(selected_modal(self.uid, self.gid))
+            button.callback = on_click
             self.add_item(button)
 
-        from modules.company_contract_management_ui import CompanyContractEntry
-        from modules.company_group_management_ui import CompanyGroupEntry
-        from modules.company_commercial_ui import CompanyCommercialEntry
-        for entry in (CompanyContractEntry(), CompanyGroupEntry(), CompanyCommercialEntry()):
-            entry.row = 4
-            self.add_item(entry)
+    async def interaction_check(self, interaction):
+        if str(interaction.user.id) != self.uid or str(interaction.guild_id) != self.gid:
+            await interaction.response.send_message('這不是你的公司管理介面。', ephemeral=True)
+            return False
+        return True
 
-        if is_owner or can_review:
-            owner_actions = []
-            if is_owner:
-                owner_actions.append((
-                    "⚙️ 職位設定", PositionModal, discord.ButtonStyle.primary,
-                ))
-            if can_review:
-                owner_actions.extend((
-                (
-                    "📋 待審清單",
-                    OwnerLookupModal,
-                    discord.ButtonStyle.secondary,
-                ),
-                (
-                    "✅ 人事審核",
-                    ReviewModal,
-                    discord.ButtonStyle.success,
-                ),
-                ))
 
-            for label, modal_class, style in owner_actions:
+class CompanyPanel(discord.ui.View):
+    """Lightweight landing page; individual management modules open on a second page."""
+    def __init__(self, uid, gid, is_owner):
+        super().__init__(timeout=600)
+        self.uid = str(uid)
+        self.gid = str(gid)
+        self.is_owner = bool(is_owner)
 
-                button = discord.ui.Button(
-                    label=label,
-                    style=style,
-                    row=0,
-                )
-
-                async def owner_callback(
-                    interaction,
-                    selected_modal=modal_class,
-                ):
-                    await interaction.response.send_modal(
-                        selected_modal(
-                            self.uid,
-                            self.gid,
-                        )
-                    )
-
-                button.callback = owner_callback
-                self.add_item(button)
-
-        if is_owner:
-            # 任命與授權變更只由負責人操作。
-            manager_actions = (
-                (
-                    "👥 任命管理層",
-                    InviteManagerModal,
-                ),
-                (
-                    "🔐 設定授權",
-                    ManagerPermissionsModal,
-                ),
-            )
-
-            for label, modal_class in manager_actions:
-
-                button = discord.ui.Button(
-                    label=label,
-                    style=discord.ButtonStyle.secondary,
-                    row=3,
-                )
-
-                async def manager_callback(
-                    interaction,
-                    selected_modal=modal_class,
-                ):
-                    await interaction.response.send_modal(
-                        selected_modal(
-                            self.uid,
-                            self.gid,
-                        )
-                    )
-
-                button.callback = manager_callback
-                self.add_item(button)
+    @discord.ui.button(label='🏢 公司管理功能', style=discord.ButtonStyle.primary, row=0)
+    async def management_entry(self, interaction, button):
+        try:
+            view = CompanyManagementPanel(self.uid, self.gid, self.is_owner)
+        except Exception:
+            LOG.exception('公司管理子面板建立失敗 guild=%s user=%s', self.gid, self.uid)
+            return await interaction.response.send_message(
+                '⚠️ 部分公司管理工具暫時無法開啟，員工操作仍可正常使用。', ephemeral=True)
+        await interaction.response.send_message('🏢 **公司管理功能**\n請選擇要使用的管理工具。',
+                                                view=view, ephemeral=True)
 
     async def interaction_check(self, interaction):
 
@@ -1138,13 +1104,14 @@ class CompanyPanel(discord.ui.View):
     )
     async def refresh(self, interaction, button):
 
+        await interaction.response.defer(ephemeral=True)
         owned, employees = await asyncio.to_thread(
             company_context,
             self.gid,
             self.uid,
         )
 
-        await interaction.response.edit_message(
+        await interaction.edit_original_response(
             content=panel_text(
                 owned,
                 employees,
@@ -1230,36 +1197,31 @@ class CompanyPortal(commands.Cog):
     )
     @app_commands.guild_only()
     async def company(self, interaction: discord.Interaction):
-
-        await interaction.response.defer(
-            ephemeral=True,
-        )
-
+        await interaction.response.defer(ephemeral=True)
+        gid, uid = str(interaction.guild_id), str(interaction.user.id)
         try:
-            owned, employees = await asyncio.to_thread(
-                company_context,
-                str(interaction.guild_id),
-                str(interaction.user.id),
-            )
-
-            panel = CompanyPanel(
-                str(interaction.user.id),
-                str(interaction.guild_id),
-                bool(owned),
-            )
-            message = panel_text(owned, employees, interaction.guild_id)[:1900]
+            owned, employees = await asyncio.to_thread(company_context, gid, uid)
+            message = panel_text(owned, employees, gid)[:1900]
         except Exception as exc:
-            LOG.exception("/公司 面板載入失敗 guild=%s user=%s",
-                          interaction.guild_id, interaction.user.id)
+            # A malformed legacy company record must not lock players out of
+            # applications, resignation, or the separately authorized tools.
+            LOG.exception('/公司 資料載入失敗 guild=%s user=%s', gid, uid)
+            owned = []
+            message = (
+                '⚠️ **公司資料暫時無法同步**，但仍可使用下方公司功能。\n'
+                '若此訊息持續出現，請讓管理員查看 Railway Deploy Logs。'
+                f'（錯誤類型：{type(exc).__name__}）'
+            )
+        try:
+            panel = CompanyPanel(uid, gid, bool(owned))
+        except Exception as exc:
+            LOG.exception('/公司 基本面板建立失敗 guild=%s user=%s', gid, uid)
             await interaction.followup.send(
-                f"⚠️ 公司面板無法開啟（{type(exc).__name__}），請查看 Railway Deploy Logs。",
+                f'⚠️ 公司基本面板載入失敗（{type(exc).__name__}），請查看 Railway Deploy Logs。',
                 ephemeral=True,
             )
             return
-
-        await interaction.followup.send(
-            message, view=panel, ephemeral=True,
-        )
+        await interaction.followup.send(message, view=panel, ephemeral=True)
         try:
             from modules.task_event_bridge import record_successful_command_interaction
             record_successful_command_interaction(interaction, '公司')
