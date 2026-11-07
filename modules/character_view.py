@@ -615,12 +615,9 @@ def _biography_pages(biography, page_chars=1600):
 
 
 def _character_detail_max_page(actor, character_id, private=False):
-    """固定前兩頁，最後一頁及可能的續頁均屬於生平。"""
-    character = get_character(actor, character_id)
-    settings = safe_json(character["settings_json"])
-    personality, biography = visible_biography(settings, private and can_see_private(actor, character))
-    combined = "\n\n".join(x for x in (personality, biography) if x)
-    return 1 + max(1, len(_biography_pages(combined, page_chars=1500)))
+    """公開及私人面板均固定四頁：基本、數值、資產、背景。"""
+    return 3
+
 
 
 def _add_asset_summary(embed, actor, cid):
@@ -681,6 +678,7 @@ def make_character_embed(actor, character_id, *, private=False, detail_page=0):
             pass
 
     if detail_page == 0:
+        embed.add_field(name="🪪 編號", value=str(character.get('public_code') or character['id']), inline=False)
         embed.add_field(
             name="📋 基本資料",
             value=(f"名字：{character['name']}\n"
@@ -691,26 +689,31 @@ def make_character_embed(actor, character_id, *, private=False, detail_page=0):
         )
         try:
             from core.work_schedule import display_lines
-            schedule = display_lines(actor.guild_id, character_id)
+            schedule = str(display_lines(actor.guild_id, character_id))
         except Exception:
             LOG.exception('讀取角色工作檔期失敗：%s', character_id)
             schedule = '檔期資料暫時無法讀取。'
-        embed.add_field(name="📅 工作檔期／倒數", value=shorten(schedule, 1024), inline=False)
-        embed.add_field(name="🏳️ 所屬陣營", value=_panel_faction(actor, character_id), inline=False)
-        embed.add_field(name="💕 正式 CP", value=_panel_cp(actor, character_id), inline=False)
-        embed.add_field(name="🏅 角色地位", value=_character_status(actor, character_id, settings, category), inline=False)
-        money = read_money_assets(actor, character_id)
-        embed.add_field(name="💰 公開貨幣資產", value=f"{money['total']:,} 金幣（錢包及銀行合計）", inline=False)
+        try:
+            from core.work_schedule import missing_registration
+            pending = missing_registration(actor.guild_id,character_id)
+            if pending:
+                schedule += '\n⚠️ 工作檔期待確認：' + '、'.join(
+                    str(item.get('title') or item.get('task_id')) for item in pending[:4])
+        except Exception:
+            LOG.exception('讀取已接取但未登記的工作檔期失敗：%s', character_id)
+        # The task system has not provided an independent settlement timestamp.
+        embed.add_field(name="📅 工作檔期／倒數", value=shorten('剩餘檔期：\n' + shorten(schedule, 780) + '\n結算倒數：待正式通告提供結算時間（不以工作結束時刻冒充結算）', 1024), inline=False)
+        embed.add_field(name="🏳️ 所屬陣營", value=_panel_faction(actor, character_id), inline=True)
+        embed.add_field(name="💕 CP", value=_panel_cp(actor, character_id), inline=True)
+        embed.add_field(name="🏅 角色地位", value=_character_status(actor, character_id, settings, category).replace(' ', '｜', 1), inline=False)
         try:
             from modules.tag_library import representative
             top_tags = representative(actor.guild_id, character_id)
-            embed.add_field(
-                name="🏷️ 大眾印象（代表標籤）",
-                value="、".join(item['name'] for item in top_tags) or "尚無標籤",
-                inline=False,
-            )
+            impressions = "、".join(item['name'] for item in top_tags) or "尚無標籤"
         except Exception:
-            LOG.exception("讀取角色代表標籤失敗：%s", character_id)
+            LOG.exception('讀取角色代表標籤失敗：%s', character_id)
+            impressions = '暫時無法讀取'
+        embed.add_field(name='🏷️ 大眾印象', value=shorten(impressions, 1024), inline=False)
     elif detail_page == 1:
         attrs = read_attributes(actor, character_id)
         add_field_chunks(embed, "📈 商業與名氣（5 項）", [f"{k}：{attrs.get(k, 0)}" for k in ATTRIBUTE_GENERAL])
@@ -724,63 +727,40 @@ def make_character_embed(actor, character_id, *, private=False, detail_page=0):
             f"死忠粉絲：{int(tracking['loyal_fans']):,}\n"
             f"活躍黑粉：{int(tracking['active_antis']):,}\n"
             f"大眾認知度：{int(tracking['public_awareness']):,}"), inline=False)
-        _add_asset_summary(embed, actor, character_id)
-        try:
-            from modules.tag_library import held as all_held_tags, history as tag_history, effect_metadata
-            full_tags = all_held_tags(actor.guild_id, character_id)
-            if full_tags:
-                add_field_chunks(embed, "🏷️ 完整大眾印象標籤", [item['name'] for item in full_tags])
-            recent = tag_history(actor.guild_id, character_id, limit=8)
-            if recent:
-                add_field_chunks(embed, "📜 公開標籤沿革（最近八筆）", [
-                    f"{row['tag_name']}：{'取得' if row['action'] == 'add' else '移除'}（{row['created_at']}）"
-                    for row in recent
-                ])
-            if private and authorized:
-                proposed = [effect_metadata(actor.guild_id, item['name'], privileged=True) for item in full_tags]
-                proposed = [entry for entry in proposed if entry and entry['effect']]
-                if proposed:
-                    add_field_chunks(embed, "🔒 標籤效果（符合對應事件條件才生效）", [
-                        f"{entry['name']}：{shorten(entry['effect'], 90)}〔{entry['approval']}〕"
-                        for entry in proposed[:12]
-                    ])
-        except Exception:
-            LOG.exception("讀取角色完整標籤失敗：%s", character_id)
-        if private:
-            public_details = [
-                f"{label}：{shorten(display_value(settings.get(key), '未填寫'), 95)}"
-                for key, label in PUBLIC_FIELDS.items()
-                if key not in ('stage_name', 'gender') and settings.get(key) not in (None, '')
-            ]
-            if public_details:
-                add_field_chunks(embed, "🔒 角色補充設定", public_details)
-            # 本人／授權管理員能看私下補充設定；性格與身世集中於最後的生平頁。
-            private_fields = [
-                f"{label}：{shorten(display_value(settings.get(key), '未填寫'), 95)}"
-                for key, label in PRIVATE_FIELDS.items()
-                if key not in ('private_personality', 'biography')
-            ]
-            add_field_chunks(embed, "🔒 其他私人資料", private_fields)
-            money = read_money_assets(actor, character_id)
-            embed.add_field(name="🔒 私人貨幣明細", value=(
-                f"錢包：{money['wallet']:,}\n銀行：{money['bank']:,}"), inline=False)
+    elif detail_page == 2:
+        money = read_money_assets(actor, character_id)
+        embed.add_field(name="💰 貨幣資產", value=(
+            f"現金：{money['wallet']:,} 金幣\n"
+            f"存款：{money['bank']:,} 金幣"), inline=False)
+        labels = {'🚗 車輛': '🚗 車子', '🏠 房產': '🏠 房產',
+                  '💎 珠寶／鐘錶': '💎 珠寶', '🏢 公司／品牌／集團': '🏢 公司／產業',
+                  '🏬 個人商店': '🏬 店舖'}
+        for title, lines in _panel_asset_groups(actor, character_id):
+            shown = lines[:12]
+            summary = '\n'.join(shown) or '尚無登記'
+            if len(lines) > 12:
+                summary += f'\n另有 {len(lines)-12} 筆'
+            embed.add_field(name=labels.get(title, title), value=shorten(summary, 850), inline=False)
     else:
         personality, biography = visible_biography(settings, private and authorized)
-        if not personality and not biography:
-            embed.add_field(name="📖 生平", value="此角色尚未公開性格與身世背景。", inline=False)
-        else:
-            # 每一段獨立分頁；未獲授權者不會讀取隱藏的欄位內容。
-            parts = []
-            if personality:
-                parts.append("🎭 角色性格\n" + personality)
-            if biography:
-                parts.append("📜 身世背景\n" + biography)
-            pages = _biography_pages("\n\n".join(parts), page_chars=1500)
-            index = detail_page - 2
-            if index < len(pages):
-                for i, chunk_start in enumerate(range(0, len(pages[index]), 900)):
-                    embed.add_field(name="📖 生平" if i == 0 else "📖 生平（續）",
-                                    value=pages[index][chunk_start:chunk_start + 900], inline=False)
+        # Discord embeds are limited to 1024 chars per field and 6000 total.
+        # Split rather than silently lose the whole biography after 1000 chars.
+        public_notes = settings.get('public_notes') or settings.get('public_persona') or ''
+        notes = (settings.get('notes') or settings.get('special_notes') or public_notes) if private and authorized else public_notes
+        for heading, raw, max_chars in (
+            ('🎭 性格', personality, 900),
+            ('📖 身世背景', biography, 3500),
+            ('📝 備註', notes, 900),
+        ):
+            content = shorten(str(raw or '未公開'), max_chars)
+            for idx, offset in enumerate(range(0, len(content), 950)):
+                embed.add_field(name=heading if idx == 0 else f'{heading}（續{idx}）',
+                                value=content[offset:offset+950], inline=False)
+        if private and authorized:
+            extras = [f'{label}：{shorten(str(settings[key]), 110)}' for key, label in PRIVATE_FIELDS.items()
+                      if key not in ('private_personality', 'biography', 'notes', 'special_notes') and settings.get(key)]
+            if extras:
+                add_field_chunks(embed, '🔒 其他私人資料', extras)
     portrait = settings.get("portrait_url")
     if isinstance(portrait, str) and portrait.startswith(("https://", "http://")):
         embed.set_image(url=portrait)
@@ -1917,7 +1897,6 @@ class CharacterDetailView(discord.ui.View):
         character=get_character(actor,character_id)
         self.is_own_character=is_owner(actor,character) and character['status']=='active'
         self.private_button.disabled=not can_see_private(actor,character)
-        self.asset_detail_button.disabled=not can_see_private(actor,character)
         if not self.is_own_character:self.inventory_button.disabled=True
         # 路人人氣功能移至「關係」子頁，不佔主面板規定的四排按鈕。
         self.edit_request_button.disabled = not (self.is_own_character and get_category(character) in ('original','player_npc'))
@@ -1945,7 +1924,9 @@ class CharacterDetailView(discord.ui.View):
         await interaction.response.edit_message(content=None,embed=make_character_embed(self.actor,self.character_id,private=True,detail_page=self.detail_page),view=self)
     @discord.ui.button(label='💰 資產',style=discord.ButtonStyle.secondary,row=0)
     async def asset_detail_button(self,interaction,button):
-        await interaction.response.edit_message(content=None,embed=make_asset_detail_embed(self.actor,self.character_id),view=self)
+        self.detail_page = 2
+        self._sync_paging()
+        await interaction.response.edit_message(content=None,embed=make_character_embed(self.actor,self.character_id,private=self.display_private,detail_page=2),view=self)
     @discord.ui.button(label='🎒 背包',style=discord.ButtonStyle.primary,row=0)
     async def inventory_button(self,interaction,button):
         require_inventory_owner(self.actor,self.character_id)
