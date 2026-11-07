@@ -28,6 +28,7 @@ from modules import (
     film_location_defaults,
     business_location_defaults,
 )
+from modules import medical_service_rules
 from modules.action_reward_rules import validate_action
 
 
@@ -43,6 +44,7 @@ PROVIDERS = (
     film_location_defaults,
     business_location_defaults,
 )
+from modules import medical_service_rules
 
 PAGE_SIZE = 25
 VIEW_TIMEOUT = 180
@@ -404,7 +406,7 @@ class LocationActionCommands(commands.Cog):
 
     @app_commands.command(
         name="行動",
-        description="查看所在地點的打工、活動及課程",
+        description="查看所在地點的打工、活動、課程或醫療服務",
     )
     @app_commands.guild_only()
     @app_commands.describe(
@@ -420,6 +422,9 @@ class LocationActionCommands(commands.Cog):
             ),
             app_commands.Choice(
                 name="課程", value="課程"
+            ),
+            app_commands.Choice(
+                name="醫療服務", value="醫療服務"
             ),
         ]
     )
@@ -446,6 +451,31 @@ class LocationActionCommands(commands.Cog):
         if location is None:
             await interaction.response.send_message(
                 "此頻道沒有綁定 /行動 場所。",
+                ephemeral=True,
+            )
+            return
+
+        # 醫院僅提供群主私密預覽；尚未核准不提供治療或整形交易。
+        if location.get("key") == "hospital":
+            if 類別 != "醫療服務":
+                await interaction.response.send_message(
+                    "此處是醫院，請選擇 `/行動` 的「醫療服務」類別。",
+                    ephemeral=True,
+                )
+                return
+            is_owner = interaction.user.id == guild.owner_id
+            services = medical_service_rules.available_services(owner_preview=is_owner)
+            if not services:
+                await interaction.response.send_message(
+                    "醫療服務目前尚未核准上線。整形價格、成功率與點數均需群主確認。",
+                    ephemeral=True,
+                )
+                return
+            lines = [medical_service_rules.format_service(s) for s in services]
+            await interaction.response.send_message(
+                "**醫院｜醫療服務（群主草案預覽，不扣款、不擲骰、不加點）**\n\n"
+                + "\n".join(lines)
+                + "\n\n本內容僅供規格審核，所有結果皆須角色授權。",
                 ephemeral=True,
             )
             return
