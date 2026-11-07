@@ -1753,6 +1753,67 @@ class CharacterRumorConsentView(discord.ui.View):
             await interaction.response.send_message(f"⚠️ {exc}", ephemeral=True)
 
 
+class CharacterEventConsentSelect(discord.ui.Select):
+    OPTIONS = (
+        ('network_opinion_enabled','允許網路輿論事件'),
+        ('random_event_enabled','參與隨機事件'),
+        ('official_story_enabled','允許官方劇情引用角色'),
+    )
+    def __init__(self):
+        super().__init__(placeholder='選擇要變更的事件授權',row=0,options=[
+            discord.SelectOption(label=label,value=key) for key,label in self.OPTIONS])
+
+    async def callback(self,interaction):
+        await self.view.toggle(interaction,self.values[0])
+
+
+class CharacterEventConsentView(discord.ui.View):
+    def __init__(self,guild_id,user_id,character_id):
+        super().__init__(timeout=600)
+        self.guild_id,self.user_id,self.character_id=str(guild_id),str(user_id),int(character_id)
+        self.add_item(CharacterEventConsentSelect())
+
+    async def interaction_check(self,interaction):
+        if str(interaction.user.id)!=self.user_id or str(interaction.guild_id)!=self.guild_id:
+            await interaction.response.send_message('⛔ 只能調整自己的角色授權。',ephemeral=True)
+            return False
+        return True
+
+    def _load(self):
+        with get_connection() as db:
+            row=db.execute('SELECT owner_id,status,settings_json FROM characters WHERE guild_id=? AND id=?',
+                            (self.guild_id,self.character_id)).fetchone()
+        if row is None or str(row['owner_id'])!=self.user_id or row['status']!='active':
+            raise PermissionError('只有已啟用角色持有人可以修改授權。')
+        from core.character_creation_consent import normalize
+        return normalize(safe_json(row['settings_json']))
+
+    def render(self):
+        info=self._load()
+        labels=dict(CharacterEventConsentSelect.OPTIONS)
+        return '🔐 **事件參與授權**\n'+ '\n'.join(
+            f"{'✅' if info[key] else '🔒'} {label}" for key,label in labels.items()) +             '\n新設定只影響之後建立的事件，已開始的事件不會自動消失。'
+
+    async def toggle(self,interaction,key):
+        try:
+            from core.character_creation_consent import update
+            if key not in dict(CharacterEventConsentSelect.OPTIONS):
+                raise ValueError('無效設定')
+            with transaction() as db:
+                row=db.execute('SELECT owner_id,status,settings_json FROM characters WHERE guild_id=? AND id=?',
+                               (self.guild_id,self.character_id)).fetchone()
+                if row is None or str(row['owner_id'])!=self.user_id or row['status']!='active':
+                    raise PermissionError('只有角色本人可以修改。')
+                state=safe_json(row['settings_json'])
+                from core.character_creation_consent import normalize
+                changed=update(state,key,not normalize(state)[key])
+                db.execute('UPDATE characters SET settings_json=?,version=version+1 WHERE guild_id=? AND id=?',
+                           (json.dumps(changed,ensure_ascii=False),self.guild_id,self.character_id))
+            await interaction.response.edit_message(content=self.render(),view=self)
+        except (ValueError,PermissionError,sqlite3.Error) as exc:
+            await interaction.response.send_message(f'⚠️ {exc}',ephemeral=True)
+
+
 class CharacterEditStartView(discord.ui.View):
     def __init__(self, user_id, character_id, guild_id):
         super().__init__(timeout=600)
@@ -1792,6 +1853,14 @@ class CharacterEditStartView(discord.ui.View):
             await interaction.response.edit_message(view=self)
         except (PermissionError, ValueError, sqlite3.Error) as exc:
             await interaction.response.send_message(f'⚠️ {exc}', ephemeral=True)
+
+    @discord.ui.button(label='🎲 事件與網路授權',style=discord.ButtonStyle.secondary,row=2)
+    async def event_consent(self,interaction,button):
+        try:
+            view=CharacterEventConsentView(self.guild_id,self.user_id,self.character_id)
+            await interaction.response.send_message(view.render(),view=view,ephemeral=True)
+        except (ValueError,PermissionError,sqlite3.Error) as exc:
+            await interaction.response.send_message(f'⚠️ {exc}',ephemeral=True)
 
     @discord.ui.button(label='📰 傳聞參與授權', style=discord.ButtonStyle.secondary, row=2)
     async def rumor_consent(self, interaction, button):
@@ -1891,7 +1960,7 @@ class CharacterDetailView(discord.ui.View):
                 title='📝 角色資料修改｜目前資料',
                 description='檢查下列原始資料後按「一次修改並送出」。表單會帶入原值，只須改動想修改的項目。\n'
                             '一般文字直接生效；重大變更及玩家 NPC 性格送審。數值與陣營不在此修改。\n'
-                            '下方可以獨立調整性格、身世公開與傳聞參與授權；這些開關立即生效，不會修改角色文字或重新送審。',
+                            '下方可以獨立調整性格、身世公開、傳聞及其他事件參與授權；這些開關立即生效，不會修改角色文字或重新送審。',
                 color=discord.Color.blurple(),
             )
             for key, label in CHARACTER_EDIT_FIELDS.items():
