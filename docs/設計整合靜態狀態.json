@@ -1,0 +1,65 @@
+[
+  {
+    "system": "/行動",
+    "feature": "醫院新版服務資料",
+    "status": "整合資料且安全預覽",
+    "evidence": "assets/action_locations/medical_default_pending.json",
+    "ok": true
+  },
+  {
+    "system": "/行動",
+    "feature": "普通行動實際扣款／發薪／給點",
+    "status": "未完成；目前只有預覽",
+    "evidence": "modules/location_action_commands.py",
+    "ok": false
+  },
+  {
+    "system": "/任務",
+    "feature": "共用檔期核心",
+    "status": "存在；仍需實際Discord操作驗證",
+    "evidence": "core/work_schedule.py",
+    "ok": true
+  },
+  {
+    "system": "/任務",
+    "feature": "正式代言快速建檔完整串接",
+    "status": "未經端到端驗證",
+    "evidence": "modules/task_admin.py",
+    "ok": false
+  },
+  {
+    "system": "/任務",
+    "feature": "破格選角、帶資、口碑完整流程",
+    "status": "未完成最終規格與完整驗收",
+    "evidence": "任務設定包：02、07、09",
+    "ok": false
+  },
+  {
+    "system": "/排行",
+    "feature": "14/30天結算倒數",
+    "status": "已有程式；待實機驗證",
+    "evidence": "modules/leaderboard_cycle.py",
+    "ok": true
+  },
+  {
+    "system": "/排行",
+    "feature": "正式派獎",
+    "status": "刻意關閉，待獎勵值與全部適配器核准",
+    "evidence": "modules/leaderboard_payout_policy.py",
+    "ok": false
+  },
+  {
+    "system": "/傳聞",
+    "feature": "雙人各自建案",
+    "status": "已有相關核心程式；待資料庫／Discord驗證",
+    "evidence": "core/rumor_auto_case_bridge.py",
+    "ok": true
+  },
+  {
+    "system": "/娛樂城",
+    "feature": "完整規格一致性",
+    "status": "尚缺娛樂城專用最終設定包",
+    "evidence": "娛樂城規格未單獨提供",
+    "ok": false
+  }
+]
