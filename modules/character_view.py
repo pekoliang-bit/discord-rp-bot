@@ -644,9 +644,11 @@ def make_character_embed(
     category = get_category(character)
     extra_rank = ''
     if category == 'extra':
-        from modules.extra_character_store import _world_levels, _title
+        from modules.character_status import effective_levels
         lv = int(settings.get('status_level') or settings.get('level') or 1)
-        extra_rank = f"\n咖位：LV{lv} {_title(lv, _world_levels(actor.guild_id))}"
+        levels = effective_levels(actor.guild_id)
+        lv = max(1, min(len(levels), lv))
+        extra_rank = f"\n咖位：LV{lv} {levels[lv - 1][1]}"
 
     embed = discord.Embed(
         title=shorten(character["name"], 250),
