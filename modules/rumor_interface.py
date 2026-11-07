@@ -72,26 +72,7 @@ class GenericRumorModal(discord.ui.Modal):
             uid = interaction.user.id
             purpose = self.purpose
 
-            if purpose == "設定傳聞分類授權":
-                cid = _integer(
-                    values[0], "角色編號"
-                )
-
-                if values[2] not in ("開啟", "關閉"):
-                    raise ValueError(
-                        "狀態請填寫開啟或關閉。"
-                    )
-
-                pr_rumor.set_category_consent(
-                    gid,
-                    uid,
-                    cid,
-                    values[1],
-                    values[2] == "開啟",
-                )
-                result = "分類授權已更新。"
-
-            elif purpose == "登記證據":
+            if purpose == "登記證據":
                 if values[4] not in ("真", "偽"):
                     raise ValueError(
                         "真偽必須填真或偽。"
@@ -303,15 +284,6 @@ class GenericRumorModal(discord.ui.Modal):
 
 
 FORM_DEFINITIONS = {
-    "category": (
-        "設定傳聞分類授權",
-        [
-            ("角色編號", "例如 15"),
-            ("分類", "戀情／商業／工作／人際／私生活／其他"),
-            ("狀態", "開啟／關閉"),
-        ],
-    ),
-
     "evidence": (
         "登記證據",
         [
@@ -672,136 +644,87 @@ class PRPaymentModal(
             )
 
 
-class RumorActionSelect(discord.ui.Select):
-    def __init__(self):
-        options = [
-            discord.SelectOption(
-                label="建立傳聞",
-                value="create",
-            ),
-            discord.SelectOption(
-                label="查看案件清單",
-                value="records",
-            ),
-            discord.SelectOption(
-                label="整體傳聞授權",
-                value="consent",
-            ),
-            discord.SelectOption(
-                label="設定分類授權",
-                value="category",
-            ),
-            discord.SelectOption(
-                label="登記證據",
-                value="evidence",
-            ),
-            discord.SelectOption(
-                label="基礎調查",
-                value="investigate",
-            ),
-            discord.SelectOption(
-                label="報警",
-                value="report",
-            ),
-            discord.SelectOption(
-                label="警方補交證據",
-                value="submit",
-            ),
-            discord.SelectOption(
-                label="網路曝光",
-                value="expose",
-            ),
-            discord.SelectOption(
-                label="網友線索",
-                value="crowd",
-            ),
-            discord.SelectOption(
-                label="公關策略",
-                value="pr",
-            ),
-            discord.SelectOption(
-                label="公關歷史與累積分數",
-                value="history",
-            ),
-            discord.SelectOption(
-                label="警方案件查詢",
-                value="police_status",
-            ),
-            discord.SelectOption(
-                label="公關評級狀態",
-                value="result",
-            ),
-        ]
+# 首頁只列出真正不同的工作區塊；子頁仍沿用原本有授權與結算保護的後端。
+RUMOR_MENU = {
+    "cases": ("📰 傳聞案件", (("建立傳聞", "create"), ("查看案件清單", "records"))),
+    "investigation": ("🔍 調查與證據", (("登記證據", "evidence"), ("基礎調查", "investigate"), ("網友線索", "crowd"))),
+    "police": ("🚓 警方事務", (("報警", "report"), ("警方補交證據", "submit"), ("警方案件查詢", "police_status"))),
+    "network": ("📢 網路曝光", (("網路曝光", "expose"),)),
+    "public_relations": ("📈 公關管理", (("公關策略", "pr"), ("公關歷史與累積分數", "history"), ("公關評級狀態", "result"))),
+}
 
+
+class RumorCategorySelect(discord.ui.Select):
+    def __init__(self):
         super().__init__(
-            placeholder="選擇傳聞操作",
-            options=options,
-            min_values=1,
-            max_values=1,
+            placeholder="選擇傳聞功能分類",
+            options=[discord.SelectOption(label=title, value=key) for key, (title, _) in RUMOR_MENU.items()],
+            min_values=1, max_values=1,
         )
 
-    async def callback(
-        self,
-        interaction: discord.Interaction,
-    ):
+    async def callback(self, interaction: discord.Interaction):
+        category = self.values[0]
+        await interaction.response.edit_message(
+            content=f"📰 傳聞中心｜{RUMOR_MENU[category][0]}\n選擇要執行的操作。",
+            view=RumorPlayerPanel(interaction.user.id, interaction.guild_id, category),
+        )
+
+
+class RumorActionSelect(discord.ui.Select):
+    def __init__(self, category: str):
+        if category not in RUMOR_MENU:
+            raise ValueError("未知傳聞功能分類。")
+        options = [discord.SelectOption(label=label, value=key) for label, key in RUMOR_MENU[category][1]]
+        super().__init__(placeholder="選擇具體操作", options=options, min_values=1, max_values=1)
+
+    async def callback(self, interaction: discord.Interaction):
         key = self.values[0]
-
         if key == "pr":
-            await interaction.response.send_modal(
-                PRPaymentModal()
-            )
+            await interaction.response.send_modal(PRPaymentModal())
             return
-
         if key == "create":
-            await interaction.response.send_modal(
-                pr_rumor.RumorModal()
-            )
+            await interaction.response.send_modal(pr_rumor.RumorModal())
             return
-
-        if key == "consent":
-            await interaction.response.send_modal(
-                pr_rumor.ConsentModal()
-            )
-            return
-
         if key == "records":
             try:
-                rows = pr_rumor.list_rumors(
-                    interaction.guild_id,
-                    interaction.user.id,
-                )
-
+                rows = pr_rumor.list_rumors(interaction.guild_id, interaction.user.id)
                 msg = "\n".join(
-                    f"#{r['id']}｜"
-                    f"角色#{r['character_id']}｜"
-                    f"{r['title']}｜{r['status']}"
+                    f"#{r['id']}｜角色#{r['character_id']}｜{r['title']}｜{r['status']}"
                     for r in rows
                 ) or "目前沒有可查看的案件。"
-
-            except (
-                ValueError,
-                LookupError,
-                PermissionError,
-            ) as exc:
+            except (ValueError, LookupError, PermissionError) as exc:
                 msg = f"❌ {exc}"
-
-            await interaction.response.send_message(
-                msg[:1900],
-                ephemeral=True,
-            )
+            await interaction.response.send_message(msg[:1900], ephemeral=True)
             return
-
         title, fields = FORM_DEFINITIONS[key]
-
-        await interaction.response.send_modal(
-            GenericRumorModal(title, fields)
-        )
+        await interaction.response.send_modal(GenericRumorModal(title, fields))
 
 
 class RumorPlayerPanel(discord.ui.View):
-    def __init__(self):
-        super().__init__(timeout=180)
-        self.add_item(RumorActionSelect())
+    def __init__(self, user_id: int, guild_id: int, category: str | None = None):
+        super().__init__(timeout=300)
+        self.owner_id = int(user_id)
+        self.guild_id = int(guild_id)
+        self.category = category
+        if category is None:
+            self.add_item(RumorCategorySelect())
+            self.back_to_categories.disabled = True
+        else:
+            self.add_item(RumorActionSelect(category))
+
+    async def interaction_check(self, interaction: discord.Interaction):
+        if interaction.user.id != self.owner_id or interaction.guild_id != self.guild_id:
+            await interaction.response.send_message("這不是你的傳聞操作面板。", ephemeral=True)
+            return False
+        return True
+
+    @discord.ui.button(label="⬅️ 返回傳聞分類", style=discord.ButtonStyle.secondary, row=1)
+    async def back_to_categories(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.edit_message(
+            content="📰 傳聞中心｜請選擇要進行的操作。",
+            view=RumorPlayerPanel(self.owner_id, self.guild_id),
+        )
+
 
 
 class RumorInterface(commands.Cog):
@@ -821,11 +744,9 @@ class RumorInterface(commands.Cog):
         interaction: discord.Interaction,
     ):
         await interaction.response.send_message(
-            "📰 傳聞中心｜"
-            "選擇你要執行的操作。\n"
-            "目前是整合測試版本；"
-            "管理功能統一放在 /官方。",
-            view=RumorPlayerPanel(),
+            "📰 傳聞中心｜請選擇要進行的操作。\n"
+            "傳聞參與授權可至 /查看 → 修改角色資料 調整。",
+            view=RumorPlayerPanel(interaction.user.id, interaction.guild_id),
             ephemeral=True,
         )
         try:
