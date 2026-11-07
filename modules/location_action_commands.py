@@ -1,4 +1,4 @@
-Discord RP /行動：六大分區場所選單與核准行動執行。
+"""Discord RP /行動：六大分區場所選單與核准行動執行。
 
 - 根據頻道 ID 自動辨識場所
 - 玩家只能查看已核准行動
@@ -258,7 +258,7 @@ class ActionChoice(discord.ui.Select):
             )
 
         if action.get('approved') is True and valid :
-            message += "\n\n選擇自己的角色後，可確認執行（扣除付費行動值；不扣體力）。"
+            message += "\n\n選擇自己的角色後，可確認執行（依可用餘額扣除免費／付費行動值；不扣體力）。"
             with get_connection() as db:
                 rows=db.execute("""SELECT id,name FROM characters WHERE guild_id=? AND owner_id=?
                     AND status='active' ORDER BY id LIMIT 25""",
