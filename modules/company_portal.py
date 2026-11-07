@@ -1014,6 +1014,13 @@ class CompanyManagementPanel(discord.ui.View):
                 await interaction.response.send_modal(selected_modal(self.uid, self.gid))
             button.callback = on_click
             self.add_item(button)
+        back = discord.ui.Button(label='⬅️ 返回公司首頁', style=discord.ButtonStyle.secondary, row=4)
+        async def back_to_home(interaction):
+            await interaction.response.edit_message(
+                content='🏢 **公司營運中心**\n請選擇操作。',
+                view=CompanyPanel(self.uid, self.gid, self.is_owner))
+        back.callback = back_to_home
+        self.add_item(back)
 
     async def interaction_check(self, interaction):
         if str(interaction.user.id) != self.uid or str(interaction.guild_id) != self.gid:
@@ -1030,7 +1037,7 @@ class CompanyPanel(discord.ui.View):
         self.gid = str(gid)
         self.is_owner = bool(is_owner)
 
-    @discord.ui.button(label='🏢 公司管理功能', style=discord.ButtonStyle.primary, row=0)
+    @discord.ui.button(label='🏢 公司管理功能', style=discord.ButtonStyle.primary, row=2)
     async def management_entry(self, interaction, button):
         try:
             view = CompanyManagementPanel(self.uid, self.gid, self.is_owner)
@@ -1058,7 +1065,7 @@ class CompanyPanel(discord.ui.View):
     @discord.ui.button(
         label="👔 應徵",
         style=discord.ButtonStyle.primary,
-        row=1,
+        row=0,
     )
     async def apply(self, interaction, button):
 
@@ -1072,7 +1079,7 @@ class CompanyPanel(discord.ui.View):
     @discord.ui.button(
         label="🚪 辭職",
         style=discord.ButtonStyle.secondary,
-        row=1,
+        row=0,
     )
     async def leave(self, interaction, button):
 
@@ -1086,7 +1093,7 @@ class CompanyPanel(discord.ui.View):
     @discord.ui.button(
         label="📝 工作提交",
         style=discord.ButtonStyle.secondary,
-        row=1,
+        row=0,
     )
     async def submit(self, interaction, button):
 
@@ -1100,7 +1107,7 @@ class CompanyPanel(discord.ui.View):
     @discord.ui.button(
         label="🔄 更新資料",
         style=discord.ButtonStyle.secondary,
-        row=2,
+        row=1,
     )
     async def refresh(self, interaction, button):
 
@@ -1127,7 +1134,7 @@ class CompanyPanel(discord.ui.View):
     @discord.ui.button(
         label="✅ 接受管理任命",
         style=discord.ButtonStyle.success,
-        row=2,
+        row=1,
     )
     async def accept_invite(self, interaction, button):
 
