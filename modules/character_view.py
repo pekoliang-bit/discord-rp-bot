@@ -1740,6 +1740,68 @@ class PublicPanelView(discord.ui.View):
         await interaction.response.edit_message(content=None,embed=make_character_embed(Actor.from_interaction(interaction),self.parent.character_id,private=self.parent.display_private,detail_page=self.parent.detail_page),view=self.parent)
 
 
+class CharacterRumorConsentSelect(discord.ui.Select):
+    def __init__(self):
+        from modules.pr_rumor import RUMOR_CATEGORIES
+        options = [discord.SelectOption(label="整體傳聞授權", value="all")]
+        options.extend(discord.SelectOption(label=c, value=c) for c in RUMOR_CATEGORIES)
+        super().__init__(placeholder="選擇要調整的傳聞授權", options=options, row=0)
+
+    async def callback(self, interaction: discord.Interaction):
+        self.view.selected_category = self.values[0]
+        await self.view.refresh(interaction)
+
+
+class CharacterRumorConsentView(discord.ui.View):
+    def __init__(self, guild_id, user_id, character_id):
+        super().__init__(timeout=600)
+        self.guild_id = str(guild_id)
+        self.user_id = str(user_id)
+        self.character_id = int(character_id)
+        self.selected_category = "all"
+        self.add_item(CharacterRumorConsentSelect())
+
+    async def interaction_check(self, interaction):
+        if str(interaction.user.id) != self.user_id or str(interaction.guild_id) != self.guild_id:
+            await interaction.response.send_message("這不是你的傳聞授權面板。", ephemeral=True)
+            return False
+        return True
+
+    def render(self):
+        from modules.rumor_consent_bridge import read_authorization
+        info = read_authorization(self.guild_id, self.user_id, self.character_id)
+        self.toggle_authorization.label = (
+            "✅ 開啟所選授權" if not (
+                info['enabled'] if self.selected_category == 'all'
+                else info['categories'][self.selected_category]
+            ) else "🔒 關閉所選授權"
+        )
+        details = [f"總開關：{'允許' if info['enabled'] else '不允許'}"]
+        for name, enabled in info['categories'].items():
+            actual = info['effective'][name]
+            details.append(f"{name}：{'允許' if enabled else '不允許'}（目前{'有效' if actual else '不生效'}）")
+        return "📰 **角色傳聞參與授權**\n" + "\n".join(details) + "\n\n已發布案件不會因為修改授權而自動刪除。"
+
+    async def refresh(self, interaction):
+        try:
+            msg = self.render()
+            await interaction.response.edit_message(content=msg, view=self)
+        except (ValueError, PermissionError, sqlite3.Error) as exc:
+            await interaction.response.send_message(f"⚠️ {exc}", ephemeral=True)
+
+    @discord.ui.button(label="🔒 關閉所選授權", style=discord.ButtonStyle.primary, row=1)
+    async def toggle_authorization(self, interaction, button):
+        from modules.rumor_consent_bridge import read_authorization, set_authorization
+        try:
+            data = read_authorization(self.guild_id, self.user_id, self.character_id)
+            category = None if self.selected_category == 'all' else self.selected_category
+            enabled = data['enabled'] if category is None else data['categories'][category]
+            set_authorization(self.guild_id, self.user_id, self.character_id, category=category, enabled=not enabled)
+            await self.refresh(interaction)
+        except (ValueError, PermissionError, sqlite3.Error) as exc:
+            await interaction.response.send_message(f"⚠️ {exc}", ephemeral=True)
+
+
 class CharacterEditStartView(discord.ui.View):
     def __init__(self, user_id, character_id, guild_id):
         super().__init__(timeout=600)
@@ -1778,6 +1840,14 @@ class CharacterEditStartView(discord.ui.View):
             self.refresh_buttons()
             await interaction.response.edit_message(view=self)
         except (PermissionError, ValueError, sqlite3.Error) as exc:
+            await interaction.response.send_message(f'⚠️ {exc}', ephemeral=True)
+
+    @discord.ui.button(label='📰 傳聞參與授權', style=discord.ButtonStyle.secondary, row=2)
+    async def rumor_consent(self, interaction, button):
+        try:
+            view = CharacterRumorConsentView(self.guild_id, self.user_id, self.character_id)
+            await interaction.response.send_message(view.render(), view=view, ephemeral=True)
+        except (ValueError, PermissionError, sqlite3.Error) as exc:
             await interaction.response.send_message(f'⚠️ {exc}', ephemeral=True)
 
     @discord.ui.button(label='🔒 性格不公開', style=discord.ButtonStyle.secondary, row=1)
@@ -1870,7 +1940,7 @@ class CharacterDetailView(discord.ui.View):
                 title='📝 角色資料修改｜目前資料',
                 description='檢查下列原始資料後按「一次修改並送出」。表單會帶入原值，只須改動想修改的項目。\n'
                             '一般文字直接生效；重大變更及玩家 NPC 性格送審。數值與陣營不在此修改。\n'
-                            '下方兩個隱私開關可獨立切換，立即生效；不會更改角色文字或觸發重審。',
+                            '下方可以獨立調整性格、身世公開與傳聞參與授權；這些開關立即生效，不會修改角色文字或重新送審。',
                 color=discord.Color.blurple(),
             )
             for key, label in CHARACTER_EDIT_FIELDS.items():
