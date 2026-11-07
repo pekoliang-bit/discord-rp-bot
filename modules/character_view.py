@@ -1920,7 +1920,6 @@ class CharacterDetailView(discord.ui.View):
         self.asset_detail_button.disabled=not can_see_private(actor,character)
         if not self.is_own_character:self.inventory_button.disabled=True
         # 路人人氣功能移至「關係」子頁，不佔主面板規定的四排按鈕。
-        self.remove_item(self.like_button)
         self.edit_request_button.disabled = not (self.is_own_character and get_category(character) in ('original','player_npc'))
         self.leaderboard_points_button.disabled = not self.is_own_character
         self._sync_paging()
