@@ -1,5 +1,4 @@
-
-"""Discord RP /行動：六大分區場所預覽。
+Discord RP /行動：六大分區場所選單與核准行動執行。
 
 - 根據頻道 ID 自動辨識場所
 - 玩家只能查看已核准行動
@@ -8,7 +7,7 @@
 - 商城使用 /商城，不開放 /行動
 - 玩家商店預設不開放 /行動
 - 普通行動不產生正式影視、公司或金融紀錄
-- 不扣款、不發薪、不發點數（安全預覽模式）
+- 已核准行動可由本人確認後原子結算；未核准行動只能預覽
 """
 
 from __future__ import annotations
@@ -31,7 +30,7 @@ from modules import (
 from modules import medical_service_rules
 from modules.action_reward_rules import validate_action
 from core.database import get_connection
-from core.action_execution import execute_action, ActionExecutionError
+from core.action_execution import execute_action, ActionExecutionError, _fingerprint
 
 
 LOG = logging.getLogger(__name__)
@@ -161,7 +160,7 @@ def get_action_status(action: dict) -> str:
         return "設定異常"
 
     if action.get("approved") is True:
-        return "已核准（預覽模式）"
+        return "已核准（可確認執行）"
 
     return "待審核"
 
@@ -199,7 +198,7 @@ class ActionChoice(discord.ui.Select):
             )
 
         super().__init__(
-            placeholder="選擇行動（預覽）",
+            placeholder="選擇行動",
             options=options,
             min_values=1,
             max_values=1,
@@ -269,6 +268,7 @@ class ActionChoice(discord.ui.Select):
                     guild_id=interaction.guild_id, channel_id=interaction.channel_id,
                     user_id=interaction.user.id, action_name=str(action.get('name','')),
                     category=view.category, characters=rows,
+                    action_fingerprint=_fingerprint(str(view.location.get('key') or interaction.channel_id),action),
                 )
                 await interaction.response.send_message(message,view=confirm,ephemeral=True)
                 return
@@ -292,12 +292,13 @@ class ActionCharacterChoice(discord.ui.Select):
 
 
 class ActionExecuteView(discord.ui.View):
-    def __init__(self, *, guild_id, channel_id, user_id, action_name, category, characters):
+    def __init__(self, *, guild_id, channel_id, user_id, action_name, category, characters, action_fingerprint):
         super().__init__(timeout=120)
         self.guild_id=int(guild_id)
         self.channel_id=int(channel_id)
         self.user_id=int(user_id)
         self.action_name=action_name
+        self.action_fingerprint=action_fingerprint
         self.category=category
         self.character_id=None
         self.add_item(ActionCharacterChoice(characters))
@@ -325,6 +326,9 @@ class ActionExecuteView(discord.ui.View):
         if len(matching)!=1:
             await interaction.response.send_message("行動已變更或不再開放，請重新使用 /行動。",ephemeral=True)
             return
+        if _fingerprint(str(location.get('key') or self.channel_id), matching[0]) != self.action_fingerprint:
+            await interaction.response.send_message("行動的費用或獎勵已變更，請重新選擇。",ephemeral=True)
+            return
         await interaction.response.defer(ephemeral=True)
         try:
             result=execute_action(self.guild_id,self.user_id,self.character_id,
@@ -341,7 +345,8 @@ class ActionExecuteView(discord.ui.View):
             item.disabled=True
         await interaction.followup.send(
             f"✅ {result['action_name']} 完成。\n金幣收入：{result['reward_coins']:,}\n"
-            f"金幣花費：{result['cost_coins']:,}\n消耗行動值：{result['action_points_spent']}",ephemeral=True)
+            f"金幣花費：{result['cost_coins']:,}\n消耗行動值：{result['action_points_spent']}"
+            f"（免費 {result['free_action_points_spent']}／付費 {result['paid_action_points_spent']}）",ephemeral=True)
 
 
 class ActionPreview(discord.ui.View):
@@ -427,7 +432,7 @@ class ActionPreview(discord.ui.View):
         mode = (
             "群主待審核預覽"
             if self.owner_preview
-            else "已核准行動預覽"
+            else "已核准行動"
         )
 
         return (
