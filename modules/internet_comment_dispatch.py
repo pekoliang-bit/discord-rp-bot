@@ -344,6 +344,13 @@ async def publish_approved_comment(
     - 事件白名單已更新
     """
 
+    # 創角／查看共同的網路輿論授權；不可使用預先通過的模板繞過。
+    from core.character_creation_consent import character_allowed
+    from core.database import get_connection
+    with get_connection() as db:
+        if not character_allowed(db,request.guild_id,request.character_id,'network_opinion_enabled'):
+            raise PermissionError('角色已關閉網路輿論事件授權。')
+
     prepared = await prepare_checked_comment(
         request,
         services,
@@ -362,6 +369,9 @@ async def publish_approved_comment(
         )
 
     async def revalidate() -> CheckedComment:
+        with get_connection() as db:
+            if not character_allowed(db,request.guild_id,request.character_id,'network_opinion_enabled'):
+                raise PermissionError('角色已關閉網路輿論事件授權。')
         fresh = await prepare_checked_comment(
             request,
             services,
