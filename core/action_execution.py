@@ -1,7 +1,7 @@
 """原子化場所行動結算（僅核准項目；不把體力當成行動值）。
 
-本階段消耗獨立的付費行動值帳本。沒有付費點數、或尚未實作的
-一般免費行動值，不會推測、透支或改動角色 stamina。
+先消耗已獲得的黑卡免費行動值，再消耗付費行動值帳本。
+其他尚無權威餘額來源的免費行動值不會推測、透支或改動角色 stamina。
 """
 from __future__ import annotations
 
@@ -43,6 +43,32 @@ def initialize(db):
 def _fingerprint(location_key, action):
     raw=json.dumps([location_key, action], sort_keys=True, ensure_ascii=False, separators=(',', ':'))
     return hashlib.sha256(raw.encode('utf-8')).hexdigest()
+
+
+def _spend_action_points(db, guild_id, character_id, quantity, now):
+    """同一交易內先用已持有的 VIP 免費行動值，再用商城付費行動值。
+
+    不創建 VIP 權益，也不拿體力冒充免費行動值。
+    """
+    if type(quantity) is not int or quantity < 0:
+        raise ActionExecutionError('行動值數量無效')
+    if quantity == 0:
+        return {'free': 0, 'paid': 0}
+    free = 0
+    if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='vip_balances'").fetchone():
+        row = db.execute("""SELECT bonus_actions FROM vip_balances
+            WHERE guild_id=? AND character_id=?""", (guild_id, character_id)).fetchone()
+        if row is not None:
+            free = min(quantity, int(row['bonus_actions']))
+            if free:
+                cursor = db.execute("""UPDATE vip_balances SET bonus_actions=bonus_actions-?
+                    WHERE guild_id=? AND character_id=? AND bonus_actions>=?""",
+                    (free, guild_id, character_id, free))
+                if cursor.rowcount != 1:
+                    raise ActionExecutionError('免費行動值扣除失敗')
+    paid = quantity - free
+    _spend_paid(db, guild_id, character_id, paid, now)
+    return {'free': free, 'paid': paid}
 
 
 def _spend_paid(db, guild_id, character_id, quantity, now):
@@ -115,7 +141,7 @@ def execute_action(guild_id, user_id, character_id, location_key, action, reques
                 raise ActionExecutionError('此請求編號已用於其他行動')
             return dict(json.loads(old['result_json']), duplicated=True)
         ap=int(action.get('action_points_cost',0))
-        _spend_paid(db,guild_id,character_id,ap,datetime.now(timezone.utc).isoformat())
+        spent=_spend_action_points(db,guild_id,character_id,ap,datetime.now(timezone.utc).isoformat())
         cost=int(action.get('cost_coins',0))
         earn=int(action.get('reward_coins',0))
         if cost or earn:
@@ -152,6 +178,7 @@ def execute_action(guild_id, user_id, character_id, location_key, action, reques
             _award_pool(db,guild_id,character_id,pool,int(amount))
         result={'character_id':character_id,'action_name':str(action.get('name','未命名行動')),
                 'cost_coins':cost,'reward_coins':earn,'action_points_spent':ap,
+                'free_action_points_spent':spent['free'], 'paid_action_points_spent':spent['paid'],
                 'attribute_increase':increase,'point_rewards':action.get('point_rewards') or {},
                 'duplicated':False}
         db.execute("""INSERT INTO rp_location_action_events(
