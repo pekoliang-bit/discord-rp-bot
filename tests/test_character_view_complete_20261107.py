@@ -164,6 +164,7 @@ class PublicPrivateRenderTests(unittest.TestCase):
             _biography_pages=pages, ATTRIBUTE_GENERAL=('流量熱度',),
             ATTRIBUTE_TALENT=('容貌','才智'), PRIVATE_FIELDS={'private_personality':'性格','biography':'生平','notes':'私密備註'},
             PermissionDenied=PermissionError,
+            LOG=__import__('logging').getLogger('test.character_view'),
         )
         exec(compile(ast.Module(body=[fn], type_ignores=[]), '<render-test>', 'exec'), ns)
         self.render = ns['make_character_embed']
