@@ -701,6 +701,16 @@ def make_character_embed(actor, character_id, *, private=False, detail_page=0):
         embed.add_field(name="🏅 角色地位", value=_character_status(actor, character_id, settings, category), inline=False)
         money = read_money_assets(actor, character_id)
         embed.add_field(name="💰 公開貨幣資產", value=f"{money['total']:,} 金幣（錢包及銀行合計）", inline=False)
+        try:
+            from modules.tag_library import representative
+            top_tags = representative(actor.guild_id, character_id)
+            embed.add_field(
+                name="🏷️ 大眾印象（代表標籤）",
+                value="、".join(item['name'] for item in top_tags) or "尚無標籤",
+                inline=False,
+            )
+        except Exception:
+            LOG.exception("讀取角色代表標籤失敗：%s", character_id)
     elif detail_page == 1:
         attrs = read_attributes(actor, character_id)
         add_field_chunks(embed, "📈 商業與名氣（5 項）", [f"{k}：{attrs.get(k, 0)}" for k in ATTRIBUTE_GENERAL])
@@ -715,6 +725,27 @@ def make_character_embed(actor, character_id, *, private=False, detail_page=0):
             f"活躍黑粉：{int(tracking['active_antis']):,}\n"
             f"大眾認知度：{int(tracking['public_awareness']):,}"), inline=False)
         _add_asset_summary(embed, actor, character_id)
+        try:
+            from modules.tag_library import held as all_held_tags, history as tag_history, effect_metadata
+            full_tags = all_held_tags(actor.guild_id, character_id)
+            if full_tags:
+                add_field_chunks(embed, "🏷️ 完整大眾印象標籤", [item['name'] for item in full_tags])
+            recent = tag_history(actor.guild_id, character_id, limit=8)
+            if recent:
+                add_field_chunks(embed, "📜 公開標籤沿革（最近八筆）", [
+                    f"{row['tag_name']}：{'取得' if row['action'] == 'add' else '移除'}（{row['created_at']}）"
+                    for row in recent
+                ])
+            if private and authorized:
+                proposed = [effect_metadata(actor.guild_id, item['name'], privileged=True) for item in full_tags]
+                proposed = [entry for entry in proposed if entry and entry['effect']]
+                if proposed:
+                    add_field_chunks(embed, "🔒 標籤效果（符合對應事件條件才生效）", [
+                        f"{entry['name']}：{shorten(entry['effect'], 90)}〔{entry['approval']}〕"
+                        for entry in proposed[:12]
+                    ])
+        except Exception:
+            LOG.exception("讀取角色完整標籤失敗：%s", character_id)
         if private:
             public_details = [
                 f"{label}：{shorten(display_value(settings.get(key), '未填寫'), 95)}"
