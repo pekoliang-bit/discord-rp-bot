@@ -51,6 +51,73 @@ class TestLocationActionExecution(unittest.TestCase):
         with database.get_connection() as c:
             return c.execute('SELECT SUM(remaining) AS n FROM paid_action_packs').fetchone()['n']
 
+    def test_free_vip_actions_spent_first(self):
+        with database.transaction() as c:
+            c.execute("""CREATE TABLE vip_balances (guild_id TEXT, character_id INTEGER,
+                         free_points INTEGER DEFAULT 0, bonus_actions INTEGER NOT NULL DEFAULT 0,
+                         PRIMARY KEY (guild_id, character_id))""")
+            c.execute("INSERT INTO vip_balances(guild_id,character_id,bonus_actions) VALUES('g',?,2)",(self.cid,))
+        before = self.remaining()
+        result = execute_action('g','u',self.cid,'room',self.work(),'free-1')
+        self.assertEqual(result['free_action_points_spent'],1)
+        self.assertEqual(result['paid_action_points_spent'],0)
+        self.assertEqual(self.remaining(),before)
+        with database.get_connection() as c:
+            self.assertEqual(c.execute('SELECT bonus_actions FROM vip_balances').fetchone()[0],1)
+
+    def test_free_and_paid_actions_combined(self):
+        a=self.work(); a['action_points_cost']=1
+        with database.transaction() as c:
+            c.execute("""CREATE TABLE vip_balances (guild_id TEXT, character_id INTEGER,
+                         free_points INTEGER DEFAULT 0, bonus_actions INTEGER NOT NULL DEFAULT 0,
+                         PRIMARY KEY (guild_id, character_id))""")
+            c.execute("INSERT INTO vip_balances(guild_id,character_id,bonus_actions) VALUES('g',?,1)",(self.cid,))
+        from core.action_execution import _spend_action_points
+        from datetime import datetime, timezone
+        with database.transaction() as c:
+            spent=_spend_action_points(c,'g',self.cid,3,datetime.now(timezone.utc).isoformat())
+            self.assertEqual(spent,{'free':1,'paid':2})
+        with database.get_connection() as c:
+            self.assertEqual(c.execute('SELECT bonus_actions FROM vip_balances').fetchone()[0],0)
+        self.assertEqual(self.remaining(),3)
+
+    def test_failed_paid_spend_restores_free_balance(self):
+        with database.transaction() as c:
+            c.execute("""CREATE TABLE vip_balances (guild_id TEXT, character_id INTEGER,
+                         free_points INTEGER DEFAULT 0, bonus_actions INTEGER NOT NULL DEFAULT 0,
+                         PRIMARY KEY (guild_id, character_id))""")
+            c.execute("INSERT INTO vip_balances(guild_id,character_id,bonus_actions) VALUES('g',?,1)",(self.cid,))
+            c.execute('UPDATE paid_action_packs SET remaining=0')
+        from core.action_execution import _spend_action_points
+        with self.assertRaises(ActionExecutionError):
+            with database.transaction() as c:
+                _spend_action_points(c,'g',self.cid,2,datetime.now(timezone.utc).isoformat())
+        with database.get_connection() as c:
+            self.assertEqual(c.execute('SELECT bonus_actions FROM vip_balances').fetchone()[0],1)
+
+    def test_action_rejects_unapproved_target(self):
+        a=self.work();a['attribute']='未知超能力';a['attribute_increase']=2
+        with self.assertRaises(ActionExecutionError):execute_action('g','u',self.cid,'room',a,'bad-target')
+
+    def test_same_request_does_not_spend_free_twice(self):
+        with database.transaction() as c:
+            c.execute("""CREATE TABLE vip_balances (guild_id TEXT, character_id INTEGER,
+                         free_points INTEGER DEFAULT 0, bonus_actions INTEGER NOT NULL DEFAULT 0,
+                         PRIMARY KEY (guild_id, character_id))""")
+            c.execute("INSERT INTO vip_balances(guild_id,character_id,bonus_actions) VALUES('g',?,1)",(self.cid,))
+        first=execute_action('g','u',self.cid,'room',self.work(),'free-idempotent')
+        second=execute_action('g','u',self.cid,'room',self.work(),'free-idempotent')
+        self.assertEqual(first['free_action_points_spent'],1)
+        self.assertTrue(second['duplicated'])
+        self.assertEqual(second['free_action_points_spent'],1)
+        self.assertEqual(self.remaining(),5)
+        with database.get_connection() as c:
+            self.assertEqual(c.execute('SELECT bonus_actions FROM vip_balances').fetchone()[0],0)
+
+    def test_action_rejects_fractional_health(self):
+        a=self.work();a['health_delta']=1.5
+        with self.assertRaises(ActionExecutionError):execute_action('g','u',self.cid,'room',a,'bad-health')
+
     def test_work_and_retry(self):
         old=self.balance()
         a=execute_action('g','u',self.cid,'room',self.work(),'work-1')
