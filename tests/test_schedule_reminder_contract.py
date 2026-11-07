@@ -6,7 +6,7 @@ class ScheduleReminderContract(unittest.TestCase):
     def test_first_panel_has_missed_reminder(self):
         s=(ROOT/'modules/character_view.py').read_text()
         self.assertIn('工作檔期待確認',s)
-        self.assertIn('🏆 排行榜結算',s)
+        self.assertIn('結算倒數',s)
         self.assertIn('missing_registration(actor.guild_id,character_id',s)
     def test_admin_exposes_backfill(self):
         s=(ROOT/'modules/task_admin.py').read_text()
