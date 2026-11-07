@@ -1,4 +1,3 @@
-
 """Discord RP 部署前總驗收。
 
 執行：
@@ -62,7 +61,7 @@ CHECKS = (
         name="comment_pipeline",
         module="scripts.check_comment_pipeline",
         required=True,
-        description="419 則評論與九個 JSON 分檔",
+        description="960 則評論與正式 JSON 分檔",
     ),
     CheckDefinition(
         name="rumor_reward",
