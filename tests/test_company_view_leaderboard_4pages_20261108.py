@@ -1,3 +1,4 @@
+
 """Regression contracts for company layout, character pages and safe leaderboard activation."""
 from __future__ import annotations
 import ast
@@ -27,14 +28,15 @@ class ContractTests(unittest.TestCase):
         rows=buttons(cls)
         self.assertEqual(len(rows),6)
         self.assertEqual([sum(v==r for v in rows.values()) for r in range(3)],[3,2,1])
-        self.assertIn('â¬ï¸ è¿åå¬å¸é¦é ',source('modules/company_portal.py'))
+        self.assertIn('⬅️ 返回公司首頁',source('modules/company_portal.py'))
     def test_profile_four_pages(self):
         src=source('modules/character_view.py')
         tree=ast.parse(src)
         fn=next(x for x in tree.body if isinstance(x,ast.FunctionDef) and x.name=='_character_detail_max_page')
         self.assertIn('return 3',ast.get_source_segment(src,fn))
-        for title in ('ðªª ç·¨è','ð åºæ¬è³æ','ð å·¥ä½æªæï¼åæ¸','ð·ï¸ å¤§ç¾å°è±¡',
-                      'ð° è²¨å¹£è³ç¢','ð è»å­','ð  æ¿ç¢','ð¢ å¬å¸ï¼ç¢æ¥­','ð åè¨»'):
+        for title in ('🪪 編號', '📋 基本資料', '📅 工作檔期／倒數',
+                      '🏷️ 大眾印象', '💰 貨幣資產', '🚗 車子', '🏠 房產',
+                      '🏢 公司／產業', '📝 備註'):
             self.assertIn(title,src)
         self.assertIn('visible_biography(settings, private and authorized)',src)
     def test_ranking_does_not_release_payout_automatically(self):
@@ -44,7 +46,7 @@ class ContractTests(unittest.TestCase):
         self.assertIn('await interaction.response.defer',ui)
         policy=source('modules/leaderboard_payout_policy.py')
         self.assertIn('PAYOUT_ENABLED = False',policy)
-        self.assertIn('14å¤©å°çµç®ä¸è½æ´¾ç¼çåµ',source('modules/leaderboard_payout_preview.py'))
+        self.assertIn('14天小結算不能派發獎勵',source('modules/leaderboard_payout_preview.py'))
         self.assertIn('leaderboard_runtime',source('main.py')+'leaderboard_runtime')
 
 class ConfigTests(unittest.TestCase):
