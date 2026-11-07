@@ -37,7 +37,8 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-from core.database import get_connection
+from core.database import get_connection, transaction
+from modules.character_view_privacy import visible_biography, update_visibility, visibility_state
 from core.permissions import (
     Actor,
     InvalidState,
@@ -49,6 +50,7 @@ LOG = logging.getLogger(__name__)
 PAGE_SIZE = 25
 
 CATEGORIES = {
+    "mine": "我的角色",
     "original": "原創角色",
     "player_npc": "玩家 NPC",
     "official_npc": "官方角色",
@@ -295,7 +297,10 @@ def find_characters(
     for row in rows:
         character = dict(row)
 
-        if get_category(character) != category:
+        if category == 'mine':
+            if not is_owner(actor, character):
+                continue
+        elif get_category(character) != category:
             continue
 
         if not can_see_character(
@@ -609,290 +614,148 @@ def _biography_pages(biography, page_chars=1600):
     return pages
 
 
-def _character_detail_max_page(actor, character_id):
+def _character_detail_max_page(actor, character_id, private=False):
+    """固定前兩頁，最後一頁及可能的續頁均屬於生平。"""
     character = get_character(actor, character_id)
-    biography = safe_json(character["settings_json"]).get("public_biography")
-    pages = _biography_pages(biography)
-    # Short biographies fit at the bottom of page two; longer ones have their own pages.
-    return 1 if not pages or (len(pages) == 1 and len(pages[0]) <= 600) else 1 + len(pages)
+    settings = safe_json(character["settings_json"])
+    personality, biography = visible_biography(settings, private and can_see_private(actor, character))
+    combined = "\n\n".join(x for x in (personality, biography) if x)
+    return 1 + max(1, len(_biography_pages(combined, page_chars=1500)))
 
 
-def make_character_embed(
-    actor,
-    character_id,
-    *,
-    private=False,
-    detail_page=0,
-):
-    character = get_character(
-        actor,
-        character_id,
-    )
+def _add_asset_summary(embed, actor, cid):
+    """公開僅顯示持有類型與商品名稱，不洩露銀行分錄。"""
+    for name, lines in _panel_asset_groups(actor, cid):
+        shown = lines[:12]
+        summary = "\n".join(shown) or "尚無登記"
+        if len(lines) > 12:
+            summary += f"\n另有 {len(lines) - 12} 筆（詳見所屬功能）"
+        embed.add_field(name=name, value=shorten(summary, 400), inline=False)
+    with get_connection() as db:
+        if _panel_table(db, "shop_inventory") and _panel_table(db, "shop_products"):
+            row = db.execute(
+                "SELECT COALESCE(SUM(quantity),0) FROM shop_inventory WHERE guild_id=? AND character_id=?",
+                (str(actor.guild_id), int(cid)),
+            ).fetchone()
+            embed.add_field(name="🎒 商城持有物品", value=f"目前持有 {int(row[0] or 0):,} 件（詳見背包）", inline=False)
 
-    if (
-        private
-        and not can_see_private(actor, character)
-    ):
-        raise PermissionDenied(
-            "你沒有查看私人資料的權限。"
-        )
 
-    settings = safe_json(
-        character["settings_json"]
-    )
+def _character_status(actor, character_id, settings, category):
+    from modules.character_status import effective_levels
+    levels = effective_levels(actor.guild_id)
+    lv = int(settings.get("status_level") or settings.get("level") or 1)
+    if category != 'extra':
+        with get_connection() as db:
+            if _panel_table(db, "rp_character_status"):
+                try:
+                    row = db.execute("SELECT level FROM rp_character_status WHERE guild_id=? AND character_id=?",
+                                     (str(actor.guild_id), int(character_id))).fetchone()
+                    if row:
+                        lv = int(row["level"])
+                except sqlite3.OperationalError:
+                    pass
+    lv = max(1, min(len(levels), lv))
+    return f"LV{lv} {levels[lv-1][1]}"
 
+
+def make_character_embed(actor, character_id, *, private=False, detail_page=0):
+    character = get_character(actor, character_id)
+    authorized = can_see_private(actor, character)
+    if private and not authorized:
+        raise PermissionDenied("你沒有查看私人資料的權限。")
+    settings = safe_json(character["settings_json"])
     category = get_category(character)
-    extra_rank = ''
-    if category == 'extra':
-        from modules.character_status import effective_levels
-        lv = int(settings.get('status_level') or settings.get('level') or 1)
-        levels = effective_levels(actor.guild_id)
-        lv = max(1, min(len(levels), lv))
-        extra_rank = f"\n咖位：LV{lv} {levels[lv - 1][1]}"
-
+    maximum = _character_detail_max_page(actor, character_id, private=private)
+    detail_page = max(0, min(int(detail_page), maximum))
     embed = discord.Embed(
-        title=shorten(character["name"], 250),
-        description=(
-            f"🎭 {CATEGORIES[category]}\n"
-            f"角色編號：#{character['id']}\n"
-            f"公開代碼："
-            f"{character.get('public_code') or '未設定'}\n"
-            f"狀態：{character['status']}{extra_rank}"
-        ),
+        title=shorten(settings.get("stage_name") or character["name"], 250),
+        description=(f"🎭 {CATEGORIES[category]}｜#{character['id']}\n"
+                     f"公開代碼：{character.get('public_code') or '未設定'}"),
         color=discord.Color.blurple(),
     )
-
-    color_code = settings.get("color_hex")
-
-    if (
-        isinstance(color_code, str)
-        and len(color_code) == 7
-        and color_code.startswith("#")
-    ):
+    color = settings.get("color_hex")
+    if isinstance(color, str) and len(color) == 7 and color.startswith("#"):
         try:
-            embed.color = discord.Color(
-                int(color_code[1:], 16)
-            )
+            embed.color = discord.Color(int(color[1:], 16))
         except ValueError:
             pass
 
-    if category == "extra":
-        from modules.npc_likes import count as extra_like_count
-        embed.add_field(name="💗 路人人氣", value=f"{extra_like_count(actor.guild_id, character_id)} 人喜歡", inline=False)
-
-    embed.add_field(
-        name="📋 基本資料",
-        value=(
-            f"年齡：{display_value(character['age'])}\n"
-            f"職業：{display_value(character['occupation'])}"
-        ),
-        inline=False,
-    )
-
     if detail_page == 0:
+        embed.add_field(
+            name="📋 基本資料",
+            value=(f"名字：{character['name']}\n"
+                   f"藝名：{display_value(settings.get('stage_name'), '未設定')}\n"
+                   f"性別：{display_value(settings.get('gender'))}\n"
+                   f"年齡：{display_value(character['age'])}\n"
+                   f"職業：{display_value(character['occupation'])}"), inline=False,
+        )
         try:
             from core.work_schedule import display_lines
-            schedule_text = display_lines(actor.guild_id, character_id)
+            schedule = display_lines(actor.guild_id, character_id)
         except Exception:
-            LOG.exception('讀取角色工作檔期失敗：%s',character_id)
-            schedule_text = '檔期資料暫時無法讀取。'
-        embed.add_field(name='📅 工作檔期／倒數',value=schedule_text,inline=False)
-        # /查看 同步顯示排行榜14/30天結算剩餘時間，與工作檔期分開。
-        try:
-            from modules.leaderboard_config import get_config
-            from modules.leaderboard_cycle import settlement_countdown
-            rank_config=get_config(actor.guild_id)
-            if rank_config and rank_config.get('enabled'):
-                rank_times=settlement_countdown(rank_config['anchor_utc'])
-                embed.add_field(name='🏆 排行榜結算',
-                    value=(f"小結算剩餘：{rank_times['14d']['remaining']}\n"
-                           f"總結算剩餘：{rank_times['30d']['remaining']}"),inline=False)
-        except Exception:
-            LOG.exception('排行榜結算倒數暫時無法讀取：%s',actor.guild_id)
-
-        try:
-            from core.work_schedule import missing_registration
-            missed=missing_registration(actor.guild_id,character_id,4)
-            if missed:
-                lines=[f"#{r['task_id']} {str(r['title'])[:30]}（{r['reason']}）" for r in missed]
-                embed.add_field(name='⚠️ 工作檔期待確認',
-                    value='以下是已接取但尚未完成檔期登記的工作，請洽官方核對並補登記：\n'+'\n'.join(lines),inline=False)
-        except Exception:
-            LOG.exception('工作檔期漏登提醒暫時無法讀取：%s',character_id)
-
-
-    public_lines = []
-
-    for key, label in PUBLIC_FIELDS.items():
-        value = settings.get(key)
-
-        if value is None or value == "":
-            continue
-
-        suffix = ""
-
-        if key == "height_cm":
-            suffix = " cm"
-
-        elif key == "weight_kg":
-            suffix = " kg"
-
-        elif key == "experience_years":
-            suffix = " 年"
-
-        public_lines.append(
-            f"**{label}**："
-            f"{display_value(value)}{suffix}"
-        )
-
-    if detail_page == 0 and public_lines:
-        add_field_chunks(
-            embed,
-            "🌐 公開人物設定",
-            public_lines,
-        )
-
-    public_bio = settings.get(
-        "public_biography"
-    )
-
-    attributes = read_attributes(
-        actor,
-        character_id,
-    )
-
-    # 十三項屬性全部公開，包括目前沒有紀錄的 0 點屬性。
-    general = [f"{name}：{attributes.get(name, 0)}" for name in ATTRIBUTE_GENERAL]
-    talents = [f"{name}：{attributes.get(name, 0)}" for name in ATTRIBUTE_TALENT]
-    if detail_page == 0:
-        add_field_chunks(embed, "📈 商業與名氣（5 項）", general)
+            LOG.exception('讀取角色工作檔期失敗：%s', character_id)
+            schedule = '檔期資料暫時無法讀取。'
+        embed.add_field(name="📅 工作檔期／倒數", value=shorten(schedule, 1024), inline=False)
+        embed.add_field(name="🏳️ 所屬陣營", value=_panel_faction(actor, character_id), inline=False)
+        embed.add_field(name="💕 正式 CP", value=_panel_cp(actor, character_id), inline=False)
+        embed.add_field(name="🏅 角色地位", value=_character_status(actor, character_id, settings, category), inline=False)
+        money = read_money_assets(actor, character_id)
+        embed.add_field(name="💰 公開貨幣資產", value=f"{money['total']:,} 金幣（錢包及銀行合計）", inline=False)
+    elif detail_page == 1:
+        attrs = read_attributes(actor, character_id)
+        add_field_chunks(embed, "📈 商業與名氣（5 項）", [f"{k}：{attrs.get(k, 0)}" for k in ATTRIBUTE_GENERAL])
+        add_field_chunks(embed, "🎤 藝能與實力（8 項）", [f"{k}：{attrs.get(k, 0)}" for k in ATTRIBUTE_TALENT])
+        known = set(ATTRIBUTE_GENERAL + ATTRIBUTE_TALENT)
+        extra_attrs = [f"{k}：{v}" for k, v in attrs.items() if k not in known]
+        if extra_attrs:
+            add_field_chunks(embed, "其他數值", extra_attrs)
+        tracking = read_tracking(actor, character_id)
+        embed.add_field(name="📊 系統動態追蹤", value=(
+            f"死忠粉絲：{int(tracking['loyal_fans']):,}\n"
+            f"活躍黑粉：{int(tracking['active_antis']):,}\n"
+            f"大眾認知度：{int(tracking['public_awareness']):,}"), inline=False)
+        _add_asset_summary(embed, actor, character_id)
+        if private:
+            public_details = [
+                f"{label}：{shorten(display_value(settings.get(key), '未填寫'), 95)}"
+                for key, label in PUBLIC_FIELDS.items()
+                if key not in ('stage_name', 'gender') and settings.get(key) not in (None, '')
+            ]
+            if public_details:
+                add_field_chunks(embed, "🔒 角色補充設定", public_details)
+            # 本人／授權管理員能看私下補充設定；性格與身世集中於最後的生平頁。
+            private_fields = [
+                f"{label}：{shorten(display_value(settings.get(key), '未填寫'), 95)}"
+                for key, label in PRIVATE_FIELDS.items()
+                if key not in ('private_personality', 'biography')
+            ]
+            add_field_chunks(embed, "🔒 其他私人資料", private_fields)
+            money = read_money_assets(actor, character_id)
+            embed.add_field(name="🔒 私人貨幣明細", value=(
+                f"錢包：{money['wallet']:,}\n銀行：{money['bank']:,}"), inline=False)
     else:
-        add_field_chunks(embed, "🎤 藝能與實力（8 項）", talents)
-    known = set(ATTRIBUTE_GENERAL + ATTRIBUTE_TALENT)
-    others = [f"{name}：{value}" for name, value in attributes.items() if name not in known]
-    if detail_page == 1 and others:
-        add_field_chunks(embed, "其他已登記屬性", others)
-
-    if detail_page == 1:
-        # 陣營加成僅作為已登記效果展示，不改寫基礎屬性，亦不宣稱已套用。
-        try:
-            from modules.faction_shop_effects import list_active_bonuses
-            active_faction_bonuses = list_active_bonuses(
-                actor.guild_id, character_id
-            )
-        except Exception:
-            LOG.exception("讀取角色陣營增益失敗 character_id=%s", character_id)
-            active_faction_bonuses = {}
-        if active_faction_bonuses:
-            add_field_chunks(
-                embed,
-                "✨ 陣營商店加成（已登記）",
-                [f"{name}：+{value:,}" for name, value in active_faction_bonuses.items()]
-                + ["※ 顯示加成帳本紀錄；實際玩法須接入效果計算才會生效。"],
-            )
-
-    if detail_page == 1:
-        embed.add_field(
-        name="🏳️ 所屬陣營",
-        value=_panel_faction(actor, character_id),
-        inline=False,
-    )
-
-    tracking = read_tracking(
-        actor,
-        character_id,
-    )
-
-    if detail_page == 1:
-        embed.add_field(
-        name="📊 系統動態追蹤",
-        value=(
-            "❤️ 死忠粉絲數："
-            f"{int(tracking['loyal_fans']):,}\n"
-            "🌪️ 活躍黑粉數："
-            f"{int(tracking['active_antis']):,}\n"
-            "🌍 大眾認知度："
-            f"{int(tracking['public_awareness']):,}\n"
-            "💕 正式 CP："
-            f"{_panel_cp(actor, character_id)}"
-        ),
-        inline=False,
-    )
-
-    money = read_money_assets(
-        actor,
-        character_id,
-    )
-
-    if detail_page == 1:
-        embed.add_field(
-        name="💰 公開貨幣資產",
-        value=(
-            f"**{money['total']:,} 金幣**\n"
-            "包含錢包與銀行存款。\n"
-            "不公開帳戶餘額與交易明細。"
-        ),
-        inline=False,
-    )
-
-    if private and detail_page == 1:
-        private_lines = [
-            f"**{label}**："
-            f"{display_value(settings.get(key), '未填寫')}"
-            for key, label in PRIVATE_FIELDS.items()
-        ]
-
-        add_field_chunks(
-            embed,
-            "🔒 私人角色資料",
-            private_lines,
-        )
-
-    biography_pages = _biography_pages(public_bio)
-    biography_short = len(biography_pages) == 1 and len(biography_pages[0]) <= 600
-    if detail_page == 1 and biography_short:
-        embed.add_field(name="📖 公開生平", value=biography_pages[0], inline=False)
-    elif detail_page >= 2 and biography_pages:
-        biography_index = detail_page - 2
-        if biography_index < len(biography_pages):
-            # Each page is capped at 1600 characters, split into 800-character
-            # fields to stay below Discord's 1024-character embed field limit.
-            content = biography_pages[biography_index]
-            for idx in range(0, len(content), 800):
-                embed.add_field(
-                    name="📖 公開生平" if idx == 0 else "📖 公開生平（續）",
-                    value=content[idx:idx + 800],
-                    inline=False,
-                )
-
-    portrait = settings.get(
-        "portrait_url"
-    )
-
-    if (
-        isinstance(portrait, str)
-        and portrait.startswith(
-            ("https://", "http://")
-        )
-    ):
-        embed.set_image(
-            url=portrait
-        )
-
-    source = settings.get(
-        "portrait_source"
-    )
-
+        personality, biography = visible_biography(settings, private and authorized)
+        if not personality and not biography:
+            embed.add_field(name="📖 生平", value="此角色尚未公開性格與身世背景。", inline=False)
+        else:
+            # 每一段獨立分頁；未獲授權者不會讀取隱藏的欄位內容。
+            parts = []
+            if personality:
+                parts.append("🎭 角色性格\n" + personality)
+            if biography:
+                parts.append("📜 身世背景\n" + biography)
+            pages = _biography_pages("\n\n".join(parts), page_chars=1500)
+            index = detail_page - 2
+            if index < len(pages):
+                for i, chunk_start in enumerate(range(0, len(pages[index]), 900)):
+                    embed.add_field(name="📖 生平" if i == 0 else "📖 生平（續）",
+                                    value=pages[index][chunk_start:chunk_start + 900], inline=False)
+    portrait = settings.get("portrait_url")
+    if isinstance(portrait, str) and portrait.startswith(("https://", "http://")):
+        embed.set_image(url=portrait)
+    source = settings.get("portrait_source")
     if source:
-        embed.set_footer(
-            text=(
-                "立繪來源："
-                f"{shorten(source, 180)}"
-            )
-        )
-
-    max_page = _character_detail_max_page(actor, character_id)
-    embed.add_field(name="📄 面板頁數", value=f"{detail_page + 1}/{max_page + 1}｜使用 ◀️ ▶️ 切換", inline=False)
+        embed.set_footer(text="立繪來源：" + shorten(source, 180))
     return embed
 
 
@@ -1027,6 +890,21 @@ class CategoryView(discord.ui.View):
         self.add_item(
             CharacterCategorySelect(actor)
         )
+        self.my_characters = discord.ui.Button(
+            label="👤 查看自己的角色", style=discord.ButtonStyle.primary, row=1,
+        )
+        async def open_my_characters(interaction):
+            current = Actor.from_interaction(interaction)
+            if current.user_id != self.actor.user_id or current.guild_id != self.actor.guild_id:
+                await interaction.response.send_message("⛔ 這不是你的查看面板。", ephemeral=True)
+                return
+            result = find_characters(current, "mine")
+            await interaction.response.edit_message(
+                content=category_text("mine", result), embed=None,
+                view=CharacterListView(current, "mine"),
+            )
+        self.my_characters.callback = open_my_characters
+        self.add_item(self.my_characters)
 
 
 class CharacterItemSelect(discord.ui.Select):
@@ -1103,7 +981,9 @@ class CharacterItemSelect(discord.ui.Select):
                 character_id,
             )
 
-            if get_category(character) != self.category:
+            if (self.category == 'mine' and not is_owner(actor, character)) or (
+                self.category != 'mine' and get_category(character) != self.category
+            ):
                 raise InvalidState(
                     "角色分類已更改，請重新查詢。"
                 )
@@ -1524,47 +1404,59 @@ def _panel_career(actor,cid,mode,page=0):
 
 
 def _panel_faction(actor, cid):
-    """目前沒有正式陣營資料結構時，不臆測角色歸屬。"""
+    """依照正式陣營表 faction_groups 讀取角色歸屬。"""
     with get_connection() as db:
-        # 若日後陣營模組建立此關聯表，公開面板可立即顯示。
-        if _panel_table(db, "faction_members") and _panel_table(db, "factions"):
-            try:
-                row = db.execute(
-                    """SELECT f.name FROM faction_members m
-                       JOIN factions f ON f.guild_id=m.guild_id AND f.id=m.faction_id
-                       WHERE m.guild_id=? AND m.character_id=? LIMIT 1""",
-                    (str(actor.guild_id), cid),
-                ).fetchone()
-                if row:
-                    return str(row["name"])
-            except sqlite3.OperationalError:
-                pass
-    return "尚未加入／尚未建立陣營資料"
+        if not (_panel_table(db, 'faction_members') and _panel_table(db, 'faction_groups')):
+            return '尚未加入陣營'
+        row = db.execute(
+            """SELECT f.name FROM faction_members m
+               JOIN faction_groups f ON f.guild_id=m.guild_id AND f.id=m.faction_id
+               WHERE m.guild_id=? AND m.character_id=? LIMIT 1""",
+            (str(actor.guild_id), int(cid)),
+        ).fetchone()
+    return str(row['name']) if row else '尚未加入陣營'
 
 
 def _panel_asset_groups(actor, cid):
-    """只讀取現有的資產來源；沒有正式權屬資料的類別不杜撰。"""
-    groups = [("🚗 車輛", []), ("🏠 房產", []), ("💎 珠寶", []), ("🏢 公司", [])]
+    """分組顯示可核實的非貨幣持有資訊，絕不猜測權屬。"""
+    groups = [
+        ("🚗 車輛", []), ("🏠 房產", []), ("💎 珠寶／鐘錶", []),
+        ("🏢 公司／品牌／集團", []), ("🏬 個人商店", []),
+    ]
     with get_connection() as db:
         if _panel_table(db, "shop_inventory") and _panel_table(db, "shop_products"):
             rows = db.execute(
-                """SELECT p.name, p.category, i.quantity
-                   FROM shop_inventory i
+                """SELECT p.name, p.category, i.quantity FROM shop_inventory i
                    JOIN shop_products p ON p.guild_id=i.guild_id AND p.id=i.product_id
                    WHERE i.guild_id=? AND i.character_id=? AND i.quantity>0""",
-                (str(actor.guild_id), cid),
+                (str(actor.guild_id), int(cid)),
             ).fetchall()
             for row in rows:
-                name = str(row["name"])
                 category = str(row["category"] or "")
-                qty = int(row["quantity"])
+                entry = f"{row['name']} ×{int(row['quantity'])}"
                 if "珠寶" in category or "鐘錶" in category or "B03" in category.upper():
-                    groups[2][1].append(f"{name} ×{qty}")
+                    groups[2][1].append(entry)
                 elif "車輛" in category or "汽車" in category:
-                    groups[0][1].append(f"{name} ×{qty}")
+                    groups[0][1].append(entry)
                 elif "房產" in category or "不動產" in category:
-                    groups[1][1].append(f"{name} ×{qty}")
-    # 公司、車、房的獨立所有權須等正式登記系統串接。
+                    groups[1][1].append(entry)
+        if _panel_table(db, "rp_business_entities"):
+            rows = db.execute(
+                """SELECT name, kind FROM rp_business_entities
+                   WHERE guild_id=? AND owner_character_id=? AND status='active'
+                   ORDER BY name LIMIT 40""",
+                (str(actor.guild_id), int(cid)),
+            ).fetchall()
+            kind = {"company": "公司", "brand": "品牌", "group": "集團"}
+            groups[3][1].extend(f"{row['name']}（{kind.get(row['kind'], '組織')}）" for row in rows)
+        if _panel_table(db, "personal_shops"):
+            rows = db.execute(
+                """SELECT name, category FROM personal_shops
+                   WHERE guild_id=? AND character_id=? AND status!='closed'
+                   ORDER BY name LIMIT 30""",
+                (str(actor.guild_id), int(cid)),
+            ).fetchall()
+            groups[4][1].extend(f"{row['name']}（{row['category']}）" for row in rows)
     return groups
 
 
@@ -1796,11 +1688,18 @@ class PanelSubView(discord.ui.View):
                         await interaction.response.send_message('⚠️ 稱號介面無法開啟。', ephemeral=True)
             title_btn.callback = open_titles
             self.add_item(title_btn)
-        if mode=='awards':
-            for label,kind in [('成就','works'),('榮譽','endorsement')]:
-                btn=discord.ui.Button(label=label,style=discord.ButtonStyle.secondary,row=0)
-                async def action(interaction,k=kind):await self.show(interaction,k,0)
-                btn.callback=action;self.add_item(btn)
+        if mode == 'relations' and get_category(get_character(self.parent.actor, self.parent.character_id)) == 'extra':
+            like = discord.ui.Button(label='🤍 喜歡／取消喜歡', style=discord.ButtonStyle.secondary, row=0)
+            async def toggle_like(interaction):
+                from modules.npc_likes import toggle
+                actor = Actor.from_interaction(interaction)
+                try:
+                    toggle(actor.guild_id, self.parent.character_id, actor.user_id)
+                    await self.show(interaction, 'relations', self.page)
+                except (ValueError, InvalidState, PermissionDenied, sqlite3.Error) as exc:
+                    await interaction.response.send_message(f'⚠️ {exc}', ephemeral=True)
+            like.callback = toggle_like
+            self.add_item(like)
         if mode=='relations' and self.parent.is_own_character:
             btn=discord.ui.Button(label='自訂關係',style=discord.ButtonStyle.secondary,row=0)
             async def relation(interaction):await interaction.response.send_modal(PanelRelationModal(self.parent, self.page))
@@ -1813,7 +1712,7 @@ class PanelSubView(discord.ui.View):
             previous.callback=prev;next_button.callback=nxt;self.add_item(previous);self.add_item(next_button)
         back=discord.ui.Button(label='⬅️ 返回',style=discord.ButtonStyle.secondary,row=3 if mode=='bag' else 2)
         async def go_back(interaction):
-            await interaction.response.edit_message(content=None,embed=make_character_embed(Actor.from_interaction(interaction),self.parent.character_id),view=self.parent)
+            await interaction.response.edit_message(content=None,embed=make_character_embed(Actor.from_interaction(interaction),self.parent.character_id,private=self.parent.display_private,detail_page=self.parent.detail_page),view=self.parent)
         back.callback=go_back;self.add_item(back)
     async def interaction_check(self,interaction):return await self.parent.interaction_check(interaction)
     async def show(self,interaction,mode,page=0):
@@ -1838,23 +1737,56 @@ class PublicPanelView(discord.ui.View):
         await PanelSubView(self.parent,'relations').show(interaction,'relations')
     @discord.ui.button(label='⬅️ 返回原畫面',style=discord.ButtonStyle.secondary,row=0)
     async def back(self,interaction,button):
-        await interaction.response.edit_message(content=None,embed=make_character_embed(Actor.from_interaction(interaction),self.parent.character_id),view=self.parent)
+        await interaction.response.edit_message(content=None,embed=make_character_embed(Actor.from_interaction(interaction),self.parent.character_id,private=self.parent.display_private,detail_page=self.parent.detail_page),view=self.parent)
 
 
 class CharacterEditStartView(discord.ui.View):
-    def __init__(self, user_id, character_id):
+    def __init__(self, user_id, character_id, guild_id):
         super().__init__(timeout=600)
-        self.user_id = int(user_id)
+        self.user_id = str(user_id)
         self.character_id = int(character_id)
+        self.guild_id = str(guild_id)
 
-    @discord.ui.button(label='✏️ 一次修改並送出', style=discord.ButtonStyle.primary)
+    async def interaction_check(self, interaction):
+        if str(interaction.user.id) != self.user_id or str(interaction.guild_id) != self.guild_id:
+            await interaction.response.send_message('這不是你的角色修改面板。', ephemeral=True)
+            return False
+        return True
+
+    def refresh_buttons(self):
+        with get_connection() as conn:
+            row = conn.execute('SELECT settings_json FROM characters WHERE guild_id=? AND id=? AND owner_id=?',
+                               (self.guild_id, self.character_id, self.user_id)).fetchone()
+        flags = visibility_state(safe_json(row['settings_json'])) if row else {}
+        self.personality_visibility.label = ('🌐 性格公開' if flags.get('personality') else '🔒 性格不公開')
+        self.biography_visibility.label = ('🌐 身世公開' if flags.get('biography') else '🔒 身世不公開')
+
+    @discord.ui.button(label='✏️ 一次修改並送出', style=discord.ButtonStyle.primary, row=0)
     async def open_editor(self, interaction, button):
-        if interaction.user.id != self.user_id:
-            return await interaction.response.send_message('這不是你的角色修改面板。', ephemeral=True)
         from modules.application_extras import ApplicationModal
-        await interaction.response.send_modal(
-            ApplicationModal(interaction, 'character_edit', self.character_id)
-        )
+        await interaction.response.send_modal(ApplicationModal(interaction, 'character_edit', self.character_id))
+
+    async def _toggle(self, interaction, field):
+        try:
+            with get_connection() as db:
+                row = db.execute('SELECT settings_json FROM characters WHERE guild_id=? AND id=?',
+                                 (self.guild_id, self.character_id)).fetchone()
+            if row is None:
+                raise ValueError('角色已不存在。')
+            current = visibility_state(safe_json(row['settings_json']))[field]
+            update_visibility(self.guild_id, self.character_id, self.user_id, field, not current)
+            self.refresh_buttons()
+            await interaction.response.edit_message(view=self)
+        except (PermissionError, ValueError, sqlite3.Error) as exc:
+            await interaction.response.send_message(f'⚠️ {exc}', ephemeral=True)
+
+    @discord.ui.button(label='🔒 性格不公開', style=discord.ButtonStyle.secondary, row=1)
+    async def personality_visibility(self, interaction, button):
+        await self._toggle(interaction, 'personality')
+
+    @discord.ui.button(label='🔒 身世不公開', style=discord.ButtonStyle.secondary, row=1)
+    async def biography_visibility(self, interaction, button):
+        await self._toggle(interaction, 'biography')
 
 
 class CharacterDetailView(discord.ui.View):
@@ -1866,12 +1798,15 @@ class CharacterDetailView(discord.ui.View):
         self.private_button.disabled=not can_see_private(actor,character)
         self.asset_detail_button.disabled=not can_see_private(actor,character)
         if not self.is_own_character:self.inventory_button.disabled=True
-        # 僅路人角色顯示愛心操作；其他角色完全不佔按鈕位置。
-        if get_category(character) != 'extra':
-            self.remove_item(self.like_button)
-        else:
-            from modules.npc_likes import liked
-            self.like_button.label = '💗 已喜歡・取消' if liked(actor.guild_id, character_id, actor.user_id) else '🤍 喜歡這個路人'
+        # 路人人氣功能移至「關係」子頁，不佔主面板規定的四排按鈕。
+        self.remove_item(self.like_button)
+        self.edit_request_button.disabled = not (self.is_own_character and get_category(character) in ('original','player_npc'))
+        self.leaderboard_points_button.disabled = not self.is_own_character
+        self._sync_paging()
+
+    def _sync_paging(self):
+        self.previous_detail_page.disabled = self.detail_page <= 0
+        self.next_detail_page.disabled = self.detail_page >= _character_detail_max_page(self.actor, self.character_id, private=self.display_private)
 
     async def interaction_check(self,interaction):
         actor=Actor.from_interaction(interaction)
@@ -1881,10 +1816,12 @@ class CharacterDetailView(discord.ui.View):
     @discord.ui.button(label='🌐 公開',style=discord.ButtonStyle.secondary,row=0)
     async def public_button(self,interaction,button):
         self.detail_page=0;self.display_private=False
+        self._sync_paging()
         await interaction.response.edit_message(content=None,embed=make_character_embed(self.actor,self.character_id,detail_page=self.detail_page),view=self)
     @discord.ui.button(label='🔒 私人',style=discord.ButtonStyle.primary,row=0)
     async def private_button(self,interaction,button):
         self.detail_page=0;self.display_private=True
+        self._sync_paging()
         await interaction.response.edit_message(content=None,embed=make_character_embed(self.actor,self.character_id,private=True,detail_page=self.detail_page),view=self)
     @discord.ui.button(label='💰 資產',style=discord.ButtonStyle.secondary,row=0)
     async def asset_detail_button(self,interaction,button):
@@ -1893,14 +1830,16 @@ class CharacterDetailView(discord.ui.View):
     async def inventory_button(self,interaction,button):
         require_inventory_owner(self.actor,self.character_id)
         await PanelSubView(self,'bag').show(interaction,'bag')
-    @discord.ui.button(label='◀️',style=discord.ButtonStyle.secondary,row=1)
+    @discord.ui.button(label='◀️',style=discord.ButtonStyle.secondary,row=3)
     async def previous_detail_page(self,interaction,button):
         self.detail_page = max(0, self.detail_page - 1)
+        self._sync_paging()
         await interaction.response.edit_message(content=None,embed=make_character_embed(self.actor,self.character_id,private=self.display_private,detail_page=self.detail_page),view=self)
 
-    @discord.ui.button(label='▶️',style=discord.ButtonStyle.secondary,row=1)
+    @discord.ui.button(label='▶️',style=discord.ButtonStyle.secondary,row=3)
     async def next_detail_page(self,interaction,button):
-        self.detail_page = min(_character_detail_max_page(self.actor, self.character_id), self.detail_page + 1)
+        self.detail_page = min(_character_detail_max_page(self.actor, self.character_id, private=self.display_private), self.detail_page + 1)
+        self._sync_paging()
         await interaction.response.edit_message(content=None,embed=make_character_embed(self.actor,self.character_id,private=self.display_private,detail_page=self.detail_page),view=self)
 
     @discord.ui.button(label='📖 攻略',style=discord.ButtonStyle.secondary,row=1)
@@ -1912,6 +1851,11 @@ class CharacterDetailView(discord.ui.View):
     @discord.ui.button(label='🏆 成就榮譽',style=discord.ButtonStyle.secondary,row=1)
     async def awards_button(self,interaction,button):
         await PanelSubView(self,'awards').show(interaction,'awards')
+    def _edit_controls(self, interaction):
+        view = CharacterEditStartView(interaction.user.id, self.character_id, interaction.guild_id)
+        view.refresh_buttons()
+        return view
+
     @discord.ui.button(label='📝 修改角色資料',style=discord.ButtonStyle.primary,row=2)
     async def edit_request_button(self,interaction,button):
         try:
@@ -1925,7 +1869,8 @@ class CharacterDetailView(discord.ui.View):
             embed = discord.Embed(
                 title='📝 角色資料修改｜目前資料',
                 description='檢查下列原始資料後按「一次修改並送出」。表單會帶入原值，只須改動想修改的項目。\n'
-                            '一般文字直接生效；重大變更及玩家 NPC 性格送審。數值與陣營不在此修改。',
+                            '一般文字直接生效；重大變更及玩家 NPC 性格送審。數值與陣營不在此修改。\n'
+                            '下方兩個隱私開關可獨立切換，立即生效；不會更改角色文字或觸發重審。',
                 color=discord.Color.blurple(),
             )
             for key, label in CHARACTER_EDIT_FIELDS.items():
@@ -1935,27 +1880,12 @@ class CharacterDetailView(discord.ui.View):
                 embed.add_field(name=label, value=original[:900], inline=True)
             await interaction.response.send_message(
                 embed=embed,
-                view=CharacterEditStartView(interaction.user.id, self.character_id),
+                view=self._edit_controls(interaction),
                 ephemeral=True,
             )
         except (ValueError, sqlite3.Error, PermissionDenied, InvalidState) as exc:
             await interaction.response.send_message(f'⚠️ {exc}', ephemeral=True)
-    @discord.ui.button(label='🤍 喜歡這個路人',style=discord.ButtonStyle.secondary,row=2)
-    async def like_button(self,interaction,button):
-        actor=Actor.from_interaction(interaction)
-        try:
-            character=get_character(actor,self.character_id)
-            if get_category(character) != 'extra':
-                raise ValueError('這不是路人角色。')
-            from modules.npc_likes import toggle
-            active, n=toggle(actor.guild_id,self.character_id,actor.user_id)
-            button.label='💗 已喜歡・取消' if active else '🤍 喜歡這個路人'
-            await interaction.response.edit_message(
-                content=None,embed=make_character_embed(actor,self.character_id),view=self)
-        except (ValueError,sqlite3.Error,InvalidState,PermissionDenied) as exc:
-            await interaction.response.send_message(f'⚠️ {exc}',ephemeral=True)
-
-    @discord.ui.button(label='🎯 點數分配',style=discord.ButtonStyle.primary,row=3)
+    @discord.ui.button(label='🎯 點數分配',style=discord.ButtonStyle.primary,row=2)
     async def leaderboard_points_button(self,interaction,button):
         if not self.is_own_character:
             await interaction.response.send_message('只有已啟用角色的持有人可以分配點數。',ephemeral=True)
@@ -1967,7 +1897,7 @@ class CharacterDetailView(discord.ui.View):
             if not interaction.response.is_done():
                 await interaction.response.send_message(f'⚠️ 點數面板暫時無法開啟：{exc}',ephemeral=True)
 
-    @discord.ui.button(label='⬅️ 返回',style=discord.ButtonStyle.secondary,row=2)
+    @discord.ui.button(label='⬅️ 返回',style=discord.ButtonStyle.secondary,row=3)
     async def back(self,interaction,button):
         result=find_characters(self.actor,self.category,self.keyword,self.page)
         await interaction.response.edit_message(content=category_text(self.category,result,self.keyword),embed=None,view=CharacterListView(self.actor,self.category,self.keyword,result['page']))
