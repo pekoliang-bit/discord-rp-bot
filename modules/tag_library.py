@@ -172,6 +172,8 @@ def tags(gid, enabled_only=True, query=''):
 
 
 def held(gid,cid):
+    # 角色面板可能比標籤管理頁先被使用：必須確保資料表已建立。
+    seed(gid)
     with get_connection() as db:
         return [dict(r) for r in db.execute('''SELECT t.*,ct.source,ct.source_ref FROM rp_character_tags ct
           JOIN rp_tag_library t ON t.id=ct.tag_id AND t.guild_id=ct.guild_id
