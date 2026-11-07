@@ -1,4 +1,3 @@
-
 """網路帳號 / 群組操作子面板；不另行註冊 slash 指令。"""
 from __future__ import annotations
 
@@ -56,6 +55,7 @@ class CreateAccountModal(
         self.character_id = character_id
 
     async def on_submit(self, interaction):
+        await interaction.response.defer(ephemeral=True)
         try:
             aid = await asyncio.to_thread(
                 ng.create_account,
@@ -111,6 +111,9 @@ class AccountPicker(PrivateView):
             )
 
             async def chosen(interaction):
+                # Acknowledge the interaction BEFORE database work; otherwise
+                # a slow account lookup makes Discord show 'application did not respond'.
+                await interaction.response.defer(ephemeral=True)
                 account_id = int(select.values[0])
 
                 try:
@@ -121,7 +124,7 @@ class AccountPicker(PrivateView):
                         account_id,
                     )
 
-                    await interaction.response.send_message(
+                    await interaction.followup.send(
                         (
                             '🌐 **網路首頁**｜'
                             f"{account['character_name']} · "
@@ -136,10 +139,10 @@ class AccountPicker(PrivateView):
                     )
 
                 except (ValueError, PermissionError) as exc:
-                    await inform(
-                        interaction,
-                        f'⚠️ {exc}',
-                    )
+                    await inform(interaction, f'⚠️ {exc}')
+                except Exception:
+                    LOG.exception('網路帳號選擇失敗 guild=%s account=%s', interaction.guild_id, account_id)
+                    await inform(interaction, '⚠️ 帳號資料載入失敗，請查看 Railway 日誌。')
 
             select.callback = chosen
             self.add_item(select)
@@ -171,6 +174,7 @@ class CharacterPicker(PrivateView):
         )
 
         async def chosen(interaction):
+            await interaction.response.defer(ephemeral=True)
             cid = int(select.values[0])
 
             try:
@@ -194,8 +198,12 @@ class CharacterPicker(PrivateView):
             except (ValueError, PermissionError) as exc:
                 await inform(interaction, f'⚠️ {exc}')
                 return
+            except Exception:
+                LOG.exception('網路角色帳號補建失敗 guild=%s character=%s', interaction.guild_id, cid)
+                await inform(interaction, '⚠️ 角色帳號補建失敗，請查看 Railway 日誌。')
+                return
 
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 '第二步：選擇私人本帳或官方帳號'
                 '（系統自動補建）。',
                 view=AccountPicker(
