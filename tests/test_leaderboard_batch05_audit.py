@@ -1,3 +1,4 @@
+
 """Audit cross-checks the sealed 30d snapshot using an isolated database."""
 import contextlib
 import json
@@ -37,11 +38,11 @@ class AuditTest(unittest.TestCase):
 
     def test_rank_tamper_blocked(self):
         self.db.execute('UPDATE lb_v11_snapshots SET rank=2')
-        self.assertIn('å¿«ç§','ï¼'.join(audit.audit_guild('1')['issues'][0]['reasons']))
+        self.assertIn('快照','；'.join(audit.audit_guild('1')['issues'][0]['reasons']))
 
     def test_unsealed_blocked(self):
         self.db.execute("UPDATE lb_v11_periods SET state='pending'")
-        self.assertIn('å°å­','ï¼'.join(audit.audit_guild('1')['issues'][0]['reasons']))
+        self.assertIn('封存','；'.join(audit.audit_guild('1')['issues'][0]['reasons']))
 
     def test_provisional_blocked(self):
         self.db.execute("UPDATE lb_v11_awards SET reward_json=replace(reward_json,'v11-approved','v11-provisional')")
@@ -49,6 +50,6 @@ class AuditTest(unittest.TestCase):
 
     def test_missing_snapshot_blocked(self):
         self.db.execute('DELETE FROM lb_v11_snapshots')
-        self.assertIn('å¿«ç§','ï¼'.join(audit.audit_guild('1')['issues'][0]['reasons']))
+        self.assertIn('快照','；'.join(audit.audit_guild('1')['issues'][0]['reasons']))
 
 if __name__ == '__main__': unittest.main()
