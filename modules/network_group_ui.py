@@ -237,98 +237,41 @@ class NetworkHome(PrivateView):
         self.character = character
         self.account = account
 
-    @discord.ui.button(
-        label='直播中心',
-        emoji='🔴',
-        row=0,
-    )
+    @discord.ui.button(label='📝 發文／關注／好友', emoji='📝', row=0,
+                       style=discord.ButtonStyle.primary)
+    async def posting(self, interaction, button):
+        from modules.network_forum_ui import SocialMenuView
+        await interaction.response.send_message(
+            '📝 網路論壇｜發文、關注、好友申請與頻道綁定',
+            view=SocialMenuView(self.owner_id,self.account), ephemeral=True)
+
+    @discord.ui.button(label='直播中心', emoji='🔴', row=0)
     async def live(self, interaction, button):
         await interaction.response.defer(ephemeral=True)
-        from modules.live_stream_ui import NetworkView
+        from modules.live_stream_ui import LiveOrganizedView
+        await interaction.followup.send('🔴 直播中心｜直播管理、團播、PK、查看直播',
+            view=LiveOrganizedView(self.owner_id,self.character),ephemeral=True)
 
-        account = await asyncio.to_thread(
-            ng.account_info,
-            interaction.guild.id,
-            interaction.user.id,
-            self.account,
-        )
-
-        view = NetworkView(
-            self.owner_id,
-            [(self.character, account['character_name'])],
-        )
-        view.character_id = self.character
-
-        await interaction.followup.send(
-            '🔴 直播功能',
-            view=view,
-            ephemeral=True,
-        )
-
-    @discord.ui.button(
-        label='群組中心',
-        emoji='👥',
-        row=0,
-    )
+    @discord.ui.button(label='群組中心', emoji='👥', row=0)
     async def groups(self, interaction, button):
-        await interaction.response.send_message(
-            '👥 **網路群組中心**',
-            view=GroupsView(
-                self.owner_id,
-                self.character,
-                self.account,
-            ),
-            ephemeral=True,
-        )
+        await interaction.response.send_message('👥 網路群組中心',
+            view=GroupsCompactView(self.owner_id,self.character,self.account),ephemeral=True)
 
-    @discord.ui.button(
-        label='網友評論',
-        emoji='💬',
-        row=0,
-    )
-    async def comments(self, interaction, button):
-        await inform(
-            interaction,
-            '💬 評論模板與系統網友由事件觸發；'
-            '玩家直接發布評論的操作尚未接入，'
-            '不能冒用系統網友。',
-        )
-
-    @discord.ui.button(
-        label='網路輿論',
-        emoji='📣',
-        row=1,
-    )
-    async def rumors(self, interaction, button):
-        await inform(
-            interaction,
-            '📣 傳聞目前使用獨立的 /傳聞 系統；'
-            '尚未完成網路首頁的直接連接。',
-        )
-
-    @discord.ui.button(
-        label='帳號資訊',
-        emoji='📇',
-        row=1,
-    )
+    @discord.ui.button(label='帳號資訊', emoji='📇', row=1)
     async def info(self, interaction, button):
         await interaction.response.defer(ephemeral=True)
-        account = await asyncio.to_thread(
-            ng.account_info,
-            interaction.guild.id,
-            interaction.user.id,
-            self.account,
-        )
-
-        await inform(
-            interaction,
-            (
-                f"角色：{account['character_name']} "
-                f"#{account['character_id']}\n"
-                f"網路帳號：@{account['handle']} "
-                f"（#{account['id']}）"
-            ),
-        )
+        try:
+            a=await asyncio.to_thread(ng.account_info,interaction.guild.id,
+                    interaction.user.id,self.account)
+            from core import network_social_posts as sp
+            counts=await asyncio.to_thread(sp.relationship_counts,interaction.guild.id,self.account)
+            await inform(interaction,
+                f"角色：{a['character_name']} #{a['character_id']}\n"
+                f"帳號：@{a['handle']}（#{a['id']}）\n"
+                f"關注者：{counts['followers']}｜好友：{counts['friends']}")
+        except Exception:
+            LOG.exception('帳號資訊載入失敗')
+            await inform(interaction,'⚠️ 帳號資訊暫時無法載入')
 
 
 class CreateGroupModal(
@@ -1090,3 +1033,79 @@ def binding_status(guild_id):
         '⚙️ **群主頻道綁定設定**\n'
         + '\n'.join(rows)
     )
+
+
+class GroupsCompactView(PrivateView):
+    """新版網路群組首頁：把近似功能收到兩層操作頁。"""
+    def __init__(self, owner, character, account):
+        super().__init__(owner)
+        self.character = character
+        self.account = account
+
+    @discord.ui.button(label='群組建立與邀請', emoji='👥', row=0,
+                       style=discord.ButtonStyle.primary)
+    async def setup_group(self, interaction, button):
+        await interaction.response.send_message('群組建立與邀請',
+            view=GroupCreateInviteView(self.owner_id,self.account),ephemeral=True)
+
+    @discord.ui.button(label='群組與邀請管理', emoji='📋', row=0)
+    async def manage_group(self, interaction, button):
+        await interaction.response.send_message('已加入群組、接受／拒絕邀請及退出',
+            view=GroupMemberManageView(self.owner_id,self.account),ephemeral=True)
+
+    @discord.ui.button(label='全員大群', emoji='🌐', row=1)
+    async def global_group(self, interaction, button):
+        await interaction.response.defer(ephemeral=True)
+        value=await asyncio.to_thread(ng.settings,interaction.guild.id)
+        await inform(interaction,'🌐 全員大群：'+
+            (f'<#{value["global_channel_id"]}>' if value['global_channel_id'] else '尚未綁定'))
+
+    @discord.ui.button(label='頻道設定（群主）', emoji='⚙️', row=1)
+    async def bind(self, interaction, button):
+        if interaction.guild and interaction.user.id==interaction.guild.owner_id:
+            await interaction.response.send_message(binding_status(interaction.guild_id),
+                view=ChannelBindingsView(interaction.user.id),ephemeral=True)
+        else:
+            await inform(interaction,'⛔ 只有群主可以設定頻道。')
+
+
+class GroupCreateInviteView(PrivateView):
+    def __init__(self,owner,account):
+        super().__init__(owner)
+        self.account=account
+
+    @discord.ui.button(label='成立群組',emoji='➕')
+    async def create(self,interaction,button):
+        await interaction.response.send_modal(CreateGroupModal(self.account))
+
+    @discord.ui.button(label='邀請成員',emoji='✉️')
+    async def invite(self,interaction,button):
+        await interaction.response.send_modal(InviteGroupModal(self.account))
+
+
+class GroupMemberManageView(PrivateView):
+    def __init__(self,owner,account):
+        super().__init__(owner)
+        self.account=account
+
+    @discord.ui.button(label='已加入／受邀群組',emoji='📋',row=0)
+    async def groups(self,interaction,button):
+        await interaction.response.defer(ephemeral=True)
+        data=await asyncio.to_thread(ng.memberships,interaction.guild.id,
+                                     interaction.user.id,self.account)
+        text='\n'.join(
+            f"#{x['id']} {x['name']} ｜{'✅ 已加入' if x['state']=='joined' else '✉️ 邀請中'} "
+            f"<#{x['channel_id']}>" for x in data)
+        await inform(interaction,text[:1900] or '目前沒有加入或受邀群組。')
+
+    @discord.ui.button(label='接受邀請',emoji='✅',row=1)
+    async def accept(self,interaction,button):
+        await interaction.response.send_modal(GroupActionModal(self.account,'accept'))
+
+    @discord.ui.button(label='拒絕邀請',emoji='❌',row=1)
+    async def decline(self,interaction,button):
+        await interaction.response.send_modal(GroupActionModal(self.account,'decline'))
+
+    @discord.ui.button(label='退出群組',emoji='🚪',row=1)
+    async def leave(self,interaction,button):
+        await interaction.response.send_modal(GroupActionModal(self.account,'leave'))
