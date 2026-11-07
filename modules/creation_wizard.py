@@ -1,5 +1,5 @@
 
-"""Discord RP：正式創角中心。
+""""""Discord RP：正式創角中心。
 
 /創角
 - 多角色與永久草稿
@@ -42,6 +42,7 @@ from modules.attributes import (
     allocate_initial,
 )
 from modules import profile as profile_module
+from core.character_creation_consent import CATEGORIES, DEFAULTS, normalize as normalized_consent, update as update_consent
 
 LOG = logging.getLogger(__name__)
 
@@ -107,34 +108,16 @@ VALIDATE_FIELD = (
 
 GROUPS = (
     (
-        "基本資訊",
-        (
-            "性別",
-            "國籍或出身",
-            "身高cm",
-            "體重kg",
-            "學歷",
-        ),
+        "基本身分及外觀",
+        ("性別", "國籍或出身", "身高cm", "體重kg", "立繪網址"),
     ),
     (
-        "經歷與立繪",
-        (
-            "立繪網址",
-            "立繪來源",
-            "語言",
-            "資歷年數",
-            "生平簡述",
-        ),
+        "演藝資料與立繪來源",
+        ("立繪來源", "學歷", "語言", "資歷年數", "藝名或稱號"),
     ),
     (
         "人物介紹",
-        (
-            "藝名或稱號",
-            "代表色碼",
-            "公開人設",
-            "私下性格",
-            "特殊設定",
-        ),
+        ("代表色碼", "公開人設", "私下性格", "生平簡述", "特殊設定"),
     ),
     (
         "其他設定",
@@ -453,17 +436,16 @@ def finish_points(actor, character_id):
         for name in schema["talent"]
     }
 
-    calculate_initial(
-        schema,
-        main,
-        general,
-        talent,
-    )
+    secondary=settings.get('wizard_secondary') or None
+    if secondary is None or secondary == main or secondary not in MAIN_SKILLS:
+        raise InvalidState('請選擇與主攻不同的副賽道。')
+    calculate_initial(schema,main,secondary,general,talent)
 
     result = allocate_initial(
         actor,
         character_id,
         main,
+        secondary,
         json.dumps(
             general,
             ensure_ascii=False,
@@ -500,6 +482,7 @@ def screen(actor, character_id, stage):
         f"年齡：{row['age']}",
         f"職業：{row['occupation']}",
         "📁 所有填寫資料自動保存。",
+        "職業請使用下方選單；立繪僅需照片連結及來源。",
         "",
     ]
 
@@ -547,11 +530,9 @@ def screen(actor, character_id, stage):
             )
 
         lines += [
-            "主攻五選一：演繹、舞蹈、"
-            "歌唱、綜藝、主持。",
-            "主攻基礎35、額外加成30；"
-            "其餘基礎20。",
-            "沒有副賽道。",
+            "主攻／副賽道不可相同：演繹、舞蹈、歌唱、綜藝、主持。",
+            "主攻基礎35、額外+30；副賽道基礎25、額外+15；其餘基礎20。",
+            "副賽道：" + str(settings.get('wizard_secondary') or '未選'),
             "每項都要填寫數字，"
             "沒有配點請填0。",
         ]
@@ -632,6 +613,9 @@ def screen(actor, character_id, stage):
                 )
                 or "未填寫"
             ),
+            '🔐 授權與隱私：' + '、'.join(
+                f"{label}{'開' if (normalized_consent(settings)['rumor_categories'][key] if key in CATEGORIES else normalized_consent(settings)[key]) else '關'}"
+                for key,label in CONSENT_LABELS.items()),
             "確認所有資料後再送審。",
         ]
 
@@ -785,21 +769,7 @@ class BasicModal(SafeModal):
             max_length=3,
         )
 
-        self.job = discord.ui.TextInput(
-            label="角色職業",
-            default=(
-                str(old["occupation"])
-                if old
-                else None
-            ),
-            max_length=100,
-        )
-
-        for item in (
-            self.name,
-            self.age,
-            self.job,
-        ):
+        for item in (self.name, self.age):
             self.add_item(item)
 
     async def on_submit(
@@ -824,11 +794,7 @@ class BasicModal(SafeModal):
                 age,
             )
 
-            occupation = VALIDATE_FIELD(
-                "occupation",
-                str(self.job.value),
-                age,
-            )
+            occupation = str(old['occupation']) if (old := (draft(actor, self.character_id) if self.character_id is not None else None)) else ''
 
             # 優先回應 Discord，
             # 避免資料庫操作造成 3 秒逾時。
@@ -839,11 +805,7 @@ class BasicModal(SafeModal):
 
             if self.character_id is None:
                 character_id = create_character(
-                    actor.guild_id,
-                    actor.user_id,
-                    name,
-                    age,
-                    occupation,
+                    actor.guild_id, actor.user_id, name, age, ''
                 )
             else:
                 character_id = (
@@ -1117,9 +1079,10 @@ class PointsModal(SafeModal):
             )
 
             if main not in MAIN_SKILLS:
-                raise InvalidState(
-                    "請先選擇主攻技能。"
-                )
+                raise InvalidState('請先選擇主攻技能。')
+            secondary=settings.get('wizard_secondary')
+            if secondary not in MAIN_SKILLS or secondary == main:
+                raise InvalidState('請先選擇與主攻不同的副賽道。')
 
             new = {}
 
@@ -1132,9 +1095,7 @@ class PointsModal(SafeModal):
                 )
 
                 limit = (
-                    115
-                    if name == main
-                    else 130
+                    115 if name == main else 125 if name == settings.get('wizard_secondary') else 130
                 )
 
                 if (
@@ -1279,6 +1240,110 @@ class DataSelect(discord.ui.Select):
         )
 
 
+class OccupationSelect(discord.ui.Select):
+    """職業必須從正式預設與伺服器職業庫中選取。"""
+    def __init__(self, actor, character_id, page=0):
+        from modules.extra_character_store import DEFAULT_JOBS
+        self.actor, self.character_id = actor, character_id
+        jobs = list(DEFAULT_JOBS)
+        with get_connection() as db:
+            if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='extra_jobs'").fetchone():
+                jobs.extend(str(row[0]) for row in db.execute(
+                    "SELECT job FROM extra_jobs WHERE guild_id=? ORDER BY job", (actor.guild_id,)))
+        unique = tuple(dict.fromkeys(jobs))
+        self.jobs = unique
+        self.page=max(0,min(int(page),(len(unique)-1)//24))
+        block=unique[self.page*24:(self.page+1)*24]
+        options=[discord.SelectOption(label=job[:100], value=job) for job in block]
+        if len(unique)>24:
+            options.append(discord.SelectOption(label='📂 下一組職業' if (self.page+1)*24<len(unique) else '📂 返回第一組職業',value='__next_page__'))
+        super().__init__(placeholder=f"🎬 選擇角色職業（第{self.page+1}組）", row=1,options=options)
+
+    async def callback(self, interaction):
+        try:
+            check_owner(interaction, self.actor)
+            selected = self.values[0]
+            if selected=='__next_page__':
+                page=self.page+1 if (self.page+1)*24<len(self.jobs) else 0
+                await interaction.response.edit_message(content=screen(self.actor,self.character_id,0),
+                    view=WizardView(self.actor,self.character_id,0,occupation_page=page))
+                return
+            if selected not in self.jobs:
+                raise ValueError("職業不在有效職業清單")
+            await interaction.response.defer(ephemeral=True)
+            save(self.actor,self.character_id,{"occupation": selected})
+            await interaction.edit_original_response(
+                content=screen(self.actor,self.character_id,0),
+                view=WizardView(self.actor,self.character_id,0))
+        except Exception as exc:
+            await report(interaction,exc,"選擇職業")
+
+
+CONSENT_LABELS = {
+    'show_personality': '公開角色性格',
+    'show_biography': '公開身世背景',
+    'rumor_enabled': '參與傳聞（總開關）',
+    'network_opinion_enabled': '允許網路輿論事件',
+    'random_event_enabled': '參與隨機事件',
+    'official_story_enabled': '允許官方劇情引用角色',
+    **{item: '傳聞／'+item for item in CATEGORIES},
+}
+
+
+def consent_text(actor, character_id):
+    settings=unpack(draft(actor,character_id)['settings_json'])
+    state=normalized_consent(settings)
+    lines=['🔐 **創角｜授權與隱私**', '關閉總傳聞時所有分類暫時無效，個別偏好仍保留。']
+    for key, label in CONSENT_LABELS.items():
+        enabled=state['rumor_categories'][key] if key in CATEGORIES else state[key]
+        lines.append(f"{'✅' if enabled else '🔒'} {label}")
+    lines.append('選擇項目切換狀態；草稿即時保存，送審後不可自行更改。')
+    return '\n'.join(lines)
+
+
+class ConsentToggle(discord.ui.Select):
+    def __init__(self, actor, character_id):
+        self.actor,self.character_id=actor,character_id
+        super().__init__(placeholder='選擇要切換的授權或隱私項目',row=0,
+          options=[discord.SelectOption(label=label[:100],value=key) for key,label in CONSENT_LABELS.items()])
+
+    async def callback(self,interaction):
+        try:
+            check_owner(interaction,self.actor)
+            await interaction.response.defer(ephemeral=True)
+            row=draft(self.actor,self.character_id)
+            values=unpack(row['settings_json'])
+            state=normalized_consent(values)
+            key=self.values[0]
+            current=state['rumor_categories'][key] if key in CATEGORIES else state[key]
+            new=update_consent(values,key,not current)
+            save(self.actor,self.character_id,new)
+            await interaction.edit_original_response(content=consent_text(self.actor,self.character_id),view=ConsentView(self.actor,self.character_id))
+        except Exception as exc:
+            await report(interaction,exc,'授權切換')
+
+
+class ConsentView(OwnedView):
+    def __init__(self, actor,character_id):
+        super().__init__(actor)
+        self.character_id=character_id
+        self.add_item(ConsentToggle(actor,character_id))
+
+    @discord.ui.button(label='⬅️ 返回創角資料',style=discord.ButtonStyle.secondary,row=1)
+    async def back(self,interaction,button):
+        await interaction.response.edit_message(content=screen(self.actor,self.character_id,0),view=WizardView(self.actor,self.character_id,0))
+
+
+class ConsentOpen(discord.ui.Button):
+    def __init__(self,actor,character_id):
+        super().__init__(label='🔐 授權與隱私設定',style=discord.ButtonStyle.primary,row=2)
+        self.actor,self.character_id=actor,character_id
+
+    async def callback(self,interaction):
+        check_owner(interaction,self.actor)
+        await interaction.response.edit_message(content=consent_text(self.actor,self.character_id),view=ConsentView(self.actor,self.character_id))
+
+
 class MainSelect(discord.ui.Select):
     def __init__(
         self,
@@ -1319,9 +1384,10 @@ class MainSelect(discord.ui.Select):
 
             main = self.values[0]
 
+            current_secondary=settings.get('wizard_secondary')
             values = {
                 "wizard_main": main,
-                "wizard_secondary": "",
+                "wizard_secondary": '' if current_secondary == main else current_secondary,
             }
 
             # 改選主攻時，舊配點可能
@@ -1357,6 +1423,28 @@ class MainSelect(discord.ui.Select):
                 exc,
                 "選擇主攻",
             )
+
+
+class SecondarySelect(discord.ui.Select):
+    def __init__(self,actor,character_id):
+        self.actor,self.character_id=actor,character_id
+        super().__init__(placeholder='🎯 選擇副賽道（不得與主攻相同）',row=2,
+          options=[discord.SelectOption(label=skill,value=skill) for skill in MAIN_SKILLS])
+
+    async def callback(self,interaction):
+        try:
+            check_owner(interaction,self.actor)
+            row=draft(self.actor,self.character_id)
+            settings=unpack(row['settings_json'])
+            val=self.values[0]
+            if val is not None and val == settings.get('wizard_main'):
+                raise ValueError('主攻與副賽道不得相同')
+            await interaction.response.defer(ephemeral=True)
+            save(self.actor,self.character_id,{'wizard_secondary':val or '', 'wizard_points':{}})
+            await interaction.edit_original_response(content=screen(self.actor,self.character_id,1),
+                                                     view=WizardView(self.actor,self.character_id,1))
+        except Exception as exc:
+            await report(interaction,exc,'選擇副賽道')
 
 
 class PointSelect(discord.ui.Select):
@@ -1486,6 +1574,8 @@ class ConfirmView(OwnedView):
             )
 
             if self.stage == 0:
+                if not str(row['occupation']).strip():
+                    raise InvalidState('請先從職業選單選擇職業。')
                 missing = missing_personal(
                     row
                 )
@@ -1592,11 +1682,16 @@ class WizardView(OwnedView):
         actor,
         character_id,
         stage,
+        occupation_page=0,
     ):
         super().__init__(actor)
 
         self.character_id = character_id
         self.stage = stage
+
+        if stage == 0:
+            self.add_item(OccupationSelect(actor,character_id,page=occupation_page))
+            self.add_item(ConsentOpen(actor,character_id))
 
         if stage in (0, 2):
             self.add_item(
@@ -1621,6 +1716,7 @@ class WizardView(OwnedView):
                     character_id,
                 )
             )
+            self.add_item(SecondarySelect(actor,character_id))
 
         self.previous.disabled = (
             stage == 0
@@ -1749,6 +1845,8 @@ class WizardView(OwnedView):
             )
 
             if self.stage == 3:
+                if not str(row['occupation']).strip():
+                    raise InvalidState('請從職業選單選擇職業。')
                 missing = missing_personal(
                     row
                 )
@@ -1782,6 +1880,11 @@ class WizardView(OwnedView):
                         self.actor.guild_id,
                         self.character_id,
                     )
+
+                # 將全部正式預設實際保存到角色單，供二審及啟用時原樣沿用。
+                saved=unpack(draft(self.actor,self.character_id)['settings_json'])
+                settings_to_store=normalized_consent(saved)
+                save(self.actor,self.character_id,settings_to_store)
 
                 status = submit_character(
                     self.actor,
