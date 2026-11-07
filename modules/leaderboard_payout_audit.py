@@ -1,4 +1,3 @@
-
 """排行榜正式派發前稽核。
 
 唯讀，不修改任何資料庫數值。
@@ -146,6 +145,29 @@ def audit_guild(guild_id, limit=10000):
                     "v11-provisional"
                 ):
                     problems.append("獎勵仍為暫定版本")
+
+            # 只有真正封存的 30 天期末快照才能進入派獎審核。
+            # 以同一 guild/cycle/index/board/entity_key 唯一定位，
+            # 不允許 14 天榜單、遺失快照或名次竄改通過。
+            if str(row["cycle"]) != "30d":
+                problems.append("14天小結算不得派獎")
+            period = db.execute(
+                """SELECT state FROM lb_v11_periods
+                   WHERE guild_id=? AND cycle=? AND idx=?""",
+                (gid, row["cycle"], int(row["idx"])),
+            ).fetchone()
+            if period is None or period["state"] != "snapshotted":
+                problems.append("結算期尚未封存")
+            snapshot = db.execute(
+                """SELECT rank FROM lb_v11_snapshots
+                   WHERE guild_id=? AND cycle=? AND idx=?
+                     AND board=? AND entity_key=?""",
+                (gid, row["cycle"], int(row["idx"]), board, entity_key),
+            ).fetchall()
+            if not snapshot:
+                problems.append("期末快照不存在")
+            elif len(snapshot) != 1 or int(snapshot[0]["rank"]) != int(row["rank"]):
+                problems.append("期末快照名次不一致")
 
             try:
                 identity = validate_identity(
