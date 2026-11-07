@@ -34,6 +34,21 @@ def validate_action(action: dict) -> tuple[bool, str]:
         return False, "增加屬性必須指定欄位"
     if increase and attr in RESTRICTED_DIRECT_STATS:
         return False, "一般行動不可直接增加特殊管制數值"
+    health = action.get('health_delta', 0)
+    if type(health) is not int:
+        return False, '健康變動必須是整數'
+    if increase:
+        from modules.leaderboard_points_catalog import validate_target
+        name = str(action.get('skill_name') or attr)
+        if name in RESTRICTED_DIRECT_STATS:
+            return False, '一般行動不可直接增加特殊管制數值'
+        try:
+            validate_target('skill', 'skill', name)
+        except ValueError:
+            try:
+                validate_target('free', 'attribute', name)
+            except ValueError:
+                return False, '未核准的屬性或技能目標'
     rewards = action.get("point_rewards", {})
     if not isinstance(rewards, dict):
         return False, "point_rewards 必須是物件"
