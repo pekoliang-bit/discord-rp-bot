@@ -174,10 +174,10 @@ class StartModal(discord.ui.Modal, title="建立直播間"):
 
 
 class StartView(OwnedView):
-    def __init__(self, owner_id, character_id):
+    def __init__(self, owner_id, character_id, preset_kind=None):
         super().__init__(owner_id)
         self.character_id = character_id
-        self.kind = "personal"
+        self.kind = preset_kind or "personal"
         self.duration = "realtime"
 
         kinds = discord.ui.Select(
@@ -199,6 +199,9 @@ class StartView(OwnedView):
 
         kinds.callback = pick_kind
         durations.callback = pick_duration
+        if preset_kind is not None:
+            kinds.disabled = True
+            kinds.placeholder = f'固定直播類型：{preset_kind}'
 
         self.add_item(kinds)
         self.add_item(durations)
@@ -1726,5 +1729,305 @@ class LiveStreamCog(commands.Cog):
             pass  # 教學紀錄不得影響原有功能
 
 
+    @commands.Cog.listener()
+    async def on_message(self, message: discord.Message):
+        """監測綁定論壇留言，辨識 @帳號 #角色編號 ✅／➕。"""
+        if message.guild is None or message.author.bot or not isinstance(message.channel, discord.Thread):
+            return
+        from core import network_social_posts as sp
+        try:
+            post = await asyncio.to_thread(sp.thread_post, message.guild.id, message.channel.id)
+            if not post:
+                return
+            await asyncio.to_thread(sp.record_interaction, message.guild.id, message.channel.id,
+                                    message.id, message.author.id, 'comment')
+            match = sp.ACTION_PATTERN.fullmatch(message.content.strip())
+            if not match:
+                return
+            from core import network_groups as ng
+            def actor_account():
+                with get_connection() as db:
+                    ng._init(db)
+                    rows = db.execute(
+                        "SELECT a.id,a.account_kind FROM rp_network_accounts a "
+                        "JOIN characters c ON c.guild_id=a.guild_id AND c.id=a.character_id "
+                        "WHERE a.guild_id=? AND c.owner_id=? AND c.status='active'",
+                        (str(message.guild.id), str(message.author.id))
+                    ).fetchall()
+                    if len(rows) == 1:
+                        return int(rows[0]['id'])
+                    default=[r for r in rows if r['account_kind']=='personal']
+                    return int(default[0]['id']) if len(default)==1 else None
+            source = await asyncio.to_thread(actor_account)
+            if source is None:
+                await message.reply('⚠️ 你有多個帳號或尚無帳號，請在 /網路 → 發文 裡指定來源帳號。',
+                                    mention_author=False, allowed_mentions=discord.AllowedMentions.none())
+                return
+            target = await asyncio.to_thread(sp.resolve_identity, message.guild.id,
+                match.group('handle'), int(match.group('cid')))
+            if target is None:
+                raise LookupError('帳號名稱和角色編號不符合')
+            if match.group('action') == '✅':
+                await asyncio.to_thread(sp.follow, message.guild.id, message.author.id, source, target['id'])
+                await message.reply('✅ 已關注該帳號。', mention_author=False,
+                                    allowed_mentions=discord.AllowedMentions.none())
+            else:
+                await asyncio.to_thread(sp.request_friend, message.guild.id,
+                                        message.author.id, source, target['id'])
+                from modules.network_forum_ui import notify_friend_request
+                notified = await notify_friend_request(message.guild, target, source)
+                await message.reply('✅ 已送出好友申請。' +
+                                    ('對方已收到私人通知。' if notified else '對方可由網路好友中心查看。'),
+                                    mention_author=False, allowed_mentions=discord.AllowedMentions.none())
+        except (ValueError, PermissionError, LookupError) as exc:
+            await message.reply(f'⚠️ {exc}', mention_author=False,
+                                allowed_mentions=discord.AllowedMentions.none())
+        except Exception:
+            LOG.exception('網路論壇留言處理失敗 guild=%s thread=%s', message.guild.id, message.channel.id)
+
+    @commands.Cog.listener()
+    async def on_raw_reaction_add(self, payload: discord.RawReactionActionEvent):
+        if not payload.guild_id or (self.bot.user and payload.user_id == self.bot.user.id):
+            return
+        from core import network_social_posts as sp
+        try:
+            # 論壇主帖 message_id 和 thread_id 相同。
+            post = await asyncio.to_thread(sp.thread_post, payload.guild_id, payload.message_id)
+            if post:
+                await asyncio.to_thread(sp.record_interaction, payload.guild_id,
+                    payload.message_id, payload.message_id, payload.user_id,
+                    'reaction', str(payload.emoji))
+        except Exception:
+            LOG.exception('網路論壇表符處理失敗 guild=%s message=%s', payload.guild_id, payload.message_id)
+
 async def setup(bot: commands.Bot):
     await bot.add_cog(LiveStreamCog(bot))
+
+
+# Consolidated player-facing navigation: the old views remain for compatibility
+# with any existing messages and tests, while new /網路 homes use this layout.
+class LiveOrganizedView(OwnedView):
+    def __init__(self, owner_id, character_id):
+        super().__init__(owner_id)
+        self.character_id=int(character_id)
+
+    @discord.ui.button(label='個人直播／PK',emoji='🔴',row=0,style=discord.ButtonStyle.primary)
+    async def individual(self,interaction,button):
+        await interaction.response.send_message('🔴 個人直播｜開播、結束、PK 邀請及回應',
+            view=IndividualLiveView(self.owner_id,self.character_id),ephemeral=True)
+
+    @discord.ui.button(label='團播管理',emoji='👥',row=0)
+    async def groups(self,interaction,button):
+        await interaction.response.send_message('👥 團播｜開始／結束、邀請／接受／拒絕、分潤',
+            view=GroupLiveView(self.owner_id,self.character_id),ephemeral=True)
+
+    @discord.ui.button(label='查看直播',emoji='📺',row=0)
+    async def watching(self,interaction,button):
+        await interaction.response.defer(ephemeral=True)
+        try:
+            rows=await asyncio.to_thread(_open_live_sessions,interaction.guild.id)
+            if not rows:
+                await interaction.followup.send('目前沒有正在開播的直播間。',ephemeral=True)
+                return
+            await interaction.followup.send('📺 選擇正在開播的直播間（含直播類別）：',
+                view=WatchLiveView(self.owner_id,self.character_id,rows),ephemeral=True)
+        except Exception:
+            LOG.exception('查看直播間清單失敗')
+            await interaction.followup.send('⚠️ 暫時無法讀取直播間清單。',ephemeral=True)
+
+    @discord.ui.button(label='商品／團隊管理',emoji='🛍️',row=1)
+    async def manage(self,interaction,button):
+        await interaction.response.send_message('🛍️ 商品提案及直播團隊管理（商品來源與禮物定價待核准）',
+            view=LiveBackstageView(self.owner_id,self.character_id),ephemeral=True)
+
+
+def _open_live_sessions(guild_id):
+    import time
+    with get_connection() as db:
+        live._init(db)
+        rows=db.execute('''SELECT id,host_character_id,title,stream_type,viewers,
+            ends_at FROM rp_live_sessions WHERE guild_id=? AND status='live'
+            AND (ends_at IS NULL OR ends_at>?) ORDER BY id DESC LIMIT 25''',
+            (str(guild_id),int(time.time()))).fetchall()
+        return [dict(row) for row in rows]
+
+
+class WatchLiveView(OwnedView):
+    def __init__(self,owner_id,character_id,rows):
+        super().__init__(owner_id)
+        self.character_id=int(character_id)
+        selector=discord.ui.Select(placeholder='選擇目前正在開播的直播間',row=0,
+            options=[discord.SelectOption(
+                label=f"#{r['id']} [{r['stream_type']}] {r['title']}"[:100],
+                value=str(r['id']),description=f"直播類別：{r['stream_type']}｜觀看數 {r['viewers']}")
+                for r in rows[:25]])
+        async def choose(interaction):
+            await interaction.response.defer(ephemeral=True)
+            sid=int(selector.values[0])
+            try:
+                current=await asyncio.to_thread(_open_live_sessions,interaction.guild.id)
+                found=next((r for r in current if int(r['id'])==sid),None)
+                if found is None:
+                    await interaction.followup.send('直播已結束，請刷新直播列表。',ephemeral=True)
+                    return
+                await interaction.followup.send(
+                    f"📺 **{found['title']}**｜{found['stream_type']}｜場次 #{sid}\\n"
+                    '🎁 送禮與 🛍️ 商品購買均在此處操作；價格與商品來源沿用已核准的後端規則。',
+                    view=LiveRoomConsumerView(self.owner_id,self.character_id,sid),ephemeral=True)
+            except Exception:
+                LOG.exception('查看直播間失敗')
+                await interaction.followup.send('⚠️ 直播間暫時無法載入。',ephemeral=True)
+        selector.callback=choose
+        self.add_item(selector)
+
+
+class LiveRoomConsumerView(OwnedView):
+    def __init__(self,owner_id,character_id,session_id):
+        super().__init__(owner_id)
+        self.character_id=int(character_id)
+        self.session_id=int(session_id)
+
+    @discord.ui.button(label='送直播禮物',emoji='🎁',row=0)
+    async def gifts(self,interaction,button):
+        # Existing validated GiftModal requires a stream ID, no speculative prices.
+        modal=GiftModal(self.character_id)
+        modal.session_id.default=str(self.session_id)
+        await interaction.response.send_modal(modal)
+
+    @discord.ui.button(label='購買帶貨商品',emoji='🛍️',row=0)
+    async def purchase(self,interaction,button):
+        await interaction.response.send_modal(CheckoutOfferModal(self.character_id))
+
+    @discord.ui.button(label='查看商品',emoji='📋',row=0)
+    async def listing(self,interaction,button):
+        modal=OffersLookupModal()
+        modal.session_id.default=str(self.session_id)
+        await interaction.response.send_modal(modal)
+
+
+class IndividualLiveView(OwnedView):
+    def __init__(self,owner_id,character_id):
+        super().__init__(owner_id)
+        self.character_id=int(character_id)
+
+    @discord.ui.button(label='開始直播',emoji='🔴',row=0,style=discord.ButtonStyle.success)
+    async def start(self,interaction,button):
+        await interaction.response.send_message('請選直播類型與時間，再填直播標題。',
+            view=StartView(self.owner_id,self.character_id),ephemeral=True)
+
+    @discord.ui.button(label='結束直播',emoji='⏹️',row=0)
+    async def stop(self,interaction,button):
+        await interaction.response.defer(ephemeral=True)
+        try:
+            session=await asyncio.to_thread(live.current,interaction.guild.id,self.character_id)
+            if session is None:
+                raise ValueError('目前沒有正在進行的直播')
+            result=await asyncio.to_thread(live.stop,interaction.guild.id,interaction.user.id,session['id'])
+            await interaction.followup.send(f"✅ 已結束直播 #{result['id']}",ephemeral=True)
+        except (ValueError,PermissionError) as exc:
+            await interaction.followup.send(f'⚠️ {exc}',ephemeral=True)
+
+    @discord.ui.button(label='PK 邀請／接受／拒絕／結束',emoji='⚔️',row=1)
+    async def pk(self,interaction,button):
+        await interaction.response.send_message('⚔️ PK 管理',
+            view=PKConsolidatedView(self.owner_id,self.character_id),ephemeral=True)
+
+
+class PKConsolidatedView(PKView):
+    @discord.ui.button(label='拒絕 PK 邀請',emoji='❌',row=1)
+    async def decline(self,interaction,button):
+        await interaction.response.defer(ephemeral=True)
+        try:
+            rows=await asyncio.to_thread(pk.pending,interaction.guild.id,
+                interaction.user.id,self.character_id)
+            if not rows:
+                raise ValueError('沒有待處理的 PK 邀請')
+            result=await asyncio.to_thread(pk.respond,interaction.guild.id,
+                interaction.user.id,self.character_id,rows[0]['id'],False)
+            await interaction.followup.send(f'已拒絕 PK 邀請：{result}',ephemeral=True)
+        except (ValueError,PermissionError) as exc:
+            await interaction.followup.send(f'⚠️ {exc}',ephemeral=True)
+
+
+class GroupLiveView(OwnedView):
+    def __init__(self,owner_id,character_id):
+        super().__init__(owner_id)
+        self.character_id=int(character_id)
+
+    @discord.ui.button(label='開始團播',emoji='🔴',row=0)
+    async def start(self,interaction,button):
+        v=StartView(self.owner_id,self.character_id,preset_kind='group')
+        await interaction.response.send_message('已預選團播，可調整計時並確認開播。',
+            view=v,ephemeral=True)
+
+    @discord.ui.button(label='結束團播',emoji='⏹️',row=0)
+    async def stop(self,interaction,button):
+        await interaction.response.defer(ephemeral=True)
+        try:
+            s=await asyncio.to_thread(live.current,interaction.guild.id,self.character_id)
+            if not s or s['stream_type']!='group':
+                raise ValueError('目前沒有主持中的團播')
+            await asyncio.to_thread(live.stop,interaction.guild.id,interaction.user.id,s['id'])
+            await interaction.followup.send('✅ 團播已結束。',ephemeral=True)
+        except (ValueError,PermissionError) as exc:
+            await interaction.followup.send(f'⚠️ {exc}',ephemeral=True)
+
+    @discord.ui.button(label='邀請角色',emoji='✉️',row=1)
+    async def invite(self,interaction,button):
+        await interaction.response.send_modal(InviteModal(self.character_id))
+
+    async def reply(self,interaction,accepted):
+        await interaction.response.defer(ephemeral=True)
+        try:
+            rows=await asyncio.to_thread(social.pending_for_character,interaction.guild.id,
+                 interaction.user.id,self.character_id)
+            if not rows:
+                raise ValueError('目前沒有待處理的團播邀請')
+            state=await asyncio.to_thread(social.respond,interaction.guild.id,rows[0]['id'],
+                 interaction.user.id,self.character_id,accepted)
+            await interaction.followup.send(f'✅ 團播邀請處理結果：{state}',ephemeral=True)
+        except (ValueError,PermissionError) as exc:
+            await interaction.followup.send(f'⚠️ {exc}',ephemeral=True)
+
+    @discord.ui.button(label='接受邀請',emoji='✅',row=1)
+    async def accept(self,interaction,button):
+        await self.reply(interaction,True)
+
+    @discord.ui.button(label='拒絕邀請',emoji='❌',row=1)
+    async def decline(self,interaction,button):
+        await self.reply(interaction,False)
+
+    @discord.ui.button(label='提出／確認分潤',emoji='📊',row=2)
+    async def splits(self,interaction,button):
+        await interaction.response.send_message('團播分潤管理',
+            view=SplitActionsView(self.owner_id,self.character_id),ephemeral=True)
+
+
+class SplitActionsView(OwnedView):
+    def __init__(self,owner_id,character_id):
+        super().__init__(owner_id)
+        self.character_id=int(character_id)
+
+    @discord.ui.button(label='提出分潤',emoji='📝')
+    async def propose(self,interaction,button):
+        await interaction.response.send_modal(SplitProposalModal(self.character_id))
+
+    @discord.ui.button(label='確認分潤',emoji='✅')
+    async def approve(self,interaction,button):
+        await interaction.response.send_modal(SplitApprovalModal(self.character_id))
+
+
+class LiveBackstageView(OwnedView):
+    def __init__(self,owner_id,character_id):
+        super().__init__(owner_id)
+        self.character_id=int(character_id)
+
+    @discord.ui.button(label='商品管理',emoji='🛍️')
+    async def commerce(self,interaction,button):
+        await interaction.response.send_message('商品提案、驗證與查詢；玩家購買請走查看直播。',
+             view=CommerceView(self.owner_id,self.character_id),ephemeral=True)
+
+    @discord.ui.button(label='直播團隊',emoji='🏠')
+    async def teams(self,interaction,button):
+        await interaction.response.send_message('直播團隊管理',
+             view=TeamCenterView(self.owner_id,self.character_id),ephemeral=True)
