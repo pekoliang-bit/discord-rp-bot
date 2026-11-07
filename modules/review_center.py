@@ -216,6 +216,7 @@ def approve_character(
     number: int,
     approve: bool,
     reason: str,
+    *, guild_owner_id=None,
 ):
     """角色雙階段審核。"""
 
@@ -248,10 +249,9 @@ def approve_character(
                 "角色已不是待審狀態。"
             )
 
-        if str(row["owner_id"]) == actor.user_id:
-            raise PermissionDenied(
-                "不能審核自己的角色。"
-            )
+        is_guild_owner = (guild_owner_id is not None and str(guild_owner_id) == actor.user_id)
+        if str(row["owner_id"]) == actor.user_id and not is_guild_owner:
+            raise PermissionDenied("非群主不能審核自己的角色。")
 
         progress = conn.execute(
             """
@@ -287,11 +287,9 @@ def approve_character(
 
             if (
                 str(progress["first_reviewer"])
-                == actor.user_id
+                == actor.user_id and not is_guild_owner
             ):
-                raise PermissionDenied(
-                    "兩階段審核必須由不同人執行。"
-                )
+                raise PermissionDenied("兩階段審核必須由不同人執行。")
 
             new_status = "approved"
 
@@ -351,6 +349,10 @@ def approve_character(
                 ),
             )
 
+        if new_status == 'approved':
+            from core.character_proxy_identity import approve as register_proxy
+            register_proxy(conn,actor.guild_id,number)
+
         conn.execute(
             """
             INSERT INTO audit_events (
@@ -393,6 +395,7 @@ def run_business_review(
     reason: str,
     amount: int | None = None,
     annual_bps: int | None = None,
+    guild_owner_id=None,
 ):
     """呼叫指定的既有審核核心。
 
@@ -411,6 +414,7 @@ def run_business_review(
             number,
             approve,
             reason,
+            guild_owner_id=guild_owner_id,
         )
 
     delegated = Actor(
@@ -966,6 +970,7 @@ class DecisionModal(discord.ui.Modal):
                 reason,
                 amount,
                 rate,
+                interaction.guild.owner_id if interaction.guild else None,
             )
 
             await interaction.followup.send(
