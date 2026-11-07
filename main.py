@@ -503,6 +503,9 @@ def remove_unwanted_top_level_commands(tree):
 class RPBot(commands.Bot):
     def __init__(self):
         intents = discord.Intents.default()
+        # 沒有在 Discord Developer Portal 核准時，不能直接請求特權 Intent，否則無法登入。
+        # 未開啟時仍可用「@機器人 [#角色ID] 訊息」代理發言。
+        intents.message_content = os.getenv('RP_PROXY_MESSAGE_CONTENT_ENABLED', '').strip().lower() in ('1','true','yes','on')
 
         super().__init__(
             command_prefix="!",
