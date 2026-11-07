@@ -123,26 +123,39 @@ class AccountPicker(PrivateView):
                         interaction.user.id,
                         account_id,
                     )
+                    if int(account['character_id']) != int(self.character):
+                        raise PermissionError('帳號不屬於目前選取的角色，請重新選擇。')
+                except (ValueError, PermissionError) as exc:
+                    await inform(interaction, f'⚠️ {exc}')
+                    return
+                except Exception:
+                    LOG.exception('網路帳號資料庫讀取失敗 guild=%s account=%s', interaction.guild_id, account_id)
+                    await inform(interaction, '⚠️ 帳號資料讀取失敗，請查看 Railway 日誌。')
+                    return
 
+                # Account retrieval succeeded. Keep UI construction and Discord API
+                # failures separate so the actual fault is not misreported as a DB error.
+                try:
+                    home = NetworkHome(
+                        interaction.user.id,
+                        self.character,
+                        account_id,
+                    )
                     await interaction.followup.send(
                         (
                             '🌐 **網路首頁**｜'
                             f"{account['character_name']} · "
                             f"@{account['handle']}"
                         ),
-                        view=NetworkHome(
-                            interaction.user.id,
-                            self.character,
-                            account_id,
-                        ),
+                        view=home,
                         ephemeral=True,
                     )
-
-                except (ValueError, PermissionError) as exc:
-                    await inform(interaction, f'⚠️ {exc}')
+                except discord.HTTPException:
+                    LOG.exception('網路首頁 Discord 訊息發送失敗 guild=%s account=%s', interaction.guild_id, account_id)
+                    await inform(interaction, '⚠️ 網路首頁發送失敗，請查看 Railway 日誌內的 Discord API 錯誤。')
                 except Exception:
-                    LOG.exception('網路帳號選擇失敗 guild=%s account=%s', interaction.guild_id, account_id)
-                    await inform(interaction, '⚠️ 帳號資料載入失敗，請查看 Railway 日誌。')
+                    LOG.exception('網路首頁建立失敗 guild=%s account=%s', interaction.guild_id, account_id)
+                    await inform(interaction, '⚠️ 網路首頁面板建立失敗，請查看 Railway 日誌。')
 
             select.callback = chosen
             self.add_item(select)
@@ -230,6 +243,7 @@ class NetworkHome(PrivateView):
         row=0,
     )
     async def live(self, interaction, button):
+        await interaction.response.defer(ephemeral=True)
         from modules.live_stream_ui import NetworkView
 
         account = await asyncio.to_thread(
@@ -245,7 +259,7 @@ class NetworkHome(PrivateView):
         )
         view.character_id = self.character
 
-        await interaction.response.send_message(
+        await interaction.followup.send(
             '🔴 直播功能',
             view=view,
             ephemeral=True,
@@ -294,10 +308,11 @@ class NetworkHome(PrivateView):
 
     @discord.ui.button(
         label='帳號資訊',
-        emoji='@',
+        emoji='📇',
         row=1,
     )
     async def info(self, interaction, button):
+        await interaction.response.defer(ephemeral=True)
         account = await asyncio.to_thread(
             ng.account_info,
             interaction.guild.id,
@@ -711,6 +726,7 @@ class GroupsView(PrivateView):
         row=0,
     )
     async def joined(self, interaction, button):
+        await interaction.response.defer(ephemeral=True)
         data = await asyncio.to_thread(
             ng.memberships,
             interaction.guild.id,
@@ -718,7 +734,7 @@ class GroupsView(PrivateView):
             self.account,
         )
 
-        settings = ng.settings(interaction.guild.id)
+        settings = await asyncio.to_thread(ng.settings, interaction.guild.id)
 
         lines = [
             (
