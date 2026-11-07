@@ -44,6 +44,7 @@ class LeaderboardView(discord.ui.View):
         # Activation changes a persisted guild-wide schedule, never a user's payout ledger.
         self.enable_settlement.disabled = False
         self.add_item(self.enable_settlement)
+        self.add_item(self.payout_readiness)
     def render(self):
         rows,status=leaderboard(self.guild_id,self.board)
         embed=discord.Embed(title='🏆 排行榜｜'+BOARD_NAMES[self.board],color=discord.Color.gold())
@@ -103,6 +104,21 @@ class LeaderboardView(discord.ui.View):
         except Exception:
             LOG.exception('排行榜啟用失敗 guild=%s', self.guild_id)
             await interaction.followup.send('⚠️ 無法啟用排行榜結算，請查看部署日誌。',ephemeral=True)
+
+    @discord.ui.button(label='🔎 獎勵發放檢查', style=discord.ButtonStyle.secondary, row=3)
+    async def payout_readiness(self, interaction, button):
+        if not interaction.guild or interaction.user.id != interaction.guild.owner_id:
+            await interaction.response.send_message('只有群主可以查看正式派獎稽核。', ephemeral=True)
+            return
+        await interaction.response.defer(ephemeral=True)
+        import asyncio
+        try:
+            from modules.leaderboard_go_live_audit import audit, summary
+            result = await asyncio.to_thread(audit, self.guild_id)
+            await interaction.followup.send(summary(result), ephemeral=True)
+        except Exception:
+            LOG.exception('排行榜派獎稽核失敗 guild=%s', interaction.guild_id)
+            await interaction.followup.send('⚠️ 派獎稽核無法執行，詳見 Railway 日誌。', ephemeral=True)
 
     @discord.ui.button(label='◀️ 上一頁',style=discord.ButtonStyle.secondary,row=2)
     async def previous(self,interaction,button):
