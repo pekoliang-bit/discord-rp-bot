@@ -649,12 +649,16 @@ async def report(
             f"⚠️ {str(exc)[:1400]}"
         )
     else:
-        message = (
-            "⚠️ 系統發生 "
-            f"{type(exc).__name__}，"
-            "詳細原因已記錄在 "
-            "Railway Deploy Logs。"
-        )
+        detail = str(exc).strip()
+        # 顯示 Python 屬性缺失的名稱，方便直接定位，避免再次盲修。
+        if isinstance(exc, AttributeError) and len(detail) <= 180:
+            message = f"⚠️ 創角欄位錯誤：{detail}（詳見 Railway Logs）"
+        else:
+            message = (
+                "⚠️ 系統發生 "
+                f"{type(exc).__name__}，"
+                "詳細原因已記錄在 Railway Deploy Logs。"
+            )
 
     try:
         if interaction.response.is_done():
@@ -867,7 +871,7 @@ class DataModal(SafeModal):
             )["settings_json"]
         )
 
-        self.entries = []
+        self._data_fields = []
 
         for label in labels:
             key = (
@@ -905,7 +909,7 @@ class DataModal(SafeModal):
             )
 
             self.add_item(item)
-            self.entries.append(
+            self._data_fields.append(
                 (key, item)
             )
 
@@ -926,7 +930,7 @@ class DataModal(SafeModal):
 
             values = {}
 
-            for key, item in self.entries:
+            for key, item in self._data_fields:
                 raw = str(
                     item.value
                 ).strip()
@@ -1753,6 +1757,8 @@ class WizardView(OwnedView):
                 show_tag_picker,
             )
 
+            if not interaction.response.is_done():
+                await interaction.response.defer(ephemeral=True, thinking=True)
             await show_tag_picker(
                 interaction,
                 self.character_id,
