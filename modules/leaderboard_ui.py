@@ -1,5 +1,9 @@
 """排行榜 28 榜選單與分頁，不另行註冊 /排行。"""
 from __future__ import annotations
+from datetime import datetime, timezone
+import logging
+
+LOG = logging.getLogger(__name__)
 import discord
 from modules.leaderboard_catalog import BOARDS,BOARD_NAMES
 from modules.leaderboard_service import leaderboard
@@ -37,6 +41,9 @@ class LeaderboardView(discord.ui.View):
     def rebuild(self):
         self.clear_items();self.add_item(BoardSelect(self.board));self.add_item(ExtraSelect(self.board))
         self.add_item(self.previous);self.add_item(self.next_page)
+        # Activation changes a persisted guild-wide schedule, never a user's payout ledger.
+        self.enable_settlement.disabled = False
+        self.add_item(self.enable_settlement)
     def render(self):
         rows,status=leaderboard(self.guild_id,self.board)
         embed=discord.Embed(title='🏆 排行榜｜'+BOARD_NAMES[self.board],color=discord.Color.gold())
@@ -56,11 +63,15 @@ class LeaderboardView(discord.ui.View):
             from modules.leaderboard_cycle import settlement_countdown
             conf=get_config(self.guild_id)
             if conf and conf.get('enabled'):
+                self.enable_settlement.disabled = True
+                self.enable_settlement.label = '✅ 結算已啟用'
                 times=settlement_countdown(conf['anchor_utc'])
                 embed.add_field(name='⏳ 排行榜結算倒數', value=(
                     f"小結算（14天）：{times['14d']['remaining']}\n"
                     f"大結算（30天）：{times['30d']['remaining']}"),inline=False)
             else:
+                self.enable_settlement.disabled = False
+                self.enable_settlement.label = '⏳ 啟用結算'
                 embed.add_field(name='⏳ 排行榜結算倒數',value='本伺服器尚未啟用正式排行榜結算，無法推算倒數。',inline=False)
         except Exception:
             embed.add_field(name='⏳ 排行榜結算倒數',value='暫時無法讀取結算設定。',inline=False)
@@ -70,6 +81,29 @@ class LeaderboardView(discord.ui.View):
     async def refresh(self,interaction):
         self.rebuild()
         await interaction.response.edit_message(embed=self.render(),view=self)
+    @discord.ui.button(label='⏳ 啟用結算',style=discord.ButtonStyle.success,row=3)
+    async def enable_settlement(self, interaction, button):
+        # Guild owner only. Creating an anchor starts future periods; it must not
+        # retroactively invent snapshots or enable real-money/attribute payouts.
+        if not interaction.guild or interaction.user.id != interaction.guild.owner_id:
+            await interaction.response.send_message('只有伺服器擁有者能啟用正式排行榜結算。',ephemeral=True)
+            return
+        await interaction.response.defer(ephemeral=True)
+        try:
+            from modules.leaderboard_config import configure, get_config
+            from modules.leaderboard_cycle import iso
+            old = await __import__('asyncio').to_thread(get_config, self.guild_id)
+            anchor = old['anchor_utc'] if old else iso(datetime.now(timezone.utc))
+            await __import__('asyncio').to_thread(configure, self.guild_id, anchor, True)
+            self.rebuild()
+            await interaction.edit_original_response(embed=self.render(),view=self)
+            await interaction.followup.send(
+                '✅ 已啟用本伺服器 14／30 天排行榜結算與快照封存。'
+                '實際獎勵入帳仍由獨立安全開關管制，不會自動發放未核准獎勵。',ephemeral=True)
+        except Exception:
+            LOG.exception('排行榜啟用失敗 guild=%s', self.guild_id)
+            await interaction.followup.send('⚠️ 無法啟用排行榜結算，請查看部署日誌。',ephemeral=True)
+
     @discord.ui.button(label='◀️ 上一頁',style=discord.ButtonStyle.secondary,row=2)
     async def previous(self,interaction,button):
         self.page=max(0,self.page-1)
@@ -78,3 +112,4 @@ class LeaderboardView(discord.ui.View):
     async def next_page(self,interaction,button):
         self.page+=1
         await self.refresh(interaction)
+
