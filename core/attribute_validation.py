@@ -1,4 +1,3 @@
-
 """Discord RP：唯一主攻技能的初始屬性驗證。
 
 十三項屬性，雙500點配點池。
@@ -31,7 +30,9 @@ CREATE_CAP = 150
 
 BASE_NORMAL = 20
 BASE_MAIN = 35
+BASE_SECONDARY = 25
 BONUS_MAIN = 30
+BONUS_SECONDARY = 15
 
 MAIN_SKILLS = (
     "演繹",
@@ -217,6 +218,7 @@ def calculate_values(
     main,
     general,
     talent,
+    secondary=None,
 ):
     """計算正式初始屬性並檢查配點限制。"""
 
@@ -229,6 +231,9 @@ def calculate_values(
             "主攻只能選擇演繹、舞蹈、"
             "歌唱、綜藝或主持。"
         )
+
+    if secondary is not None and (secondary not in MAIN_SKILLS or secondary == main):
+        raise InvalidState('副賽道必須是不同於主攻的有效技能。')
 
     # ======================================
     # 官方屬性結構檢查
@@ -328,11 +333,7 @@ def calculate_values(
 
             continue
 
-        base = (
-            BASE_MAIN
-            if name == main
-            else BASE_NORMAL
-        )
+        base = (BASE_MAIN if name == main else BASE_SECONDARY if name == secondary else BASE_NORMAL)
 
         if base + points > CREATE_CAP:
             raise InvalidState(
@@ -346,7 +347,7 @@ def calculate_values(
             + (
                 BONUS_MAIN
                 if name == main
-                else 0
+                else BONUS_SECONDARY if name == secondary else 0
             )
         )
 
@@ -434,20 +435,9 @@ def validate_initial_attributes(
             "角色尚未選擇有效的主攻技能。"
         )
 
-    # ======================================
-    # 禁止舊版副賽道
-    # ======================================
-
-    if settings.get(
-        "secondary_track"
-    ) not in (
-        None,
-        "",
-    ):
-        raise InvalidState(
-            "此角色保留了舊版副賽道配點，"
-            "請在草稿中重新確認主攻與配點。"
-        )
+    secondary = settings.get('secondary_track') or None
+    if secondary is not None and (secondary not in MAIN_SKILLS or secondary == main):
+        raise InvalidState('副賽道必須與主攻不同，且屬於正式技能。')
 
     # ======================================
     # 取得初始配點
@@ -507,6 +497,7 @@ def validate_initial_attributes(
         main,
         general,
         talent,
+        secondary,
     )
 
     # ======================================
@@ -553,7 +544,7 @@ def validate_initial_attributes(
 
         "main_track": main,
 
-        "secondary_track": None,
+        "secondary_track": secondary,
 
         "general_spent": sum(
             general.values()
