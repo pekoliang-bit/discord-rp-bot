@@ -132,6 +132,14 @@ def pay_salary(
     initialize_applications()
     initialize_payroll()
 
+    # 地位資料表必須在發薪交易開始前初始化；在 BEGIN IMMEDIATE
+    # 期間再次開啟 character_status.initialize() 會導致 SQLite 鎖定。
+    try:
+        from modules import character_status
+        character_status.initialize()
+    except (ImportError, AttributeError):
+        character_status = None
+
     gid = str(guild_id)
     bid = str(business_id)
     uid = str(actor_id)
@@ -187,13 +195,11 @@ def pay_salary(
         contractual_salary = int(amount)
 
         # 等級薪資倍率由正式地位規則統一計算。
-        try:
-            from modules import character_status
-            character_status.initialize()
+        if character_status is not None:
             state = db.execute("SELECT level FROM rp_character_status WHERE guild_id=? AND character_id=?", (gid, cid)).fetchone()
             level = max(1, min(20, int(state["level"]) if state else 1))
             amount = character_status.minimum_work_pay(amount, level)
-        except (ImportError, AttributeError):
+        else:
             level = 1
 
         period = payroll_period(
