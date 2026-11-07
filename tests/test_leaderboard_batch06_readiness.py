@@ -1,3 +1,4 @@
+
 import unittest
 import json
 from modules.leaderboard_entity_identity import make_identity
@@ -17,5 +18,5 @@ class ReadinessTest(unittest.TestCase):
         reward={'board':'heat','rank':1,'coins':100,'values':{},'reward_version':'v11-approved','requires_adapter':True}
         out=preview_award({'guild_id':'1','cycle':'14d','idx':1,'board':'heat','entity_key':make_identity('character','3'),'rank':1,'reward_json':json.dumps(reward),'state':'approved'})
         self.assertFalse(out['can_pay'])
-        self.assertTrue(any('14å¤©' in issue for issue in out['issues']))
+        self.assertTrue(any('14天' in issue for issue in out['issues']))
 if __name__=='__main__':unittest.main()
