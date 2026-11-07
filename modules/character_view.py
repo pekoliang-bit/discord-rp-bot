@@ -771,6 +771,25 @@ def category_text(category, result, keyword=""):
     )
 
 
+async def _edit_deferred_component(interaction, *, content=None, embed=None, view=None):
+    """Update the source of a deferred component interaction (also ephemeral).
+
+    Component callbacks must acknowledge within three seconds. Once deferred,
+    response.edit_message is no longer legal; edit_original_response is the
+    supported route for the original component message.
+    """
+    await interaction.edit_original_response(content=content, embed=embed, view=view)
+
+
+async def _component_error(interaction, exc):
+    LOG.exception("角色查看互動處理失敗", exc_info=exc)
+    message = "⚠️ 角色資料暫時無法顯示，請重新開啟 /查看；若持續發生請通知管理員。"
+    if interaction.response.is_done():
+        await interaction.followup.send(message, ephemeral=True)
+    else:
+        await interaction.response.send_message(message, ephemeral=True)
+
+
 class SearchModal(discord.ui.Modal):
     def __init__(self, actor, category):
         super().__init__(
@@ -790,35 +809,22 @@ class SearchModal(discord.ui.Modal):
         self.add_item(self.keyword)
 
     async def on_submit(self, interaction):
-        actor = Actor.from_interaction(
-            interaction
-        )
-
-        if (
-            actor.user_id != self.actor.user_id
-            or actor.guild_id != self.actor.guild_id
-        ):
-            await interaction.response.send_message(
-                "⛔ 這不是你的搜尋表單。",
-                ephemeral=True,
-            )
+        actor = Actor.from_interaction(interaction)
+        if actor.user_id != self.actor.user_id or actor.guild_id != self.actor.guild_id:
+            await interaction.response.send_message("⛔ 這不是你的搜尋表單。", ephemeral=True)
             return
-
-        keyword = str(
-            self.keyword.value
-        ).strip()
-
-        result = find_characters(
-            actor,
-            self.category,
-            keyword,
-        )
-
-        await interaction.response.edit_message(
-            content=category_text(self.category, result, keyword),
-            embed=None,
-            view=CharacterListView(actor, self.category, keyword, result["page"]),
-        )
+        await interaction.response.defer()
+        try:
+            keyword = str(self.keyword.value).strip()
+            result = await asyncio.to_thread(find_characters, actor, self.category, keyword)
+            await _edit_deferred_component(
+                interaction,
+                content=category_text(self.category, result, keyword),
+                embed=None,
+                view=CharacterListView(actor, self.category, keyword, result["page"]),
+            )
+        except Exception as exc:
+            await _component_error(interaction, exc)
 
 
 class CharacterCategorySelect(discord.ui.Select):
@@ -847,38 +853,21 @@ class CharacterCategorySelect(discord.ui.Select):
         )
 
     async def callback(self, interaction):
-        actor = Actor.from_interaction(
-            interaction
-        )
-
-        if (
-            actor.user_id != self.actor.user_id
-            or actor.guild_id != self.actor.guild_id
-        ):
-            await interaction.response.send_message(
-                "⛔ 這不是你的選單。",
-                ephemeral=True,
-            )
+        actor = Actor.from_interaction(interaction)
+        if actor.user_id != self.actor.user_id or actor.guild_id != self.actor.guild_id:
+            await interaction.response.send_message("⛔ 這不是你的選單。", ephemeral=True)
             return
-
-        category = self.values[0]
-
-        result = find_characters(
-            actor,
-            category,
-        )
-
-        await interaction.response.edit_message(
-            content=category_text(
-                category,
-                result,
-            ),
-            embed=None,
-            view=CharacterListView(
-                actor,
-                category,
-            ),
-        )
+        await interaction.response.defer()
+        try:
+            category = self.values[0]
+            result = await asyncio.to_thread(find_characters, actor, category)
+            await _edit_deferred_component(
+                interaction,
+                content=category_text(category, result), embed=None,
+                view=CharacterListView(actor, category),
+            )
+        except Exception as exc:
+            await _component_error(interaction, exc)
 
 
 class CategoryView(discord.ui.View):
@@ -898,11 +887,16 @@ class CategoryView(discord.ui.View):
             if current.user_id != self.actor.user_id or current.guild_id != self.actor.guild_id:
                 await interaction.response.send_message("⛔ 這不是你的查看面板。", ephemeral=True)
                 return
-            result = find_characters(current, "mine")
-            await interaction.response.edit_message(
-                content=category_text("mine", result), embed=None,
-                view=CharacterListView(current, "mine"),
-            )
+            await interaction.response.defer()
+            try:
+                result = await asyncio.to_thread(find_characters, current, "mine")
+                await _edit_deferred_component(
+                    interaction, content=category_text("mine", result), embed=None,
+                    view=CharacterListView(current, "mine"),
+                )
+            except Exception as exc:
+                await _component_error(interaction, exc)
+
         self.my_characters.callback = open_my_characters
         self.add_item(self.my_characters)
 
@@ -957,63 +951,27 @@ class CharacterItemSelect(discord.ui.Select):
         )
 
     async def callback(self, interaction):
-        actor = Actor.from_interaction(
-            interaction
-        )
-
-        if (
-            actor.user_id != self.actor.user_id
-            or actor.guild_id != self.actor.guild_id
-        ):
-            await interaction.response.send_message(
-                "⛔ 這不是你的角色選單。",
-                ephemeral=True,
-            )
+        actor = Actor.from_interaction(interaction)
+        if actor.user_id != self.actor.user_id or actor.guild_id != self.actor.guild_id:
+            await interaction.response.send_message("⛔ 這不是你的角色選單。", ephemeral=True)
             return
-
+        await interaction.response.defer()
         try:
-            character_id = int(
-                self.values[0]
-            )
-
-            character = get_character(
-                actor,
-                character_id,
-            )
-
+            character_id = int(self.values[0])
+            character = await asyncio.to_thread(get_character, actor, character_id)
             if (self.category == 'mine' and not is_owner(actor, character)) or (
                 self.category != 'mine' and get_category(character) != self.category
             ):
-                raise InvalidState(
-                    "角色分類已更改，請重新查詢。"
-                )
-
-            embed = make_character_embed(
-                actor,
-                character_id,
+                raise InvalidState("角色分類已更改，請重新查詢。")
+            embed = await asyncio.to_thread(make_character_embed, actor, character_id)
+            await _edit_deferred_component(
+                interaction, content=None, embed=embed,
+                view=CharacterDetailView(actor, character_id, self.category, self.keyword, self.page),
             )
-
-            await interaction.response.edit_message(
-                content=None,
-                embed=embed,
-                view=CharacterDetailView(
-                    actor,
-                    character_id,
-                    self.category,
-                    self.keyword,
-                    self.page,
-                ),
-            )
-
-        except (
-            InvalidState,
-            PermissionDenied,
-            ValueError,
-        ) as exc:
-            await interaction.response.send_message(
-                f"⚠️ {exc}",
-                ephemeral=True,
-            )
+        except (InvalidState, PermissionDenied, ValueError) as exc:
+            await interaction.followup.send(f"⚠️ {exc}", ephemeral=True)
+        except Exception as exc:
+            await _component_error(interaction, exc)
 
 
 class CharacterListView(discord.ui.View):
@@ -1077,27 +1035,21 @@ class CharacterListView(discord.ui.View):
         return True
 
     async def move(self, interaction, page):
-        result = find_characters(
-            self.actor,
-            self.category,
-            self.keyword,
-            page,
-        )
-
-        await interaction.response.edit_message(
-            content=category_text(
-                self.category,
-                result,
-                self.keyword,
-            ),
-            embed=None,
-            view=CharacterListView(
-                self.actor,
-                self.category,
-                self.keyword,
-                result["page"],
-            ),
-        )
+        await interaction.response.defer()
+        try:
+            result = await asyncio.to_thread(
+                find_characters, self.actor, self.category, self.keyword, page,
+            )
+            await _edit_deferred_component(
+                interaction,
+                content=category_text(self.category, result, self.keyword),
+                embed=None,
+                view=CharacterListView(
+                    self.actor, self.category, self.keyword, result["page"],
+                ),
+            )
+        except Exception as exc:
+            await _component_error(interaction, exc)
 
     @discord.ui.button(
         label="⬅️ 上一頁",
@@ -1140,11 +1092,10 @@ class CharacterListView(discord.ui.View):
         row=1,
     )
     async def categories(self, interaction, button):
-        await interaction.response.edit_message(
-            content=(
-                "🎭 **角色資料中心**\n\n"
-                "請選擇要查看的角色分類。"
-            ),
+        await interaction.response.defer()
+        await _edit_deferred_component(
+            interaction,
+            content="🎭 **角色資料中心**\n\n請選擇要查看的角色分類。",
             embed=None,
             view=CategoryView(self.actor),
         )
