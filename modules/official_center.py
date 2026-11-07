@@ -1778,11 +1778,36 @@ class StaffRosterView(PrivateView):
             await send_error(interaction, exc)
 
 
+class LaunchAuditButton(discord.ui.Button):
+    """Only the guild owner can launch the read-only go-live inspection."""
+
+    def __init__(self):
+        super().__init__(label='🚪 正式開群', style=discord.ButtonStyle.success, row=2)
+
+    async def callback(self, interaction: discord.Interaction):
+        require_owner(interaction)
+        await interaction.response.defer(ephemeral=True)
+        import asyncio
+        from modules.official_launch_readiness import scan, render
+        try:
+            tree = interaction.client.tree
+            names = {c.name for c in tree.get_commands()}
+            names.update(c.name for c in tree.get_commands(guild=interaction.guild))
+            report = await asyncio.to_thread(scan, interaction.guild_id, names)
+            await interaction.followup.send(render(report), ephemeral=True)
+        except Exception:
+            LOG.exception('正式開群系統盤點失敗 guild=%s', interaction.guild_id)
+            await interaction.followup.send('⚠️ 系統盤點異常；沒有變更開群狀態。請查看 Railway 日誌。', ephemeral=True)
+
+
 class OfficialHome(PrivateView):
     def __init__(self, interaction):
         super().__init__(interaction)
         if is_management_user(interaction):
             self.add_item(OpenAdminToolsButton())
+        # Hidden from everyone except the actual Discord guild owner.
+        if is_owner(interaction):
+            self.add_item(LaunchAuditButton())
 
     @discord.ui.button(label="📝 管理員申請", style=discord.ButtonStyle.primary, row=0)
     async def apply_staff(self, interaction, button):
