@@ -1,4 +1,3 @@
-
 """Discord RP 共用權限與角色雙重審核系統。
 
 提供：
@@ -335,6 +334,7 @@ def review_character(
     *,
     approve: bool,
     reason: str = "",
+    guild_owner_id=None,
 ) -> str:
     """進行第一審、第二審或退件。"""
 
@@ -361,10 +361,9 @@ def review_character(
             character_id,
         )
 
-        if str(character["owner_id"]) == actor.user_id:
-            raise PermissionDenied(
-                "管理員不能審核自己的角色。"
-            )
+        is_guild_owner = guild_owner_id is not None and str(guild_owner_id) == actor.user_id
+        if str(character["owner_id"]) == actor.user_id and not is_guild_owner:
+            raise PermissionDenied("非群主不能審核自己的角色。")
 
         if character["character_type"] != "player":
             raise InvalidState(
@@ -411,10 +410,8 @@ def review_character(
                     "缺少第一階段審核紀錄。"
                 )
 
-            if str(progress["first_reviewer"]) == actor.user_id:
-                raise PermissionDenied(
-                    "第一審與第二審必須由不同管理員執行。"
-                )
+            if str(progress["first_reviewer"]) == actor.user_id and not is_guild_owner:
+                raise PermissionDenied("第一審與第二審必須由不同管理員執行。")
 
             new_status = "approved"
 
@@ -471,6 +468,10 @@ def review_character(
                     character_id,
                 ),
             )
+
+        if new_status == 'approved':
+            from core.character_proxy_identity import approve as register_proxy
+            register_proxy(conn,actor.guild_id,character_id)
 
         _audit(
             conn,
