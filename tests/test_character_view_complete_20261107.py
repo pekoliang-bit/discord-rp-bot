@@ -17,10 +17,10 @@ class ViewStaticContracts(unittest.TestCase):
         cls.src = (ROOT / 'modules' / 'character_view.py').read_text(encoding='utf-8')
         cls.tree = ast.parse(cls.src)
 
-    def test_public_panel_has_two_pages_and_last_biography(self):
+    def test_public_panel_has_four_pages_and_last_biography(self):
         self.assertIn('elif detail_page == 1:', self.src)
         self.assertIn('else:\n        personality, biography = visible_biography', self.src)
-        self.assertIn('name="📖 生平"', self.src)
+        self.assertIn("('📖 身世背景', biography, 3500)", self.src)
         self.assertNotIn('"📄 面板頁數"', self.src)
 
     def test_my_characters_fast_path(self):
@@ -151,7 +151,7 @@ class PublicPrivateRenderTests(unittest.TestCase):
             discord=types.SimpleNamespace(Embed=MockEmbed, Color=Color),
             get_character=get_character, can_see_private=lambda a,c: a.user_id == c['owner_id'],
             get_category=lambda c: 'original', safe_json=json.loads,
-            _character_detail_max_page=lambda *a,**kw: 2,
+            _character_detail_max_page=lambda *a,**kw: 3,
             shorten=lambda x,n=1000: str(x)[:n], CATEGORIES={'original':'原創角色'},
             display_value=lambda x,d='未公開': str(x) if x else d,
             _panel_faction=lambda *a: '影子陣營', _panel_cp=lambda *a:'測試 CP',
@@ -160,6 +160,7 @@ class PublicPrivateRenderTests(unittest.TestCase):
             read_attributes=lambda *a: {'容貌':50,'才智':88},
             read_tracking=lambda *a: {'loyal_fans':1,'active_antis':0,'public_awareness':2},
             _add_asset_summary=lambda embed,*a: embed.add_field(name='🏠 房產',value='海邊別墅',inline=False),
+            _panel_asset_groups=lambda *a: [('🚗 車輛',['汽車A']),('🏠 房產',['海邊別墅']),('💎 珠寶／鐘錶',[]),('🏢 公司／品牌／集團',[]),('🏬 個人商店',[])],
             add_field_chunks=add_lines, visible_biography=visible_biography,
             _biography_pages=pages, ATTRIBUTE_GENERAL=('流量熱度',),
             ATTRIBUTE_TALENT=('容貌','才智'), PRIVATE_FIELDS={'private_personality':'性格','biography':'生平','notes':'私密備註'},
@@ -174,35 +175,38 @@ class PublicPrivateRenderTests(unittest.TestCase):
         fields = dict(first.fields)
         self.assertIn('📋 基本資料', fields)
         self.assertIn('🏳️ 所屬陣營', fields)
-        self.assertIn('💕 正式 CP', fields)
+        self.assertIn('💕 CP', fields)
         self.assertIn('🏅 角色地位', fields)
-        self.assertIn('💰 公開貨幣資產', fields)
+        self.assertIn('🏷️ 大眾印象', fields)
         self.assertNotIn('📈 商業與名氣（5 項）', fields)
         self.assertEqual(first.image_url,'https://example.test/photo.png')
         second = dict(self.render(self.actor, 1, detail_page=1).fields)
         self.assertIn('📈 商業與名氣（5 項）', second)
         self.assertIn('🎤 藝能與實力（8 項）', second)
-        self.assertIn('🏠 房產', second)
-        last = dict(self.render(self.actor,1,detail_page=2).fields)
-        self.assertIn('生平', ''.join(last))
+        self.assertNotIn('🏠 房產', second)
+        assets = dict(self.render(self.actor,1,detail_page=2).fields)
+        self.assertIn('💰 貨幣資產', assets)
+        self.assertIn('🚗 車子', assets)
+        last = dict(self.render(self.actor,1,detail_page=3).fields)
+        self.assertIn('身世背景', ''.join(last))
         self.assertNotIn('絕對不可洩露', ''.join(last.values()))
 
     def test_public_preview_even_owner_hides_unpublished(self):
         self.actor.user_id = '42'
-        shown = dict(self.render(self.actor,1,private=False,detail_page=2).fields)
+        shown = dict(self.render(self.actor,1,private=False,detail_page=3).fields)
         self.assertNotIn('絕對不可洩露', ''.join(shown.values()))
-        private = dict(self.render(self.actor,1,private=True,detail_page=2).fields)
+        private = dict(self.render(self.actor,1,private=True,detail_page=3).fields)
         self.assertIn('絕對不可洩露的性格', ''.join(private.values()))
         self.assertIn('絕對不可洩露的身世', ''.join(private.values()))
 
     def test_one_visibility_on_other_visibility_off(self):
         self.settings['show_personality'] = True
-        shown = dict(self.render(self.actor,1,detail_page=2).fields)
+        shown = dict(self.render(self.actor,1,detail_page=3).fields)
         self.assertIn('絕對不可洩露的性格', ''.join(shown.values()))
         self.assertNotIn('絕對不可洩露的身世', ''.join(shown.values()))
         self.settings['show_personality'] = False
         self.settings['show_biography'] = True
-        shown = dict(self.render(self.actor,1,detail_page=2).fields)
+        shown = dict(self.render(self.actor,1,detail_page=3).fields)
         self.assertNotIn('絕對不可洩露的性格', ''.join(shown.values()))
         self.assertIn('絕對不可洩露的身世', ''.join(shown.values()))
 
