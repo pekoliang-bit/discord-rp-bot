@@ -1,4 +1,3 @@
-
 """Discord RP：正式創角中心。
 
 /創角
@@ -77,7 +76,7 @@ MAIN_SKILLS = (
 STEPS = (
     "個人資料",
     "主攻與十三項配點",
-    "生日與感情",
+    "感情資料",
     "預覽與送審",
 )
 
@@ -126,7 +125,6 @@ GROUPS = (
 )
 
 EXTRA = {
-    "生日（月／日）": "birthday",
     "感情狀態": "relationship_status",
     "伴侶姓名": "partner_name",
 }
@@ -491,6 +489,7 @@ def screen(actor, character_id, stage):
 
         lines += [
             "**第一階段：個人資料**",
+            "生日：" + str(settings.get("birthday") or "未填寫"),
             "必填尚缺："
             + (
                 "、".join(missing)
@@ -539,12 +538,7 @@ def screen(actor, character_id, stage):
 
     elif stage == 2:
         lines += [
-            "**第三階段：生日必填／感情選填**",
-            "生日："
-            + str(
-                settings.get("birthday")
-                or "未填寫"
-            ),
+            "**第三階段：感情資料（選填）**",
             "感情狀態："
             + str(
                 settings.get(
@@ -773,7 +767,16 @@ class BasicModal(SafeModal):
             max_length=3,
         )
 
-        for item in (self.name, self.age):
+        old_settings = unpack(old["settings_json"]) if old else {}
+        self.birthday = discord.ui.TextInput(
+            label="角色生日（月／日）",
+            placeholder="例如 04/18",
+            default=old_settings.get("birthday") or None,
+            required=True,
+            max_length=5,
+        )
+
+        for item in (self.name, self.age, self.birthday):
             self.add_item(item)
 
     async def on_submit(
@@ -798,6 +801,13 @@ class BasicModal(SafeModal):
                 age,
             )
 
+            # 在建角之前先驗證生日，避免建立無效草稿。
+            from modules.character_numbering import normalize_birthday
+            normalized = normalize_birthday(str(self.birthday.value))
+            if normalized is None:
+                raise ValueError("生日請填 MM/DD，例如 04/18；2 月 29 日也可以。")
+            birthday = f"{normalized[:2]}/{normalized[2:]}"
+
             occupation = str(old['occupation']) if (old := (draft(actor, self.character_id) if self.character_id is not None else None)) else ''
 
             # 優先回應 Discord，
@@ -811,6 +821,7 @@ class BasicModal(SafeModal):
                 character_id = create_character(
                     actor.guild_id, actor.user_id, name, age, ''
                 )
+                save(actor, character_id, {"birthday": birthday})
             else:
                 character_id = (
                     self.character_id
@@ -823,6 +834,7 @@ class BasicModal(SafeModal):
                         "name": name,
                         "age": age,
                         "occupation": occupation,
+                        "birthday": birthday,
                     },
                 )
 
@@ -885,9 +897,7 @@ class DataModal(SafeModal):
                 )
 
             limit = (
-                5
-                if key == "birthday"
-                else 100
+                100
                 if key == "partner_name"
                 else 2000
                 if key in LONG
@@ -899,7 +909,7 @@ class DataModal(SafeModal):
                 default=str(
                     settings.get(key) or ""
                 )[:limit],
-                required=(key in REQUIRED or key == "birthday"),
+                required=(key in REQUIRED),
                 max_length=limit,
                 style=(
                     discord.TextStyle.paragraph
@@ -942,33 +952,6 @@ class DataModal(SafeModal):
                         )
 
                     values[key] = ""
-
-                elif key == "birthday":
-                    try:
-                        month, day = map(
-                            int,
-                            raw.replace(
-                                "-",
-                                "/",
-                            ).split("/"),
-                        )
-
-                        date(
-                            2000,
-                            month,
-                            day,
-                        )
-
-                    except ValueError as exc:
-                        raise ValueError(
-                            "生日請填 MM/DD，"
-                            "例如 06/15。"
-                        ) from exc
-
-                    values[key] = (
-                        f"{month:02d}/"
-                        f"{day:02d}"
-                    )
 
                 elif key == "relationship_status":
                     if (
@@ -1215,7 +1198,7 @@ class DataSelect(discord.ui.Select):
 
             options = [
                 discord.SelectOption(
-                    label="生日與感情資料",
+                    label="感情資料",
                     value="extra",
                 )
             ]
@@ -2115,10 +2098,10 @@ class DraftView(OwnedView):
 def home_text(count):
     return (
         "🎭 **角色建立中心**\n\n"
-        "① 建立基本資料\n"
+        "① 建立基本資料（姓名／年齡／生日）\n"
         "② 填寫個人檔案\n"
         "③ 選擇唯一主攻及十三項配點\n"
-        "④ 生日與感情設定\n"
+        "④ 感情設定（選填）\n"
         "⑤ 預覽及雙審送件\n\n"
         "主攻五選一：演繹、舞蹈、"
         "歌唱、綜藝、主持。\n"
