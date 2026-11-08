@@ -48,9 +48,9 @@ class LiveExpirationGuardsTests(unittest.TestCase):
             live_pk._init(db)
 
             for uid, name, occupation in [
-                (11, 'actor', '演員'),
-                (22, 'guest', '歌手'),
-                (33, 'donor', '模特兒')
+                (11, 'actor', 'æ¼å¡'),
+                (22, 'guest', 'æ­æ'),
+                (33, 'donor', 'æ¨¡ç¹å')
             ]:
                 db.execute(
                     """INSERT INTO characters(
@@ -71,13 +71,13 @@ class LiveExpirationGuardsTests(unittest.TestCase):
             now=100
         )
 
-        with self.assertRaisesRegex(ValueError, '結束'):
+        with self.assertRaisesRegex(ValueError, 'çµæ'):
             live_social.gift(
                 123,
                 sid,
                 33,
                 3,
-                '星光',
+                'æå',
                 'expired-gift',
                 now=1000
             )
@@ -120,22 +120,25 @@ class LiveExpirationGuardsTests(unittest.TestCase):
             []
         )
 
-        with self.assertRaisesRegex(ValueError, '結束'):
+        with self.assertRaisesRegex(ValueError, 'çµæ'):
             live_social.respond(
                 123, 1, 22, 2, True, now=1000
             )
 
-        with self.assertRaisesRegex(ValueError, '結束'):
+        with self.assertRaisesRegex(ValueError, 'çµæ'):
             live_social.invite(
                 123, sid, 11, 3, now=1000
             )
 
     def test_sales_offer_rejected_after_expiry(self):
-        sid = live_stream.start(
-            123, 11, 1, 'sell',
-            'sales', 'fixed', 15,
-            now=100
-        )
+        # This unit test isolates the expiry guard; the five-SKU opening
+        # requirement is covered by the warehouse integration tests.
+        with patch('core.wholesale_market_v1.prepare_live_session_in_transaction'):
+            sid = live_stream.start(
+                123, 11, 1, 'sell',
+                'sales', 'fixed', 15,
+                now=100
+            )
 
         with self.assertRaises(ValueError):
             live_commerce.propose_offer(
