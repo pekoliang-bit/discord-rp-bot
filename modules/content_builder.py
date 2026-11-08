@@ -1227,10 +1227,7 @@ class WorldOrganizationModal(discord.ui.Modal):
 
 
 # 世界觀可視化管理：不要求群主輸入 JSON。
-WORLD_FEATURE_NAMES = {
-    "bank": "🏦 銀行", "shop": "🏬 商城", "company": "🏢 公司",
-    "faction": "⚔️ 陣營", "rumor": "🗣️ 傳聞",
-}
+WORLD_FEATURE_NAMES = {key: label for key, label, *_ in __import__("modules.world_feature_editor", fromlist=["FEATURES"]).FEATURES}
 
 
 def world_category_summary(gid, category):
@@ -1340,7 +1337,7 @@ class WorldCategoryView(discord.ui.View):
             self.remove_item(self.currency_terms)
 
     async def interaction_check(self, i):
-        if i.user.id != self.uid or i.guild_id != self.gid or not owner(i):
+        if i.user.id != self.uid or i.guild_id != self.gid or not (owner(i) or __import__("modules.world_permission_editor", fromlist=["has_world_permission"]).has_world_permission(i, "stats_edit")):
             await tell(i, "⛔ 無權操作此設定面板。")
             return False
         return True
@@ -1414,6 +1411,14 @@ class WorldSettingsView(discord.ui.View):
         )
         async def selected(interaction):
             category = select.values[0]
+            if category == "stats" and not owner(interaction):
+                from modules.world_permission_editor import has_world_permission
+                if not has_world_permission(interaction, "stats_edit"):
+                    await interaction.response.send_message("⛔ 你沒有數值管理權限。", ephemeral=True)
+                    return
+            elif category != "stats" and not owner(interaction):
+                await interaction.response.send_message("⛔ 這項世界觀設定僅限群主。", ephemeral=True)
+                return
             if category == "root":
                 from modules.world_background_editor import WorldBackgroundView, background_summary
                 view = WorldBackgroundView(interaction)
@@ -1442,6 +1447,18 @@ class WorldSettingsView(discord.ui.View):
                 from modules.world_organization_editor import OrganizationHomeView, organization_summary
                 view = OrganizationHomeView(interaction)
                 content = organization_summary(interaction.guild_id)
+            elif category == "detail_rules":
+                from modules.world_detail_rules_editor import RuleHomeView, summary
+                view = RuleHomeView(interaction)
+                content = summary(interaction.guild_id)
+            elif category == "categories":
+                from modules.world_category_editor import CategoryHomeView, summary
+                view = CategoryHomeView(interaction)
+                content = summary(interaction.guild_id)
+            elif category == "permissions":
+                from modules.world_permission_editor import PermissionHomeView, summary
+                view = PermissionHomeView(interaction)
+                content = summary(interaction.guild_id)
             else:
                 view = WorldCategoryView(interaction, category)
                 content = world_category_summary(interaction.guild_id, category)
