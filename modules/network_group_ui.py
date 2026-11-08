@@ -265,10 +265,13 @@ class NetworkHome(PrivateView):
                     interaction.user.id,self.account)
             from core import network_social_posts as sp
             counts=await asyncio.to_thread(sp.relationship_counts,interaction.guild.id,self.account)
+            lists=await asyncio.to_thread(sp.account_social_lists,interaction.guild.id,interaction.user.id,self.account)
+            friends='、'.join(f"@{x['handle']} (#{x['character_id']})" for x in lists['friends'][:15]) or '暫無好友'
             await inform(interaction,
                 f"角色：{a['character_name']} #{a['character_id']}\n"
                 f"帳號：@{a['handle']}（#{a['id']}）\n"
-                f"關注者：{counts['followers']}｜好友：{counts['friends']}")
+                f"關注者：{counts['followers']}｜關注中：{len(lists['following'])}（最多顯示100）｜好友：{counts['friends']}\n"
+                f"🤝 好友名單：{friends}")
         except Exception:
             LOG.exception('帳號資訊載入失敗')
             await inform(interaction,'⚠️ 帳號資訊暫時無法載入')
