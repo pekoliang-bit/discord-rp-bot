@@ -161,7 +161,9 @@ class LotteryFulfillment(commands.Cog):
                 WHERE d.guild_id=? AND d.user_id=?
                 ORDER BY d.id DESC LIMIT 20""",
                 (str(i.guild_id),str(i.user.id))).fetchall()
-        if not rows:
+        from modules.newcomer_lottery import history as newcomer_history, LABELS
+        newcomer = newcomer_history(i.guild_id, i.user.id)
+        if not rows and not newcomer:
             return await answer(i, '目前沒有中獎紀錄。')
         lines = ['🎟️ **你的抽獎紀錄**']
         for r in rows:
@@ -174,6 +176,11 @@ class LotteryFulfillment(commands.Cog):
             else:
                 suffix='待官方綁定商品／安排兌換'
             lines.append(f"#{r['id']}｜{r['list_name']}｜{r['prize_name']}｜{suffix}")
+        for r in newcomer:
+            label = LABELS.get(r['reward_kind'], r['reward_kind'])
+            if r['reward_kind'] == 'product':
+                label += f"（商品 #{r['product_id']}）"
+            lines.append(f"新人禮包｜角色 #{r['character_id']}｜{label}｜{'已入帳' if r['state']=='done' else '待補發'}")
         await answer(i, '\n'.join(lines))
 
     @app_commands.command(name='抽獎商品領取', description='把自己抽中的商城商品領取到指定角色背包')
