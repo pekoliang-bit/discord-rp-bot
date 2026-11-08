@@ -1,3 +1,4 @@
+```python
 """Discord RP 統一審核中心。
 
 正式指令：/審核
@@ -1257,6 +1258,8 @@ class ReviewCenter(commands.Cog):
                     "🛡️ **統一審核中心**\n\n"
                     "請選擇要處理的申請類型：\n"
                     "角色、一般申請、金融、公司／品牌／集團、活動、舉報與申訴。"
+                    "\n一般申請中尚未接通執行器的類型只可收件及駁回，"
+                    "不能直接核准為已完成。"
                     "\n僅顯示你有權限使用的審核入口。"
                 ),
                 view=make_review_home(actor, interaction),
@@ -1279,3 +1282,5 @@ async def setup(bot: commands.Bot):
     await bot.add_cog(
         ReviewCenter(bot)
     )
+
+```
