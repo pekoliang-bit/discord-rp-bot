@@ -58,9 +58,12 @@ class LiveStreamCoreTests(unittest.TestCase):
         match = live_pk.challenge(123,101,a,b,now=105)
         self.assertEqual(live_pk.respond(123,102,2,match,True,now=106),'active')
         live_stream.stop(123,101,a,now=107)
-        sid=live_stream.start(123,101,1,'Sales','sales','realtime',now=108)
-        offer=live_commerce.propose_offer(123,101,sid,'sku-1','item',100,2,now=109)
-        self.assertEqual(live_commerce.offers(123,sid)[0]['id'],offer)
+        # 新規：沒有先從批發市場進貨五個 SKU，不得建立帶貨直播。
+        with self.assertRaisesRegex(ValueError, '5種'):
+            live_stream.start(123,101,1,'Sales','sales','realtime',now=108)
+        with database.transaction() as db:
+            live_commerce._init(db)
+            self.assertIsNotNone(db.execute('SELECT name FROM sqlite_master WHERE name=\'rp_live_sale_offers\'').fetchone())
 
     def test_unauthorized_start_and_bad_duration(self):
         with self.assertRaises(PermissionError):
