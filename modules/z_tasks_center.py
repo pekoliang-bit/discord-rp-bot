@@ -25,11 +25,36 @@ class TaskPick(discord.ui.Select):
     async def callback(self,i):
         await show_character(i,int(self.values[0]))
 
+class ProductionButton(discord.ui.Button):
+    """在正式 /任務 面板中開啟原有完整作品製作中心。"""
+    def __init__(self):
+        super().__init__(label="🎬 作品製作中心", style=discord.ButtonStyle.secondary)
+
+    async def callback(self, interaction: discord.Interaction):
+        try:
+            from core.permissions import Actor
+            from modules.production_center import Home, initialize as initialize_productions
+            initialize_productions()
+            actor = Actor.from_interaction(interaction)
+            await interaction.response.send_message(
+                "🎬 **作品製作中心**\n建立企劃、報名演藝職位、管理招募與完工驗證。",
+                view=Home(actor), ephemeral=True,
+            )
+        except Exception:
+            import logging
+            logging.getLogger(__name__).exception("開啟作品製作中心失敗")
+            if interaction.response.is_done():
+                await interaction.followup.send("作品製作中心暫時無法開啟。", ephemeral=True)
+            else:
+                await interaction.response.send_message("作品製作中心暫時無法開啟。", ephemeral=True)
+
+
 class TaskView(discord.ui.View):
     def __init__(self,uid,characters):
         super().__init__(timeout=300)
         self.uid=uid
         self.add_item(TaskPick(characters))
+        self.add_item(ProductionButton())
     async def interaction_check(self,i):
         if i.user.id!=self.uid:
             await i.response.send_message('請自行使用 /任務',ephemeral=True)
@@ -110,6 +135,7 @@ class KindsView(discord.ui.View):
         super().__init__(timeout=300)
         self.uid=uid
         self.add_item(KindPick(gid,cid,kinds))
+        self.add_item(ProductionButton())
     async def interaction_check(self,i):
         if i.user.id!=self.uid:
             await i.response.send_message('這不是你的面板',ephemeral=True)
