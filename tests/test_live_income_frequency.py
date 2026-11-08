@@ -29,7 +29,7 @@ class LiveIncomeFrequencyTests(unittest.TestCase):
     def test_rolling_window_and_exempt_job(self):
         for n in range(6):
             ts = 1000000 + n * 100
-            sid = live_stream.start(123, 11, 1, f'cast{n}', 'sales' if n % 2 else 'personal', 'realtime', now=ts)
+            sid = live_stream.start(123, 11, 1, f'cast{n}', 'personal', 'realtime', now=ts)  # 帶貨倉庫要求於另一組測試驗證
             live_stream.stop(123, 11, sid, now=ts + 1)
         status = live_stream.frequency_status(123, 1, now=1000600)
         self.assertTrue(status['at_risk'])
@@ -78,7 +78,7 @@ class LiveIncomeFrequencyTests(unittest.TestCase):
             live_stream.stop(123, 11, session_id, now=ts + 1)
         self.assertEqual(live_stream.frequency_status(123, 1, now=500050)['count_in_7_days'], 5)
         self.assertFalse(live_stream.frequency_status(123, 1, now=500050)['risk_events'])
-        live_stream.start(123, 11, 1, 'sixth', 'sales', 'realtime', now=500060)
+        live_stream.start(123, 11, 1, 'sixth', 'personal', 'realtime', now=500060)
         status = live_stream.frequency_status(123, 1, now=500061)
         self.assertEqual(status['count_in_7_days'], 6)
         self.assertEqual(len(status['risk_events']), 1)
