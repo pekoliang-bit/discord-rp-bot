@@ -22,7 +22,7 @@ LOG = logging.getLogger(__name__)
 # ==========================================
 
 CATEGORIES = {
-    "report": "🚨 舉報／申訴",
+    # 舉報、申訴已改由專用保密系統處理；舊案件保留供群主查核。
     "item": "📦 物品申請",
     "item_create": "🧰 新增物品申請",
     "company_bank": "🏦 公司銀行帳號申請",
@@ -31,8 +31,9 @@ CATEGORIES = {
     "character_edit": "📝 原創角色資料修改申請",
     "npc_resign": "👤 NPC 辭演申請",
     "npc_switch": "🔄 NPC 更換飾演申請",
-    "cp_register": "💕 CP 關係登記申請",
+    "cp_register": "💍 伴侶／婚姻登記申請",
     "location_add": "📍 新增地點申請",
+    "channel_add": "📺 頻道新增申請",
     "faction_join": "🏳️ 加入陣營申請",
     "faction_exit": "🚪 退出陣營申請",
     "faction_change": "🔄 轉換陣營申請",
@@ -80,9 +81,16 @@ _GENERAL_FORM = [
 ]
 for _category in (
     "item_create", "shop_bank", "role_retire", "npc_resign",
-    "npc_switch", "cp_register", "location_add",
+    "npc_switch", "cp_register", "location_add", "channel_add",
 ):
     FORM_FIELDS[_category] = list(_GENERAL_FORM)
+
+FORM_FIELDS["channel_add"] = [
+    ("頻道名稱與類型", 150, False),
+    ("行動概念與用途", 900, True),
+    ("隨機事件概念", 900, True),
+    ("預計位置及其他補充（選填）", 500, True),
+]
 
 # 三種陣營異動分開收件，避免把加入與轉換混為一談。
 FORM_FIELDS["faction_join"] = [
@@ -960,6 +968,8 @@ class ApplicationKindSelect(
     def __init__(self):
 
         opts = [
+            discord.SelectOption(label="🚨 舉報玩家／違規事項", value="report_private"),
+            discord.SelectOption(label="⚖️ 處分申訴", value="report_appeal"),
             discord.SelectOption(
                 label="🎪 新建活動企劃",
                 value="event_new",
@@ -1004,6 +1014,13 @@ class ApplicationKindSelect(
             )
 
         kind = self.values[0]
+
+        if kind == "report_private":
+            from modules.report_commands import open_report_application
+            return await open_report_application(i)
+        if kind == "report_appeal":
+            from modules.report_commands import open_report_appeals
+            return await open_report_appeals(i)
 
         if kind.startswith("event_"):
 
@@ -1138,17 +1155,13 @@ class GeneralReviewView(
                 FROM rp_general_applications
                 WHERE guild_id=?
                   AND status='pending'
-                  AND (
-                      ?=1
-                      OR kind!='report'
-                  )
+                  AND kind!='report'
                 ORDER BY id ASC
                 LIMIT 20
                 OFFSET ?
                 """,
                 (
                     str(self.gid),
-                    1 if self.owner_mode else 0,
                     self.page * 20,
                 ),
             ).fetchall()
@@ -1305,14 +1318,8 @@ class GeneralReviewView(
                         "案件已被處理。"
                     )
 
-                if (
-                    r["kind"] == "report"
-                    and not owner(i)
-                ):
-                    raise PermissionError(
-                        "舉報案件僅群主可於此面板處理，"
-                        "防止內容外洩。"
-                    )
+                if r["kind"] == "report":
+                    raise PermissionError("舊版舉報案件須由群主另行保密核對，不能透過一般審核核准。")
 
                 if (
                     not owner(i)
@@ -1321,6 +1328,18 @@ class GeneralReviewView(
                 ):
                     raise PermissionError(
                         "審核人員不能審核自己的案件。"
+                    )
+
+                # 無業務執行器的類型不可只更新案件狀態為 approved，
+                # 以免向玩家謊稱已建立帳戶／物品／頻道／婚姻等。
+                automatic_kinds = {
+                    "company_bank", "faction_join", "faction_exit",
+                    "faction_change", "character_edit",
+                }
+                if accepted and r["kind"] not in automatic_kinds:
+                    raise ValueError(
+                        "這類申請尚未連接核准後的正式執行器，"
+                        "不能直接標為已核准；請待對應系統完成整合。"
                     )
 
                 if accepted and r["kind"] == "company_bank":
