@@ -172,6 +172,15 @@ class StartModal(discord.ui.Modal, title="建立直播間"):
             ephemeral=True,
         )
 
+        # Feed-follow notifications are separate from the stream transaction;
+        # failed Discord sends don't cancel a successful broadcast.
+        try:
+            from modules.live_follower_notifications_v11 import notify_live_followers
+            await notify_live_followers(interaction.guild,session_id,self.character_id,
+                                         str(self.live_title.value),self.kind)
+        except Exception:
+            LOG.exception('直播開播成功但關注者通知失敗 session=%s',session_id)
+
 
 class StartView(OwnedView):
     def __init__(self, owner_id, character_id, preset_kind=None):
@@ -1835,6 +1844,16 @@ class LiveOrganizedView(OwnedView):
             LOG.exception('查看直播間清單失敗')
             await interaction.followup.send('⚠️ 暫時無法讀取直播間清單。',ephemeral=True)
 
+    @discord.ui.button(label='🏆 直播間排行／曝光',row=1)
+    async def ranking(self,interaction,button):
+        from modules.live_rank_ui_v11 import LiveRankView,format_ranking
+        from core import live_rankings_v11 as ranks
+        await interaction.response.defer(ephemeral=True)
+        data=await asyncio.to_thread(ranks.period_rows,interaction.guild.id)
+        info=await asyncio.to_thread(ranks.room,interaction.guild.id,self.character_id)
+        await interaction.followup.send(format_ranking(data,info),
+            view=LiveRankView(self.owner_id,self.character_id),ephemeral=True)
+
     @discord.ui.button(label='商品／團隊管理',emoji='🛍️',row=1)
     async def manage(self,interaction,button):
         await interaction.response.send_message('🛍️ 商品提案及直播團隊管理（商品來源與禮物定價待核准）',
@@ -1870,10 +1889,13 @@ class WatchLiveView(OwnedView):
                 if found is None:
                     await interaction.followup.send('直播已結束，請刷新直播列表。',ephemeral=True)
                     return
+                from core import live_rankings_v11 as ranks
+                heat=await asyncio.to_thread(ranks.view,interaction.guild.id,
+                    found['host_character_id'],sid,self.character_id)
                 await interaction.followup.send(
                     f"📺 **{found['title']}**｜{found['stream_type']}｜場次 #{sid}\\n"
                     '🎁 送禮與 🛍️ 商品購買均在此處操作；價格與商品來源沿用已核准的後端規則。',
-                    view=LiveRoomConsumerView(self.owner_id,self.character_id,sid),ephemeral=True)
+                    view=LiveRoomConsumerView(self.owner_id,self.character_id,sid,found['host_character_id']),ephemeral=True)
             except Exception:
                 LOG.exception('查看直播間失敗')
                 await interaction.followup.send('⚠️ 直播間暫時無法載入。',ephemeral=True)
@@ -1882,10 +1904,11 @@ class WatchLiveView(OwnedView):
 
 
 class LiveRoomConsumerView(OwnedView):
-    def __init__(self,owner_id,character_id,session_id):
+    def __init__(self,owner_id,character_id,session_id,host_character_id=None):
         super().__init__(owner_id)
         self.character_id=int(character_id)
         self.session_id=int(session_id)
+        self.host_character_id=int(host_character_id) if host_character_id else None
 
     @discord.ui.button(label='送直播禮物',emoji='🎁',row=0)
     async def gifts(self,interaction,button):
@@ -1897,6 +1920,29 @@ class LiveRoomConsumerView(OwnedView):
     @discord.ui.button(label='購買帶貨商品',emoji='🛍️',row=0)
     async def purchase(self,interaction,button):
         await interaction.response.send_modal(CheckoutOfferModal(self.character_id))
+
+    @discord.ui.button(label='關注直播間／開播通知',emoji='🔔',row=1)
+    async def follow_room(self,interaction,button):
+        from core import live_rankings_v11 as ranks
+        await interaction.response.defer(ephemeral=True)
+        if self.host_character_id is None:
+            await interaction.followup.send('找不到直播間主持角色，請重新進入直播間。',ephemeral=True)
+            return
+        try:
+            created=await asyncio.to_thread(ranks.follow,interaction.guild.id,interaction.user.id,
+                self.character_id,self.host_character_id)
+            await interaction.followup.send('✅ 已關注直播間。' if created else '已經關注過這個直播間。',ephemeral=True)
+        except (ValueError,LookupError,PermissionError) as exc:
+            await interaction.followup.send(f'⚠️ {exc}',ephemeral=True)
+
+    @discord.ui.button(label='品牌代表進房',emoji='🏢',row=1)
+    async def brand_visit(self,interaction,button):
+        from modules.live_rank_ui_v11 import BrandVisitModal
+        await interaction.response.send_modal(BrandVisitModal(self.session_id))
+
+    @discord.ui.button(label='訂單退款',emoji='↩️',row=1)
+    async def refund(self,interaction,button):
+        await interaction.response.send_modal(WholesaleRefundModal(self.character_id))
 
     @discord.ui.button(label='查看商品',emoji='📋',row=0)
     async def listing(self,interaction,button):
@@ -2031,3 +2077,21 @@ class LiveBackstageView(OwnedView):
     async def teams(self,interaction,button):
         await interaction.response.send_message('直播團隊管理',
              view=TeamCenterView(self.owner_id,self.character_id),ephemeral=True)
+
+
+class WholesaleRefundModal(discord.ui.Modal,title='直播帶貨訂單自助退款'):
+    order_id=discord.ui.TextInput(label='自己的直播帶貨訂單編號',max_length=18)
+    def __init__(self,buyer_character_id):
+        super().__init__();self.buyer_character_id=int(buyer_character_id)
+    async def on_submit(self,interaction):
+        await interaction.response.defer(ephemeral=True)
+        try:
+            from core.wholesale_market_v1 import refund_sale
+            result=await asyncio.to_thread(refund_sale,interaction.guild.id,interaction.user.id,
+                    self.buyer_character_id,int(str(self.order_id.value)))
+            await interaction.followup.send(f"✅ 訂單 #{result['order_id']} 已退款 {result['refund_amount']:,} 金幣，商品 {result['returned_stock']} 件已收回。",ephemeral=True)
+        except (ValueError,PermissionError,LookupError) as exc:
+            await interaction.followup.send(f'⚠️ {exc}',ephemeral=True)
+        except Exception:
+            LOG.exception('直播訂單退款失敗')
+            await interaction.followup.send('⚠️ 退款無法自動完成，請聯絡官方處理。',ephemeral=True)
