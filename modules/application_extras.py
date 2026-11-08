@@ -1,3 +1,4 @@
+```python
 """集中申請擴充：案件儲存、玩家表單、審核面板。
 
 不額外註冊 Slash 指令。
@@ -12,6 +13,9 @@ import sqlite3
 import discord
 
 from core.database import transaction, get_connection
+from core.application_capabilities import (
+    GENERAL_AUTO_EXECUTORS, general_can_approve, general_status_text,
+)
 
 
 LOG = logging.getLogger(__name__)
@@ -938,7 +942,7 @@ class ApplicationModal(discord.ui.Modal):
                 i,
                 f"✅ {CATEGORIES[self.kind]} "
                 f"#{rid} 已送審。\n"
-                "申請已送交審核；核准後依已接通的案件類型執行。"
+                + general_status_text(self.kind)
             )
 
         except (
@@ -1188,13 +1192,21 @@ class GeneralReviewView(
             len(self.rows) < 20
         )
 
-        self.approve.disabled = (
-            self.selected is None
+        selected_kind = None
+        if self.selected is not None:
+            with get_connection() as check_db:
+                selected_row = check_db.execute(
+                    "SELECT kind FROM rp_general_applications "
+                    "WHERE guild_id=? AND id=? AND status='pending'",
+                    (str(self.gid), int(self.selected)),
+                ).fetchone()
+            selected_kind = selected_row["kind"] if selected_row is not None else None
+
+        self.approve.disabled = not (
+            selected_kind is not None and general_can_approve(selected_kind)
         )
 
-        self.reject.disabled = (
-            self.selected is None
-        )
+        self.reject.disabled = self.selected is None or selected_kind is None
 
     async def interaction_check(self, i):
 
@@ -1251,6 +1263,7 @@ class GeneralReviewView(
                     f"{CATEGORIES.get(r['kind'], r['kind'])}**\n"
                     f"申請者：<@{r['user_id']}>"
                     f"｜角色：{r['character_id'] or '未指定'}\n"
+                    f"案件執行狀態：{general_status_text(r['kind'])}\n"
                     f"標題："
                     f"{discord.utils.escape_mentions(r['title'])}\n"
                     f"內容："
@@ -1332,11 +1345,7 @@ class GeneralReviewView(
 
                 # 無業務執行器的類型不可只更新案件狀態為 approved，
                 # 以免向玩家謊稱已建立帳戶／物品／頻道／婚姻等。
-                automatic_kinds = {
-                    "company_bank", "faction_join", "faction_exit",
-                    "faction_change", "character_edit",
-                }
-                if accepted and r["kind"] not in automatic_kinds:
+                if accepted and not general_can_approve(r["kind"]):
                     raise ValueError(
                         "這類申請尚未連接核准後的正式執行器，"
                         "不能直接標為已核准；請待對應系統完成整合。"
@@ -1573,3 +1582,5 @@ async def setup(bot):
     """供 main.py 的 load_extension() 載入。"""
     init_db()
     LOG.info("一般申請與公司銀行授權模組已載入。")
+
+```
