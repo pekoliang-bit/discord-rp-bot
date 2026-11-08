@@ -1,8 +1,9 @@
-
 import sqlite3
+import sys
+import types
 import unittest
 
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 
 from core import company_bank_opening as mod
 
@@ -30,11 +31,11 @@ class CompanyBankOpeningTests(unittest.TestCase):
 
         mod.initialize_company_bank(self.db)
 
-        authorization = patch(
-            "modules.application_extras."
-            "validate_company_bank_applicant",
-            return_value=None,
-        )
+        # The production validator lives in a Discord UI module.  Patch the
+        # lazy import during isolated DB tests, without mocking banking SQL.
+        mocked = types.ModuleType('modules.application_extras')
+        mocked.validate_company_bank_applicant = MagicMock(return_value=None)
+        authorization = patch.dict(sys.modules, {'modules.application_extras': mocked})
         authorization.start()
         self.addCleanup(authorization.stop)
 
