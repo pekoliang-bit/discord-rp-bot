@@ -539,7 +539,7 @@ def screen(actor, character_id, stage):
 
     elif stage == 2:
         lines += [
-            "**第三階段：生日與感情設定（選填）**",
+            "**第三階段：生日必填／感情選填**",
             "生日："
             + str(
                 settings.get("birthday")
@@ -899,7 +899,7 @@ class DataModal(SafeModal):
                 default=str(
                     settings.get(key) or ""
                 )[:limit],
-                required=key in REQUIRED,
+                required=(key in REQUIRED or key == "birthday"),
                 max_length=limit,
                 style=(
                     discord.TextStyle.paragraph
@@ -1866,6 +1866,10 @@ class WizardView(OwnedView):
                 settings = unpack(
                     row["settings_json"]
                 )
+
+                from modules.character_numbering import normalize_birthday
+                if not normalize_birthday(settings.get("birthday")):
+                    raise InvalidState("請先填寫有效生日（月／日），例如 04/18，才能送審。")
 
                 if (
                     settings.get("main_track")
