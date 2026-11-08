@@ -114,6 +114,12 @@ def start(guild_id, user_id, character_id, title, kind, duration_mode,
                     (guild_id,session_id,character_id,occupation,window_start,count_in_7_days,flagged_at)
                     VALUES(?,?,?,?,?,?,?)''',
                     (gid,sid,cid,str(char['occupation'] or ''),window_start,count,ts))
+        if kind == 'sales':
+            from core.wholesale_market_v1 import prepare_live_session_in_transaction
+            prepare_live_session_in_transaction(db,gid,sid,cid)
+        # Same transaction: an opening bonus is never recorded without its session.
+        from core.live_rankings_v11 import start_bonus_in_transaction
+        start_bonus_in_transaction(db,gid,sid,cid,ts)
         return sid
 
 
