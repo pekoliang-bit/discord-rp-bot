@@ -1,4 +1,3 @@
-
 """直播帶貨真實結算：官方商城付款／庫存／背包／佣金原子交易。
 
 絕不另外鑄造金幣；所有帳本、商品交易與訂單於同一 SQLite
@@ -132,6 +131,14 @@ def checkout(
         ):
             raise ValueError('直播已結束或商品尚未驗證')
 
+        if str(offer['product_ref']).startswith('warehouse:'):
+            from core.wholesale_market_v1 import _product,checkout_warehouse_in_transaction
+            wid=int(str(offer['product_ref']).split(':',1)[1])
+            lot=db.execute('SELECT product_id FROM rp_wholesale_warehouse WHERE guild_id=? AND id=?',(gid,wid)).fetchone()
+            if not lot: raise ValueError('此商品已無有效進貨批次')
+            product=_product(db,gid,lot['product_id'])
+            return checkout_warehouse_in_transaction(db,gid,uid,buyer_id,offer,product,quantity,key,ts)
+
         product = _official_product(
             db,
             gid,
@@ -184,8 +191,10 @@ def checkout(
             cost * int(offer['commission_bp'])
         ) // 10000
 
-        platform_fee = (gross_commission * 20) // 100
-        commission = gross_commission - platform_fee
+        platform_fee = (cost * 20) // 100
+        commission = min(gross_commission, cost - platform_fee)
+        # Note: commission_rate now applies after deducting the 20% platform share.
+        gross_commission = commission
 
         payer = get_or_create_account(
             db, gid, 'character', buyer_id, 'wallet'
@@ -301,6 +310,10 @@ def checkout(
                 ts
             )
         ).lastrowid
+
+        from core.live_rankings_v11 import _record as _record_live_heat, initialize as _init_live_heat
+        _init_live_heat(db)
+        _record_live_heat(db,gid,f'sale:{order_id}',int(offer['session_id']),cost//100,'sale',ts)
 
         return dict(
             db.execute(
