@@ -4,6 +4,8 @@ from __future__ import annotations
 import asyncio
 import logging
 from urllib.parse import urlparse
+import re
+from core.network_post_categories import classify_forum_tags
 import discord
 from core import network_groups as ng
 from core import network_social_posts as social
@@ -25,14 +27,26 @@ class OwnerView(discord.ui.View):
 
 
 class ForumBindingModal(discord.ui.Modal,title='綁定公開網路論壇'):
-    forum_id=discord.ui.TextInput(label='論壇頻道 ID',placeholder='請填入已建立的 Discord 論壇頻道編號')
+    forum_id=discord.ui.TextInput(label='論壇頻道 ID 或 Discord 連結',placeholder='https://discord.com/channels/伺服器ID/論壇ID')
     async def on_submit(self,interaction):
         if not interaction.guild or interaction.user.id != interaction.guild.owner_id:
             await interaction.response.send_message('只有群主可以綁定論壇。',ephemeral=True)
             return
         await interaction.response.defer(ephemeral=True)
         try:
-            forum=interaction.guild.get_channel(int(str(self.forum_id).strip()))
+            raw=str(self.forum_id).strip()
+            match=re.fullmatch(r'https?://(?:www\.)?discord(?:app)?\.com/channels/(\d+)/(\d+)/?',raw)
+            if match:
+                if int(match.group(1))!=interaction.guild.id:
+                    raise ValueError('連結不是本伺服器的頻道')
+                forum_id=int(match.group(2))
+            elif raw.isdigit():
+                forum_id=int(raw)
+            else:
+                raise ValueError('請填入有效 Discord 論壇連結或頻道 ID')
+            forum=interaction.guild.get_channel(forum_id)
+            if forum is None:
+                forum=await interaction.guild.fetch_channel(forum_id)
             if not isinstance(forum,discord.ForumChannel):
                 raise ValueError('這個 ID 不是本伺服器可存取的論壇頻道')
             await asyncio.to_thread(social.bind_forum,interaction.guild.id,forum.id)
@@ -86,6 +100,8 @@ class PostModal(discord.ui.Modal,title='發布網路論壇文章'):
             try:
                 await asyncio.to_thread(social.save_post,interaction.guild.id,
                                         interaction.user.id,self.account_id,thread.id,self.tag_ids)
+                categories=classify_forum_tags([tag_map[i].name for i in self.tag_ids])
+                LOG.info('網路論壇貼文完成 thread=%s categories=%s',thread.id,categories)
             except Exception:
                 LOG.exception('網路發文後儲存索引失敗 thread=%s',thread.id)
                 try:
@@ -168,6 +184,8 @@ class ForumActions(OwnerView):
             await asyncio.to_thread(ng.account_info,interaction.guild.id,interaction.user.id,self.account_id)
             forum_id=await asyncio.to_thread(social.bound_forum,interaction.guild.id)
             forum=interaction.guild.get_channel(forum_id) if forum_id else None
+            if forum is None and forum_id:
+                forum=await interaction.guild.fetch_channel(forum_id)
             if not isinstance(forum,discord.ForumChannel):
                 await interaction.followup.send('⚠️ 群主尚未綁定網路論壇，請先使用「論壇綁定」。',ephemeral=True)
                 return
