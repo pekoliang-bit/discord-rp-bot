@@ -1,4 +1,3 @@
-```python
 """Discord RP 統一審核中心。
 
 正式指令：/審核
@@ -1283,4 +1282,3 @@ async def setup(bot: commands.Bot):
         ReviewCenter(bot)
     )
 
-```
