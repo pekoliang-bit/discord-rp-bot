@@ -91,6 +91,11 @@ def initialize(db):
     '''CREATE TABLE IF NOT EXISTS rp_asset_lease_prices (
       name TEXT PRIMARY KEY, weekly_rent INTEGER NOT NULL, deposit INTEGER NOT NULL)'''
     ]
+    ddl.append('''CREATE TABLE IF NOT EXISTS rp_asset_template_overrides (
+      guild_id TEXT NOT NULL, code TEXT NOT NULL, category TEXT NOT NULL,
+      name TEXT NOT NULL, base_price INTEGER NOT NULL, luxury INTEGER NOT NULL DEFAULT 0,
+      active INTEGER NOT NULL DEFAULT 1,min_price_only INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY(guild_id,code))''')
     for statement in ddl: db.execute(statement)
     with CATALOG_PATH.open(encoding='utf-8-sig',newline='') as fp:
         for item in csv.DictReader(fp):
@@ -136,12 +141,32 @@ def _event(db,guild,asset,key,kind,actor,**payload):
     db.execute('INSERT INTO rp_asset_events(guild_id,asset_id,event_key,kind,actor_id,payload,created_at) VALUES(?,?,?,?,?,?,?)',
        (gid(guild),asset,key,kind,str(actor),json.dumps(payload,ensure_ascii=False),now()))
 
-def catalog(category=None):
+def _template(db,guild,code):
+    """官方底表 + 伺服器覆寫；其他伺服器不會被本服改價影響。"""
+    row=db.execute('''SELECT t.code,
+        COALESCE(o.category,t.category) category,COALESCE(o.name,t.name) name,
+        COALESCE(o.base_price,t.base_price) base_price,COALESCE(o.luxury,t.luxury) luxury,
+        COALESCE(o.active,t.active) active,
+        COALESCE(o.min_price_only,t.min_price_only) min_price_only
+        FROM rp_asset_templates t LEFT JOIN rp_asset_template_overrides o
+        ON o.code=t.code AND o.guild_id=? WHERE t.code=?''',(gid(guild),code)).fetchone()
+    return row
+
+def catalog(category=None,guild=None):
     init_assets()
     with get_connection() as db:
-        if category:
-            return [dict(r) for r in db.execute('SELECT * FROM rp_asset_templates WHERE category=? AND active=1 ORDER BY code',(category,))]
-        return [dict(r) for r in db.execute('SELECT * FROM rp_asset_templates WHERE active=1 ORDER BY code')]
+        if guild is None:
+            rows=db.execute('SELECT * FROM rp_asset_templates WHERE active=1 ORDER BY code').fetchall()
+        else:
+            rows=db.execute('''SELECT t.code,
+                COALESCE(o.category,t.category) category,COALESCE(o.name,t.name) name,
+                COALESCE(o.base_price,t.base_price) base_price,COALESCE(o.luxury,t.luxury) luxury,
+                COALESCE(o.active,t.active) active,
+                COALESCE(o.min_price_only,t.min_price_only) min_price_only
+                FROM rp_asset_templates t LEFT JOIN rp_asset_template_overrides o
+                ON o.code=t.code AND o.guild_id=?
+                WHERE COALESCE(o.active,t.active)=1 ORDER BY t.code''',(gid(guild),)).fetchall()
+        return [dict(r) for r in rows if not category or r['category']==category]
 
 def _validate_holder(db,guild,holder_type,holder_id,user=None):
     if holder_type=='character': return character(db,guild,int(holder_id),user)
@@ -154,7 +179,7 @@ def _owns_all(db,guild,asset,typ,holder):
     return bool(row and row['basis_points']==10000)
 
 def _item(db,guild,asset):
-    row=db.execute('SELECT a.*, t.category,t.luxury FROM rp_asset_items a JOIN rp_asset_templates t ON t.code=a.template_code WHERE a.guild_id=? AND a.id=? AND a.status=\'active\'',(gid(guild),int(asset))).fetchone()
+    row=db.execute('SELECT a.*, t.category,COALESCE(o.luxury,t.luxury) luxury FROM rp_asset_items a JOIN rp_asset_templates t ON t.code=a.template_code LEFT JOIN rp_asset_template_overrides o ON o.code=t.code AND o.guild_id=a.guild_id WHERE a.guild_id=? AND a.id=? AND a.status=\'active\'',(gid(guild),int(asset))).fetchone()
     if not row: raise AssetError('資產不存在或已失效')
     return row
 
@@ -166,7 +191,8 @@ def _free(db,guild,asset,typ,holder):
         raise AssetError('資產已有進行中的掛單')
 
 def _create_asset(db,guild,code,typ,holder,location,origin,price,actor,unique_key=None,parent=None):
-    row=db.execute('SELECT * FROM rp_asset_templates WHERE code=? AND active=1',(code,)).fetchone()
+    row=_template(db,guild,code)
+    if row is not None and not row['active']: row=None
     if not row: raise AssetError('商品不存在')
     value=int(price or row['base_price'])
     if value<=0: raise AssetError('本商品需要官方先設定價格')
@@ -184,7 +210,8 @@ def buy(guild,code,character_id,user,location='',unique_key=None):
     """官方全額交易；房屋指定獨立地址時須 unique_key。"""
     with transaction() as db:
         character(db,guild,character_id,user)
-        item=db.execute('SELECT * FROM rp_asset_templates WHERE code=? AND active=1',(code,)).fetchone()
+        item=_template(db,guild,code)
+        if item is not None and not item['active']:item=None
         if not item or item['base_price']<=0 or item['min_price_only']: raise AssetError('此資產需官方指定個別價格，暫不提供直接購買')
         if code.startswith('EST-') and location and location.strip() not in ('未指定','無','無指定') and not unique_key: unique_key='property:'+str(location).strip().lower()
         if code.startswith('EST-') and not unique_key: unique_key='unit:'+uuid.uuid4().hex
@@ -209,10 +236,11 @@ def grant_elder_home(guild,character_id,actor_id,building='元老紀念公寓', 
 def holdings(guild,holder_id,typ='character'):
     init_assets()
     with get_connection() as db:
-        return [dict(r) for r in db.execute('''SELECT a.*,s.basis_points,t.category,t.luxury,
+        return [dict(r) for r in db.execute('''SELECT a.*,s.basis_points,t.category,COALESCE(o.luxury,t.luxury) luxury,
             COALESCE((SELECT SUM(due_amount-paid_amount) FROM rp_asset_dues d WHERE d.guild_id=a.guild_id AND d.asset_id=a.id),0) unpaid
             FROM rp_asset_shares s JOIN rp_asset_items a ON a.guild_id=s.guild_id AND a.id=s.asset_id
             JOIN rp_asset_templates t ON t.code=a.template_code
+            LEFT JOIN rp_asset_template_overrides o ON o.code=t.code AND o.guild_id=a.guild_id
             WHERE s.guild_id=? AND s.holder_type=? AND s.holder_id=? AND a.status='active' ORDER BY a.id DESC''',
             (gid(guild),typ,str(holder_id)))]
 
@@ -345,8 +373,8 @@ def close_lease(guild,lease_id,actor=None,force=False):
 def generate_maintenance(guild,at=None):
     at=int(at or now()); generated=0
     with transaction() as db:
-        rows=db.execute('''SELECT a.id,a.appraised_value,a.template_code,t.luxury,a.last_value_at,a.created_at
-          FROM rp_asset_items a JOIN rp_asset_templates t ON t.code=a.template_code WHERE a.guild_id=? AND a.status='active' AND t.luxury=1 AND a.origin!="official_rental"''',(gid(guild),)).fetchall()
+        rows=db.execute('''SELECT a.id,a.appraised_value,a.template_code,COALESCE(o.luxury,t.luxury) luxury,a.last_value_at,a.created_at
+          FROM rp_asset_items a JOIN rp_asset_templates t ON t.code=a.template_code LEFT JOIN rp_asset_template_overrides o ON o.code=t.code AND o.guild_id=a.guild_id WHERE a.guild_id=? AND a.status='active' AND COALESCE(o.luxury,t.luxury)=1 AND a.origin!="official_rental"''',(gid(guild),)).fetchall()
         for a in rows:
             # 第一張帳單在持有滿30日才產生，未滿不提早收費。
             start=a['created_at'] if 'created_at' in a.keys() else a['last_value_at']
@@ -421,7 +449,7 @@ def rent_official(guild,code,tenant,user,weeks=1):
         rate=db.execute('SELECT * FROM rp_asset_lease_prices WHERE name=?',(mapping[code],)).fetchone()
         if not rate: raise AssetError('官方租金尚未設定')
         item=_create_asset(db,guild,code,'organization','official_housing', '官方出租住宅','official_rental',
-          db.execute('SELECT base_price FROM rp_asset_templates WHERE code=?',(code,)).fetchone()['base_price'],
+          _template(db,guild,code)['base_price'],
           'system',unique_key='rent:official:'+uuid.uuid4().hex)
         start=now()
         cur=db.execute('''INSERT INTO rp_asset_leases(guild_id,asset_id,tenant_id,landlord_type,landlord_id,period_rent,deposit,start_at,ends_at)
@@ -478,7 +506,8 @@ def buy_for_company(guild,code,business_id,user,location='',unique_key=None):
     """使用正式公司金庫；只允許負責人或取得財務授權者。"""
     with transaction() as db:
         _company(db,guild,business_id,user)
-        item=db.execute('SELECT * FROM rp_asset_templates WHERE code=? AND active=1',(code,)).fetchone()
+        item=_template(db,guild,code)
+        if item is not None and not item['active']:item=None
         if not item or item['base_price']<=0 or item['min_price_only']:raise AssetError('需個別定價，不可自動成交')
         if code.startswith('EST-') and location and location.strip() not in ('未指定','無','無指定') and not unique_key:unique_key='property:'+str(location).strip().lower()
         if code.startswith('EST-') and not unique_key:unique_key='unit:'+uuid.uuid4().hex
