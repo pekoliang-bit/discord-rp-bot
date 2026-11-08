@@ -1,166 +1,188 @@
-"""世界觀第5部分：數值逐項編輯。僅管理設定，不直接修改既有角色數值。"""
+"""世界觀數值設定：13 預設、可新增/停用、獨立管制影響指數。
+
+不直接更改已啟用角色的數值；可由業務層呼叫 stat_policy/validate_grant。
+內部識別碼固定不變，顯示名稱可調。禁止透過改名或修改世界觀設定
+繞過影響指數的不可購買/不可隨機/不可付費配點規則。
+"""
 from __future__ import annotations
 import re
 import discord
 
-SPECIAL = {'影響指數','influence','influence_index'}
+BASE = (
+    "流量熱度", "商業價值", "路人緣", "公關", "影響指數",
+    "容貌", "才智", "歌唱", "舞蹈", "演繹", "主持", "綜藝", "個人才藝",
+)
+INFLUENCE = "影響指數"
+ACTION = "action_points"
+# 永不重複使用的內部代碼，與數值顯示名稱不同。
+DEFAULTS = {key: {"name": key, "enabled": True, "sources": "依既有正式系統規則", "limits": "依既有正式系統規則", "per_gain": 1, "per_loss": 1} for key in BASE}
+DEFAULTS[INFLUENCE] = {"name": INFLUENCE, "enabled": True,
+    "sources": "系統正式規則、核准稱號、指定任務、指定活動", "per_gain": 1, "per_loss": 1,
+    "limits": "不得購買、隨機掉落、付費配點；只許正式授權獎勵"}
+DEFAULTS[ACTION] = {"name": "行動值", "enabled": True, "sources": "系統恢復、核准活動、正式道具獎勵", "limits": "僅依正式行動值規則增減", "per_gain": 1, "per_loss": 1}
+
+DISALLOWED_INFLUENCE_SOURCES = {"shop", "purchase", "paid_allocation", "random", "roulette", "gacha", "lottery", "money", "paid", "cash", "auction"}
+ALLOWED_INFLUENCE_SOURCES = {"system_rule", "achievement", "approved_event", "approved_task", "approved_title", "admin_adjustment"}
 
 def api():
     from modules import content_builder
     return content_builder
 
-def rules(gid):
-    section=api().world_get(gid).get('stats',{})
-    return section if isinstance(section,dict) else {}
+def can_edit(interaction):
+    if api().owner(interaction):
+        return True
+    from modules.world_permission_editor import has_world_permission
+    return has_world_permission(interaction, "stats_edit")
 
-def nice(key,rule):
-    return str(rule.get('name',key)) if isinstance(rule,dict) else str(key)
+def saved(gid):
+    raw = api().world_get(gid).get("stats", {})
+    return raw if isinstance(raw, dict) else {}
+
+def rules(gid):
+    out={k:dict(v) for k,v in DEFAULTS.items()}
+    for key,value in saved(gid).items():
+        if isinstance(value, dict):
+            out[key]={**out.get(key, {"name":key, "enabled":True, "sources":"", "limits":"", "per_gain":1, "per_loss":1}),**value}
+    # Lock safety policy on every read, including previously saved invalid overrides.
+    out[INFLUENCE]["enabled"] = True
+    out[INFLUENCE]["protected"] = True
+    out[INFLUENCE]["non_purchasable"] = True
+    out[INFLUENCE]["non_random"] = True
+    return out
+
+def stat_policy(gid, key):
+    item=rules(gid).get(key)
+    if item is None:raise KeyError(f"未知數值：{key}")
+    return dict(item)
+
+def validate_grant(gid, key, source: str, amount: int):
+    """業務發獎可呼叫本函式檢查；不取代既有專屬數值校驗。"""
+    rule=stat_policy(gid,key)
+    if not rule.get("enabled",True):raise PermissionError("數值未啟用")
+    if not isinstance(amount,int) or amount <= 0:raise ValueError("增減必須為正整數")
+    if key == INFLUENCE:
+        if source not in ALLOWED_INFLUENCE_SOURCES:
+            raise PermissionError("影響指數不可透過購買、隨機、商城、付費配點等取得")
+        # amount must be validated against the specific approved source separately.
+    return True
+
+def name(gid,key):
+    return str(stat_policy(gid,key).get('name',key))
 
 def text(gid):
-    entries=rules(gid)
-    lines=['📊 **世界觀｜數值設定**','選擇已建立的數值修改，或點「新增數值」。','', '數值設定只影響後續有接入世界觀規則的運算，不會重設角色既有屬性。']
-    if not entries:
-        lines.append('目前尚無已儲存的自訂數值規則；可用「新增數值」建立。')
-    else:
-        for key,rule in list(entries.items())[:30]:
-            if isinstance(rule,dict):
-                lines.append(f"• {nice(key,rule)}｜{'啟用' if rule.get('enabled',True) else '停用'}｜{rule.get('min',0)}～{rule.get('max','未設定')}")
-            else:
-                lines.append(f'• {key}｜舊格式資料，請逐項編輯')
-    lines += ['','🔒 影響指數為管制數值：不得透過隨機、商城購買或付費配點獲得。']
-    return '\n'.join(lines)[:1900]
+    data=rules(gid)
+    lines=["📊 **世界觀｜數值設定**", "內建十三項數值 + 行動值（獨立資源）；可調整顯示名稱與取得方式。", "✅ 啟用／⛔ 停用；停用不刪除角色舊資料。", ""]
+    for key,value in data.items():
+        label="🔒" if key==INFLUENCE else ("✅" if value.get("enabled",True) else "⛔")
+        lines.append(f"{label} {value.get('name',key)}" + ("（行動值）" if key==ACTION else ""))
+    lines.append("\n影響指數固定不可買賣、抽取或付費配點，僅可改名稱和授權來源的獎勵量。")
+    return "\n".join(lines)[:1900]
 
 def detail(gid,key):
-    rule=rules(gid).get(key,{})
-    if not isinstance(rule,dict):rule={}
-    note=('\n🔒 此項為管制數值：只能透過正式系統規則／指定獎勵取得。' if key in SPECIAL or rule.get('name')=='影響指數' else '')
-    return (f"📊 **{nice(key,rule)}**\n代碼：`{key}`\n狀態：{'啟用' if rule.get('enabled',True) else '停用'}\n"
-            f"最低值：{rule.get('min','未設定')}\n最高值：{rule.get('max','未設定')}\n"
-            f"初始值：{rule.get('initial','未設定')}\n說明：{rule.get('description') or '尚未填寫'}{note}\n\n"
-            '請使用下方按鈕修改，不需要自行輸入 JSON。')[:1900]
+    item=stat_policy(gid,key)
+    lock=("\n🔒 固定安全規則：不可花錢購買、不能隨機獲得、不能付費配點；不能停用或更改內部代碼。" if key==INFLUENCE else "")
+    return (f"📊 **{item.get('name',key)}**\n內部代碼：`{key}`\n狀態：{'啟用' if item.get('enabled',True) else '停用'}\n"
+            f"授權獲取來源：{item.get('sources') or '尚未設定'}\n每次增加：{item.get('per_gain',1)}\n每次減少：{item.get('per_loss',1)}\n"
+            f"其他限制：{item.get('limits') or '未設定'}{lock}\n\n本頁保存未來規則，不會重設現有角色數值。")[:1900]
 
-class OwnerView(discord.ui.View):
-    def __init__(self,i):
-        super().__init__(timeout=600)
-        self.uid,self.gid=i.user.id,i.guild_id
+class Guard(discord.ui.View):
+    def __init__(self,i):super().__init__(timeout=600);self.uid=i.user.id;self.gid=i.guild_id
     async def interaction_check(self,i):
-        if i.guild_id!=self.gid or i.user.id!=self.uid or not api().owner(i):
-            await i.response.send_message('⛔ 只有開啟面板的群主可以修改世界觀。',ephemeral=True)
-            return False
+        if i.guild_id!=self.gid or i.user.id!=self.uid or not can_edit(i):
+            await i.response.send_message("⛔ 僅群主能修改本頁設定。",ephemeral=True);return False
         return True
 
-class StatForm(discord.ui.Modal):
-    def __init__(self,gid,key=None):
-        self.key=key
-        rule=rules(gid).get(key,{}) if key is not None else {}
-        if not isinstance(rule,dict):rule={}
-        super().__init__(title='修改數值規則' if key else '新增數值規則')
-        self.code=None
-        if key is None:
-            self.code=discord.ui.TextInput(label='數值代碼（唯一識別，不可重複）',placeholder='例如：acting（英數與底線）',max_length=40,min_length=2)
-            self.add_item(self.code)
-        self.name=discord.ui.TextInput(label='顯示名稱',default=str(rule.get('name',key or '')),placeholder='例如：演技',max_length=50)
-        self.minimum=discord.ui.TextInput(label='最低值（整數）',default=str(rule.get('min',0)),placeholder='例如：0',max_length=12)
-        self.maximum=discord.ui.TextInput(label='最高值（整數）',default=str(rule.get('max',150)),placeholder='例如：150',max_length=12)
-        self.initial=discord.ui.TextInput(label='初始值（整數）',default=str(rule.get('initial',0)),placeholder='例如：0',max_length=12)
-        for f in (self.name,self.minimum,self.maximum,self.initial):self.add_item(f)
+class CreateStatModal(discord.ui.Modal,title="新增自訂數值"):
+    code=discord.ui.TextInput(label="固定識別碼（英文、數字、底線）",min_length=2,max_length=40)
+    display=discord.ui.TextInput(label="顯示名稱",max_length=50)
+    sources=discord.ui.TextInput(label="獲得方式",required=False,max_length=300,style=discord.TextStyle.paragraph)
+    limits=discord.ui.TextInput(label="取得限制",required=False,max_length=300,style=discord.TextStyle.paragraph)
     async def on_submit(self,i):
-        if not api().owner(i):
-            return await i.response.send_message('⛔ 僅群主可以儲存設定。',ephemeral=True)
-        key=self.key if self.key else str(self.code.value).strip()
-        if self.key is None and not re.fullmatch(r'[A-Za-z][A-Za-z0-9_]{1,39}',key):
-            return await i.response.send_message('代碼須由英文字母開頭，只能包含英文、數字、底線（2～40 字）。',ephemeral=True)
-        try:
-            lo,hi,start=[int(str(x.value).strip()) for x in (self.minimum,self.maximum,self.initial)]
-        except ValueError:
-            return await i.response.send_message('最低值、最高值、初始值都必須是整數。',ephemeral=True)
-        if not (0<=lo<=start<=hi<=1000000000):
-            return await i.response.send_message('需符合 0 ≤ 最低值 ≤ 初始值 ≤ 最高值 ≤ 10億。',ephemeral=True)
-        name=str(self.name.value).strip()
-        if not name:
-            return await i.response.send_message('顯示名稱不能為空。',ephemeral=True)
+        if not can_edit(i):return await i.response.send_message("⛔ 無權操作。",ephemeral=True)
+        key=self.code.value.strip().lower();label=self.display.value.strip()
+        if not re.fullmatch(r"[a-z][a-z0-9_]{1,39}",key) or not label:
+            return await i.response.send_message("識別碼格式不正確或名稱為空。",ephemeral=True)
+        if key in {"influence", "influence_index", "action_points"} or label == INFLUENCE:
+            return await i.response.send_message("⛔ 保留識別碼／影響指數不可新增為一般數值。",ephemeral=True)
+        if key in rules(i.guild_id):return await i.response.send_message("該代碼已存在，請編輯原有數值。",ephemeral=True)
         data=api().world_get(i.guild_id)
-        section=data.setdefault('stats',{})
-        if not isinstance(section,dict):
-            return await i.response.send_message('舊版數值資料格式有誤，請先備份並修復。',ephemeral=True)
-        if self.key is None and key in section:
-            return await i.response.send_message('此數值代碼已存在，請從數值列表選擇修改。',ephemeral=True)
-        old=section.get(key,{})
-        if not isinstance(old,dict):old={}
-        section[key]={**old,'name':name,'min':lo,'max':hi,'initial':start,'enabled':bool(old.get('enabled',True))}
-        data.setdefault('overrides',{})['stats.'+key]=True
+        if len(rules(i.guild_id))>=60:return await i.response.send_message("最多 60 項數值。",ephemeral=True)
+        data.setdefault("stats",{})[key]={"name":label,"sources":self.sources.value.strip(),"limits":self.limits.value.strip(),"per_gain":1,"per_loss":1,"enabled":True}
+        data.setdefault("overrides",{})['stats.'+key]=True
         api().world_save(i.guild_id,data)
-        await i.response.send_message(f'✅ 已保存「{name}」。角色既有數值不會自動更動；業務計算需接入此設定才會生效。',ephemeral=True)
+        await i.response.send_message(f"✅ 已新增 {label}。其他模組接入後才會實際計算。",ephemeral=True)
 
-class DescriptionModal(discord.ui.Modal):
+class StatForm(discord.ui.Modal):
     def __init__(self,gid,key):
-        self.key=key
-        old=rules(gid).get(key,{})
-        if not isinstance(old,dict):old={}
-        super().__init__(title='編輯數值說明')
-        self.description=discord.ui.TextInput(label='用途及取得方式說明',style=discord.TextStyle.paragraph,required=False,max_length=800,default=str(old.get('description',''))[:800],placeholder='例如：透過指定任務獎勵獲得')
-        self.add_item(self.description)
+        super().__init__(title="獨立管理影響指數" if key==INFLUENCE else "編輯數值規則")
+        self.key=key;item=stat_policy(gid,key)
+        self.name=discord.ui.TextInput(label="顯示名稱",max_length=50,default=str(item.get('name',key)))
+        self.sources=discord.ui.TextInput(label="核准獲取來源（僅描述；不得解鎖禁令）",max_length=400,required=False,style=discord.TextStyle.paragraph,default=str(item.get('sources',''))[:400])
+        self.gain=discord.ui.TextInput(label="單次增加量（正整數）",max_length=10,default=str(item.get('per_gain',1)))
+        self.loss=discord.ui.TextInput(label="單次減少量（正整數）",max_length=10,default=str(item.get('per_loss',1)))
+        for f in (self.name,self.sources,self.gain,self.loss):self.add_item(f)
+        if key!=INFLUENCE:
+            self.limits=discord.ui.TextInput(label="自訂限制／例外",max_length=500,required=False,style=discord.TextStyle.paragraph,default=str(item.get('limits',''))[:500]);self.add_item(self.limits)
     async def on_submit(self,i):
-        if not api().owner(i):return await i.response.send_message('⛔ 僅群主可修改。',ephemeral=True)
-        data=api().world_get(i.guild_id)
-        rule=data.setdefault('stats',{}).get(self.key)
-        if not isinstance(rule,dict):return await i.response.send_message('找不到該項數值。',ephemeral=True)
-        rule['description']=str(self.description.value).strip()
+        if not can_edit(i):return await i.response.send_message("⛔ 無權修改。",ephemeral=True)
+        label=str(self.name.value).strip()
+        if self.key != INFLUENCE and label == INFLUENCE:
+            return await i.response.send_message("⛔ 影響指數名稱保留給管制數值。",ephemeral=True)
+        try:gain=int(self.gain.value);loss=int(self.loss.value)
+        except ValueError:return await i.response.send_message("增減量請填整數。",ephemeral=True)
+        if not label or not 1<=gain<=1_000_000 or not 1<=loss<=1_000_000:return await i.response.send_message("名稱不可空白，單次增減必須介於 1～100萬。",ephemeral=True)
+        sources=str(self.sources.value).strip()
+        if self.key==INFLUENCE:
+            # Text is a description only; cannot grant unauthorized sources.
+            forbidden=("購買", "付費", "商城", "隨機", "抽獎", "抽抽樂", "轉帳", "金幣", "拍賣", "販售", "兌換")
+            if any(word in sources for word in forbidden):return await i.response.send_message("⛔ 影響指數不得新增購買、抽獎、隨機或付費取得來源。",ephemeral=True)
+        data=api().world_get(i.guild_id); old=data.setdefault('stats',{}).get(self.key,{})
+        if not isinstance(old,dict):old={}
+        changed={**old,"name":label,"sources":sources,"per_gain":gain,"per_loss":loss}
+        if self.key!=INFLUENCE: changed["limits"]=str(self.limits.value).strip()
+        else:
+            changed.pop("min",None);changed.pop("max",None);changed.pop("initial",None)
+            changed.update({"enabled":True,"protected":True,"non_purchasable":True,"non_random":True,"limits":DEFAULTS[INFLUENCE]['limits']})
+        data['stats'][self.key]=changed
         data.setdefault('overrides',{})['stats.'+self.key]=True
         api().world_save(i.guild_id,data)
-        await i.response.send_message('✅ 已儲存數值說明。',ephemeral=True)
+        await i.response.send_message("✅ 已儲存。既有角色數值未改動；安全限制仍然有效。",ephemeral=True)
 
 class StatSelect(discord.ui.Select):
     def __init__(self,gid):
-        entries=rules(gid)
-        options=[discord.SelectOption(label=nice(k,v)[:100],value=k,description=f'代碼：{k}'[:100]) for k,v in list(entries.items())[:25] if len(k)<=100]
-        if not options:
-            options=[discord.SelectOption(label='暫無數值（請使用新增數值）',value='__none__')]
-        super().__init__(placeholder='選擇數值查看及編輯',options=options,row=0)
+        options=[discord.SelectOption(label=str(item.get('name',key))[:100],value=key,description=f"代碼：{key}"[:100]) for key,item in list(rules(gid).items())[:25]]
+        super().__init__(placeholder="選擇數值（前25項）",options=options,row=0)
     async def callback(self,i):
-        key=self.values[0]
-        if key=='__none__':return await i.response.send_message('請按「新增數值」。',ephemeral=True)
-        await i.response.edit_message(content=detail(i.guild_id,key),view=StatDetailView(i,key))
+        key=self.values[0];await i.response.edit_message(content=detail(i.guild_id,key),view=StatDetailView(i,key))
 
-class StatHomeView(OwnerView):
-    def __init__(self,i):
-        super().__init__(i)
-        self.add_item(StatSelect(self.gid))
-    @discord.ui.button(label='➕ 新增數值',style=discord.ButtonStyle.primary,row=1)
-    async def create(self,i,b):
-        await i.response.send_modal(StatForm(self.gid))
-    @discord.ui.button(label='◀️ 返回世界觀',style=discord.ButtonStyle.secondary,row=1)
-    async def back(self,i,b):
-        await i.response.edit_message(content=api().world_summary(i.guild_id),view=api().WorldSettingsView(i))
+class StatHomeView(Guard):
+    def __init__(self,i):super().__init__(i);self.add_item(StatSelect(self.gid))
+    @discord.ui.button(label="➕ 新增自訂數值",style=discord.ButtonStyle.primary,row=1)
+    async def create(self,i,b):await i.response.send_modal(CreateStatModal())
+    @discord.ui.button(label="◀️ 返回世界觀",style=discord.ButtonStyle.secondary,row=1)
+    async def back(self,i,b):await i.response.edit_message(content=api().world_summary(i.guild_id),view=api().WorldSettingsView(i))
 
-class StatDetailView(OwnerView):
-    def __init__(self,i,key):
-        super().__init__(i)
-        self.key=key
-    @discord.ui.button(label='✏️ 修改名稱與數值範圍',style=discord.ButtonStyle.primary)
+class StatDetailView(Guard):
+    def __init__(self,i,key):super().__init__(i);self.key=key
+    @discord.ui.button(label="✏️ 名稱／來源／增減量",style=discord.ButtonStyle.primary)
     async def edit(self,i,b):await i.response.send_modal(StatForm(i.guild_id,self.key))
-    @discord.ui.button(label='📝 修改用途說明',style=discord.ButtonStyle.secondary)
-    async def desc(self,i,b):await i.response.send_modal(DescriptionModal(i.guild_id,self.key))
-    @discord.ui.button(label='切換啟用／停用',style=discord.ButtonStyle.secondary,row=1)
+    @discord.ui.button(label="啟用／停用",style=discord.ButtonStyle.secondary)
     async def toggle(self,i,b):
-        await i.response.edit_message(content=detail(i.guild_id,self.key)+'\n\n⚠️ 確認修改啟用狀態？',view=StatConfirmView(i,self.key))
-    @discord.ui.button(label='◀️ 返回數值列表',style=discord.ButtonStyle.secondary,row=1)
-    async def back(self,i,b):
-        await i.response.edit_message(content=text(i.guild_id),view=StatHomeView(i))
+        if self.key==INFLUENCE:return await i.response.send_message("🔒 影響指數是管制數值，不可停用或刪除；可修改顯示名稱和核准獎勵。",ephemeral=True)
+        await i.response.edit_message(content="確認切換？不會刪除現有角色數值。",view=StatConfirmView(i,self.key))
+    @discord.ui.button(label="返回數值列表",style=discord.ButtonStyle.secondary,row=1)
+    async def back(self,i,b):await i.response.edit_message(content=text(i.guild_id),view=StatHomeView(i))
 
-class StatConfirmView(OwnerView):
-    def __init__(self,i,key):
-        super().__init__(i)
-        self.key=key
-    @discord.ui.button(label='確認切換',style=discord.ButtonStyle.danger)
+class StatConfirmView(Guard):
+    def __init__(self,i,key):super().__init__(i);self.key=key
+    @discord.ui.button(label="確認切換",style=discord.ButtonStyle.danger)
     async def confirm(self,i,b):
-        data=api().world_get(i.guild_id)
-        rule=data.setdefault('stats',{}).get(self.key)
-        if not isinstance(rule,dict):return await i.response.send_message('找不到數值規則。',ephemeral=True)
-        rule['enabled']=not bool(rule.get('enabled',True))
-        data.setdefault('overrides',{})['stats.'+self.key]=True
+        if self.key==INFLUENCE:return await i.response.send_message("不可停用管制數值。",ephemeral=True)
+        data=api().world_get(i.guild_id);item=data.setdefault('stats',{}).get(self.key,{})
+        if not isinstance(item,dict):item={}
+        item={**item,'enabled':not rules(i.guild_id)[self.key].get('enabled',True)}
+        data['stats'][self.key]=item;data.setdefault('overrides',{})['stats.'+self.key]=True
         api().world_save(i.guild_id,data)
-        await i.response.edit_message(content=detail(i.guild_id,self.key)+'\n✅ 已更新狀態。',view=StatDetailView(i,self.key))
-    @discord.ui.button(label='取消',style=discord.ButtonStyle.secondary)
-    async def cancel(self,i,b):
         await i.response.edit_message(content=detail(i.guild_id,self.key),view=StatDetailView(i,self.key))
+    @discord.ui.button(label="取消",style=discord.ButtonStyle.secondary)
+    async def cancel(self,i,b):await i.response.edit_message(content=detail(i.guild_id,self.key),view=StatDetailView(i,self.key))
