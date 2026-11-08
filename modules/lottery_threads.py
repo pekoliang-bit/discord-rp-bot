@@ -338,38 +338,6 @@ class LotteryCog(commands.Cog):
             else '目前這張獎單尚未加入獎品。',
         )
 
-    @app_commands.command(name='新人禮包管理', description='群主設定新人禮包開放狀態或排除商城商品')
-    @app_commands.describe(操作='開啟、關閉、排除商品、解除排除', 商品編號='排除商品時才需要')
-    @app_commands.choices(操作=[
-        app_commands.Choice(name='查詢',value='status'),
-        app_commands.Choice(name='開啟',value='on'),
-        app_commands.Choice(name='關閉',value='off'),
-        app_commands.Choice(name='排除商品',value='exclude'),
-        app_commands.Choice(name='解除排除',value='include'),
-    ])
-    async def newcomer_manage(self, i: discord.Interaction, 操作: app_commands.Choice[str], 商品編號: int | None = None):
-        if not is_owner(i):
-            return await tell(i, '⛔ 只有群主能管理新人禮包。')
-        if i.guild_id is None:
-            return await tell(i, '請在伺服器內使用。')
-        from modules.newcomer_lottery import set_enabled, set_product_excluded, initialize
-        try:
-            if 操作.value in ('on', 'off'):
-                set_enabled(i.guild_id, 操作.value == 'on')
-                return await tell(i, '✅ 新人禮包已' + ('正式開啟。' if 操作.value == 'on' else '關閉。'))
-            if 操作.value in ('exclude','include'):
-                if 商品編號 is None or 商品編號 < 1:
-                    return await tell(i, '請提供正整數的商城商品編號。')
-                set_product_excluded(i.guild_id, 商品編號, 操作.value == 'exclude')
-                return await tell(i, '✅ 新人禮包商品排除清單已更新。')
-            with transaction() as db:
-                initialize(db)
-                state = db.execute('SELECT enabled FROM rp_newcomer_lottery_config WHERE guild_id=?', (str(i.guild_id),)).fetchone()
-                excludes = db.execute('SELECT product_id FROM rp_newcomer_lottery_exclusions WHERE guild_id=? ORDER BY product_id', (str(i.guild_id),)).fetchall()
-            return await tell(i, '🎁 新人禮包：' + ('已開啟' if state and state['enabled'] else '尚未開啟') + '\n排除商品：' + (', '.join(str(x['product_id']) for x in excludes) or '無'))
-        except (ValueError, sqlite3.Error) as exc:
-            return await tell(i, f'⚠️ {exc}')
-
     @app_commands.command(
         name='抽獎',
         description='在討論串或論壇帖子內，按名稱對應獎單抽獎',
