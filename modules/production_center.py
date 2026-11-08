@@ -549,4 +549,8 @@ class ProductionCenter(commands.Cog):
 
 
 async def setup(bot:commands.Bot):
-    await bot.add_cog(ProductionCenter(bot))
+    # /作品 已整合至 /任務 → 🎬 作品製作中心。
+    # 初始化 DB 與保留 Home/ProjectList/ChooseCharacter 等互動物件；
+    # 不再把 ProductionCenter Cog 加入 bot，避免註冊額外頂層指令。
+    initialize()
+    LOG.info("作品製作中心已提供 /任務 使用（不註冊 /作品）。")
