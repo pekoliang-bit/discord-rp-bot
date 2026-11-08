@@ -685,6 +685,7 @@ def make_character_embed(actor, character_id, *, private=False, detail_page=0):
                    f"藝名：{display_value(settings.get('stage_name'), '未設定')}\n"
                    f"性別：{display_value(settings.get('gender'))}\n"
                    f"年齡：{display_value(character['age'])}\n"
+                   f"生日：{display_value(settings.get('birthday'), '未設定')}\n"
                    f"職業：{display_value(character['occupation'])}"), inline=False,
         )
         try:
