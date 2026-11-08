@@ -1193,7 +1193,7 @@ class CharacterPicker(OwnedView):
     )
     async def general_without_character(self, interaction, button):
         await interaction.response.edit_message(
-            content="📨 **通用玩家申請**\n可選擇舉報、地點新增、請假或活動企劃；角色退場、NPC 與 CP 等案件須先選擇正式角色。所有申請都由 /審核 處理。",
+            content="📨 **通用玩家申請**\n可選擇保密舉報、處分申訴、地點／頻道新增、請假或活動企劃；角色退場、NPC 與伴侶／婚姻等案件須先選擇正式角色。案件分別由專用審核系統與 /審核 處理。",
             view=NoCharacterApplications(self.actor),
         )
 
