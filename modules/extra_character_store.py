@@ -1,8 +1,8 @@
-
 """路人資料庫與批次建立：照片唯一使用、正式屬性與地位整合。"""
 from __future__ import annotations
 
 import json
+import calendar
 import random
 
 from core.database import get_connection, transaction
@@ -482,7 +482,11 @@ def generate(
 
             title = _title(gid, lv)
 
+            # 路人為系統生成角色，同時生成其個人生日，避免空號。
+            birth_month = random.randint(1, 12)
+            birth_day = random.randint(1, calendar.monthrange(2000, birth_month)[1])
             settings = {
+                "birthday": f"{birth_month:02d}/{birth_day:02d}",
                 "character_category": "extra",
                 "public_category": "extra",
                 "created_as_extra": True,
@@ -511,6 +515,10 @@ def generate(
             ))
 
             cid = int(cursor.lastrowid)
+
+            # 路人類型 R；未提供生日則保留待補編，不會虛構生日。
+            from modules.character_numbering import issue_in_transaction
+            issue_in_transaction(db, gid, cid)
 
             write_profile(db, gid, cid, profile)
             initialize_resources(db, gid, cid, profile)
