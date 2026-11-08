@@ -81,25 +81,47 @@ def get_legacy_sync_guild_ids():
 
 OFFICIAL_COMMANDS = {
     "創角": "建立角色與草稿",
-    "查看": "角色與 NPC 資訊",
-    "銀行": "銀行及金融業務",
-    "商城": "商城及背包",
-    "資產": "大型資產交易及產權管理",
-    "公司": "公司經營",
-    "陣營": "陣營管理",
-    "任務": "任務中心",
-    "登記": "作品及活動登記",
-    "行動": "RP 行動",
+    "查看": "角色、NPC、背包與稱號",
+    "登記": "作品與演藝履歷登記",
+    "公司": "公司、品牌與集團",
+    "官方": "官方與世界觀管理（含內容建立）",
+    "劇情": "劇情參與與事件",
+    "群主指引": "伺服器設定指引",
+    "商城": "商城與一般商品",
+    "申請": "集中申請",
+    "審核": "案件審核",
+    "娛樂城": "遊戲娛樂",
+    "惡意": "惡意行動與地下情報",
+    "任務": "任務、通告與作品製作",
+    "總覽": "功能及資訊總覽",
     "排行": "排行榜",
+    "系統狀態": "系統診斷",
+    "銀行": "銀行與金融服務",
+    "陣營": "陣營管理",
     "抽獎": "抽獎活動",
-    "娛樂城": "娛樂活動",
-    "申請": "玩家申請、企劃與檢舉",
-    "審核": "審核中心",
-    "官方": "官方管理",
-    "內容建立": "官方內容建立",
-    "總覽": "公開資訊與所有功能導覽",
-    "群主指引": "群主專用建置說明",
+    "傳聞": "傳聞與來源追查",
+    "網路": "社群及直播",
+    "行動": "打工、活動、課程",
+    "通知": "通知中心",
+    "資產": "大型資產交易與產權",
 }
+
+# /稱號 已整合至 /查看 → 背包 → 稱號，並非獨立斜線指令。
+# /新手指引、/新人禮包管理 與其他零散頂層入口同樣不再註冊。
+# 僅在所有 Extension 載入後做最後清理，避免刪除仍依賴的群組。
+
+
+def remove_non_official_top_level_commands(tree):
+    """移除不在正式名單中的 *頂層 chat-input* 指令。保留後端及群組內函式。"""
+    removed = []
+    for command in tuple(tree.get_commands(type=discord.AppCommandType.chat_input)):
+        if command.name in OFFICIAL_COMMANDS:
+            continue
+        deleted = tree.remove_command(command.name, type=discord.AppCommandType.chat_input)
+        if deleted is not None:
+            removed.append(command.name)
+    return sorted(removed)
+
 
 
 # ==================================================
@@ -575,6 +597,13 @@ class RPBot(commands.Bot):
         ):
             if name not in self.hidden_legacy:
                 self.hidden_legacy.append(name)
+
+        # 最後一次白名單收斂：正式開群只公開核准的頂層入口。
+        # 不能提前刪除，否則舊群組在載入後面的模組時可能仍被引用。
+        for name in remove_non_official_top_level_commands(self.tree):
+            if name not in self.hidden_legacy:
+                self.hidden_legacy.append(name)
+        LOG.info("已隱藏非正式頂層入口：%s", "、".join(self.hidden_legacy) or "無")
 
         self.command_report = audit_commands(
             self.tree
