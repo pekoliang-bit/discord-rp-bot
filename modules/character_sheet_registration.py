@@ -1,4 +1,3 @@
-
 """Discord RP｜角色單訊息連結登記與標籤庫整合。
 
 支援：
@@ -19,6 +18,7 @@ registered_by 僅記錄執行登記的使用者。
 from __future__ import annotations
 
 import logging
+import json
 import re
 import sqlite3
 from urllib.parse import urlsplit
@@ -35,6 +35,19 @@ LOG = logging.getLogger(__name__)
 LINK_RE = re.compile(
     r"/channels/(\d+)/(\d+)/(\d+)/?"
 )
+
+BIRTHDAY_FIELD_RE = re.compile(
+    r"(?:^|\n)\s*(?:生日|出生月日)\s*[：:]\s*(\d{1,2}[/\-]\d{1,2})\b"
+)
+
+
+def explicit_sheet_birthday(message_text: str) -> str | None:
+    """只接受角色單明確的生日欄位，不猜測人物背景。"""
+    from modules.character_numbering import normalize_birthday
+    match = BIRTHDAY_FIELD_RE.search(message_text or "")
+    value = normalize_birthday(match.group(1)) if match else None
+    return f"{value[:2]}/{value[2:]}" if value else None
+
 
 TAG_FIELD_RE = re.compile(
     r"(?:^|\n)\s*(?:標籤|角色標籤)"
@@ -387,6 +400,7 @@ def register_sheet(
     character_id: int | None = None,
     *,
     character_owner_id: int | None = None,
+    birthday: str | None = None,
 ):
     """
     user_id:
@@ -582,6 +596,16 @@ def register_sheet(
             )
 
             character_id = cursor.lastrowid
+            if birthday:
+                db.execute(
+                    "UPDATE characters SET settings_json=? WHERE guild_id=? AND id=?",
+                    (json.dumps({'birthday': birthday}, ensure_ascii=False),
+                     str(guild_id), int(character_id)),
+                )
+
+            # NPC 登記可立即啟用，但公開號碼只有正式開群後且生日已填才核發。
+            from modules.character_numbering import issue_in_transaction
+            issue_in_transaction(db, guild_id, character_id)
 
         db.execute(
             """
@@ -718,6 +742,7 @@ async def do_register(
         url,
         character_id,
         character_owner_id=true_owner,
+        birthday=explicit_sheet_birthday(message.content or ""),
     )
 
     return (
