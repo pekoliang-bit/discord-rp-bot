@@ -1,4 +1,3 @@
-
 """Discord RP 官方銀行貸款系統。
 
 提供：
@@ -394,6 +393,15 @@ def review_application(
             days=duration
         )
 
+        # 有明確抵押標記的資產貸款：在同一原子事務中查核產權、貸款成數和既有抵押。
+        # 無標記的既有貸款不自動以角色資產作擔保。
+        mortgage_id = None
+        if loan["loan_type"] == "asset":
+            from core.asset_completions import mortgage_asset_id, validate_mortgage
+            mortgage_id = mortgage_asset_id(loan["purpose"])
+            if mortgage_id is not None:
+                validate_mortgage(conn, actor.guild_id, loan["character_id"], mortgage_id, approved_amount)
+
         # 直接從系統放款帳戶轉入角色銀行。
         # 系統帳戶只能由內部核貸流程操作。
         issuer = get_or_create_account(
@@ -453,6 +461,10 @@ def review_application(
                 loan_id,
             ),
         )
+
+        if mortgage_id is not None:
+            from core.asset_completions import bind_bank_loan
+            bind_bank_loan(conn, actor.guild_id, loan_id, loan["character_id"], mortgage_id, approved_amount)
 
         audit(
             conn,
@@ -616,6 +628,10 @@ def repay_in_transaction(
             iso(now_utc()),
         ),
     )
+
+    if closed:
+        from core.asset_completions import release_bank_loan
+        release_bank_loan(conn, guild_id, loan_id)
 
     audit(
         conn,
