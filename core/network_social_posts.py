@@ -5,6 +5,8 @@ import re
 from core.database import transaction, get_connection
 from core import network_groups as accounts
 
+DEFAULT_GUILD_FORUM = {'1544051203493601380': 1568700458648870932}
+
 SCHEMA = (
     '''CREATE TABLE IF NOT EXISTS rp_network_forum_bindings (
         guild_id TEXT PRIMARY KEY, forum_id TEXT NOT NULL)''',
@@ -52,7 +54,7 @@ def bound_forum(guild_id):
         initialize(db)
         row=db.execute('SELECT forum_id FROM rp_network_forum_bindings WHERE guild_id=?',
                        (str(guild_id),)).fetchone()
-        return int(row['forum_id']) if row else None
+        return int(row['forum_id']) if row else DEFAULT_GUILD_FORUM.get(str(guild_id))
 
 
 def save_post(guild_id,user_id,account_id,thread_id,tag_ids):
@@ -176,3 +178,26 @@ def relationship_counts(guild_id, account_id):
             "AND (requester_account_id=? OR target_account_id=?)",
             (str(guild_id),int(account_id),int(account_id))).fetchone()[0]
         return {'followers':int(followed),'friends':int(friends)}
+
+def account_social_lists(guild_id,user_id,account_id,*,limit=25):
+    """只讓帳號持有人查看自己的好友與關注關係，避免跨角色資料外洩。"""
+    count=max(1,min(100,int(limit)))
+    with get_connection() as db:
+        initialize(db)
+        accounts._require_account(db,guild_id,user_id,account_id)
+        followers=[dict(x) for x in db.execute('''SELECT a.handle,a.character_id FROM rp_network_follows f
+            JOIN rp_network_accounts a ON a.guild_id=f.guild_id AND a.id=f.follower_account_id
+            WHERE f.guild_id=? AND f.target_account_id=? ORDER BY f.created_at DESC LIMIT ?''',
+            (str(guild_id),int(account_id),count)).fetchall()]
+        following=[dict(x) for x in db.execute('''SELECT a.handle,a.character_id FROM rp_network_follows f
+            JOIN rp_network_accounts a ON a.guild_id=f.guild_id AND a.id=f.target_account_id
+            WHERE f.guild_id=? AND f.follower_account_id=? ORDER BY f.created_at DESC LIMIT ?''',
+            (str(guild_id),int(account_id),count)).fetchall()]
+        friends=[dict(x) for x in db.execute('''SELECT a.handle,a.character_id FROM rp_network_friends f
+            JOIN rp_network_accounts a ON a.guild_id=f.guild_id AND a.id=CASE
+              WHEN f.requester_account_id=? THEN f.target_account_id ELSE f.requester_account_id END
+            WHERE f.guild_id=? AND f.state='accepted' AND
+              (f.requester_account_id=? OR f.target_account_id=?)
+            ORDER BY f.created_at DESC LIMIT ?''',
+            (int(account_id),str(guild_id),int(account_id),int(account_id),count)).fetchall()]
+        return {'followers':followers,'following':following,'friends':friends}
