@@ -1195,14 +1195,37 @@ class EventReviewOpen(discord.ui.Button):
         )
 
 
+class ReportReviewOpen(discord.ui.Button):
+    def __init__(self):
+        super().__init__(label="🚨 舉報審核", style=discord.ButtonStyle.danger, row=1)
+
+    async def callback(self, interaction):
+        from modules.report_commands import open_report_review
+        await open_report_review(interaction)
+
+
+class AppealReviewOpen(discord.ui.Button):
+    def __init__(self):
+        super().__init__(label="⚖️ 舉報申訴審核", style=discord.ButtonStyle.secondary, row=1)
+
+    async def callback(self, interaction):
+        from modules.report_commands import open_report_appeal_review
+        await open_report_appeal_review(interaction)
+
+
 def make_review_home(actor, interaction):
-    view = Home(actor)
-    from modules.application_extras import OpenGeneralReview
-    from modules.company_business_review_ui import OpenBusinessReview
-    view.add_item(OpenGeneralReview())
-    view.add_item(OpenBusinessReview())
+    view = Home(actor) if has_staff_permission(interaction, "reviewer") else discord.ui.View(timeout=600)
+    if has_staff_permission(interaction, "reviewer"):
+        from modules.application_extras import OpenGeneralReview
+        from modules.company_business_review_ui import OpenBusinessReview
+        view.add_item(OpenGeneralReview())
+        view.add_item(OpenBusinessReview())
     if is_event_admin(interaction):
         view.add_item(EventReviewOpen())
+    from modules.report_permission_service import is_guild_owner, is_discipline_staff
+    if is_guild_owner(interaction) or is_discipline_staff(interaction):
+        view.add_item(ReportReviewOpen())
+        view.add_item(AppealReviewOpen())
     return view
 
 
@@ -1212,7 +1235,7 @@ class ReviewCenter(commands.Cog):
 
     @app_commands.command(
         name="審核",
-        description="角色、店鋪與金融申請統一審核",
+        description="統一審核：角色、申請、商業、活動、舉報及申訴",
     )
     @app_commands.guild_only()
     async def review(
@@ -1220,19 +1243,21 @@ class ReviewCenter(commands.Cog):
         interaction: discord.Interaction,
     ):
         try:
-            # 活動管理員不必同時擁有角色/金融審核職務。
-            if is_event_admin(interaction) and not has_staff_permission(interaction, "reviewer"):
-                return await interaction.response.send_message(
-                    "🎪 **活動審核中心**", view=EventReviewButtons(interaction.user.id), ephemeral=True,
-                )
-            actor = authorized(interaction)
+            # 專職活動／紀律人員不必持有一般審核員職務。
+            from modules.report_permission_service import is_guild_owner, is_discipline_staff
+            if not (has_staff_permission(interaction, "reviewer")
+                    or is_event_admin(interaction)
+                    or is_guild_owner(interaction)
+                    or is_discipline_staff(interaction)):
+                raise PermissionDenied("只有獲授權的審核、活動、紀律人員或群主可以使用。")
+            actor = Actor.from_interaction(interaction)
 
             await interaction.response.send_message(
                 (
                     "🛡️ **統一審核中心**\n\n"
                     "請選擇要處理的申請類型：\n"
-                    "角色、店鋪、貸款、"
-                    "信用卡、黑卡、公司、品牌或集團。"
+                    "角色、一般申請、金融、公司／品牌／集團、活動、舉報與申訴。"
+                    "\n僅顯示你有權限使用的審核入口。"
                 ),
                 view=make_review_home(actor, interaction),
                 ephemeral=True,
