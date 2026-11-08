@@ -50,10 +50,7 @@ from modules.casino_scratch import (
     validate_scratch,
 )
 from modules.casino_service import CasinoError
-from modules.casino_admin_ui import (
-    CasinoAdminButton,
-    CasinoOwnerOnlyView,
-)
+from modules.casino_admin_ui import CasinoAdminButton, CasinoOwnerOnlyView
 from modules.casino_wager_service import play_wager
 from modules.casino_gacha import (
     validate_gacha,
@@ -1542,6 +1539,8 @@ class CharacterView(discord.ui.View):
         self,
         characters: list[dict],
         owner_id: int,
+        *,
+        is_guild_owner: bool = False,
     ):
         super().__init__(timeout=180)
 
@@ -1551,6 +1550,9 @@ class CharacterView(discord.ui.View):
                 owner_id,
             )
         )
+        # 群主專屬管理入口；按鈕內部會再次驗證身分。
+        if is_guild_owner:
+            self.add_item(CasinoAdminButton())
 
 
 class CasinoCommands(commands.Cog):
@@ -1581,12 +1583,16 @@ class CasinoCommands(commands.Cog):
             )
 
             if not characters:
-                await interaction.response.send_message(
-                    "你目前沒有已啟用、"
-                    "年滿20歲的原創角色，"
-                    "因此無法使用娛樂城。",
-                    ephemeral=True,
-                )
+                if interaction.user.id == interaction.guild.owner_id:
+                    await interaction.response.send_message(
+                        "🎰 目前沒有符合條件的遊玩角色；群主仍可管理獎池。",
+                        view=CasinoOwnerOnlyView(), ephemeral=True,
+                    )
+                else:
+                    await interaction.response.send_message(
+                        "你目前沒有已啟用、年滿20歲的原創角色，無法使用娛樂城。",
+                        ephemeral=True,
+                    )
                 return
 
             await interaction.response.send_message(
@@ -1595,6 +1601,10 @@ class CasinoCommands(commands.Cog):
                 view=CharacterView(
                     characters,
                     interaction.user.id,
+                    is_guild_owner=(
+                        interaction.guild is not None
+                        and interaction.user.id == interaction.guild.owner_id
+                    ),
                 ),
                 ephemeral=True,
             )
