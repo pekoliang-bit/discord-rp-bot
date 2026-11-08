@@ -174,6 +174,9 @@ def gift(guild_id, session_id, sender_user_id, sender_character_id, gift_name, i
         gift_id=db.execute("SELECT id FROM rp_live_gifts WHERE guild_id=? AND ledger_key=?",(gid,key)).fetchone()[0]
         for owner_type,owner_id,amount in allocations:
             db.execute("INSERT INTO rp_live_gift_payouts(guild_id,gift_id,recipient_type,recipient_id,amount) VALUES(?,?,?,?,?)",(gid,gift_id,owner_type,owner_id,amount))
+        from core.live_rankings_v11 import _record as _record_live_heat, initialize as _init_live_heat
+        _init_live_heat(db)
+        _record_live_heat(db,gid,f'gift:{gift_id}',session_id,gross//100,'gift',ts)
         return dict(db.execute("SELECT * FROM rp_live_gifts WHERE guild_id=? AND ledger_key=?",(gid,key)).fetchone())
 
 
