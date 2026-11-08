@@ -338,11 +338,43 @@ class LotteryCog(commands.Cog):
             else '目前這張獎單尚未加入獎品。',
         )
 
+    @app_commands.command(name='新人禮包管理', description='群主設定新人禮包開放狀態或排除商城商品')
+    @app_commands.describe(操作='開啟、關閉、排除商品、解除排除', 商品編號='排除商品時才需要')
+    @app_commands.choices(操作=[
+        app_commands.Choice(name='查詢',value='status'),
+        app_commands.Choice(name='開啟',value='on'),
+        app_commands.Choice(name='關閉',value='off'),
+        app_commands.Choice(name='排除商品',value='exclude'),
+        app_commands.Choice(name='解除排除',value='include'),
+    ])
+    async def newcomer_manage(self, i: discord.Interaction, 操作: app_commands.Choice[str], 商品編號: int | None = None):
+        if not is_owner(i):
+            return await tell(i, '⛔ 只有群主能管理新人禮包。')
+        if i.guild_id is None:
+            return await tell(i, '請在伺服器內使用。')
+        from modules.newcomer_lottery import set_enabled, set_product_excluded, initialize
+        try:
+            if 操作.value in ('on', 'off'):
+                set_enabled(i.guild_id, 操作.value == 'on')
+                return await tell(i, '✅ 新人禮包已' + ('正式開啟。' if 操作.value == 'on' else '關閉。'))
+            if 操作.value in ('exclude','include'):
+                if 商品編號 is None or 商品編號 < 1:
+                    return await tell(i, '請提供正整數的商城商品編號。')
+                set_product_excluded(i.guild_id, 商品編號, 操作.value == 'exclude')
+                return await tell(i, '✅ 新人禮包商品排除清單已更新。')
+            with transaction() as db:
+                initialize(db)
+                state = db.execute('SELECT enabled FROM rp_newcomer_lottery_config WHERE guild_id=?', (str(i.guild_id),)).fetchone()
+                excludes = db.execute('SELECT product_id FROM rp_newcomer_lottery_exclusions WHERE guild_id=? ORDER BY product_id', (str(i.guild_id),)).fetchall()
+            return await tell(i, '🎁 新人禮包：' + ('已開啟' if state and state['enabled'] else '尚未開啟') + '\n排除商品：' + (', '.join(str(x['product_id']) for x in excludes) or '無'))
+        except (ValueError, sqlite3.Error) as exc:
+            return await tell(i, f'⚠️ {exc}')
+
     @app_commands.command(
         name='抽獎',
         description='在討論串或論壇帖子內，按名稱對應獎單抽獎',
     )
-    async def draw(self, i: discord.Interaction):
+    async def draw(self, i: discord.Interaction, 角色編號: int | None = None):
         from modules.task_event_bridge import require_tutorial_channel, mark_tutorial_after_reply
         allowed, tutorial_character = await require_tutorial_channel(i, '抽獎')
         if not allowed:
@@ -362,6 +394,25 @@ class LotteryCog(commands.Cog):
                 i,
                 '⚠️ 請在討論串或論壇帖子內使用 `/抽獎`。',
             )
+
+        # 新人禮包採獨立的「角色」抽獎紀錄，不影響一般獎單每玩家一次的規則。
+        if i.channel.name.strip() == '新人禮包':
+            if 角色編號 is None or 角色編號 < 1:
+                return await tell(i, '🎁 新人禮包請提供你已正式啟用的角色編號。')
+            await i.response.defer(ephemeral=True, thinking=True)
+            try:
+                from modules.newcomer_lottery import draw as newcomer_draw, LABELS
+                result = newcomer_draw(i.guild_id, i.user.id, 角色編號)
+                name = LABELS[result['kind']]
+                if result['kind'] == 'product':
+                    name += f"（商品編號 #{result['product_id']}）"
+                prefix = '你已領過' if result['status'] == 'already' else '已發放'
+                return await tell(i, f'🎁 角色 #{角色編號} {prefix}新人禮包：{name}。')
+            except (ValueError, sqlite3.Error) as exc:
+                return await tell(i, f'⚠️ {exc}')
+            except Exception:
+                LOG.exception('新人禮包發獎失敗')
+                return await tell(i, '⚠️ 獎勵發放失敗，請稍後重試；不會消耗已發獎的次數。')
 
         lottery = find_list(i.guild_id, i.channel.name)
 
