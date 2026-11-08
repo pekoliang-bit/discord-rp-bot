@@ -1403,6 +1403,23 @@ def _panel_asset_groups(actor, cid):
                     groups[0][1].append(entry)
                 elif "房產" in category or "不動產" in category:
                     groups[1][1].append(entry)
+        # 新 /資產 產權表獨立於商城背包；只展示可查核的有效持有份額。
+        if _panel_table(db, "rp_asset_shares") and _panel_table(db, "rp_asset_items"):
+            rows = db.execute(
+                """SELECT a.label,t.category,s.basis_points FROM rp_asset_shares s
+                   JOIN rp_asset_items a ON a.guild_id=s.guild_id AND a.id=s.asset_id
+                   JOIN rp_asset_templates t ON t.code=a.template_code
+                   WHERE s.guild_id=? AND s.holder_type='character' AND s.holder_id=?
+                     AND a.status='active' ORDER BY a.id DESC LIMIT 40""",
+                (str(actor.guild_id),str(cid)),
+            ).fetchall()
+            for asset in rows:
+                entry = str(asset['label']) + (
+                    f"（持有 {asset['basis_points']/100:.2f}%）" if asset['basis_points']!=10000 else ""
+                )
+                if asset['category']=='車輛': groups[0][1].append(entry)
+                elif asset['category']=='不動產': groups[1][1].append(entry)
+                elif asset['category']=='珍稀收藏': groups[2][1].append(entry)
         if _panel_table(db, "rp_business_entities"):
             rows = db.execute(
                 """SELECT name, kind FROM rp_business_entities
