@@ -688,8 +688,22 @@ def grant_one_item(
             amount,
         )
 
-    # 金幣、物品、房產：
-    # 不在尚未核實對應接口時擅自發放。
+    # 開城元老：正式已解鎖稱號的獨立房間，依資產 ID 冪等發放。
+    # grant_one_item 先確認稱號存在且 reward_key 仍 pending；資產核心本身再去重。
+    if reward_key == "ordinary_apartment_room":
+        if title["code"] != "founder":
+            raise ValueError("非開城元老稱號不可領取元老住宅")
+        from core.large_assets import grant_elder_home
+        grant_elder_home(guild_id, character_id, "achievement:founder", verified=True)
+        with transaction() as db:
+            db.execute("""UPDATE rp_achievement_reward_items SET status='done',
+                applied_at=CURRENT_TIMESTAMP WHERE guild_id=? AND character_id=?
+                AND achievement_id=? AND reward_key='ordinary_apartment_room'
+                AND status='pending'""", (str(guild_id),int(character_id),int(achievement_id)))
+            refresh_reward_state(db,guild_id,character_id,achievement_id)
+        return "done"
+
+    # 金幣及行動物品留給已有的專用獎勵流程；不可憑空建立假物品。
     if (
         reward_key == "money"
         or reward_key in EXTERNAL_REWARDS
