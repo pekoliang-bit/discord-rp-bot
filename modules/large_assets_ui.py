@@ -11,6 +11,7 @@ from discord import app_commands
 from discord.ext import commands, tasks
 from core.permissions import Actor
 from core import large_assets as assets
+from core import asset_completions as extras
 from modules.character_switch import require_current_character
 LOG=logging.getLogger(__name__)
 
@@ -61,7 +62,7 @@ class AssetView(discord.ui.View):
     @discord.ui.button(label='官方商品',style=discord.ButtonStyle.primary,row=0,emoji='🛒')
     async def catalog(self,interaction,button):
         try:
-            choices=await asyncio.to_thread(assets.catalog)
+            choices=await asyncio.to_thread(assets.catalog,None,interaction.guild_id)
             text='\n'.join(f"`{x['code']}` {x['name']}｜{x['base_price']:,} 金幣"+("（需個別定價）" if x['min_price_only'] else '') for x in choices)
             # split into <= 1900 char chunks
             chunks=[text[i:i+1700] for i in range(0,len(text),1700)]
@@ -159,6 +160,98 @@ class AssetView(discord.ui.View):
         await interaction.response.send_modal(Form('公司資產管理',[
            ('business','公司編號','識別碼'),('action','list 查詢／sale 出售','list'),
            ('asset','要出售的資產編號，查詢填 0','0'),('price','售價，查詢填 0','0')],action))
+    @discord.ui.button(label='共有產權邀請',row=4,emoji='🤝')
+    async def share_request(self,interaction,button):
+        def action(actor,cid,v):
+            request=extras.request_share(actor.guild_id,int(v[0]),cid,int(v[1]),int(v[2]),actor.user_id)
+            return f'✅ 已發出產權邀請 #{request}。受贈者須使用「接受共有」確認。'
+        await interaction.response.send_modal(Form('發起共有產權邀請',[
+            ('asset','資產編號','15'),('target','受贈角色 ID','101'),('share','轉移基點，例如 2500 = 25%','2500')],action))
+
+    @discord.ui.button(label='接受共有',row=4,emoji='✅')
+    async def share_accept(self,interaction,button):
+        def action(actor,cid,v):
+            return f'✅ 已登記共有資產 #{extras.accept_share(actor.guild_id,int(v[0]),cid,actor.user_id)}。'
+        await interaction.response.send_modal(Form('接受共有產權邀請',[('request','共有邀請編號','1')],action))
+
+    @discord.ui.button(label='租約續租',row=4,emoji='📆')
+    async def lease_renew(self,interaction,button):
+        def action(actor,cid,v):
+            mode=v[0].strip().lower(); lease=int(v[1]);weeks=int(v[2])
+            if mode=='official':
+                end=extras.renew_lease(actor.guild_id,lease,cid,actor.user_id,weeks)
+                return f'✅ 官方租約已延長，結束時間戳：{end}。'
+            if mode=='request':
+                owner=extras.request_player_renewal(actor.guild_id,lease,cid,actor.user_id,weeks)
+                return f'✅ 續租申請已提交，房東角色 #{owner} 可確認。'
+            if mode=='approve':
+                end=extras.approve_player_renewal(actor.guild_id,lease,cid,actor.user_id)
+                return f'✅ 房東已批准續租，結束時間戳：{end}。'
+            raise assets.AssetError('操作請填 official、request 或 approve')
+        await interaction.response.send_modal(Form('租約續租',[
+            ('action','official 官方／request 申請／approve 批准','official'),
+            ('lease','租約編號','5'),('weeks','週數 1／2／4，批准時填1','1')],action))
+
+    @discord.ui.button(label='申請／同意退租',row=4,emoji='🔓')
+    async def lease_end(self,interaction,button):
+        def action(actor,cid,v):
+            operation=v[0].strip().lower();lease=int(v[1])
+            if operation=='request':
+                kind,owner=extras.request_early_termination(actor.guild_id,lease,cid,actor.user_id)
+                return f'✅ 已提交提前退租申請，房東類型 {kind}、編號 {owner}。'
+            if operation=='approve':
+                money=extras.approve_early_termination(actor.guild_id,lease,cid,actor.user_id)
+                return f'✅ 雙方提前解約完成，退款 {money:,} 金幣，押金已返還。'
+            raise assets.AssetError('操作請填 request 或 approve')
+        await interaction.response.send_modal(Form('租約提前解約',[
+            ('action','request 申請／approve 房東同意','request'),('lease','租約編號','5')],action))
+
+    @discord.ui.button(label='共有維護費',row=4,emoji='🧾')
+    async def shared_dues(self,interaction,button):
+        def action(actor,cid,v):
+            amount=extras.pay_shared_maintenance(actor.guild_id,int(v[0]),'character',cid,actor.user_id)
+            return f'✅ 已支付共有持分維護費 {amount:,} 金幣。'
+        await interaction.response.send_modal(Form('繳納共有資產維護費',[('asset','共有資產編號','15')],action))
+
+    @discord.ui.button(label='官方新增資產',row=3,emoji='🛠️')
+    async def admin_create(self,interaction,button):
+        if not interaction.guild or interaction.guild.owner_id!=interaction.user.id:
+            return await interaction.response.send_message('僅伺服器群主可以新增官方資產。',ephemeral=True)
+        def action(actor,cid,v):
+            if str(actor.user_id)!=str(interaction.guild.owner_id):raise assets.AssetError('沒有群主管理權限')
+            code=extras.create_template(actor.guild_id,v[0],v[1],v[2],int(v[3]),v[4] in ('1','是','true'))
+            return f'✅ 官方資產 {code} 已新增。'
+        await interaction.response.send_modal(Form('官方新增大型資產',[
+            ('code','新商品代碼 CAR-11 等','CAR-11'),('category','資產分類，例如 車輛','車輛'),
+            ('name','商品名稱','官方車款'),('price','售價（金幣；0為需個別定價）','100000'),
+            ('luxury','豪華標記 1／0','0')],action))
+
+    @discord.ui.button(label='官方修改資產',row=3,emoji='✏️')
+    async def admin_edit(self,interaction,button):
+        if not interaction.guild or interaction.guild.owner_id!=interaction.user.id:
+            return await interaction.response.send_message('僅伺服器群主可以修改官方資產。',ephemeral=True)
+        def action(actor,cid,v):
+            if str(actor.user_id)!=str(interaction.guild.owner_id):raise assets.AssetError('沒有群主管理權限')
+            if v[0].upper().startswith('ASSET#'):
+                asset_id=int(v[0].split('#',1)[1])
+                old,new=extras.appraise_asset(actor.guild_id,asset_id,int(v[2]),actor.user_id)
+                return f'✅ 資產 #{asset_id} 市場估值由 {old:,} 調整為 {new:,} 金幣。'
+            code=extras.update_template(actor.guild_id,v[0],actor.user_id,name=v[1],base_price=int(v[2]),luxury=v[3] in ('1','是','true'),active=v[4] in ('1','是','true'))
+            return f'✅ 官方商品 {code} 設定已更新。既有成交價不追溯修改。'
+        await interaction.response.send_modal(Form('編輯官方資產模板',[
+            ('code','模板代碼／估值填 ASSET#資產ID','CAR-02'),('name','新商品名稱','都市小型車'),
+            ('price','模板售價／資產的新估值','30000'),('luxury','豪華標記 1／0','0'),('active','是否上架 1／0','1')],action))
+
+    @discord.ui.button(label='補登元老住宅',row=3,emoji='🎁')
+    async def admin_elder(self,interaction,button):
+        if not interaction.guild or interaction.guild.owner_id!=interaction.user.id:
+            return await interaction.response.send_message('僅伺服器群主可補登元老獎勵。',ephemeral=True)
+        def action(actor,cid,v):
+            if str(actor.user_id)!=str(interaction.guild.owner_id):raise assets.AssetError('沒有群主管理權限')
+            asset,created,result=extras.repair_elder_home_for_unlocked(actor.guild_id,int(v[0]))
+            return f'✅ 元老單間資產 #{asset}；'+('已完成補建。' if created else '原有登記不重複發放。')
+        await interaction.response.send_modal(Form('補登已解鎖開城元老房間',[('character','已解鎖元老稱號的角色 ID','101')],action))
+
     @discord.ui.button(label='銀行與貸款',row=2,emoji='🏦')
     async def finance(self,interaction,button):
         await interaction.response.send_message('資產貸款、分期及抵押審核仍使用既有 `/申請` → 金融事務，還款使用 `/銀行`。本介面不會繞過金融審核或自行產生貸款。',ephemeral=True)
@@ -175,6 +268,7 @@ class LargeAssets(commands.Cog):
             try:
                 await asyncio.to_thread(assets.generate_maintenance,guild.id)
                 await asyncio.to_thread(assets.apply_depreciation,guild.id)
+                await asyncio.to_thread(extras.dispatch_maintenance_notices,guild.id)
                 await asyncio.to_thread(assets.close_expired_leases,guild.id)
                 await asyncio.to_thread(assets.expire_unfilled_offers,guild.id)
                 # 到期拍賣逐件結算；異常保持待人工處置，不私自挪用託管金幣。
