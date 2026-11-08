@@ -311,21 +311,6 @@ class SystemHub(commands.Cog):
             if not interaction.response.is_done():
                 await interaction.response.send_message("⚠️ 排行資料目前無法讀取，請查看機器人日誌。", ephemeral=True)
 
-    @app_commands.command(name="新手指引", description="查閱創角、角色單登記與遊戲入門教學")
-    @app_commands.guild_only()
-    async def beginner_guide(self, interaction: discord.Interaction):
-        embed = discord.Embed(title="📖 新手指引", description=(
-            "**① 創角**：使用 `/創角` 建立角色，依流程完成審核。\n"
-            "**② 角色單連結**：已審核角色或 NPC 可使用 `/角色單登記`，"
-            "也可長按原始角色單訊息 → 應用程式 → 登記角色單。\n"
-            "**③ 查看角色**：使用 `/查看` 查詢屬性、資產及背包。\n"
-            "**④ 金融與商城**：使用 `/銀行`、`/商城`。\n"
-            "**⑤ 申請及活動**：使用 `/申請`，活動資訊可在 `/總覽` 查看。\n"
-            "**⑥ 其他玩法**：使用 `/總覽` 查閱完整指令與系統資訊。\n\n"
-            "*新手任務及通告獎勵入口仍待恢復，本指引不發放獎勵。*"
-        ), color=discord.Color.blurple())
-        await interaction.response.send_message(embed=embed, ephemeral=True)
-
     @app_commands.command(name="群主指引", description="群主專用的系統建置與設定清單")
     @app_commands.guild_only()
     async def owner_guide(self, interaction: discord.Interaction):
