@@ -1589,6 +1589,19 @@ class ShopHome(discord.ui.View):
     # 行動值快捷購買
     # ======================================
 
+    @discord.ui.button(label='🏬 批發市場',row=4)
+    async def wholesale_market(self,interaction,button):
+        from core import wholesale_market_v1 as market
+        from modules.wholesale_market_ui_v1 import MarketView,describe_offers
+        await interaction.response.defer(ephemeral=True)
+        try:
+            rows=await asyncio.to_thread(market.list_offers,interaction.guild.id)
+            await interaction.followup.send(describe_offers(rows),
+                view=MarketView(interaction.user.id,self.character_id,interaction.guild.id,rows),ephemeral=True)
+        except Exception:
+            LOG.exception('批發市場讀取失敗')
+            await interaction.followup.send('⚠️ 批發市場暫時無法載入，請查看日誌。',ephemeral=True)
+
     @discord.ui.button(
         label="⚡ 購買行動值",
         style=discord.ButtonStyle.primary,
