@@ -233,6 +233,11 @@ def missing_fields(character):
             if settings.get(field) in ("", None):
                 missing.append(label)
 
+    # 所有送審入口共用生日必填檢查，不只創角精靈。
+    from modules.character_numbering import normalize_birthday
+    if not normalize_birthday(settings.get("birthday")):
+        missing.append("生日（月／日）")
+
     experience = settings.get("experience_years")
 
     if (
@@ -988,6 +993,10 @@ class Profile(commands.Cog):
                 from core.character_proxy_identity import activate as activate_proxy
                 persist_rumor_consent(conn,actor.guild_id,character_id,read_settings(character))
                 activate_proxy(conn,actor.guild_id,character_id)
+
+                # 正式開群前永不核發公開編號；開群後才核發。
+                from modules.character_numbering import issue_in_transaction
+                issue_in_transaction(conn, actor.guild_id, character_id)
 
                 audit(
                     conn,
