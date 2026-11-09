@@ -490,6 +490,8 @@ def transfer_share(guild,asset,from_type,from_id,to_type,to_id,basis_points,user
         _item(db,guild,asset)
         if db.execute("SELECT 1 FROM rp_asset_lien WHERE guild_id=? AND asset_id=? AND status='active' AND outstanding_amount>0",(gid(guild),asset)).fetchone():raise AssetError('抵押中不得移轉持分')
         if db.execute("SELECT 1 FROM rp_asset_orders WHERE guild_id=? AND asset_id=? AND status='open'",(gid(guild),asset)).fetchone():raise AssetError('掛單中不得移轉持分')
+        from core.asset_completions import _block_unsettled_share_transfer
+        _block_unsettled_share_transfer(db,guild,asset)
         row=db.execute('SELECT basis_points FROM rp_asset_shares WHERE guild_id=? AND asset_id=? AND holder_type=? AND holder_id=?',(gid(guild),asset,from_type,str(from_id))).fetchone()
         if not row or row['basis_points']<bp:raise AssetError('可移轉的產權份額不足')
         if from_type==to_type and str(from_id)==str(to_id):raise AssetError('不可移轉給自己')
