@@ -47,6 +47,7 @@ def request_share(guild,asset,from_character,to_character,basis_points,user):
         if not source or source['basis_points']<bp:raise a.AssetError('可轉移的份額不足')
         if db.execute("SELECT 1 FROM rp_asset_lien WHERE guild_id=? AND asset_id=? AND status='active' AND outstanding_amount>0",(a.gid(guild),int(asset))).fetchone():raise a.AssetError('抵押中不得移轉持分')
         if db.execute("SELECT 1 FROM rp_asset_orders WHERE guild_id=? AND asset_id=? AND status='open'",(a.gid(guild),int(asset))).fetchone():raise a.AssetError('有進行中的掛單')
+        _block_unsettled_share_transfer(db,guild,asset)
         cur=db.execute('INSERT INTO rp_asset_share_requests(guild_id,asset_id,from_type,from_id,to_character,basis_points,created_at,expires_at) VALUES(?,?,?,?,?,?,?,?)',
             (a.gid(guild),int(asset),'character',str(from_character),int(to_character),bp,a.now(),a.now()+7*86400))
         return cur.lastrowid
@@ -63,6 +64,7 @@ def accept_share(guild,request_id,to_character,user):
         a._item(db,guild,asset)
         if db.execute("SELECT 1 FROM rp_asset_lien WHERE guild_id=? AND asset_id=? AND status='active' AND outstanding_amount>0",(a.gid(guild),asset)).fetchone():raise a.AssetError('抵押中的資產不可移轉')
         if db.execute("SELECT 1 FROM rp_asset_orders WHERE guild_id=? AND asset_id=? AND status='open'",(a.gid(guild),asset)).fetchone():raise a.AssetError('掛單中的資產不可移轉')
+        _block_unsettled_share_transfer(db,guild,asset)
         row=db.execute("SELECT basis_points FROM rp_asset_shares WHERE guild_id=? AND asset_id=? AND holder_type='character' AND holder_id=?",(a.gid(guild),asset,source)).fetchone()
         if not row or row['basis_points']<bp:raise a.AssetError('原持有人剩餘份額不足')
         remaining=row['basis_points']-bp
@@ -221,19 +223,51 @@ def bind_bank_loan(db,guild,loan_id,character_id,asset_id,amount):
     a._event(db,guild,asset_id,'lien:bank:'+str(loan_id),'lien_add','bank',loan_id=int(loan_id),amount=int(amount))
 
 
+def update_bank_loan_balance(db, guild, loan_id, principal, total_due, total_repaid):
+    """同步抵押剩餘債務，採利息優先償還的保守計算。
+
+    只更新該筆已存在且有效的抵押；非抵押貸款不建立產權負擔。
+    必須由銀行還款的同一筆 SQL 交易呼叫。
+    """
+    principal = int(principal)
+    total_due = int(total_due)
+    total_repaid = int(total_repaid)
+    if principal <= 0 or total_due < principal or not 0 <= total_repaid <= total_due:
+        raise a.AssetError('銀行貸款餘額不合法，拒絕修改抵押紀錄')
+    # 按利息優先清償：未清償本金最高不超過原始借款本金。
+    remaining = min(principal, total_due - total_repaid)
+    db.execute("""UPDATE rp_asset_lien SET outstanding_amount=?,status=?
+      WHERE guild_id=? AND bank_reference=? AND status='active' """,
+      (remaining, 'cleared' if remaining == 0 else 'active',
+       a.gid(guild), 'loan:'+str(loan_id)))
+    return remaining
+
+
+def _block_unsettled_share_transfer(db, guild, asset):
+    """租約及欠費責任尚未釐清時不允許變更共有人。"""
+    key = a.gid(guild)
+    if db.execute("SELECT 1 FROM rp_asset_leases WHERE guild_id=? AND asset_id=? AND status='active'", (key,int(asset))).fetchone():
+        raise a.AssetError('仍有有效租約；需先合法結束租約再移轉持分')
+    if db.execute("""SELECT 1 FROM rp_asset_dues WHERE guild_id=? AND asset_id=?
+      AND due_amount>paid_amount""",(key,int(asset))).fetchone():
+        raise a.AssetError('仍有未結清的維護費，請先繳清再移轉持分')
+
+
 def release_bank_loan(db,guild,loan_id):
     db.execute("UPDATE rp_asset_lien SET outstanding_amount=0,status='cleared' WHERE guild_id=? AND bank_reference=? AND status='active'",(a.gid(guild),'loan:'+str(loan_id)))
 
 
-def validate_liquidation(guild,holder_type,holder_id):
-    """在角色刪除／公司解散之前先調用：避免無聲遺失有價資產。"""
+def validate_liquidation(guild, holder_type, holder_id):
+    """在刪角或解散前驗證大型資產、租約、欠費與銀行貸款。
+
+    只做清算門檻檢查，不會替任何人執行刪除或轉移。
+    """
+    from core.asset_integrity import report_in_transaction
     with transaction() as db:
-        initialize(db)
-        held=db.execute('SELECT asset_id,basis_points FROM rp_asset_shares WHERE guild_id=? AND holder_type=? AND holder_id=?',(a.gid(guild),holder_type,str(holder_id))).fetchall()
-        if held:
-            raise a.AssetError(f'尚有 {len(held)} 項大型資產持分；請先完成法定清算，不可直接刪除持有人')
-        tenants=db.execute("SELECT COUNT(*) n FROM rp_asset_leases WHERE guild_id=? AND status='active' AND tenant_id=?",(a.gid(guild),str(holder_id))).fetchone()['n'] if holder_type=='character' else 0
-        if tenants:raise a.AssetError('角色仍有未結束租約；須先完成退租與押金結算')
+        status = report_in_transaction(db,guild,holder_type,holder_id)
+        if not status['ready_for_asset_exit']:
+            from core.asset_integrity import describe_report
+            raise a.AssetError(describe_report(status))
     return True
 
 
