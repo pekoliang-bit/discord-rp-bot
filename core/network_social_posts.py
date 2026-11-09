@@ -90,16 +90,26 @@ def resolve_identity(guild_id, handle, character_id):
         return dict(row) if row else None
 
 
+def _active_target(db, guild_id, target_account):
+    """Confirm target account belongs to an active character in this guild."""
+    row = db.execute('''SELECT a.id, a.character_id FROM rp_network_accounts a
+        JOIN characters c ON c.guild_id=a.guild_id AND c.id=a.character_id
+        WHERE a.guild_id=? AND a.id=? AND c.status='active' ''',
+        (str(guild_id), int(target_account))).fetchone()
+    if row is None:
+        raise LookupError('目標帳號不存在或角色已停用')
+    return row
+
+
 def follow(guild_id,user_id,source_account,target_account):
     with transaction() as db:
         initialize(db)
-        accounts._require_account(db,guild_id,user_id,source_account)
+        source = accounts._require_account(db,guild_id,user_id,source_account)
         if int(source_account)==int(target_account):
             raise ValueError('不能關注自己的帳號')
-        row=db.execute('SELECT id FROM rp_network_accounts WHERE guild_id=? AND id=?',
-                       (str(guild_id),int(target_account))).fetchone()
-        if not row:
-            raise LookupError('目標帳號不存在')
+        row=_active_target(db,guild_id,target_account)
+        if int(source['character_id']) == int(row['character_id']):
+            raise ValueError('不能對自己角色的其他帳號執行此操作')
         db.execute('INSERT OR IGNORE INTO rp_network_follows VALUES (?,?,?,CURRENT_TIMESTAMP)',
                    (str(guild_id),int(source_account),int(target_account)))
 
@@ -107,13 +117,12 @@ def follow(guild_id,user_id,source_account,target_account):
 def request_friend(guild_id,user_id,source_account,target_account):
     with transaction() as db:
         initialize(db)
-        accounts._require_account(db,guild_id,user_id,source_account)
+        source = accounts._require_account(db,guild_id,user_id,source_account)
         if int(source_account)==int(target_account):
             raise ValueError('不能向自己發送好友申請')
-        row=db.execute('SELECT id FROM rp_network_accounts WHERE guild_id=? AND id=?',
-                       (str(guild_id),int(target_account))).fetchone()
-        if not row:
-            raise LookupError('目標帳號不存在')
+        row=_active_target(db,guild_id,target_account)
+        if int(source['character_id']) == int(row['character_id']):
+            raise ValueError('不能對自己角色的其他帳號執行此操作')
         reverse=db.execute('''SELECT state FROM rp_network_friends WHERE guild_id=?
             AND requester_account_id=? AND target_account_id=?''',
             (str(guild_id),int(target_account),int(source_account))).fetchone()
