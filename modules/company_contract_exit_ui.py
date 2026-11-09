@@ -1,4 +1,3 @@
-
 """公司合約解約 Discord 介面。"""
 
 from __future__ import annotations
@@ -60,9 +59,14 @@ class ExitModal(discord.ui.Modal):
             )
 
         try:
-            number = int(self.number.value)
-            if number <= 0:
-                raise ValueError("編號必須大於零")
+            if self.action == 'request':
+                number = self.number.value.strip()
+                if not number:
+                    raise ValueError("請填寫合約編號")
+            else:
+                number = int(self.number.value)
+                if number <= 0:
+                    raise ValueError("案件編號必須大於零")
 
             reason = None
             if self.action == "request":
@@ -155,11 +159,21 @@ class ContractExitView(discord.ui.View):
             rows = await asyncio.to_thread(list_exit_cases, self.gid, self.uid)
             reasons = {'ordinary': '一般解約', 'mutual': '協議解約', 'self_company': '自建公司'}
             lines = ['📋 **解約案件**']
+            from core.company_public_ids import contract_code, public_company
+            from core.database import transaction
+            with transaction() as db:
+                display_ids = {
+                    int(row['id']): (
+                        contract_code(db, self.gid, row['contract_id']),
+                        public_company(db, self.gid, row['company_id'])
+                    ) for row in rows
+                }
             for row in rows:
+                contract_display, company_display = display_ids[int(row['id'])]
                 lines.append(
-                    f"#{row['id']}｜合約 #{row['contract_id']}｜"
+                    f"#{row['id']}｜合約 #{contract_display}｜"
                     f"{reasons.get(row['reason'], row['reason'])}｜{row['status']}\n"
-                    f"公司：{row['company_id']}｜角色 #{row['character_id']}｜"
+                    f"公司：{company_display}｜角色 #{row['character_id']}｜"
                     f"實收違約金：{int(row['penalty_amount']):,}"
                 )
             if not rows:
