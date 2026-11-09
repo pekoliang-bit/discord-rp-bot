@@ -203,16 +203,5 @@ class EndorseButton(discord.ui.Button):
 
 
 async def setup(bot):
+    """保留資料與功能；入口統一由 /公司 → 品牌與商務 提供。"""
     initialize()
-    from modules.company_portal import CompanyPanel
-    if getattr(CompanyPanel, "_endorse_hooked", False):
-        return
-    original = CompanyPanel.__init__
-
-    def with_endorse(self, uid, gid, is_owner):
-        original(self, uid, gid, is_owner)
-        for mode in ("offer", "pending", "decide"):
-            self.add_item(EndorseButton(mode))
-
-    CompanyPanel.__init__ = with_endorse
-    CompanyPanel._endorse_hooked = True
