@@ -14,6 +14,7 @@ from discord.ext import commands
 
 from core.database import get_connection
 from modules.world_terms import term, organization_terms
+from modules.company_select_ui import open_company_chooser, CompanyChooserView
 
 LOG = logging.getLogger(__name__)
 
@@ -251,14 +252,35 @@ def company_context(gid: str, uid: str):
                 f"**我管理的{terms['company']}／{terms['brand']}**：{managed_text}"
             )
 
-        owned_businesses = (
-            old_business_list + new_business_list
-        )
-
-        return (
-            owned_businesses,
-            "\n".join(employee_lines),
-        )
+        owned_businesses = old_business_list + new_business_list
+        employee_summary = "\n".join(employee_lines)
+        # 對外編號與資料庫內部主鍵分離，不破壞既有公司與金流紀錄。
+        from core.company_public_ids import ensure_companies, public_company
+        from core.database import transaction as code_transaction
+        with code_transaction() as code_db:
+            ensure_companies(code_db, gid)
+            old_to_new = {}
+            for row in new_owned:
+                bid = str(row['business_id'])
+                old_to_new[bid] = public_company(code_db, gid, bid)
+            for row in owned:
+                bid = str(row['company_id'])
+                old_to_new[bid] = public_company(code_db, gid, bid)
+            for row in employees:
+                bid = str(row['company_id'])
+                old_to_new[bid] = public_company(code_db, gid, bid)
+            for row in managed:
+                bid = str(row['business_id'])
+                old_to_new[bid] = public_company(code_db, gid, bid)
+        owned_businesses = [
+            old_to_new.get(item.split('（', 1)[0], item.split('（', 1)[0])
+            + ('（' + item.split('（', 1)[1] if '（' in item else '')
+            for item in owned_businesses
+        ]
+        for original, public in old_to_new.items():
+            if original != public:
+                employee_summary = employee_summary.replace(original, public)
+        return owned_businesses, employee_summary
 
 
 def company_positions(gid: str, company: str):
@@ -322,7 +344,7 @@ async def respond(interaction, action):
 
 class OwnedModal(discord.ui.Modal):
 
-    def __init__(self, uid, gid, title):
+    def __init__(self, uid, gid, title, *, selected_company=None):
 
         super().__init__(
             title=title,
@@ -331,6 +353,12 @@ class OwnedModal(discord.ui.Modal):
 
         self.uid = str(uid)
         self.gid = str(gid)
+        self.selected_company = selected_company
+
+    def company_value(self):
+        if self.selected_company is not None:
+            return str(self.selected_company)
+        return str(self.company.value).strip()
 
     async def submit_job(self, interaction, job):
 
@@ -352,12 +380,13 @@ class OwnedModal(discord.ui.Modal):
 
 class ApplyModal(OwnedModal):
 
-    def __init__(self, uid, gid):
+    def __init__(self, uid, gid, selected_company=None):
 
         super().__init__(
             uid,
             gid,
             "公司職位應徵",
+            selected_company=selected_company,
         )
 
         self.company = discord.ui.TextInput(
@@ -370,7 +399,7 @@ class ApplyModal(OwnedModal):
             max_length=20,
         )
 
-        self.add_item(self.company)
+        self.add_item(self.company) if self.selected_company is None else None
         self.add_item(self.character)
 
     async def on_submit(self, interaction):
@@ -388,7 +417,7 @@ class ApplyModal(OwnedModal):
             interaction,
             lambda: apply_job(
                 self.gid,
-                str(self.company.value).strip(),
+                self.company_value(),
                 self.uid,
                 character_id,
             ),
@@ -401,12 +430,13 @@ class ApplyModal(OwnedModal):
 
 class ResignModal(OwnedModal):
 
-    def __init__(self, uid, gid):
+    def __init__(self, uid, gid, selected_company=None):
 
         super().__init__(
             uid,
             gid,
             "辭職確認",
+            selected_company=selected_company,
         )
 
         self.company = discord.ui.TextInput(
@@ -429,7 +459,7 @@ class ResignModal(OwnedModal):
             self.character,
             self.confirm,
         ):
-            self.add_item(control)
+            self.add_item(control) if control is not self.company or self.selected_company is None else None
 
     async def on_submit(self, interaction):
 
@@ -452,7 +482,7 @@ class ResignModal(OwnedModal):
             interaction,
             lambda: resign(
                 self.gid,
-                str(self.company.value).strip(),
+                self.company_value(),
                 self.uid,
                 character_id,
             ),
@@ -465,12 +495,13 @@ class ResignModal(OwnedModal):
 
 class PositionModal(OwnedModal):
 
-    def __init__(self, uid, gid):
+    def __init__(self, uid, gid, selected_company=None):
 
         super().__init__(
             uid,
             gid,
             "公司職位與經驗設定",
+            selected_company=selected_company,
         )
 
         self.company = discord.ui.TextInput(
@@ -506,7 +537,7 @@ class PositionModal(OwnedModal):
             self.required,
             self.exp_mode,
         ):
-            self.add_item(control)
+            self.add_item(control) if control is not self.company or self.selected_company is None else None
 
     async def on_submit(self, interaction):
 
@@ -547,7 +578,7 @@ class PositionModal(OwnedModal):
             interaction,
             lambda: configure_position(
                 self.gid,
-                str(self.company.value).strip(),
+                self.company_value(),
                 self.uid,
                 rank,
                 str(self.title_input.value),
@@ -646,12 +677,13 @@ class ReviewModal(OwnedModal):
 
 class OwnerLookupModal(OwnedModal):
 
-    def __init__(self, uid, gid):
+    def __init__(self, uid, gid, selected_company=None):
 
         super().__init__(
             uid,
             gid,
             "公司營運與待審",
+            selected_company=selected_company,
         )
 
         self.company = discord.ui.TextInput(
@@ -659,7 +691,7 @@ class OwnerLookupModal(OwnedModal):
             max_length=100,
         )
 
-        self.add_item(self.company)
+        self.add_item(self.company) if self.selected_company is None else None
 
     async def on_submit(self, interaction):
 
@@ -667,7 +699,7 @@ class OwnerLookupModal(OwnedModal):
             interaction,
             lambda: pending_reviews(
                 self.gid,
-                str(self.company.value).strip(),
+                self.company_value(),
                 self.uid,
             ),
         )
@@ -679,12 +711,13 @@ class OwnerLookupModal(OwnedModal):
 
 class WorkModal(OwnedModal):
 
-    def __init__(self, uid, gid):
+    def __init__(self, uid, gid, selected_company=None):
 
         super().__init__(
             uid,
             gid,
             "提交公司工作",
+            selected_company=selected_company,
         )
 
         self.company = discord.ui.TextInput(
@@ -715,7 +748,7 @@ class WorkModal(OwnedModal):
             self.description,
             self.evidence,
         ):
-            self.add_item(control)
+            self.add_item(control) if control is not self.company or self.selected_company is None else None
 
     async def on_submit(self, interaction):
 
@@ -732,7 +765,7 @@ class WorkModal(OwnedModal):
             interaction,
             lambda: submit_work(
                 self.gid,
-                str(self.company.value).strip(),
+                self.company_value(),
                 self.uid,
                 character_id,
                 str(self.description.value),
@@ -747,12 +780,13 @@ class WorkModal(OwnedModal):
 
 class InviteManagerModal(OwnedModal):
 
-    def __init__(self, uid, gid):
+    def __init__(self, uid, gid, selected_company=None):
 
         super().__init__(
             uid,
             gid,
             "邀請公司管理層",
+            selected_company=selected_company,
         )
 
         self.company = discord.ui.TextInput(
@@ -788,7 +822,7 @@ class InviteManagerModal(OwnedModal):
             self.name,
             self.position,
         ):
-            self.add_item(field)
+            self.add_item(field) if field is not self.company or self.selected_company is None else None
 
     async def on_submit(self, interaction):
 
@@ -816,7 +850,7 @@ class InviteManagerModal(OwnedModal):
             interaction,
             lambda: invite_manager(
                 self.gid,
-                str(self.company.value).strip(),
+                self.company_value(),
                 self.uid,
                 mention.group(1),
                 character_id,
@@ -832,12 +866,13 @@ class InviteManagerModal(OwnedModal):
 
 class AcceptManagerModal(OwnedModal):
 
-    def __init__(self, uid, gid):
+    def __init__(self, uid, gid, selected_company=None):
 
         super().__init__(
             uid,
             gid,
             "接受管理層邀請",
+            selected_company=selected_company,
         )
 
         self.company = discord.ui.TextInput(
@@ -850,7 +885,7 @@ class AcceptManagerModal(OwnedModal):
             max_length=20,
         )
 
-        self.add_item(self.company)
+        self.add_item(self.company) if self.selected_company is None else None
         self.add_item(self.character)
 
     async def on_submit(self, interaction):
@@ -868,7 +903,7 @@ class AcceptManagerModal(OwnedModal):
             interaction,
             lambda: accept_manager(
                 self.gid,
-                str(self.company.value).strip(),
+                self.company_value(),
                 self.uid,
                 character_id,
             ),
@@ -881,12 +916,13 @@ class AcceptManagerModal(OwnedModal):
 
 class ManagerPermissionsModal(OwnedModal):
 
-    def __init__(self, uid, gid):
+    def __init__(self, uid, gid, selected_company=None):
 
         super().__init__(
             uid,
             gid,
             "管理層權限設定",
+            selected_company=selected_company,
         )
 
         self.company = discord.ui.TextInput(
@@ -913,7 +949,7 @@ class ManagerPermissionsModal(OwnedModal):
             self.character,
             self.permissions,
         ):
-            self.add_item(field)
+            self.add_item(field) if field is not self.company or self.selected_company is None else None
 
     async def on_submit(self, interaction):
 
@@ -936,7 +972,7 @@ class ManagerPermissionsModal(OwnedModal):
             interaction,
             lambda: grant_manager_permissions(
                 self.gid,
-                str(self.company.value).strip(),
+                self.company_value(),
                 self.uid,
                 character_id,
                 permissions,
@@ -974,50 +1010,27 @@ def _company_review_access(gid: str, uid: str, *, is_owner: bool) -> bool:
 
 
 class CompanyManagementPanel(discord.ui.View):
-    """Second page for management functions; prevents crowding the employee homepage."""
+    """公司管理首頁：分組，不一次擠滿所有功能。"""
     def __init__(self, uid: str, gid: str, is_owner: bool):
         super().__init__(timeout=600)
         self.uid, self.gid, self.is_owner = str(uid), str(gid), bool(is_owner)
-        can_review = _company_review_access(gid, uid, is_owner=self.is_owner)
-        entries = (
-            ('modules.company_treasury_ui', 'CompanyTreasuryButton', 0),
-            ('modules.company_brand_ui', 'BrandManagementButton', 0),
-            ('modules.company_vip_ui', 'CompanyVIPButton', 0),
-            ('modules.company_contract_management_ui', 'CompanyContractEntry', 1),
-            ('modules.company_group_management_ui', 'CompanyGroupEntry', 1),
-            ('modules.company_commercial_ui', 'CompanyCommercialEntry', 1),
+        categories = (
+            ('💰 財務與金庫', 'finance'),
+            ('🎯 品牌與商務', 'commerce'),
+            ('📄 合約與集團', 'contracts'),
+            ('👥 人事與權限', 'people'),
         )
-        # A broken optional subsystem may not prevent the other entrances opening.
-        for module_name, class_name, row in entries:
-            try:
-                import importlib
-                entry = getattr(importlib.import_module(module_name), class_name)()
-                entry.row = row
-                self.add_item(entry)
-            except Exception:
-                LOG.exception("公司進階功能入口初始化失敗: %s.%s", module_name, class_name)
-        admin_actions = []
-        if self.is_owner:
-            admin_actions.extend([
-                ('⚙️ 職位設定', PositionModal, 2),
-                ('👥 任命管理層', InviteManagerModal, 3),
-                ('🔐 設定授權', ManagerPermissionsModal, 3),
-            ])
-        if can_review:
-            admin_actions.extend([
-                ('📋 待審清單', OwnerLookupModal, 2),
-                ('✅ 人事審核', ReviewModal, 2),
-            ])
-        for label, modal_class, row in admin_actions:
-            button = discord.ui.Button(label=label, style=discord.ButtonStyle.secondary, row=row)
-            async def on_click(interaction, selected_modal=modal_class):
-                await interaction.response.send_modal(selected_modal(self.uid, self.gid))
-            button.callback = on_click
+        for label, category in categories:
+            button = discord.ui.Button(label=label, style=discord.ButtonStyle.primary)
+            async def open_category(interaction, selected=category):
+                await interaction.response.edit_message(
+                    content='🏢 **公司管理｜' + {'finance':'財務與金庫','commerce':'品牌與商務','contracts':'合約與集團','people':'人事與權限'}.get(selected, selected) + '**',
+                    view=CompanyManagementCategoryView(self.uid, self.gid, self.is_owner, selected))
+            button.callback = open_category
             self.add_item(button)
-        back = discord.ui.Button(label='⬅️ 返回公司首頁', style=discord.ButtonStyle.secondary, row=4)
+        back = discord.ui.Button(label='⬅️ 返回首頁', style=discord.ButtonStyle.secondary, row=1)
         async def back_to_home(interaction):
-            await interaction.response.edit_message(
-                content='🏢 **公司營運中心**\n請選擇操作。',
+            await interaction.response.edit_message(content='🏢 **公司營運中心**',
                 view=CompanyPanel(self.uid, self.gid, self.is_owner))
         back.callback = back_to_home
         self.add_item(back)
@@ -1029,121 +1042,139 @@ class CompanyManagementPanel(discord.ui.View):
         return True
 
 
-class CompanyPanel(discord.ui.View):
-    """Lightweight landing page; individual management modules open on a second page."""
+class CompanyManagementCategoryView(discord.ui.View):
+    def __init__(self, uid, gid, is_owner, category):
+        super().__init__(timeout=600)
+        self.uid, self.gid, self.is_owner = str(uid), str(gid), bool(is_owner)
+        self.category = category
+        can_review = _company_review_access(gid, uid, is_owner=self.is_owner)
+        entries = {
+            'finance': [('modules.company_treasury_ui', 'CompanyTreasuryButton'),
+                        ('modules.company_vip_ui', 'CompanyVIPButton')],
+            'commerce': [('modules.company_brand_ui', 'BrandManagementButton'),
+                         ('modules.company_commercial_ui', 'CompanyCommercialEntry')],
+            'contracts': [('modules.company_contract_management_ui', 'CompanyContractEntry'),
+                          ('modules.company_group_management_ui', 'CompanyGroupEntry')],
+            'people': [],
+        }
+        for module_name, class_name in entries.get(category, []):
+            try:
+                import importlib
+                button = getattr(importlib.import_module(module_name), class_name)()
+                button.row = 0
+                self.add_item(button)
+            except Exception:
+                LOG.exception('公司管理入口無法初始化: %s.%s', module_name, class_name)
+        actions = []
+        if category == 'people':
+            if self.is_owner:
+                actions.extend([('⚙️ 職位設定', PositionModal),
+                                ('👥 任命管理層', InviteManagerModal),
+                                ('🔐 設定授權', ManagerPermissionsModal)])
+            if can_review:
+                actions.extend([('📋 待審清單', OwnerLookupModal),
+                                ('✅ 人事審核', ReviewModal)])
+        for label, modal_class in actions:
+            button = discord.ui.Button(label=label, style=discord.ButtonStyle.secondary)
+            async def open_action(interaction, selected_modal=modal_class):
+                if selected_modal is ReviewModal:
+                    await interaction.response.send_modal(selected_modal(self.uid, self.gid))
+                elif selected_modal is OwnerLookupModal:
+                    async def show_pending(i, company_id):
+                        await i.response.defer(ephemeral=True, thinking=True)
+                        try:
+                            result = await asyncio.to_thread(pending_reviews, self.gid, company_id, self.uid)
+                            await i.followup.send(str(result)[:1900], ephemeral=True)
+                        except (ValueError, PermissionError, sqlite3.Error) as exc:
+                            await i.followup.send(f"⚠️ {exc}", ephemeral=True)
+                    chooser = CompanyChooserView(self.gid, self.uid,
+                        lambda bid: (lambda i: show_pending(i, bid)), kinds=('company',))
+                    if chooser.companies:
+                        await interaction.response.send_message('請選擇要查詢的公司：', view=chooser, ephemeral=True)
+                    else:
+                        await interaction.response.send_message('目前沒有可選的正式公司。', ephemeral=True)
+                else:
+                    await open_company_chooser(interaction, self.uid, selected_modal, kinds=('company','group'))
+            button.callback = open_action
+            self.add_item(button)
+        back = discord.ui.Button(label='⬅️ 返回管理分類', style=discord.ButtonStyle.secondary, row=4)
+        async def back_home(interaction):
+            await interaction.response.edit_message(content='🏢 **公司管理功能**',
+                view=CompanyManagementPanel(self.uid, self.gid, self.is_owner))
+        back.callback = back_home
+        self.add_item(back)
+
+    async def interaction_check(self, interaction):
+        if str(interaction.user.id) != self.uid or str(interaction.guild_id) != self.gid:
+            await interaction.response.send_message('這不是你的公司管理介面。', ephemeral=True)
+            return False
+        return True
+
+
+class CompanyEmployeePanel(discord.ui.View):
+    """將應徵、辭職、工作、任命確認集中到員工功能頁。"""
     def __init__(self, uid, gid, is_owner):
         super().__init__(timeout=600)
-        self.uid = str(uid)
-        self.gid = str(gid)
-        self.is_owner = bool(is_owner)
+        self.uid, self.gid, self.is_owner = str(uid), str(gid), bool(is_owner)
+        for label, modal_type in (
+            ('👔 應徵', ApplyModal),
+            ('🚪 辭職', ResignModal),
+            ('📝 工作提交', WorkModal),
+            ('✅ 接受管理任命', AcceptManagerModal),
+        ):
+            b = discord.ui.Button(label=label, style=discord.ButtonStyle.primary)
+            async def choose_company(interaction, selected=modal_type):
+                await open_company_chooser(interaction, self.uid, selected,
+                                           kinds=('company','group'))
+            b.callback = choose_company
+            self.add_item(b)
+        back = discord.ui.Button(label='⬅️ 返回公司首頁', style=discord.ButtonStyle.secondary, row=1)
+        async def back_home(interaction):
+            await interaction.response.edit_message(content='🏢 **公司營運中心**',
+                view=CompanyPanel(self.uid, self.gid, self.is_owner))
+        back.callback = back_home
+        self.add_item(back)
 
-    @discord.ui.button(label='🏢 公司管理功能', style=discord.ButtonStyle.primary, row=2)
+    async def interaction_check(self, interaction):
+        if str(interaction.user.id) != self.uid or str(interaction.guild_id) != self.gid:
+            await interaction.response.send_message('這不是你的公司介面。', ephemeral=True)
+            return False
+        return True
+
+
+class CompanyPanel(discord.ui.View):
+    """簡潔公司首頁，員工操作和管理操作各一個入口。"""
+    def __init__(self, uid, gid, is_owner):
+        super().__init__(timeout=600)
+        self.uid, self.gid, self.is_owner = str(uid), str(gid), bool(is_owner)
+
+    async def interaction_check(self, interaction):
+        if str(interaction.user.id) != self.uid or str(interaction.guild_id) != self.gid:
+            await interaction.response.send_message('這不是你的公司介面。', ephemeral=True)
+            return False
+        return True
+
+    @discord.ui.button(label='👔 員工與任職', style=discord.ButtonStyle.primary, row=0)
+    async def apply(self, interaction, button):
+        await interaction.response.send_message('👔 **員工／任職中心**\n選擇應徵、辭職、工作或接受任命。',
+            view=CompanyEmployeePanel(self.uid, self.gid, self.is_owner), ephemeral=True)
+
+    @discord.ui.button(label='🏢 公司管理功能', style=discord.ButtonStyle.primary, row=0)
     async def management_entry(self, interaction, button):
         try:
             view = CompanyManagementPanel(self.uid, self.gid, self.is_owner)
         except Exception:
             LOG.exception('公司管理子面板建立失敗 guild=%s user=%s', self.gid, self.uid)
-            return await interaction.response.send_message(
-                '⚠️ 部分公司管理工具暫時無法開啟，員工操作仍可正常使用。', ephemeral=True)
-        await interaction.response.send_message('🏢 **公司管理功能**\n請選擇要使用的管理工具。',
-                                                view=view, ephemeral=True)
+            return await interaction.response.send_message('⚠️ 公司管理工具暫時無法開啟。', ephemeral=True)
+        await interaction.response.send_message('🏢 **公司管理功能**\n請選擇類別。', view=view, ephemeral=True)
 
-    async def interaction_check(self, interaction):
-
-        if (
-            str(interaction.user.id) != self.uid
-            or str(interaction.guild_id) != self.gid
-        ):
-            await interaction.response.send_message(
-                "這不是你的公司介面。",
-                ephemeral=True,
-            )
-            return False
-
-        return True
-
-    @discord.ui.button(
-        label="👔 應徵",
-        style=discord.ButtonStyle.primary,
-        row=0,
-    )
-    async def apply(self, interaction, button):
-
-        await interaction.response.send_modal(
-            ApplyModal(
-                self.uid,
-                self.gid,
-            )
-        )
-
-    @discord.ui.button(
-        label="🚪 辭職",
-        style=discord.ButtonStyle.secondary,
-        row=0,
-    )
-    async def leave(self, interaction, button):
-
-        await interaction.response.send_modal(
-            ResignModal(
-                self.uid,
-                self.gid,
-            )
-        )
-
-    @discord.ui.button(
-        label="📝 工作提交",
-        style=discord.ButtonStyle.secondary,
-        row=0,
-    )
-    async def submit(self, interaction, button):
-
-        await interaction.response.send_modal(
-            WorkModal(
-                self.uid,
-                self.gid,
-            )
-        )
-
-    @discord.ui.button(
-        label="🔄 更新資料",
-        style=discord.ButtonStyle.secondary,
-        row=1,
-    )
+    @discord.ui.button(label='🔄 更新資料', style=discord.ButtonStyle.secondary, row=1)
     async def refresh(self, interaction, button):
-
         await interaction.response.defer(ephemeral=True)
-        owned, employees = await asyncio.to_thread(
-            company_context,
-            self.gid,
-            self.uid,
-        )
+        owned, employees = await asyncio.to_thread(company_context, self.gid, self.uid)
+        await interaction.edit_original_response(content=panel_text(owned, employees, interaction.guild_id)[:1900],
+            view=CompanyPanel(self.uid, self.gid, bool(owned)))
 
-        await interaction.edit_original_response(
-            content=panel_text(
-                owned,
-                employees,
-                interaction.guild_id,
-            )[:1900],
-            view=CompanyPanel(
-                self.uid,
-                self.gid,
-                bool(owned),
-            ),
-        )
-
-    @discord.ui.button(
-        label="✅ 接受管理任命",
-        style=discord.ButtonStyle.success,
-        row=1,
-    )
-    async def accept_invite(self, interaction, button):
-
-        await interaction.response.send_modal(
-            AcceptManagerModal(
-                self.uid,
-                self.gid,
-            )
-        )
 
 
 # ============================================================
