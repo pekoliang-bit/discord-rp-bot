@@ -45,13 +45,12 @@ def reject_contract(
 ):
     gid = str(guild_id)
     uid = str(actor_id)
-    cid = int(contract_id)
-
-    if cid <= 0:
-        raise ValueError("合約編號不正確")
-
     with transaction() as db:
         initialize_contracts(db)
+        from core.company_public_ids import resolve_contract
+        cid = resolve_contract(db, gid, contract_id)
+        if cid <= 0:
+            raise ValueError("合約編號不正確")
 
         row = db.execute(
             """
