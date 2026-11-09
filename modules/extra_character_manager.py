@@ -1,4 +1,3 @@
-
 """路人角色管理中心：僅群主可操作，不增加 Slash 指令。"""
 from __future__ import annotations
 
@@ -395,10 +394,54 @@ class PhotoChannelModal(
 
 
 class ExtraCharacterView(discord.ui.View):
-    def __init__(self, interaction):
+    """分類路人管理：資料庫、批次生成；保留既有功能與權限。"""
+    SECTIONS = {
+        'resources': ('匯入照片', '姓名庫', '職業庫', '照片附件頻道', '匯入舊照片'),
+        'production': ('批次生成', '庫存統計', '切換排行榜'),
+    }
+
+    def __init__(self, interaction, section='home'):
         super().__init__(timeout=600)
         self.user_id = interaction.user.id
         self.guild_id = interaction.guild_id
+        self.section = section
+        self._arrange()
+
+    def _arrange(self):
+        original = list(self.children)
+        self.clear_items()
+        if self.section == 'home':
+            for idx, (key, label) in enumerate((
+                ('resources', '📚 照片／姓名／職業資料'),
+                ('production', '🎲 生成／庫存／排行'),
+            )):
+                item = discord.ui.Button(label=label, style=discord.ButtonStyle.primary, row=idx)
+                async def selected(interaction, chosen=key):
+                    await interaction.response.edit_message(
+                        content=f'🚶 **路人角色管理｜{"資料庫" if chosen == "resources" else "生成與統計"}**',
+                        view=ExtraCharacterView(interaction, section=chosen))
+                item.callback = selected
+                self.add_item(item)
+        else:
+            if self.section not in self.SECTIONS:
+                raise ValueError('未知路人管理分類')
+            selected = [x for x in original if getattr(x, 'label', None) in self.SECTIONS[self.section]]
+            for idx, item in enumerate(selected):
+                item.row = idx // 4
+                self.add_item(item)
+        back = discord.ui.Button(
+            label='⬅️ 返回內容建立' if self.section == 'home' else '⬅️ 返回路人管理',
+            style=discord.ButtonStyle.secondary, row=4)
+        async def go_back(interaction):
+            if self.section == 'home':
+                from modules.content_builder import ContentView
+                await interaction.response.edit_message(
+                    content='✍️ **內容建立中心**', view=ContentView(interaction))
+            else:
+                await interaction.response.edit_message(
+                    content='🚶 **路人角色管理中心**', view=ExtraCharacterView(interaction))
+        back.callback = go_back
+        self.add_item(back)
 
     async def interaction_check(self, interaction):
         allowed = (
