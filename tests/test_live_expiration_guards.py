@@ -48,9 +48,9 @@ class LiveExpirationGuardsTests(unittest.TestCase):
             live_pk._init(db)
 
             for uid, name, occupation in [
-                (11, 'actor', 'æ¼å¡'),
-                (22, 'guest', 'æ­æ'),
-                (33, 'donor', 'æ¨¡ç¹å')
+                (11, 'actor', '演員'),
+                (22, 'guest', '歌手'),
+                (33, 'donor', '模特兒')
             ]:
                 db.execute(
                     """INSERT INTO characters(
@@ -71,13 +71,13 @@ class LiveExpirationGuardsTests(unittest.TestCase):
             now=100
         )
 
-        with self.assertRaisesRegex(ValueError, 'çµæ'):
+        with self.assertRaisesRegex(ValueError, '結束'):
             live_social.gift(
                 123,
                 sid,
                 33,
                 3,
-                'æå',
+                '星光',
                 'expired-gift',
                 now=1000
             )
@@ -120,12 +120,12 @@ class LiveExpirationGuardsTests(unittest.TestCase):
             []
         )
 
-        with self.assertRaisesRegex(ValueError, 'çµæ'):
+        with self.assertRaisesRegex(ValueError, '結束'):
             live_social.respond(
                 123, 1, 22, 2, True, now=1000
             )
 
-        with self.assertRaisesRegex(ValueError, 'çµæ'):
+        with self.assertRaisesRegex(ValueError, '結束'):
             live_social.invite(
                 123, sid, 11, 3, now=1000
             )
@@ -180,7 +180,6 @@ class LiveExpirationGuardsTests(unittest.TestCase):
                 ).fetchone()[0],
                 0
             )
-
 
     def test_pk_invite_not_visible_if_challenger_stops(self):
         host = live_stream.start(123, 11, 1, 'host', 'pk', 'realtime', now=100)
