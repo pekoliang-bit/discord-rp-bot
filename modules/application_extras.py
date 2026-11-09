@@ -1,4 +1,3 @@
-```python
 """集中申請擴充：案件儲存、玩家表單、審核面板。
 
 不額外註冊 Slash 指令。
@@ -537,6 +536,8 @@ def init_db():
     with transaction() as db:
         from core.company_bank_opening import initialize_company_bank
         initialize_company_bank(db)
+        from core.shop_bank_opening import initialize_shop_bank
+        initialize_shop_bank(db)
 
 
         db.execute(
@@ -886,6 +887,28 @@ class ApplicationModal(discord.ui.Modal):
                             "這家公司已有待審或已核准的"
                             "銀行帳號申請。"
                         )
+
+                if self.kind == "shop_bank":
+                    try:
+                        shop_id = int(values[0])
+                    except (ValueError, TypeError) as exc:
+                        raise ValueError("請在第一欄填入個人店鋪編號（數字）。") from exc
+                    if self.character_id is None:
+                        raise ValueError("請先選擇店鋪所屬的已啟用角色。")
+                    shop = db.execute(
+                        "SELECT character_id,status FROM personal_shops WHERE guild_id=? AND id=?",
+                        (str(self.gid), shop_id),
+                    ).fetchone()
+                    if shop is None or shop["status"] != "open" or int(shop["character_id"]) != int(self.character_id):
+                        raise ValueError("店鋪不存在、未營業或不屬於申請角色。")
+                    prev = db.execute(
+                        "SELECT 1 FROM rp_general_applications WHERE guild_id=? AND kind='shop_bank' AND title=? "
+                        "AND status IN ('pending','approved') LIMIT 1",
+                        (str(self.gid), str(shop_id)),
+                    ).fetchone()
+                    if prev:
+                        raise ValueError("此店鋪已有待審或已核准的銀行開戶申請。")
+                    title = str(shop_id)
 
                 # 角色有效性檢查
                 if self.character_id is not None:
@@ -1351,6 +1374,13 @@ class GeneralReviewView(
                         "不能直接標為已核准；請待對應系統完成整合。"
                     )
 
+                if accepted and r["kind"] == "shop_bank":
+                    from core.shop_bank_opening import approve_shop_bank
+                    approve_shop_bank(
+                        db, self.gid, r["title"], r["user_id"],
+                        r["character_id"], r["id"],
+                    )
+
                 if accepted and r["kind"] == "company_bank":
 
                     validate_company_bank_applicant(
@@ -1582,5 +1612,3 @@ async def setup(bot):
     """供 main.py 的 load_extension() 載入。"""
     init_db()
     LOG.info("一般申請與公司銀行授權模組已載入。")
-
-```
