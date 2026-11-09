@@ -1,4 +1,3 @@
-
 """/官方 管理功能中心使用的群主公關策略按鈕；不註冊新指令。"""
 from __future__ import annotations
 
@@ -84,6 +83,13 @@ class PRStrategyView(discord.ui.View):
     @discord.ui.button(label="重新整理", style=discord.ButtonStyle.secondary)
     async def refresh(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.edit_message(content=_summary(self.guild_id), view=self)
+
+
+    @discord.ui.button(label="⬅️ 返回管理功能中心", style=discord.ButtonStyle.secondary, row=1)
+    async def back(self, interaction: discord.Interaction, button: discord.ui.Button):
+        from modules.official_center import AdminToolsView, management_text
+        view = AdminToolsView(interaction)
+        await interaction.response.edit_message(content=management_text(view), view=view)
 
 
 class PRStrategyManageButton(discord.ui.Button):
