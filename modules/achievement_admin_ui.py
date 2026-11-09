@@ -1286,12 +1286,58 @@ class AchievementAdminView(
     def __init__(
         self,
         interaction: discord.Interaction,
+        section: str = 'home',
     ):
         super().__init__(interaction)
 
         ensure_initialized(
             interaction.guild_id
         )
+
+        self._section = section
+        self._arrange_buttons(interaction)
+
+    SECTION_BUTTONS = {
+        'catalog': ('📋 固定稱號', '🏆 活動稱號', '⚙️ 啟用／停用'),
+        'create': ('➕ 新增活動稱號', '🏷️ 新增折扣稱號', '📅 設定開服日期'),
+        'legend': ('🌍 建立重大活動', '📜 活動任務進度', '✅ 傳奇稱號審核'),
+    }
+
+    def _arrange_buttons(self, interaction):
+        original=list(self.children)
+        self.clear_items()
+        if self._section == 'home':
+            for idx,(key,label) in enumerate((
+                ('catalog','📋 稱號查詢與狀態'),
+                ('create','✏️ 新增與基本設定'),
+                ('legend','🏆 重大活動與審核'),
+            )):
+                btn=discord.ui.Button(label=label,style=discord.ButtonStyle.primary,row=idx//2)
+                async def callback(i, selected=key):
+                    await i.response.edit_message(
+                        content=f'🎖️ **成就稱號管理｜{selected}**',
+                        view=AchievementAdminView(i,section=selected))
+                btn.callback=callback
+                self.add_item(btn)
+        else:
+            labels=self.SECTION_BUTTONS.get(self._section)
+            if labels is None:
+                raise ValueError('未知稱號管理分類')
+            chosen=[child for child in original if getattr(child,'label',None) in labels]
+            for idx,child in enumerate(chosen):
+                child.row=idx//4
+                self.add_item(child)
+        back=discord.ui.Button(label='⬅️ 返回內容建立' if self._section=='home' else '⬅️ 返回稱號管理',
+            style=discord.ButtonStyle.secondary,row=4)
+        async def go_back(i):
+            if self._section=='home':
+                from modules.content_builder import ContentView
+                await i.response.edit_message(content='✍️ **內容建立中心**',view=ContentView(i))
+            else:
+                await i.response.edit_message(content='🎖️ **成就稱號管理中心**',
+                    view=AchievementAdminView(i))
+        back.callback=go_back
+        self.add_item(back)
 
     @discord.ui.button(
         label="📋 固定稱號",
