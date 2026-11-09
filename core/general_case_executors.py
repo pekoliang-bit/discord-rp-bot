@@ -1,4 +1,3 @@
-```python
 """已核准一般申請的具體業務執行器：請假及雙方同意的關係登記。
 
 必須由 application_extras 的單一 SQLite transaction 呼叫。不得直接修改
@@ -170,4 +169,3 @@ def _execute_item(db, r, reviewer_id):
         VALUES(?,?,?,?,?,?)''',
         (gid,int(r['id']),int(r['character_id']),product_id,qty,str(reviewer_id)))
     return 'item'
-```
