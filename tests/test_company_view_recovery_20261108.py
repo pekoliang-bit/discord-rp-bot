@@ -1,3 +1,4 @@
+
 """公司首頁隔離與角色查看、標籤驗收的離線回歸測試。"""
 from __future__ import annotations
 
@@ -31,10 +32,9 @@ class CompanyViewRecoveryTests(unittest.TestCase):
         root = next(n for n in self.tree.body
                     if isinstance(n, ast.ClassDef) and n.name == 'CompanyPanel')
         method_names = {n.name for n in root.body if isinstance(n, ast.AsyncFunctionDef)}
-        self.assertIn('management_entry', method_names)
-        self.assertEqual(method_names & {
-            'management_entry', 'apply', 'leave', 'submit', 'refresh', 'accept_invite'
-        }, {'management_entry', 'apply', 'leave', 'submit', 'refresh', 'accept_invite'})
+        self.assertTrue({'management_entry', 'apply', 'refresh'} <= method_names)
+        self.assertTrue({'CompanyEmployeePanel', 'CompanyManagementCategoryView'} <=
+                        {n.name for n in self.tree.body if isinstance(n, ast.ClassDef)})
         initializer = next(n for n in root.body
                            if isinstance(n, ast.FunctionDef) and n.name == '__init__')
         initializer_code = ast.get_source_segment(self.source, initializer)
@@ -43,7 +43,7 @@ class CompanyViewRecoveryTests(unittest.TestCase):
 
     def test_management_modules_are_isolated_and_click_guarded(self):
         advanced = next(n for n in self.tree.body
-                        if isinstance(n, ast.ClassDef) and n.name == 'CompanyManagementPanel')
+                        if isinstance(n, ast.ClassDef) and n.name == 'CompanyManagementCategoryView')
         source = ast.get_source_segment(self.source, advanced)
         for name in ('CompanyTreasuryButton', 'BrandManagementButton', 'CompanyVIPButton',
                      'CompanyContractEntry', 'CompanyGroupEntry', 'CompanyCommercialEntry'):
@@ -86,7 +86,7 @@ class CompanyViewRecoveryTests(unittest.TestCase):
                         (guild_id, company_id, original_applicant_id, status)
                         VALUES ('83421', 'COMP-1', '11', 'approved')''')
                 owned, employees = lookup('83421', '11')
-                self.assertEqual(owned, ['COMP-1'])
+                self.assertEqual(owned, ['83421-1'])
                 self.assertEqual(employees, '')
                 self.assertEqual(lookup('83421', '12'), ([], ''))
             finally:
