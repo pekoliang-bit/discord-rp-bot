@@ -99,6 +99,8 @@ def accept_contract(
 
     with transaction() as db:
         initialize_contracts(db)
+        from core.company_public_ids import resolve_contract
+        contract_id = resolve_contract(db, gid, contract_id)
 
         contract = db.execute("""
             SELECT *
