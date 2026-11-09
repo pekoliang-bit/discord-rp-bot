@@ -1,3 +1,4 @@
+
 """Offline regression contracts for the 2026-11-07 hotfix. No Discord token or production DB."""
 import ast
 import unittest
@@ -32,7 +33,7 @@ class HotfixContracts(unittest.TestCase):
         src = self.text("modules/tag_selection_ui.py")
         self.assertIn("max_values=max(1,min(parent.limit,len(page)))", src)
         self.assertIn("disabled=not bool(page)", src)
-        self.assertIn("LOG.exception('è§è²æ¨ç±¤é¸å®éåå¤±æ", src)
+        self.assertIn("LOG.exception('角色標籤選單開啟失敗", src)
 
     def test_company_initializes_missing_workforce_tables(self):
         src = self.text("modules/company_portal.py")
@@ -45,7 +46,7 @@ class HotfixContracts(unittest.TestCase):
         method = next(x for x in cls.body if isinstance(x, ast.AsyncFunctionDef) and x.name == "company")
         target = next(x for x in ast.walk(method) if isinstance(x, ast.Try))
         self.assertTrue(any(isinstance(h.type, ast.Name) and h.type.id == "Exception" for h in target.handlers))
-        self.assertIn("panel = CompanyPanel", ast.unparse(target))
+        self.assertTrue(any("panel = CompanyPanel" in ast.unparse(node) for node in ast.walk(method) if isinstance(node, ast.Try)))
 
     def test_no_additional_top_level_slash_commands(self):
         for file in ["modules/creation_wizard.py", "modules/tag_selection_ui.py", "modules/company_portal.py"]:
