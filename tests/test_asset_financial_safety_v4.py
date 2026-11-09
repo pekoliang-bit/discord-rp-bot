@@ -1,3 +1,4 @@
+
 """第四部分新增防回歸測試；在獨立 SQLite 中執行，不連 Discord。"""
 from __future__ import annotations
 
@@ -11,7 +12,9 @@ class FourthPartTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.temp = tempfile.TemporaryDirectory()
-        os.environ['DATABASE_PATH'] = str(Path(cls.temp.name) / 'fourth.sqlite3')
+        from core import database
+        cls._original_db_path = database.DATABASE_PATH
+        database.DATABASE_PATH = str(Path(cls.temp.name) / 'fourth.sqlite3')
         from core.database import init_db, transaction, get_or_create_account
         from core.economy import _payment
         from core import large_assets as a
@@ -31,6 +34,8 @@ class FourthPartTests(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
+        from core import database
+        database.DATABASE_PATH = cls._original_db_path
         cls.temp.cleanup()
 
     def test_01_loan_partial_and_full(self):
