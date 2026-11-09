@@ -167,16 +167,5 @@ class ContractButton(discord.ui.Button):
 
 
 async def setup(bot):
+    """保留資料與功能；入口統一由 /公司 → 品牌與商務 提供。"""
     initialize()
-    from modules.company_portal import CompanyPanel
-    if getattr(CompanyPanel, "_endorse_life_hooked", False):
-        return
-    original = CompanyPanel.__init__
-
-    def with_lifecycle(self, uid, gid, is_owner):
-        original(self, uid, gid, is_owner)
-        self.add_item(ContractButton("list"))
-        self.add_item(ContractButton("manage"))
-
-    CompanyPanel.__init__ = with_lifecycle
-    CompanyPanel._endorse_life_hooked = True
