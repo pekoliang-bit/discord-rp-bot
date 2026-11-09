@@ -1,8 +1,8 @@
+
 """可直接執行 python -m unittest tests/test_large_assets_integration.py（不需要 Discord 連線）。"""
 import os,sys,tempfile,unittest,time
 from pathlib import Path
 TMP=tempfile.TemporaryDirectory()
-os.environ['DATABASE_PATH']=str(Path(TMP.name)/'asset-test.sqlite3')
 from core.database import init_db,transaction,get_or_create_account,account_balance
 from core.economy import _payment
 from core import large_assets as a
@@ -10,6 +10,9 @@ from core import large_assets as a
 class AssetTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        from core import database
+        cls._original_db_path = database.DATABASE_PATH
+        database.DATABASE_PATH = str(Path(TMP.name) / 'asset-test.sqlite3')
         init_db();a.init_assets()
         with transaction() as db:
             db.execute("INSERT INTO guilds(guild_id) VALUES('g1')")
@@ -18,6 +21,12 @@ class AssetTests(unittest.TestCase):
                 source=get_or_create_account(db,'g1','system','test_funding','wallet')
                 target=get_or_create_account(db,'g1','character',str(cid),'wallet')
                 _payment(db,'g1','test:fund:'+str(cid),source,target,1000000000,'測試注資')
+    @classmethod
+    def tearDownClass(cls):
+        from core import database
+        database.DATABASE_PATH = cls._original_db_path
+        TMP.cleanup()
+
     def test_1_buy_payment_and_uniqueness(self):
         before=self.balance(101)
         asset=a.buy('g1','EST-01',101,'userA','臺北某公寓 3F-1','test:unique:unit1')
