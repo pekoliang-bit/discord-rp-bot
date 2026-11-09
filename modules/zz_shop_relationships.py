@@ -312,6 +312,7 @@ async def setup(bot):
         old_official_init(self, *args, **kwargs)
         if len(self.children) < 25:
             self.add_item(CPAdminButton())
+        official_center.arrange_official_home(self)
     official_center.OfficialHome.__init__ = new_official_init
 
     await bot.add_cog(ShopRelationships(bot))
