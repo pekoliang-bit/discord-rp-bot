@@ -32,6 +32,8 @@ import asyncio
 import json
 import logging
 import sqlite3
+import re
+from datetime import date
 
 import discord
 from discord import app_commands
@@ -313,11 +315,14 @@ def find_characters(
             character["settings_json"]
         )
 
-        searchable = " ".join([
+        searchable_parts = [
             str(character["name"]),
             str(settings.get("stage_name") or ""),
-            str(character.get("public_code") or ""),
-        ]).casefold()
+        ]
+        # 私人編號只允許本人用來搜尋；不可用於公開角色檢索。
+        if is_owner(actor, character):
+            searchable_parts.append(str(character.get("public_code") or character["id"]))
+        searchable = " ".join(searchable_parts).casefold()
 
         if (
             keyword
@@ -655,6 +660,27 @@ def _character_status(actor, character_id, settings, category):
     return f"LV{lv} {levels[lv-1][1]}"
 
 
+def _birthday_month_day(value):
+    """只顯示生日的月份與日期，兼容 YYYY-MM-DD、MM/DD、MMDD 等格式。"""
+    if not value:
+        return '未設定'
+    raw = str(value).strip()
+    matched = re.fullmatch(r"(?:[0-9]{4}[-/.])?([0-9]{1,2})[-/.]([0-9]{1,2})", raw)
+    if matched:
+        month, day = map(int, matched.groups())
+    elif re.fullmatch(r"[0-9]{4}", raw):
+        month, day = int(raw[:2]), int(raw[2:])
+    elif re.fullmatch(r"[0-9]{8}", raw):
+        month, day = int(raw[4:6]), int(raw[6:])
+    else:
+        return '未設定'
+    try:
+        date(2000, month, day)
+    except ValueError:
+        return '未設定'
+    return f"{month}月{day}日"
+
+
 def make_character_embed(actor, character_id, *, private=False, detail_page=0):
     character = get_character(actor, character_id)
     authorized = can_see_private(actor, character)
@@ -664,10 +690,15 @@ def make_character_embed(actor, character_id, *, private=False, detail_page=0):
     category = get_category(character)
     maximum = _character_detail_max_page(actor, character_id, private=private)
     detail_page = max(0, min(int(detail_page), maximum))
+    header = None
+    if detail_page == 0:
+        header = (
+            f"🏳️ 陣營：{_panel_faction(actor, character_id)}\n"
+            f"🏅 地位：{_character_status(actor, character_id, settings, category)}"
+        )
     embed = discord.Embed(
         title=shorten(settings.get("stage_name") or character["name"], 250),
-        description=(f"🎭 {CATEGORIES[category]}｜#{character['id']}\n"
-                     f"公開代碼：{character.get('public_code') or '未設定'}"),
+        description=header,
         color=discord.Color.blurple(),
     )
     color = settings.get("color_hex")
@@ -678,14 +709,19 @@ def make_character_embed(actor, character_id, *, private=False, detail_page=0):
             pass
 
     if detail_page == 0:
-        embed.add_field(name="🪪 編號", value=str(character.get('public_code') or character['id']), inline=False)
+        if str(character["owner_id"]) == str(actor.user_id):
+            embed.add_field(
+                name="🔒 私人編號",
+                value=str(character.get('public_code') or character['id']),
+                inline=False,
+            )
         embed.add_field(
             name="📋 基本資料",
             value=(f"名字：{character['name']}\n"
                    f"藝名：{display_value(settings.get('stage_name'), '未設定')}\n"
                    f"性別：{display_value(settings.get('gender'))}\n"
+                   f"生日：{_birthday_month_day(settings.get('birthday'))}\n"
                    f"年齡：{display_value(character['age'])}\n"
-                   f"生日：{display_value(settings.get('birthday'), '未設定')}\n"
                    f"職業：{display_value(character['occupation'])}"), inline=False,
         )
         try:
@@ -704,9 +740,7 @@ def make_character_embed(actor, character_id, *, private=False, detail_page=0):
             LOG.exception('讀取已接取但未登記的工作檔期失敗：%s', character_id)
         # The task system has not provided an independent settlement timestamp.
         embed.add_field(name="📅 工作檔期／倒數", value=shorten('剩餘檔期：\n' + shorten(schedule, 780) + '\n結算倒數：待正式通告提供結算時間（不以工作結束時刻冒充結算）', 1024), inline=False)
-        embed.add_field(name="🏳️ 所屬陣營", value=_panel_faction(actor, character_id), inline=True)
         embed.add_field(name="💕 CP", value=_panel_cp(actor, character_id), inline=True)
-        embed.add_field(name="🏅 角色地位", value=_character_status(actor, character_id, settings, category).replace(' ', '｜', 1), inline=False)
         try:
             from modules.tag_library import representative
             top_tags = representative(actor.guild_id, character_id)
@@ -928,18 +962,16 @@ class CharacterItemSelect(discord.ui.Select):
         self.page = page
 
         options = []
+        # 下拉選單的 value 僅用當頁位置，不把角色編號送到選單資料。
+        self.item_ids = [int(character["id"]) for character in items]
 
-        for character in items:
+        for index, character in enumerate(items):
             options.append(
                 discord.SelectOption(
-                    label=shorten(
-                        character["name"],
-                        100,
-                    ),
-                    value=str(character["id"]),
+                    label=shorten(character["name"], 100),
+                    value=str(index),
                     description=shorten(
-                        f"#{character['id']}｜"
-                        f"{character['occupation'] or '未設定職業'}",
+                        str(character["occupation"] or "未設定職業"),
                         100,
                     ),
                 )
@@ -969,7 +1001,10 @@ class CharacterItemSelect(discord.ui.Select):
             return
         await interaction.response.defer()
         try:
-            character_id = int(self.values[0])
+            index = int(self.values[0])
+            if index < 0 or index >= len(self.item_ids):
+                raise InvalidState("角色選項已失效，請重新查詢。")
+            character_id = self.item_ids[index]
             character = await asyncio.to_thread(get_character, actor, character_id)
             if (self.category == 'mine' and not is_owner(actor, character)) or (
                 self.category != 'mine' and get_category(character) != self.category
@@ -2069,8 +2104,8 @@ class CharacterView(commands.Cog):
                 with get_connection() as conn:
                     if keyword.isdecimal():
                         rows = conn.execute(
-                            "SELECT * FROM characters WHERE guild_id=? AND id=?",
-                            (actor.guild_id, int(keyword)),
+                            "SELECT * FROM characters WHERE guild_id=? AND id=? AND owner_id=?",
+                            (actor.guild_id, int(keyword), str(actor.user_id)),
                         ).fetchall()
                     else:
                         rows = conn.execute(
