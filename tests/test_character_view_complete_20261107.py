@@ -1,3 +1,4 @@
+
 """/查看介面合約與獨立隱私設定測試：不需 Discord token。"""
 from __future__ import annotations
 import ast
@@ -167,6 +168,11 @@ class PublicPrivateRenderTests(unittest.TestCase):
             PermissionDenied=PermissionError,
             LOG=__import__('logging').getLogger('test.character_view'),
         )
+        import re
+        from datetime import date
+        ns.update(re=re, date=date)
+        helper = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == '_birthday_month_day')
+        exec(compile(ast.Module(body=[helper], type_ignores=[]), '<birthday-test>', 'exec'), ns)
         exec(compile(ast.Module(body=[fn], type_ignores=[]), '<render-test>', 'exec'), ns)
         self.render = ns['make_character_embed']
 
@@ -174,9 +180,10 @@ class PublicPrivateRenderTests(unittest.TestCase):
         first = self.render(self.actor, 1, detail_page=0)
         fields = dict(first.fields)
         self.assertIn('📋 基本資料', fields)
-        self.assertIn('🏳️ 所屬陣營', fields)
+        self.assertNotIn('🔒 私人編號', fields)
+        self.assertIn('🏳️ 陣營：', first.description)
         self.assertIn('💕 CP', fields)
-        self.assertIn('🏅 角色地位', fields)
+        self.assertIn('🏅 地位：', first.description)
         self.assertIn('🏷️ 大眾印象', fields)
         self.assertNotIn('📈 商業與名氣（5 項）', fields)
         self.assertEqual(first.image_url,'https://example.test/photo.png')
