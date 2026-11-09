@@ -11,15 +11,6 @@ from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 
-for name in (
-    "core",
-    "core.database",
-    "core.rumor_plan_store",
-    "modules",
-    "modules.rumor_settlement",
-):
-    sys.modules.setdefault(name, types.ModuleType(name))
-
 
 class DB:
     row = None
@@ -39,32 +30,27 @@ class DB:
 
 db = DB()
 
-sys.modules[
-    "core.database"
-].get_connection = lambda: db
+# 隔離偽造的匯入依賴。不能把 fake core.database 留在全域 sys.modules，
+# 否則其他測試會取得沒有 commit/rollback/close 的假 DB。
+with patch.dict(sys.modules, {
+    "core.database": types.ModuleType("core.database"),
+    "core.rumor_plan_store": types.ModuleType("core.rumor_plan_store"),
+    "modules.rumor_settlement": types.ModuleType("modules.rumor_settlement"),
+}):
+    sys.modules["core.database"].get_connection = lambda: db
+    sys.modules["core.rumor_plan_store"].load_reward_plan = lambda *args, **kwargs: NS(
+        grade="A", changes={"路人緣": 5},
+    )
+    sys.modules["modules.rumor_settlement"].settle_character_reward = lambda *args, **kwargs: NS(
+        state="applied", duplicate=False,
+    )
 
-sys.modules[
-    "core.rumor_plan_store"
-].load_reward_plan = lambda *args, **kwargs: NS(
-    grade="A",
-    changes={"路人緣": 5},
-)
-
-sys.modules[
-    "modules.rumor_settlement"
-].settle_character_reward = lambda *args, **kwargs: NS(
-    state="applied",
-    duplicate=False,
-)
-
-path = ROOT / "core" / "rumor_reward_job_executor.py"
-
-spec = importlib.util.spec_from_file_location(
-    "executor_target", path
-)
-module = importlib.util.module_from_spec(spec)
-sys.modules[spec.name] = module
-spec.loader.exec_module(module)
+    spec = importlib.util.spec_from_file_location(
+        "executor_target", ROOT / "core" / "rumor_reward_job_executor.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    with patch.dict(sys.modules, {spec.name: module}):
+        spec.loader.exec_module(module)
 
 
 class Tests(unittest.TestCase):
