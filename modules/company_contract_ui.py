@@ -1,4 +1,3 @@
-
 """Discord 公司員工合約介面。
 
 由 /公司 既有介面建立 CompanyContractView。
@@ -12,6 +11,8 @@ import logging
 
 import discord
 
+from core.company_public_ids import contract_code, public_company
+from core.database import transaction
 from core.company_contract_service import accept_contract
 from core.company_contract_review import (
     list_employee_contracts,
@@ -60,10 +61,9 @@ class ContractDecisionModal(discord.ui.Modal):
             return
 
         try:
-            cid = int(self.contract_id.value)
-
-            if cid <= 0:
-                raise ValueError("合約編號必須大於零")
+            cid = self.contract_id.value.strip()
+            if not cid:
+                raise ValueError("合約編號不能空白")
 
         except ValueError:
             await interaction.response.send_message(
@@ -158,6 +158,9 @@ class CompanyContractView(discord.ui.View):
             else:
                 lines = ["📄 **我的員工合約**"]
 
+                with transaction() as db:
+                    visible = {int(row['id']): (contract_code(db, self.guild_id, row['id']),
+                               public_company(db, self.guild_id, row['company_id'])) for row in rows}
                 for row in rows:
                     status = {
                         "pending": "待確認",
@@ -168,9 +171,9 @@ class CompanyContractView(discord.ui.View):
                     )
 
                     lines.append(
-                        f"\n**合約 #{row['id']}**"
+                        f"\n**合約 #{visible[int(row['id'])][0]}**"
                         f"｜{status}\n"
-                        f"公司：{row['company_id']}"
+                        f"公司：{visible[int(row['id'])][1]}"
                         f"｜角色 #{row['character_id']}\n"
                         f"薪資：{int(row['salary']):,} 金幣"
                         f"／{row['cycle_days']}天\n"
