@@ -1734,6 +1734,12 @@ class ContentRecordsView(discord.ui.View):
         return True
 
 
+
+    @discord.ui.button(label="⬅️ 返回內容建立", style=discord.ButtonStyle.secondary, row=1)
+    async def back(self, interaction, button):
+        await interaction.response.edit_message(
+            content="✍️ **內容建立中心**", view=ContentView(interaction))
+
 class ContentView(discord.ui.View):
     def __init__(self, i):
         super().__init__(timeout=600)
