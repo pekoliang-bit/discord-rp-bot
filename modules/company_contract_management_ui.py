@@ -11,6 +11,10 @@ import logging
 
 import discord
 
+from core.company_public_ids import contract_code, resolve_contract, public_company
+from core.database import transaction
+from modules.company_select_ui import open_company_chooser
+
 from core.company_contract_service import (
     offer_contract,
     accept_contract,
@@ -40,13 +44,14 @@ async def reply(interaction, message):
 
 
 class ContractOfferModal(discord.ui.Modal):
-    def __init__(self, gid, uid):
+    def __init__(self, gid, uid, selected_company=None):
         super().__init__(
             title="公司｜提出員工合約",
             timeout=300,
         )
         self.gid = str(gid)
         self.uid = str(uid)
+        self.selected_company = selected_company
 
         self.company = discord.ui.TextInput(
             label="公司編號",
@@ -77,7 +82,8 @@ class ContractOfferModal(discord.ui.Modal):
             self.cycle,
             self.penalty,
         ):
-            self.add_item(field)
+            if field is not self.company or self.selected_company is None:
+                self.add_item(field)
 
     async def on_submit(self, interaction):
         if (
@@ -90,7 +96,7 @@ class ContractOfferModal(discord.ui.Modal):
             )
 
         try:
-            company = self.company.value.strip()
+            company = self.selected_company or self.company.value.strip()
             cid = int(self.character.value)
             salary = int(self.salary.value)
             cycle = int(self.cycle.value)
@@ -134,9 +140,12 @@ class ContractOfferModal(discord.ui.Modal):
                 penalty,
             )
 
+            with transaction() as db:
+                public_contract = contract_code(db, self.gid, contract_id)
+                display_company = public_company(db, self.gid, company)
             message = (
-                f"✅ 已提出合約 #{contract_id}\n"
-                f"公司：{company}\n"
+                f"✅ 已提出合約 #{public_contract}\n"
+                f"公司：{display_company}\n"
                 f"角色：#{cid}\n"
                 f"薪資：{salary:,} 金幣／{cycle}天\n"
                 f"違約金：{penalty:,} 金幣\n"
@@ -193,8 +202,8 @@ class ContractDecisionModal(discord.ui.Modal):
             )
 
         try:
-            contract_id = int(self.contract.value)
-            if contract_id <= 0:
+            contract_id = self.contract.value.strip()
+            if not contract_id:
                 raise ValueError("合約編號不正確")
         except ValueError as exc:
             return await reply(
@@ -287,12 +296,7 @@ class ContractOfferButton(discord.ui.Button):
 
     async def callback(self, interaction):
         view = self.view
-        await interaction.response.send_modal(
-            ContractOfferModal(
-                view.gid,
-                view.uid,
-            )
-        )
+        await open_company_chooser(interaction, view.uid, ContractOfferModal)
 
 
 class ContractListButton(discord.ui.Button):
@@ -318,6 +322,9 @@ class ContractListButton(discord.ui.Button):
             )
 
             lines = ["📄 **員工合約紀錄**"]
+            with transaction() as db:
+                names = {int(item['id']): (contract_code(db, view.gid, item['id']),
+                             public_company(db, view.gid, item['company_id'])) for item in records}
 
             for item in records:
                 status = {
@@ -326,8 +333,8 @@ class ContractListButton(discord.ui.Button):
                 }.get(item["status"], item["status"])
 
                 lines.append(
-                    f"\n**#{item['id']}**｜{status}\n"
-                    f"公司：{item['company_id']}｜"
+                    f"\n**#{names[int(item['id'])][0]}**｜{status}\n"
+                    f"公司：{names[int(item['id'])][1]}｜"
                     f"角色 #{item['character_id']}\n"
                     f"薪資：{int(item['salary']):,} 金幣"
                     f"／{item['cycle_days']}天\n"
