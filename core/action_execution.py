@@ -88,11 +88,17 @@ def _spend_paid(db, guild_id, character_id, quantity, now):
     for row in rows:
         used=min(int(row['remaining']),left)
         if used:
-            db.execute('UPDATE paid_action_packs SET remaining=remaining-? WHERE id=? AND remaining>=?',
-                (used,int(row['id']),used))
+            updated = db.execute('''UPDATE paid_action_packs
+                SET remaining=remaining-? WHERE id=? AND guild_id=?
+                AND character_id=? AND remaining>=? AND expires_at>?''',
+                (used,int(row['id']),str(guild_id),int(character_id),used,now))
+            if updated.rowcount != 1:
+                raise ActionExecutionError('付費行動值扣除狀態異常，交易已取消')
             left-=used
         if left==0:
             break
+    if left:
+        raise ActionExecutionError('行動值扣除未完成，交易已取消')
 
 
 def _award_pool(db, guild_id, character_id, pool, amount):
