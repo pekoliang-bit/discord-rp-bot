@@ -1127,6 +1127,13 @@ class PendingView(OwnerView):
             ),
         )
 
+    @discord.ui.button(label="⬅️ 返回人員管理", style=discord.ButtonStyle.secondary, row=2)
+    async def back_to_staff(self, interaction, button):
+        await interaction.response.edit_message(
+            content="👥 **官方人員中心**",
+            view=StaffRosterView(interaction),
+        )
+
 
 # ==========================================
 # 正式人員
@@ -1297,6 +1304,7 @@ class RevokeConfirmView(OwnerView):
         )
 
 
+
 class GrantsView(OwnerView):
     def __init__(self, interaction, page=0):
         super().__init__(interaction)
@@ -1375,6 +1383,14 @@ class GrantsView(OwnerView):
 # ==========================================
 # 舊版商品表單兼容
 # ==========================================
+
+
+    @discord.ui.button(label="⬅️ 返回人員管理", style=discord.ButtonStyle.secondary, row=2)
+    async def back_to_staff(self, interaction, button):
+        await interaction.response.edit_message(
+            content="👥 **官方人員中心**",
+            view=StaffRosterView(interaction),
+        )
 
 class OfficialProductModal(discord.ui.Modal):
     def __init__(self, kind):
@@ -1724,10 +1740,24 @@ class StaffApplyView(PrivateView):
         super().__init__(interaction)
         self.add_item(StaffApplySelect())
 
+    @discord.ui.button(label="⬅️ 返回官方首頁", style=discord.ButtonStyle.secondary, row=1)
+    async def back(self, interaction, button):
+        await interaction.response.edit_message(
+            content=official_home_text(interaction),
+            view=OfficialHome(interaction),
+        )
+
 
 class StaffRosterView(PrivateView):
     def __init__(self, interaction):
         super().__init__(interaction)
+
+    @discord.ui.button(label="⬅️ 返回官方首頁", style=discord.ButtonStyle.secondary, row=2)
+    async def back(self, interaction, button):
+        await interaction.response.edit_message(
+            content=official_home_text(interaction),
+            view=OfficialHome(interaction),
+        )
 
     @discord.ui.button(label="👥 已通過", style=discord.ButtonStyle.primary)
     async def approved(self, interaction, button):
