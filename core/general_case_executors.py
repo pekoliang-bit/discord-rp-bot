@@ -1,3 +1,4 @@
+```python
 """已核准一般申請的具體業務執行器：請假及雙方同意的關係登記。
 
 必須由 application_extras 的單一 SQLite transaction 呼叫。不得直接修改
@@ -45,6 +46,8 @@ def execute_general_case(db, application, reviewer_id, *, owner_mode=False):
     kind = application['kind']
     if kind == 'leave':
         return _execute_leave(db, application, reviewer_id)
+    if kind == 'item':
+        return _execute_item(db, application, reviewer_id)
     if kind == 'cp_register':
         return _execute_partnership(db, application, reviewer_id, owner_mode)
     raise ValueError('此種類不屬於已接通的案件執行器。')
@@ -67,6 +70,12 @@ def _execute_leave(db, r, reviewer_id):
     reason = _field(r['details'], '請假事由與需要暫停的義務')
     if not reason:
         raise ValueError('請假理由不能為空。')
+    overlap=db.execute('''SELECT 1 FROM rp_character_leaves
+        WHERE guild_id=? AND character_id=? AND start_date<=? AND end_date>=?
+        AND application_id<>? LIMIT 1''',
+        (str(r['guild_id']),int(r['character_id']),end.isoformat(),start.isoformat(),int(r['id']))).fetchone()
+    if overlap:
+        raise ValueError('該角色已有重疊的核准請假期間。')
     db.execute("""INSERT OR IGNORE INTO rp_character_leaves
        (guild_id,application_id,character_id,start_date,end_date,reason,reviewer_id)
        VALUES(?,?,?,?,?,?,?)""",
@@ -121,3 +130,44 @@ def _execute_partnership(db, r, reviewer_id, owner_mode):
     if updated.rowcount!=1:
         raise ValueError('對方的同意申請狀態已改變，請重試。')
     return 'cp_register'
+
+def _execute_item(db, r, reviewer_id):
+    """核發現存的上架商品，不從申請文字自創商品或金錢。"""
+    import re
+    if r['character_id'] is None:
+        raise ValueError('必須指定啟用角色。')
+    _character(db, r['guild_id'], r['character_id'], r['user_id'])
+    match = re.fullmatch(r'\s*(?:商品|物品)?\s*#?(\d+)\s*[*xX×]\s*(\d+)\s*',
+                         _field(r['details'], '申請物品名稱及數量'))
+    if not match:
+        raise ValueError('請填寫「商品#12 × 1」，禁止使用模糊商品名稱發獎。')
+    product_id, qty = map(int, match.groups())
+    if not 1 <= qty <= 100:
+        raise ValueError('每次申請數量限 1～100。')
+    gid = str(r['guild_id'])
+    try:
+        product = db.execute('SELECT active FROM shop_products WHERE guild_id=? AND id=?',
+                             (gid,product_id)).fetchone()
+    except Exception as exc:
+        raise ValueError('商城商品資料表尚未建立。') from exc
+    if product is None or int(product['active']) != 1:
+        raise ValueError('商品不存在或未上架。')
+    db.execute('''CREATE TABLE IF NOT EXISTS rp_application_item_grants (
+        guild_id TEXT NOT NULL, application_id INTEGER NOT NULL,
+        character_id INTEGER NOT NULL, product_id INTEGER NOT NULL,
+        quantity INTEGER NOT NULL, reviewer_id TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY(guild_id,application_id))''')
+    if db.execute('SELECT 1 FROM rp_application_item_grants WHERE guild_id=? AND application_id=?',
+                  (gid,int(r['id']))).fetchone():
+        return 'item'
+    db.execute('''INSERT INTO shop_inventory(guild_id,character_id,product_id,quantity)
+        VALUES(?,?,?,?) ON CONFLICT(guild_id,character_id,product_id)
+        DO UPDATE SET quantity=quantity+excluded.quantity''',
+        (gid,int(r['character_id']),product_id,qty))
+    db.execute('''INSERT INTO rp_application_item_grants
+        (guild_id,application_id,character_id,product_id,quantity,reviewer_id)
+        VALUES(?,?,?,?,?,?)''',
+        (gid,int(r['id']),int(r['character_id']),product_id,qty,str(reviewer_id)))
+    return 'item'
+```
