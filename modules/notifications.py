@@ -485,7 +485,7 @@ class Notifications(commands.Cog):
                     LOG.warning("私人通知 #%s 暫緩：論壇權限或角色綁定尚未核實", row['id'])
                     continue
             try:
-                is_announcement = bool(row['dedupe_key'] and row['dedupe_key'].startswith('bulletin-'))
+                is_announcement = bool(re.fullmatch(r'bulletin-[0-9]+', row['dedupe_key'] or ''))
                 active_categories = None
                 if is_announcement:
                     announcement_id = int(row['dedupe_key'].split('-')[-1])
