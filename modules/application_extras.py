@@ -88,6 +88,17 @@ for _category in (
 ):
     FORM_FIELDS[_category] = list(_GENERAL_FORM)
 
+FORM_FIELDS["cp_register"] = [
+    ("對方角色編號", 30, False),
+    ("關係類型（伴侶／婚姻）", 20, False),
+    ("雙方關係登記說明", 600, True),
+]
+FORM_FIELDS["leave"] = [
+    ("開始與結束日期（YYYY-MM-DD 至 YYYY-MM-DD）", 80, False),
+    ("請假事由與需要暫停的義務", 1000, True),
+    ("代理人或補充說明（選填）", 350, True),
+]
+
 FORM_FIELDS["channel_add"] = [
     ("頻道名稱與類型", 150, False),
     ("行動概念與用途", 900, True),
@@ -534,6 +545,8 @@ def set_company_bank_proxy(
 def init_db():
 
     with transaction() as db:
+        from core.general_case_executors import initialize_general_cases
+        initialize_general_cases(db)
         from core.company_bank_opening import initialize_company_bank
         initialize_company_bank(db)
         from core.shop_bank_opening import initialize_shop_bank
@@ -1450,6 +1463,10 @@ class GeneralReviewView(
                             expected_penalty=int(penalty_match.group(1)),
                             db=db,
                         )
+
+                if accepted and r["kind"] in {"leave", "cp_register"}:
+                    from core.general_case_executors import execute_general_case
+                    execute_general_case(db, r, str(i.user.id), owner_mode=owner(i))
 
                 if accepted and r["kind"] == "character_edit":
                     apply_approved_character_changes(db, r)
