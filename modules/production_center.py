@@ -316,7 +316,7 @@ class CreateModal(discord.ui.Modal,title="建立作品企劃"):
             number=create_production(self.actor,self.cid,str(self.title_field.value),
                 str(self.category_field.value).strip(),str(self.scale_field.value).upper().strip())
             await interaction.response.send_message(
-                f"✅ 作品企劃 #{number} 建立成功。\n已將創辦角色登記為製作人。\n請從 /作品 管理企劃及新增招募職位。",
+                f"✅ 作品企劃 #{number} 建立成功。\n已將創辦角色登記為製作人。\n請從 /任務 → 作品製作中心 → 我的企劃 管理與新增招募職位。",
                 ephemeral=True)
         except (ValueError,InvalidState,PermissionDenied) as exc:
             await failure(interaction,exc)
@@ -397,6 +397,88 @@ class ApplicationChoices(Gate):
             view=DecideView(self.actor,self.pid,app_id))
 
 
+class CastingRoster(Gate):
+    """導演唯讀名單；不推測角色適配率，也不修改錄取結果。"""
+    def __init__(self, actor, pid, page=0):
+        super().__init__(actor)
+        self.pid, self.page = int(pid), max(0, int(page))
+        from core.production_casting_audit import count_applicants
+        with get_connection() as db:
+            self.total = count_applicants(db, actor.guild_id, self.pid, actor.user_id)
+        self.max_page = max(0, (self.total - 1) // 8)
+        self.page = min(self.page, self.max_page)
+        self.previous.disabled = self.page <= 0
+        self.next_page.disabled = self.page >= self.max_page
+
+    def description(self):
+        from core.production_casting_audit import list_applicants
+        with get_connection() as db:
+            records = list_applicants(db, self.actor.guild_id, self.pid,
+                                      self.actor.user_id, offset=self.page * 8, limit=8)
+        state = {'pending': '待選角', 'accepted': '已錄取', 'rejected': '未錄取'}
+        lines = [f"🎭 **作品 #{self.pid}｜報名者名單**",
+                 f"第 {self.page + 1}/{self.max_page + 1} 頁｜共 {self.total} 筆報名",
+                 "適配率：尚未啟用（公式未核准；不以臆測分數排名）。"]
+        for row in records:
+            lines.append(f"• 申請 #{row['id']}｜{discord.utils.escape_markdown(str(row['character_name']))[:70]}"
+                         f"（角色 #{row['character_id']}）\n"
+                         f"  {discord.utils.escape_markdown(str(row['position_title']))[:70]}｜"
+                         f"{state.get(row['status'], row['status'])}｜"
+                         f"名額 {row['filled']}/{row['capacity']}")
+        if not records:
+            lines.append('目前沒有報名者。')
+        return '\n'.join(lines)[:1900]
+
+    @discord.ui.button(label='◀ 上一頁', style=discord.ButtonStyle.secondary, row=0)
+    async def previous(self, interaction, button):
+        target = CastingRoster(self.actor, self.pid, self.page-1)
+        await interaction.response.edit_message(content=target.description(), view=target)
+
+    @discord.ui.button(label='下一頁 ▶', style=discord.ButtonStyle.secondary, row=0)
+    async def next_page(self, interaction, button):
+        target = CastingRoster(self.actor, self.pid, self.page+1)
+        await interaction.response.edit_message(content=target.description(), view=target)
+
+    @discord.ui.button(label='⬅ 返回選角管理', style=discord.ButtonStyle.secondary, row=1)
+    async def back(self, interaction, button):
+        await interaction.response.edit_message(content='🎭 選角管理', view=CastingDashboard(self.actor,self.pid))
+
+
+class CastingDashboard(Gate):
+    def __init__(self, actor, pid):
+        super().__init__(actor)
+        self.pid = int(pid)
+
+    @discord.ui.button(label='📋 報名者名單', style=discord.ButtonStyle.primary)
+    async def roster(self, interaction, button):
+        try:
+            with get_connection() as db:
+                project=get_production(db, self.actor.guild_id, self.pid)
+                check(self.actor, project['owner_character_id'], db)
+            view=CastingRoster(self.actor,self.pid)
+            await interaction.response.edit_message(content=view.description(), view=view)
+        except (PermissionDenied, PermissionError, InvalidState, ValueError) as exc:
+            await failure(interaction,exc)
+
+    @discord.ui.button(label='✅ 處理待審報名', style=discord.ButtonStyle.success)
+    async def pending(self, interaction, button):
+        try:
+            with get_connection() as db:
+                project=get_production(db,self.actor.guild_id,self.pid)
+                check(self.actor,project['owner_character_id'],db)
+            v=ApplicationChoices(self.actor,self.pid)
+            if not v.children:
+                await interaction.response.edit_message(content='目前沒有待審報名。',view=self)
+            else:
+                await interaction.response.edit_message(content='請選擇待審報名：',view=v)
+        except (PermissionDenied, PermissionError, InvalidState, ValueError) as exc:
+            await failure(interaction,exc)
+
+    @discord.ui.button(label='⬅ 返回作品管理', style=discord.ButtonStyle.secondary, row=1)
+    async def back(self, interaction, button):
+        await interaction.response.edit_message(content=f'🎬 作品 #{self.pid} 管理',view=ProjectActions(self.actor,self.pid))
+
+
 class DecideView(Gate):
     def __init__(self,actor,pid,app_id):
         super().__init__(actor)
@@ -430,13 +512,13 @@ class ProjectActions(Gate):
             await interaction.response.send_modal(PositionModal(self.actor,self.pid))
         except (PermissionDenied,InvalidState) as exc:
             await failure(interaction,exc)
-    @discord.ui.button(label="📥 錄取申請",style=discord.ButtonStyle.secondary)
+    @discord.ui.button(label="🎭 選角管理",style=discord.ButtonStyle.secondary)
     async def applications(self,interaction,button):
         try:
             with get_connection() as db:
                 project=get_production(db,self.actor.guild_id,self.pid)
                 check(self.actor,project["owner_character_id"],db)
-            await interaction.response.edit_message(content="請選擇待審報名：",view=ApplicationChoices(self.actor,self.pid))
+            await interaction.response.edit_message(content="🎭 選角管理：查看報名者或處理待審名單。",view=CastingDashboard(self.actor,self.pid))
         except (PermissionDenied,InvalidState) as exc:
             await failure(interaction,exc)
     @discord.ui.button(label="🎬 申請完工驗證",style=discord.ButtonStyle.success)
