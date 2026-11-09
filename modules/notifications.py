@@ -1065,10 +1065,7 @@ class Notifications(commands.Cog):
                         row['guild_id'],
                         row['character_id']
                     )
-                    or not _private_forum_is_secure(
-                        forum,
-                        owner_row['owner_id']
-                    )
+                    or not _private_forum_is_secure(forum, owner_row['owner_id'])
                 ):
                     LOG.warning(
                         '私人通知 #%s 暫緩：'
@@ -1079,10 +1076,7 @@ class Notifications(commands.Cog):
 
             try:
                 is_announcement = bool(
-                    re.fullmatch(
-                        r'bulletin-[0-9]+',
-                        row['dedupe_key'] or ''
-                    )
+                    re.fullmatch(r'bulletin-[0-9]+', row['dedupe_key'] or '')
                 )
 
                 active_categories = None
