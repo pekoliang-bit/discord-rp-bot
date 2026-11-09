@@ -62,11 +62,11 @@ def validate_contract_offer_target(
 
         if (
             company is None
-            or company["kind"] != "company"
+            or company["kind"] not in ("company", "group")
             or company["status"] != "active"
         ):
             raise ValueError(
-                "必須選擇已啟用的正式公司"
+                "必須選擇已啟用的正式公司或集團"
             )
 
         employee = db.execute("""
