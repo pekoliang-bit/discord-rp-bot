@@ -93,13 +93,4 @@ async def setup(bot):
 
         endorse.offer = offer_with_warning
         endorse._competition_hooked = True
-    if getattr(CompanyPanel, "_endorse_history_hooked", False):
-        return
-    original_init = CompanyPanel.__init__
-
-    def with_history(self, uid, gid, is_owner):
-        original_init(self, uid, gid, is_owner)
-        self.add_item(HistoryButton())
-
-    CompanyPanel.__init__ = with_history
-    CompanyPanel._endorse_history_hooked = True
+    # 歷史代言入口統一放入公司商務子選單，不額外擠進首頁。
