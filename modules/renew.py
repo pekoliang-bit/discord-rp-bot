@@ -93,15 +93,5 @@ class RenewalButton(discord.ui.Button):
 
 
 async def setup(bot):
+    """保留資料與功能；入口統一由 /公司 → 品牌與商務 提供。"""
     initialize()
-    from modules.company_portal import CompanyPanel
-    if getattr(CompanyPanel, "_renew_hooked", False):
-        return
-    previous = CompanyPanel.__init__
-
-    def with_renewal(self, uid, gid, is_owner):
-        previous(self, uid, gid, is_owner)
-        self.add_item(RenewalButton())
-
-    CompanyPanel.__init__ = with_renewal
-    CompanyPanel._renew_hooked = True
