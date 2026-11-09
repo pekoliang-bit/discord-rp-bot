@@ -1464,7 +1464,7 @@ class GeneralReviewView(
                             db=db,
                         )
 
-                if accepted and r["kind"] in {"leave", "cp_register"}:
+                if accepted and r["kind"] in {"leave", "cp_register", "item"}:
                     from core.general_case_executors import execute_general_case
                     execute_general_case(db, r, str(i.user.id), owner_mode=owner(i))
 
