@@ -1812,7 +1812,7 @@ class LaunchAuditButton(discord.ui.Button):
     """Only the guild owner can launch the read-only go-live inspection."""
 
     def __init__(self):
-        super().__init__(label='🚪 正式開群', style=discord.ButtonStyle.success, row=2)
+        super().__init__(label='🚪 正式開群', style=discord.ButtonStyle.success, row=3)
 
     async def callback(self, interaction: discord.Interaction):
         require_owner(interaction)
@@ -1830,6 +1830,22 @@ class LaunchAuditButton(discord.ui.Button):
             await interaction.followup.send('⚠️ 系統盤點異常；沒有變更開群狀態。請查看 Railway 日誌。', ephemeral=True)
 
 
+def arrange_official_home(view):
+    """依既有元件重新排版，外掛模組新增按鈕後也需再次呼叫。"""
+    keys = (
+        ("管理員申請", 0), ("管理員名單", 0),
+        ("管理功能中心", 1), ("獎項管理", 1),
+        ("CP", 2), ("返回官方首頁", 2),
+        ("正式開群", 3),
+    )
+    for button in view.children:
+        label = getattr(button, 'label', '') or ''
+        for token, target in keys:
+            if token in label:
+                button.row = target
+                break
+
+
 class OfficialHome(PrivateView):
     def __init__(self, interaction):
         super().__init__(interaction)
@@ -1838,6 +1854,14 @@ class OfficialHome(PrivateView):
         # Hidden from everyone except the actual Discord guild owner.
         if is_owner(interaction):
             self.add_item(LaunchAuditButton())
+        arrange_official_home(self)
+
+    @discord.ui.button(label="⬅️ 返回官方首頁", style=discord.ButtonStyle.secondary, row=2)
+    async def back_to_home(self, interaction, button):
+        await interaction.response.edit_message(
+            content=official_home_text(interaction),
+            view=OfficialHome(interaction),
+        )
 
     @discord.ui.button(label="📝 管理員申請", style=discord.ButtonStyle.primary, row=0)
     async def apply_staff(self, interaction, button):
