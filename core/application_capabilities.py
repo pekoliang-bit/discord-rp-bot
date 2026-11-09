@@ -1,4 +1,3 @@
-```python
 """集中申請與審核的能力宣告。
 
 只有列於 GENERAL_AUTO_EXECUTORS 的一般申請才可在核准時直接執行。
@@ -53,4 +52,3 @@ def general_status_text(kind: str) -> str:
     if state == "pending_executor":
         return "已開放收件，但正式執行器尚未接通；可以駁回，暫不可核准。"
     return "未知申請種類；不能核准。"
-```
