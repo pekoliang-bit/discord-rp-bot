@@ -252,6 +252,16 @@ class AssetView(discord.ui.View):
             return f'✅ 元老單間資產 #{asset}；'+('已完成補建。' if created else '原有登記不重複發放。')
         await interaction.response.send_modal(Form('補登已解鎖開城元老房間',[('character','已解鎖元老稱號的角色 ID','101')],action))
 
+    @discord.ui.button(label='清算前盤點',row=2,emoji='📋')
+    async def exit_report(self,interaction,button):
+        try:
+            actor,cid=context(interaction)
+            from core.asset_integrity import report_for_character,describe_report
+            report=await asyncio.to_thread(report_for_character,actor.guild_id,cid,actor.user_id)
+            await interaction.response.send_message(describe_report(report)[:1900],ephemeral=True)
+        except Exception as exc:
+            await interaction.response.send_message(clean_error(exc),ephemeral=True)
+
     @discord.ui.button(label='銀行與貸款',row=2,emoji='🏦')
     async def finance(self,interaction,button):
         await interaction.response.send_message('資產貸款、分期及抵押審核仍使用既有 `/申請` → 金融事務，還款使用 `/銀行`。本介面不會繞過金融審核或自行產生貸款。',ephemeral=True)
