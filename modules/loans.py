@@ -629,9 +629,12 @@ def repay_in_transaction(
         ),
     )
 
-    if closed:
-        from core.asset_completions import release_bank_loan
-        release_bank_loan(conn, guild_id, loan_id)
+    # 同一 SQL 交易更新資產抵押餘額；非抵押貸款不新增抵押。
+    from core.asset_completions import update_bank_loan_balance
+    update_bank_loan_balance(
+        conn, guild_id, loan_id,
+        loan['approved_amount'], loan['total_due'], loan['repaid'] + amount,
+    )
 
     audit(
         conn,
