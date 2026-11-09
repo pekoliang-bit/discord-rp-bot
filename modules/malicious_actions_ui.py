@@ -9,6 +9,8 @@
 from __future__ import annotations
 
 import discord
+import re
+from core.database import get_connection
 from discord import app_commands
 from discord.ext import commands
 
@@ -101,19 +103,47 @@ def create_rumor_if_ready(guild_id: str, action_id: int) -> tuple[int | None, st
     return rumor_id, "已自動建立傳聞案件" if rumor_id else "無需建立傳聞"
 
 
+_PLAYER_LINK = re.compile(
+    r"(?:<@!?([0-9]{15,25})>|(?:https?://)?(?:www\.)?(?:discord\.com|discordapp\.com)/(?:users|channels/@me)/([0-9]{15,25})/?|([0-9]{15,25}))"
+)
+
+
+def resolve_malicious_target(guild_id, character_name, player_link):
+    """必須同時以精確角色名稱與 Discord 玩家連結確認同一持有人。"""
+    name = str(character_name).strip()
+    link = str(player_link).strip()
+    if not name or len(name) > 100:
+        raise ValueError('請填寫完整目標角色名稱（最多 100 字）。')
+    match = _PLAYER_LINK.fullmatch(link)
+    if not match:
+        raise ValueError('玩家連結請填 Discord 個人資料連結、使用者提及或使用者 ID。')
+    uid = next(part for part in match.groups() if part)
+    with get_connection() as db:
+        rows = db.execute(
+            "SELECT id FROM characters WHERE guild_id=? AND owner_id=? "
+            "AND name=? AND status='active' LIMIT 2",
+            (str(guild_id), uid, name),
+        ).fetchall()
+    if not rows:
+        raise LookupError('找不到該玩家持有的已啟用同名角色，請核對角色名與玩家連結。')
+    if len(rows) > 1:
+        raise ValueError('同一玩家有多名同名角色，請先請管理員處理重名。')
+    return int(rows[0]['id'])
+
+
 class MaliciousActionsUI(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
     @app_commands.command(name='惡意', description='在自己角色的機器人使用帖子發動角色對角色行動')
     @app_commands.guild_only()
-    @app_commands.describe(目標角色編號='要針對的已啟用角色 ID',
+    @app_commands.describe(目標角色名字='目標角色的完整名稱', 玩家連結='Discord 個人資料連結或玩家提及',
                            行動='惡意行動類型', 強度='金幣投入等級',
                            標題='傳聞或行動標題（1～80字）',
                            內容='RP 劇情敘述（1～500字）', 匿名='是否隱藏發起角色')
     @app_commands.choices(行動=ACTION_CHOICES, 強度=LEVEL_CHOICES)
     async def malicious(self, interaction: discord.Interaction,
-                        目標角色編號: int | None = None, 行動: app_commands.Choice[str] | None = None,
+                        目標角色名字: str | None = None, 玩家連結: str | None = None, 行動: app_commands.Choice[str] | None = None,
                         強度: app_commands.Choice[str] | None = None, 標題: str | None = None, 內容: str | None = None,
                         匿名: bool = True):
         from modules.task_event_bridge import require_tutorial_channel, mark_tutorial_after_reply
@@ -127,9 +157,9 @@ class MaliciousActionsUI(commands.Cog):
             )
             mark_tutorial_after_reply(interaction, '惡意', tutorial_character)
             return
-        if any(value is None for value in (目標角色編號, 行動, 強度, 標題, 內容)):
+        if any(value is None for value in (目標角色名字, 玩家連結, 行動, 強度, 標題, 內容)):
             await interaction.response.send_message(
-                '正式使用 `/惡意` 必須填寫目標角色編號、行動、強度、標題與內容。', ephemeral=True,
+                '正式使用 `/惡意` 必須填寫目標角色名字、玩家連結、行動、強度、標題與內容。', ephemeral=True,
             )
             return
         guild = interaction.guild
@@ -151,11 +181,16 @@ class MaliciousActionsUI(commands.Cog):
             await interaction.response.send_message(
                 '⚠️ 特殊惡意事件需先經官方審核，目前不直接扣款或結算。', ephemeral=True)
             return
+        try:
+            target_id = resolve_malicious_target(guild.id, 目標角色名字, 玩家連結)
+        except (ValueError, LookupError) as exc:
+            await interaction.response.send_message(f'⛔ {exc}', ephemeral=True)
+            return
         request = MaliciousRequest(
             guild_id=authorization.guild_id,
             actor_user_id=authorization.actor_user_id,
             actor_character_id=authorization.character_id,
-            target_character_id=目標角色編號,
+            target_character_id=target_id,
             action_type=行動.value,
             level=強度.value,
             anonymous=匿名,
