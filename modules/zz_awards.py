@@ -612,6 +612,8 @@ def patch_interfaces():
 
                 button.callback = open_awards
                 self.add_item(button)
+            from modules.official_center import arrange_official_home
+            arrange_official_home(self)
 
         OfficialHome.__init__ = init_official
         OfficialHome._rp_awards_patched = True
