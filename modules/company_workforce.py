@@ -168,7 +168,7 @@ def owner(db, gid, company, uid):
                 FROM rp_business_entities
                 WHERE guild_id = ?
                   AND business_id = ?
-                  AND kind = 'company'
+                  AND kind IN ('company','group')
                   AND status = 'active'
                 """,
                 (gid, company),
@@ -370,7 +370,7 @@ def apply_job(gid, company, uid, cid):
                     FROM rp_business_entities
                     WHERE guild_id = ?
                       AND business_id = ?
-                      AND kind = 'company'
+                      AND kind IN ('company','group')
                       AND status = 'active'
                     """,
                     (gid, company),
