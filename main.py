@@ -593,6 +593,13 @@ class RPBot(commands.Bot):
             raise RuntimeError(
                 "頂層斜線指令存在重複名稱。"
             )
+        # 不可將缺失的正式 Slash 指令同步為「成功」。
+        # 在 Discord 實際同步前阻擋錯誤，保留舊版遠端指令供管理者查核。
+        if self.command_report["missing"]:
+            raise RuntimeError(
+                "正式斜線指令未載入，已取消同步："
+                + "、".join(self.command_report["missing"])
+            )
 
         # 全域指令同步
         synced_global = await self.tree.sync()
