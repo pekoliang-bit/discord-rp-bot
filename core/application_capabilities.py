@@ -8,13 +8,13 @@ from __future__ import annotations
 
 GENERAL_AUTO_EXECUTORS = frozenset({
     "company_bank", "shop_bank", "faction_join", "faction_exit",
-    "faction_change", "character_edit",
+    "faction_change", "character_edit", "leave", "cp_register",
 })
 
 GENERAL_PENDING_EXECUTORS = frozenset({
     "item", "item_create", "role_retire",
-    "npc_resign", "npc_switch", "cp_register",
-    "location_add", "channel_add", "leave",
+    "npc_resign", "npc_switch",
+    "location_add", "channel_add",
 })
 
 SPECIAL_ROUTES = {
