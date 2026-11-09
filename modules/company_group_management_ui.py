@@ -12,6 +12,7 @@ import logging
 import discord
 
 from core.database import transaction
+from modules.company_select_ui import open_company_chooser
 from core.company_group_overview import (
     group_overview,
     format_group_overview,
@@ -24,7 +25,7 @@ LOG = logging.getLogger(__name__)
 
 
 class GroupAttachModal(discord.ui.Modal):
-    def __init__(self, gid, uid):
+    def __init__(self, gid, uid, selected_company=None):
         super().__init__(
             title="集團｜納入旗下公司",
             timeout=300,
@@ -32,13 +33,18 @@ class GroupAttachModal(discord.ui.Modal):
 
         self.gid = str(gid)
         self.uid = str(uid)
+        self.selected_company = selected_company
 
         self.company_id = discord.ui.TextInput(
             label="正式公司編號",
             max_length=100,
         )
 
-        self.add_item(self.company_id)
+        if self.selected_company is None:
+            self.add_item(self.company_id)
+        else:
+            self.confirm = discord.ui.TextInput(label='輸入「確認」以納入集團', max_length=2)
+            self.add_item(self.confirm)
 
     async def on_submit(self, interaction):
         if (
@@ -49,6 +55,9 @@ class GroupAttachModal(discord.ui.Modal):
                 "這不是你的操作表單。",
                 ephemeral=True,
             )
+
+        if self.selected_company is not None and self.confirm.value.strip() != '確認':
+            return await interaction.response.send_message('尚未確認，沒有變更集團公司名單。', ephemeral=True)
 
         await interaction.response.defer(
             ephemeral=True,
@@ -69,9 +78,7 @@ class GroupAttachModal(discord.ui.Modal):
                     "你目前沒有正式集團。"
                 )
 
-            company_id = (
-                self.company_id.value.strip()
-            )
+            company_id = self.selected_company or self.company_id.value.strip()
 
             def do_attach():
                 with transaction() as db:
@@ -205,12 +212,7 @@ class CompanyGroupView(discord.ui.View):
         style=discord.ButtonStyle.secondary,
     )
     async def attach(self, interaction, button):
-        await interaction.response.send_modal(
-            GroupAttachModal(
-                self.gid,
-                self.uid,
-            )
-        )
+        await open_company_chooser(interaction, self.uid, GroupAttachModal, kinds=('company',))
 
 
 class CompanyGroupEntry(discord.ui.Button):
