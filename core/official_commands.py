@@ -1,7 +1,7 @@
 """單一正式頂層指令清單；不匯入 Discord、資料庫或主程式。"""
-from \_\_future\_\_ import annotations
+from __future__ import annotations
 
-OFFICIAL\_COMMANDS = \{
+OFFICIAL_COMMANDS = {
     "創角": "角色建立、NPC 與角色草稿",
     "查看": "角色檔案、背包、資產及生平",
     "登記": "作品、演藝履歷與正式登記",
@@ -25,8 +25,7 @@ OFFICIAL\_COMMANDS = \{
     "網路": "社群、影片、直播及評論",
     "行動": "打工、活動、課程與行動",
     "通知": "系統、角色與活動通知",
-    "稱號": "稱號與特殊效果",
     "資產": "大型資產及租賃產權",
-\}
+}
 
-OFFICIAL\_COMMAND\_NAMES = frozenset&#40;OFFICIAL\_COMMANDS&#41;
+OFFICIAL_COMMAND_NAMES = frozenset(OFFICIAL_COMMANDS)
