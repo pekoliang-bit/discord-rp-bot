@@ -32,20 +32,17 @@ def maybe_create_group(
     if not eligibility["automatic_eligible"]:
         return None
 
-    # A character id can be re-used across guild migrations or earlier
-    # business imports. Allocate an unused id within this guild atomically.
-    base_id = f"AUTO-GRP-{owner_character_id}"
-    group_id = base_id
-    suffix = 2
-    while db.execute(
-        "SELECT 1 FROM rp_business_entities "
-        "WHERE guild_id=? AND business_id=?",
-        (gid, group_id),
-    ).fetchone():
-        group_id = f"{base_id}-{suffix}"
-        suffix += 1
-        if suffix > 10000:
-            raise RuntimeError("無法分配不重複的集團編號")
+    # 集團共用本伺服器的公司／集團流水號，避免與手動申請重複。
+    # 仍維持同一筆審核交易，失敗會連同新增集團一起回滾。
+    from core.company_public_ids import ensure_companies, _next, prefix
+    ensure_companies(db, gid)
+    ordinal = _next(db, gid)
+    group_id = f"{prefix(gid)}-{ordinal}"
+    db.execute(
+        "INSERT INTO rp_company_public_codes "
+        "(guild_id,business_id,public_code,ordinal) VALUES(?,?,?,?)",
+        (gid, group_id, group_id, ordinal),
+    )
 
     db.execute(
         """
