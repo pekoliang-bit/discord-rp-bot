@@ -26,15 +26,17 @@ class ContractTests(unittest.TestCase):
         tree=ast.parse(source('modules/company_portal.py'))
         cls=next(x for x in tree.body if isinstance(x,ast.ClassDef) and x.name=='CompanyPanel')
         rows=buttons(cls)
-        self.assertEqual(len(rows),6)
-        self.assertEqual([sum(v==r for v in rows.values()) for r in range(3)],[3,2,1])
+        self.assertEqual(len(rows),3)
+        self.assertEqual([sum(v==r for v in rows.values()) for r in range(3)],[2,1,0])
+        self.assertIn('👔 員工與任職',rows)
+        self.assertIn('🏢 公司管理功能',rows)
         self.assertIn('⬅️ 返回公司首頁',source('modules/company_portal.py'))
     def test_profile_four_pages(self):
         src=source('modules/character_view.py')
         tree=ast.parse(src)
         fn=next(x for x in tree.body if isinstance(x,ast.FunctionDef) and x.name=='_character_detail_max_page')
         self.assertIn('return 3',ast.get_source_segment(src,fn))
-        for title in ('🪪 編號', '📋 基本資料', '📅 工作檔期／倒數',
+        for title in ('🔒 私人編號', '📋 基本資料', '📅 工作檔期／倒數',
                       '🏷️ 大眾印象', '💰 貨幣資產', '🚗 車子', '🏠 房產',
                       '🏢 公司／產業', '📝 備註'):
             self.assertIn(title,src)
