@@ -1194,6 +1194,14 @@ def _panel_embed(title, text):
 
 def _panel_cp(actor, cid):
     with get_connection() as db:
+        if _panel_table(db, 'rp_registered_partnerships'):
+            rows = db.execute("""SELECT c.id,c.name,p.relationship_kind
+                FROM rp_registered_partnerships p JOIN characters c
+                ON c.guild_id=p.guild_id AND c.id=(CASE WHEN p.character_a=? THEN p.character_b ELSE p.character_a END)
+                WHERE p.guild_id=? AND (p.character_a=? OR p.character_b=?)""",
+                (cid,str(actor.guild_id),cid,cid)).fetchall()
+            if rows:
+                return "、".join(f"{r['name']}（#{r['id']}，{r['relationship_kind']}）" for r in rows)
         if not _panel_table(db, 'rp_cp_pairs'):
             return "尚未建立正式 CP。"
         rows=db.execute("""SELECT c.id,c.name FROM rp_cp_pairs p JOIN characters c
@@ -1206,6 +1214,15 @@ def _panel_cp(actor, cid):
 def _panel_relationships(actor,cid,page=0):
     with get_connection() as db:
         if not _panel_table(db,'rp_relationship_scores'):
+            registered = []
+            if _panel_table(db,'rp_registered_partnerships'):
+                registered = db.execute("""SELECT p.character_a,p.character_b,p.relationship_kind,c.name,c.id
+                    FROM rp_registered_partnerships p JOIN characters c
+                    ON c.guild_id=p.guild_id AND c.id=(CASE WHEN p.character_a=? THEN p.character_b ELSE p.character_a END)
+                    WHERE p.guild_id=? AND (p.character_a=? OR p.character_b=?)""",
+                    (cid,str(actor.guild_id),cid,cid)).fetchall()
+            if registered:
+                return '\n'.join(f"**{r['name']}（#{r['id']}）**｜正式{r['relationship_kind']}" for r in registered),0
             return '尚無好感度紀錄。',0
         rows=db.execute("""SELECT r.a,r.b,r.kind,r.points,c.name,
          COALESCE(t.name,'') AS relation_name
