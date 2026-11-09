@@ -219,6 +219,75 @@ def mark_done(draw_id):
         )
 
 
+
+def _newcomer_owned_characters(guild_id, user_id):
+    with get_connection() as db:
+        return [dict(row) for row in db.execute(
+            "SELECT id,name FROM characters WHERE guild_id=? AND owner_id=? "
+            "AND status='active' ORDER BY id",
+            (str(guild_id), str(user_id)),
+        )]
+
+
+async def _deliver_newcomer(i, character_id):
+    await i.response.defer(ephemeral=True, thinking=True)
+    try:
+        from modules.newcomer_lottery import draw as newcomer_draw, LABELS
+        result = newcomer_draw(i.guild_id, i.user.id, int(character_id))
+        name = LABELS[result['kind']]
+        if result['kind'] == 'product':
+            name += f"（商品編號 #{result['product_id']}）"
+        prefix = '你已領過' if result['status'] == 'already' else '已發放'
+        await tell(i, f'🎁 {prefix}新人禮包：{name}。')
+    except (ValueError, sqlite3.Error) as exc:
+        await tell(i, f'⚠️ {exc}')
+    except Exception:
+        LOG.exception('新人禮包發獎失敗')
+        await tell(i, '⚠️ 獎勵發放失敗，請稍後重試；不會消耗已發獎的次數。')
+
+
+class NewcomerRoleSelect(discord.ui.View):
+    """角色由伺服器、玩家雙重限制；不公開任何角色內部編號。"""
+    def __init__(self, guild_id, user_id, characters):
+        super().__init__(timeout=180)
+        self.gid, self.uid = str(guild_id), str(user_id)
+        self.characters = characters
+        self.page = 0
+        self.refresh()
+
+    def refresh(self):
+        self.clear_items()
+        block = self.characters[self.page*25:(self.page+1)*25]
+        options = [discord.SelectOption(label=str(row['name'])[:100], value=str(row['id'])) for row in block]
+        select = discord.ui.Select(placeholder='請選擇要領取新人禮包的角色', options=options, row=0)
+
+        async def chosen(i):
+            cid = int(select.values[0])
+            if cid not in {int(r['id']) for r in _newcomer_owned_characters(self.gid, self.uid)}:
+                return await i.response.send_message('角色已停用或不屬於你，請重新開啟抽獎。', ephemeral=True)
+            await _deliver_newcomer(i, cid)
+        select.callback = chosen
+        self.add_item(select)
+        if len(self.characters) > 25:
+            for title, delta, disabled in (
+                ('◀️ 上一頁', -1, self.page == 0),
+                ('下一頁 ▶️', 1, (self.page+1)*25 >= len(self.characters))
+            ):
+                btn = discord.ui.Button(label=title, style=discord.ButtonStyle.secondary, disabled=disabled, row=1)
+                async def navigate(i, move=delta):
+                    self.page += move
+                    self.refresh()
+                    await i.response.edit_message(view=self)
+                btn.callback = navigate
+                self.add_item(btn)
+
+    async def interaction_check(self, i):
+        if str(i.guild_id) != self.gid or str(i.user.id) != self.uid:
+            await i.response.send_message('這不是你的角色選擇介面。', ephemeral=True)
+            return False
+        return True
+
+
 class LotteryCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -342,7 +411,7 @@ class LotteryCog(commands.Cog):
         name='抽獎',
         description='在討論串或論壇帖子內，按名稱對應獎單抽獎',
     )
-    async def draw(self, i: discord.Interaction, 角色編號: int | None = None):
+    async def draw(self, i: discord.Interaction):
         from modules.task_event_bridge import require_tutorial_channel, mark_tutorial_after_reply
         allowed, tutorial_character = await require_tutorial_channel(i, '抽獎')
         if not allowed:
@@ -365,22 +434,16 @@ class LotteryCog(commands.Cog):
 
         # 新人禮包採獨立的「角色」抽獎紀錄，不影響一般獎單每玩家一次的規則。
         if i.channel.name.strip() == '新人禮包':
-            if 角色編號 is None or 角色編號 < 1:
-                return await tell(i, '🎁 新人禮包請提供你已正式啟用的角色編號。')
-            await i.response.defer(ephemeral=True, thinking=True)
-            try:
-                from modules.newcomer_lottery import draw as newcomer_draw, LABELS
-                result = newcomer_draw(i.guild_id, i.user.id, 角色編號)
-                name = LABELS[result['kind']]
-                if result['kind'] == 'product':
-                    name += f"（商品編號 #{result['product_id']}）"
-                prefix = '你已領過' if result['status'] == 'already' else '已發放'
-                return await tell(i, f'🎁 角色 #{角色編號} {prefix}新人禮包：{name}。')
-            except (ValueError, sqlite3.Error) as exc:
-                return await tell(i, f'⚠️ {exc}')
-            except Exception:
-                LOG.exception('新人禮包發獎失敗')
-                return await tell(i, '⚠️ 獎勵發放失敗，請稍後重試；不會消耗已發獎的次數。')
+            characters = _newcomer_owned_characters(i.guild_id, i.user.id)
+            if not characters:
+                return await tell(i, '🎁 你目前沒有已啟用的角色可以領取新人禮包。')
+            if len(characters) == 1:
+                return await _deliver_newcomer(i, characters[0]['id'])
+            return await i.response.send_message(
+                '🎁 請選擇要領取新人禮包的角色：',
+                view=NewcomerRoleSelect(i.guild_id, i.user.id, characters),
+                ephemeral=True,
+            )
 
         lottery = find_list(i.guild_id, i.channel.name)
 
