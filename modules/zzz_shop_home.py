@@ -137,7 +137,7 @@ def buy_actions(
     不限制累計購買數量。
     """
 
-    if not isinstance(quantity, int):
+    if type(quantity) is not int:
         raise ValueError(
             "購買數量必須是整數。"
         )
@@ -148,6 +148,9 @@ def buy_actions(
             "可分次購買，累計沒有上限。"
         )
 
+    if not isinstance(request_key, str) or not 1 <= len(request_key.strip()) <= 150:
+        raise ValueError('購買交易識別碼無效')
+
     with transaction() as conn:
         shop.require_character(
             conn,
@@ -157,6 +160,14 @@ def buy_actions(
 
         now = datetime.now(timezone.utc)
         now_text = now.isoformat()
+
+        # 確保帳本存在。呼叫者不需要先到管理面板初始化。
+        conn.execute("""CREATE TABLE IF NOT EXISTS paid_action_packs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            guild_id TEXT NOT NULL, character_id INTEGER NOT NULL,
+            quantity INTEGER NOT NULL, remaining INTEGER NOT NULL,
+            purchased_at TEXT NOT NULL, expires_at TEXT NOT NULL,
+            request_key TEXT NOT NULL, UNIQUE(guild_id, request_key))""")
 
         # 過期行動值歸零。
         conn.execute(
@@ -178,7 +189,7 @@ def buy_actions(
         # 防止同一筆請求重複扣款。
         existing = conn.execute(
             """
-            SELECT id
+            SELECT id, character_id, quantity
             FROM paid_action_packs
             WHERE guild_id=?
               AND request_key=?
@@ -190,6 +201,8 @@ def buy_actions(
         ).fetchone()
 
         if existing:
+            if int(existing['character_id']) != int(character_id) or int(existing['quantity']) != quantity:
+                raise ValueError('這個交易識別碼已用於其他角色或不同購買數量')
             return (
                 "✅ 這筆行動值購買已經完成，"
                 "不會再次扣款。"
