@@ -147,8 +147,62 @@ class LegacyScheduleModal(discord.ui.Modal,title='補登記舊通告檔期'):
         await reply(i,f'✅ 已核對並補登記 {count} 筆實際工作預約。沒有建立新的通告或合約。')
 
 class TaskAdminView(discord.ui.View):
-    def __init__(self,user_id,guild_id):
-        super().__init__(timeout=300);self.user_id=user_id;self.guild_id=guild_id
+    """分層任務面板：維持既有按鈕回呼，只改排列與導覽。"""
+    SECTION_LABELS = {
+        'tasks': '📝 任務建立與設定',
+        'review': '✅ 報名與回報審核',
+        'variety': '🎬 綜藝期數與播出',
+        'operations': '⚙️ 人員與工作檔期',
+    }
+    SECTION_BUTTONS = {
+        'tasks': ('建立草稿','編輯任務','發布／停用','五級條件','任務清單'),
+        'review': ('審核回報','待審清單','綜藝待審','審核綜藝'),
+        'variety': ('綜藝下一期','綜藝播出'),
+        'operations': ('授權管理員','操作紀錄','設定工作檔期','補登記舊工作'),
+    }
+
+    def __init__(self,user_id,guild_id,section='home'):
+        super().__init__(timeout=300)
+        self.user_id=user_id
+        self.guild_id=guild_id
+        self.section=section
+        self._arrange()
+
+    def _arrange(self):
+        original=list(self.children)
+        self.clear_items()
+        if self.section == 'home':
+            for idx,(key,label) in enumerate(self.SECTION_LABELS.items()):
+                button=discord.ui.Button(label=label,style=discord.ButtonStyle.primary,row=idx//2)
+                async def open_section(i, selected=key):
+                    await i.response.edit_message(
+                        content=f'📋 **官方任務管理｜{self.SECTION_LABELS[selected]}**',
+                        view=VarietyTaskAdminView(self.user_id,self.guild_id,section=selected))
+                button.callback=open_section
+                self.add_item(button)
+            self._add_navigation(home=True)
+            return
+        labels=self.SECTION_BUTTONS.get(self.section)
+        if labels is None:
+            raise ValueError('未知任務管理分類')
+        selected=[item for item in original if getattr(item,'label',None) in labels]
+        for idx,item in enumerate(selected):
+            item.row=idx//4
+            self.add_item(item)
+        self._add_navigation(home=False)
+
+    def _add_navigation(self,*,home):
+        back=discord.ui.Button(label='⬅️ 返回內容建立' if home else '⬅️ 返回任務管理',
+                               style=discord.ButtonStyle.secondary,row=4)
+        async def callback(i):
+            if home:
+                from modules.content_builder import ContentView
+                await i.response.edit_message(content='✍️ **內容建立中心**',view=ContentView(i))
+            else:
+                await i.response.edit_message(content='📋 **官方任務管理**',
+                    view=VarietyTaskAdminView(self.user_id,self.guild_id))
+        back.callback=callback
+        self.add_item(back)
     async def interaction_check(self,i):
         if i.guild_id!=self.guild_id or i.user.id!=self.user_id or not authorized(i):
             await reply(i,'沒有這個任務管理面板的權限');return False
@@ -250,4 +304,3 @@ class VarietyTaskAdminView(TaskAdminView):
     async def work_schedule(self,i,b):await i.response.send_modal(WorkScheduleModal())
     @discord.ui.button(label='補登記舊工作',row=4)
     async def backfill_work_schedule(self,i,b):await i.response.send_modal(LegacyScheduleModal())
-
