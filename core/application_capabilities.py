@@ -1,3 +1,4 @@
+```python
 """集中申請與審核的能力宣告。
 
 只有列於 GENERAL_AUTO_EXECUTORS 的一般申請才可在核准時直接執行。
@@ -7,12 +8,12 @@
 from __future__ import annotations
 
 GENERAL_AUTO_EXECUTORS = frozenset({
-    "company_bank", "shop_bank", "faction_join", "faction_exit",
+    "company_bank", "shop_bank", "item", "faction_join", "faction_exit",
     "faction_change", "character_edit", "leave", "cp_register",
 })
 
 GENERAL_PENDING_EXECUTORS = frozenset({
-    "item", "item_create", "role_retire",
+    "item_create", "role_retire",
     "npc_resign", "npc_switch",
     "location_add", "channel_add",
 })
@@ -52,3 +53,4 @@ def general_status_text(kind: str) -> str:
     if state == "pending_executor":
         return "已開放收件，但正式執行器尚未接通；可以駁回，暫不可核准。"
     return "未知申請種類；不能核准。"
+```
