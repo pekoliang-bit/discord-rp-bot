@@ -204,47 +204,109 @@ class CommercialModal(discord.ui.Modal):
         )
 
 
+COMMERCIAL_GROUPS = (
+    ('🎤 代言邀請', 'invites'),
+    ('📑 代言合約', 'contracts'),
+    ('💎 品牌商務', 'brands'),
+    ('👔 職位與經驗', 'career'),
+)
+
+
 class CompanyCommercialView(discord.ui.View):
+    """整合舊入口，避免代言模組載入時在公司首頁重複加按鈕。"""
     def __init__(self, gid, uid):
         super().__init__(timeout=300)
-        self.gid = str(gid)
-        self.uid = str(uid)
-
-        items = [
-            ("endorsement_history", "📜 代言紀錄"),
-            ("career", "📈 職位經驗"),
-            ("appoint", "🎤 任命代言"),
-            ("reply_invite", "📨 回覆任命"),
-            ("end", "📜 結束代言"),
-            ("vip", "💎 品牌VIP"),
-            ("exposure", "📣 代言曝光"),
-        ]
-
-        from modules.company_endorsement_finance_ui import EndorsementFinanceEntry
-        self.add_item(EndorsementFinanceEntry())
-        from modules.company_contract_lifecycle_ui import TermsEntry
-        self.add_item(TermsEntry())
-
-        for action, label in items:
-            self.add_item(
-                CommercialActionButton(
-                    action, label
-                )
+        self.gid, self.uid = str(gid), str(uid)
+        selector = discord.ui.Select(
+            placeholder='選擇商務功能分類',
+            options=[discord.SelectOption(label=name, value=key) for name, key in COMMERCIAL_GROUPS],
+            row=0,
+        )
+        async def choose(i):
+            key = selector.values[0]
+            await i.response.edit_message(
+                content=f'📊 **公司商務｜{dict((v,k) for k,v in COMMERCIAL_GROUPS)[key]}**',
+                view=CompanyCommercialCategoryView(self.gid, self.uid, key),
             )
+        selector.callback = choose
+        self.add_item(selector)
 
     async def interaction_check(self, interaction):
-        allowed = (
-            str(interaction.guild_id) == self.gid
-            and str(interaction.user.id) == self.uid
-        )
+        if str(interaction.guild_id) != self.gid or str(interaction.user.id) != self.uid:
+            await respond(interaction, '這不是你的公司商務介面。')
+            return False
+        return True
 
-        if not allowed:
-            await respond(
-                interaction,
-                "這不是你的商務管理面板。",
-            )
 
-        return allowed
+class CompanyCommercialCategoryView(discord.ui.View):
+    def __init__(self, gid, uid, category):
+        super().__init__(timeout=300)
+        self.gid, self.uid = str(gid), str(uid)
+        from modules.endorse import EndorseButton
+        from modules.endorse_life import ContractButton
+        from modules.endorse_rules import HistoryButton
+        from modules.renew import RenewalButton
+        from modules.company_endorsement_finance_ui import EndorsementFinanceEntry
+        from modules.company_contract_lifecycle_ui import TermsEntry
+        groups = {
+            'invites': [EndorseButton('offer'), EndorseButton('pending'), InvitationReplyChooserButton()],
+            'contracts': [ContractButton('list'), ContractButton('manage'), HistoryButton(),
+                          RenewalButton(), TermsEntry()],
+            'brands': [CommercialActionButton('endorsement_history', '📜 代言紀錄'),
+                       CommercialActionButton('appoint', '🎤 任命代言'),
+                       CommercialActionButton('end', '📜 結束代言'),
+                       CommercialActionButton('vip', '💎 品牌VIP'),
+                       CommercialActionButton('exposure', '📣 代言曝光'),
+                       EndorsementFinanceEntry()],
+            'career': [CommercialActionButton('career', '📈 職位經驗')],
+        }
+        for item in groups.get(category, []):
+            item.row = None
+            self.add_item(item)
+        back = discord.ui.Button(label='⬅️ 返回商務分類', style=discord.ButtonStyle.secondary)
+        async def go_back(i):
+            await i.response.edit_message(content='📊 **公司商務管理中心**', view=CompanyCommercialView(self.gid,self.uid))
+        back.callback = go_back
+        self.add_item(back)
+
+    async def interaction_check(self, interaction):
+        if str(interaction.guild_id) != self.gid or str(interaction.user.id) != self.uid:
+            await respond(interaction, '這不是你的公司商務介面。')
+            return False
+        return True
+
+
+class InvitationReplyChooserButton(discord.ui.Button):
+    """避免「回覆代言」與「回覆任命」在同一層形成重複按鈕。"""
+    def __init__(self):
+        super().__init__(label='✅ 回覆邀請', style=discord.ButtonStyle.secondary)
+
+    async def callback(self, interaction):
+        parent = self.view
+        view = InvitationReplySelectView(parent.gid, parent.uid)
+        await interaction.response.send_message('請選擇要回覆的邀請種類。', view=view, ephemeral=True)
+
+
+class InvitationReplySelectView(discord.ui.View):
+    def __init__(self, gid, uid):
+        super().__init__(timeout=180)
+        self.gid, self.uid = str(gid), str(uid)
+        for label, action in (('🎤 代言邀約', 'endorse'), ('👥 管理任命', 'appointment')):
+            btn = discord.ui.Button(label=label, style=discord.ButtonStyle.secondary)
+            async def open_modal(i, selected=action):
+                if selected == 'endorse':
+                    from modules.endorse import DecideModal
+                    await i.response.send_modal(DecideModal())
+                else:
+                    await i.response.send_message('請選擇要回覆的管理任命。', view=AppointmentReplyView(self.gid, self.uid), ephemeral=True)
+            btn.callback = open_modal
+            self.add_item(btn)
+
+    async def interaction_check(self, i):
+        if str(i.user.id) != self.uid or str(i.guild_id) != self.gid:
+            await respond(i, '這不是你的邀請回覆介面。')
+            return False
+        return True
 
 
 class CommercialActionButton(discord.ui.Button):
