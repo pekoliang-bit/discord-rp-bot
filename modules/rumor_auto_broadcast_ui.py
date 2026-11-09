@@ -336,40 +336,22 @@ class RumorAutoCog(commands.Cog):
                 message_id = job["message_id"]
 
                 if not message_id:
-                    # 使用固定工作單 ID 避免重啟後重複發文。
-                    marker = f"[RP-RUMOR:{job_id}]"
-
-                    async for msg in channel.history(
-                        limit=100
-                    ):
+                    # 不將內部工作單 ID／判定標籤顯示給玩家。
+                    # Discord 發送成功但資料庫未更新時，依正文及工作單建立時間重找。
+                    body = f'📰 **娛樂圈傳聞**\n{entry["text"]}'
+                    async for msg in channel.history(limit=100):
                         if (
                             msg.author.id == self.bot.user.id
-                            and marker in msg.content
+                            and msg.content == body
+                            and msg.created_at.timestamp() >= int(job['created_at']) - 2
                         ):
                             message_id = str(msg.id)
                             break
-
                     if not message_id:
-                        polarity = (
-                            "正面"
-                            if entry["polarity"] == "positive"
-                            else "負面"
-                        )
-
                         msg = await channel.send(
-                            (
-                                f"📰 **娛樂圈傳聞｜"
-                                f"{polarity}・未經證實**\n"
-                                f'{entry["text"]}\n\n'
-                                "*此為虛構 RP 事件，"
-                                "並非真實新聞。*\n"
-                                f"||{marker}||"
-                            ),
-                            allowed_mentions=(
-                                discord.AllowedMentions.none()
-                            ),
+                            body,
+                            allowed_mentions=discord.AllowedMentions.none(),
                         )
-
                         message_id = str(msg.id)
 
                     await asyncio.to_thread(
