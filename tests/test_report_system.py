@@ -1,15 +1,14 @@
+
 """Discord RP 舉報系統回歸測試（第 12 檔）。
 
-放置：modules/test_report_system.py
-執行：python -m unittest discover -s modules -p 'test_report_system.py' -v
+放置：tests/test_report_system.py
+執行：python -m unittest discover -s tests -p 'test_report_system.py' -v
 
 不需 Discord Token，也不需要安裝 discord.py。本檔會使用獨立暫存
 SQLite 資料庫實測 report_repository，其餘模組進行原始碼結構／
 安全規則的靜態檢查。靜態檢查不等於 Discord 端到端測試。
 
 注意：此檔案不能作為 Discord Extension 被 bot.load_extension 載入。
-若 main.py 自動載入 modules 下所有 .py，請先修改載入器的排除規則，
-或只在本機測試目錄存放本檔，避免啟動時出現 setup() 錯誤。
 """
 from __future__ import annotations
 
@@ -24,7 +23,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-HERE = Path(__file__).resolve().parent
+HERE = Path(__file__).resolve().parents[1] / "modules"
 FILES = (
     "report_repository", "report_permission_service", "report_service",
     "report_modals", "report_view", "report_review_service",
