@@ -88,7 +88,7 @@ class IntegrationTests(unittest.TestCase):
         ast.parse(text)
         self.assertIn('rp_registered_partnerships',text)
         self.assertIn(
-            '生日：{display_value(settings.get(\'birthday\')',text
+            '生日：{_birthday_month_day(settings.get(\'birthday\'))}',text
         )
         self.assertIn(
             'representative(actor.guild_id, character_id)',text
