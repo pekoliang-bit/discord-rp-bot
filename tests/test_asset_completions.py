@@ -1,3 +1,4 @@
+
 """額外資產整合測試；以全新暫存資料庫執行，不讀正式玩家資料。"""
 import os
 import tempfile
@@ -8,7 +9,9 @@ class CompletionTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.tmp=tempfile.TemporaryDirectory()
-        os.environ['DATABASE_PATH']=str(Path(cls.tmp.name)/'completion.sqlite3')
+        from core import database
+        cls._original_db_path = database.DATABASE_PATH
+        database.DATABASE_PATH = str(Path(cls.tmp.name)/'completion.sqlite3')
         from core.database import init_db,transaction,get_or_create_account
         from core.economy import _payment
         from core import large_assets as a, asset_completions as c
@@ -23,7 +26,10 @@ class CompletionTests(unittest.TestCase):
                 account=get_or_create_account(db,'gt','character',str(cid),'wallet')
                 _payment(db,'gt',f'fund:{cid}',funding,account,10**8,'測試注資')
     @classmethod
-    def tearDownClass(cls):cls.tmp.cleanup()
+    def tearDownClass(cls):
+        from core import database
+        database.DATABASE_PATH = cls._original_db_path
+        cls.tmp.cleanup()
 
     def test_01_share_consent_idempotent(self):
         a=self.a;c=self.c
