@@ -70,6 +70,8 @@ def request_exit(
         raise ValueError("未知的解約類型")
 
     with transaction() as db:
+        from core.company_public_ids import resolve_contract
+        contract_id = resolve_contract(db, gid, contract_id)
         contract = db.execute("""
             SELECT *
             FROM rp_company_employee_contracts
