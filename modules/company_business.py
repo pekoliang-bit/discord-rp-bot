@@ -1,4 +1,3 @@
-
 """公司、品牌、集團的獨立資料模型與核心規則。"""
 
 from __future__ import annotations
@@ -881,16 +880,16 @@ def approve_application(
                 "同名商業主體已存在。"
             )
 
-        if application["kind"] == "company":
-            prefix = "COM"
-        elif application["kind"] == "brand":
-            prefix = "BRD"
+        if application["kind"] in ("company", "group"):
+            from core.company_public_ids import ensure_companies, _next, prefix as code_prefix
+            ensure_companies(db, guild_id)
+            ordinal = _next(db, guild_id)
+            business_id = f"{code_prefix(guild_id)}-{ordinal}"
+            db.execute("""INSERT INTO rp_company_public_codes
+                (guild_id,business_id,public_code,ordinal) VALUES(?,?,?,?)""",
+                (guild_id,business_id,business_id,ordinal))
         else:
-            prefix = "GRP"
-
-        business_id = (
-            f"{prefix}-{application['id']:06d}"
-        )
+            business_id = f"BRD-{application['id']:06d}"
 
         # 確定資金來源。
         if application["funding_source"] == "character":
