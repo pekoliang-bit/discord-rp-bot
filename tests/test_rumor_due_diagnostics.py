@@ -14,18 +14,6 @@ from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 
-for name in (
-    "discord",
-    "discord.ext",
-    "discord.ext.commands",
-    "discord.ext.tasks",
-    "core",
-    "core.rumor_settlement_queue",
-):
-    sys.modules.setdefault(
-        name, types.ModuleType(name)
-    )
-
 
 class FakeLoop:
     def __call__(self, func):
@@ -33,30 +21,33 @@ class FakeLoop:
         return func
 
 
-sys.modules["discord.ext.commands"].Cog = object
-sys.modules["discord.ext.tasks"].loop = (
-    lambda **kw: FakeLoop()
-)
+# 把假的 Discord 與假排程佇列限制在目標模組的匯入階段，
+# 避免全套測試被污染；目標模組在匯入後已持有測試依賴的參考。
+fake_discord = types.ModuleType("discord")
+fake_ext = types.ModuleType("discord.ext")
+fake_commands = types.ModuleType("discord.ext.commands")
+fake_tasks = types.ModuleType("discord.ext.tasks")
+fake_commands.Cog = object
+fake_tasks.loop = lambda **kwargs: FakeLoop()
+fake_ext.commands = fake_commands
+fake_ext.tasks = fake_tasks
+fake_discord.ext = fake_ext
+fake_queue = types.ModuleType("core.rumor_settlement_queue")
+fake_queue.inspect_due_cases = lambda *args, **kwargs: []
 
-sys.modules["discord.ext"].commands = (
-    sys.modules["discord.ext.commands"]
-)
-sys.modules["discord.ext"].tasks = (
-    sys.modules["discord.ext.tasks"]
-)
-
-sys.modules[
-    "core.rumor_settlement_queue"
-].inspect_due_cases = lambda *a, **kw: []
-
-spec = importlib.util.spec_from_file_location(
-    "rumor_due_diagnostics_under_test",
-    ROOT / "modules" / "rumor_due_diagnostics.py",
-)
-
-module = importlib.util.module_from_spec(spec)
-sys.modules[spec.name] = module
-spec.loader.exec_module(module)
+with patch.dict(sys.modules, {
+    "discord": fake_discord,
+    "discord.ext": fake_ext,
+    "discord.ext.commands": fake_commands,
+    "discord.ext.tasks": fake_tasks,
+    "core.rumor_settlement_queue": fake_queue,
+}):
+    spec = importlib.util.spec_from_file_location(
+        "rumor_due_diagnostics_under_test",
+        ROOT / "modules" / "rumor_due_diagnostics.py",
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
 
 
 class DiagnosticsTests(unittest.TestCase):
