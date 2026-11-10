@@ -788,21 +788,41 @@ class NoCharacterApplications(OwnedView):
         self.character_id = None
         self.add_item(__import__("modules.application_extras", fromlist=["ApplicationKindSelect"]).ApplicationKindSelect())
 
-class ApplicationHome(OwnedView):
-    def __init__(
-        self,
-        actor,
-        character_id,
-    ):
-        super().__init__(actor)
+class CharacterServiceSelect(discord.ui.Select):
+    """Character-specific actions are shown in the same menu as general applications."""
+    def __init__(self):
+        options = [
+            discord.SelectOption(label="🏢 公司／品牌／集團", value="business"),
+            discord.SelectOption(label="✅ 接受品牌代表", value="representative"),
+            discord.SelectOption(label="🏪 開設個人店鋪", value="shop"),
+            discord.SelectOption(label="🏦 申請貸款", value="loan"),
+            discord.SelectOption(label="💳 申請信用卡", value="credit"),
+            discord.SelectOption(label="🖤 申請黑卡 VIP", value="black"),
+        ]
+        super().__init__(placeholder="選擇角色／商業／金融申請", options=options, row=1)
 
+    async def callback(self, interaction):
+        if not await self.view.interaction_check(interaction):
+            return
+        button = self.view._application_actions[self.values[0]]
+        await button.callback(interaction)
+
+
+class ApplicationHome(OwnedView):
+    def __init__(self, actor, character_id):
+        super().__init__(actor)
         self.character_id = character_id
         from modules.application_extras import ApplicationKindSelect
-        self.add_item(ApplicationKindSelect())
-        labels = organization_terms(actor.guild_id)
-        for item in self.children:
-            if isinstance(item, discord.ui.Button) and item.label == "🏢 公司／品牌／集團":
-                item.label = f"🏢 {labels['company']}／{labels['brand']}／{labels['group']}"[:80]
+        # Preserve existing business and finance callbacks without exposing six extra buttons.
+        self._application_actions = {
+            name: next(button for button in self.children if isinstance(button, discord.ui.Button)
+                       and button.label == {"business": "🏢 公司／品牌／集團", "representative": "✅ 接受品牌代表", "shop": "🏪 開設個人店鋪", "loan": "🏦 申請貸款", "credit": "💳 申請信用卡", "black": "🖤 申請黑卡 VIP"}[name])
+            for name in ("business", "representative", "shop", "loan", "credit", "black")
+        }
+        for button in self._application_actions.values():
+            self.remove_item(button)
+        self.add_item(ApplicationKindSelect(row=0))
+        self.add_item(CharacterServiceSelect())
 
     @discord.ui.button(
         label="🏢 公司／品牌／集團",
