@@ -1561,7 +1561,7 @@ class AdminToolsView(ManagementView):
                 True,
             ),
             (
-                "場景商店",
+                "頻道商店",
                 "modules.scene_shops",
                 "SceneShopButton",
                 True,
@@ -1572,8 +1572,12 @@ class AdminToolsView(ManagementView):
         if self.owner:
             from modules.rumor_pr_admin_ui import PRStrategyManageButton
             from modules.rumor_auto_broadcast_ui import RumorAutoManageButton
-            self.add_item(PRStrategyManageButton())
-            self.add_item(RumorAutoManageButton())
+            pr_button = PRStrategyManageButton()
+            pr_button.row = 2
+            self.add_item(pr_button)
+            rumor_button = RumorAutoManageButton()
+            rumor_button.row = 2
+            self.add_item(rumor_button)
 
         # A task-only delegate must not see unrelated commerce/admin panels.
         from modules.task_permissions import authorized as task_authorized
@@ -1595,6 +1599,8 @@ class AdminToolsView(ManagementView):
 
                 # 固定排列：商城/金幣、內容/場景，返回獨立一排。
                 button.row = index // 2
+                if label == "頻道商店":
+                    button.label = "🏪 頻道商店"
                 self.add_item(button)
 
             except (
@@ -1610,9 +1616,9 @@ class AdminToolsView(ManagementView):
                 self.unavailable.append(label)
 
     @discord.ui.button(
-        label="🏠 返回官方首頁",
+        label="⬅️ 返回",
         style=discord.ButtonStyle.secondary,
-        row=4,
+        row=3,
     )
     async def back(self, interaction, button):
         await interaction.response.edit_message(
@@ -1702,7 +1708,7 @@ def official_home_text(interaction):
 class OpenAdminToolsButton(discord.ui.Button):
     def __init__(self):
         super().__init__(
-            label="🛠️ 管理功能中心",
+            label="🛠️ 功能管理",
             style=discord.ButtonStyle.primary,
             row=3,
         )
@@ -1833,8 +1839,8 @@ class LaunchAuditButton(discord.ui.Button):
 def arrange_official_home(view):
     """依既有元件重新排版，外掛模組新增按鈕後也需再次呼叫。"""
     keys = (
-        ("管理員申請", 0), ("管理員名單", 0),
-        ("管理功能中心", 1), ("獎項管理", 1),
+        ("管理申請", 0), ("管理名單", 0),
+        ("功能管理", 1), ("獎項管理", 1),
         ("正式開群", 2),
     )
     for button in view.children:
@@ -1855,14 +1861,14 @@ class OfficialHome(PrivateView):
             self.add_item(LaunchAuditButton())
         arrange_official_home(self)
 
-    @discord.ui.button(label="📝 管理員申請", style=discord.ButtonStyle.primary, row=0)
+    @discord.ui.button(label="📝 管理申請", style=discord.ButtonStyle.primary, row=0)
     async def apply_staff(self, interaction, button):
         await interaction.response.send_message(
             "請選擇申請審核員或紀律人員，接著只需填寫暱稱。",
             view=StaffApplyView(interaction), ephemeral=True,
         )
 
-    @discord.ui.button(label="👥 管理員名單", style=discord.ButtonStyle.secondary, row=0)
+    @discord.ui.button(label="👥 管理名單", style=discord.ButtonStyle.secondary, row=0)
     async def staff_roster(self, interaction, button):
         await interaction.response.send_message(
             "👥 **管理員名單**\n查看已通過及審核中的申請。",
