@@ -1,4 +1,3 @@
-
 """Discord RP｜活動完成驗證與正式獎勵結算。
 
 檔案：
@@ -422,6 +421,24 @@ def report_completed(
                 "領獎角色必須是該參加者本人"
                 "持有、已核准的正式角色。"
             )
+
+        # New per-character registration: no rewards for an unselected sibling
+        # character even when the same Discord owner has an accepted entry.
+        registration_table = db.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='rp_event_registration_config'"
+        ).fetchone()
+        if registration_table and db.execute(
+            "SELECT 1 FROM rp_event_registration_config WHERE guild_id=? AND event_id=?",
+            (str(guild_id), int(event_id)),
+        ).fetchone():
+            accepted_character = db.execute(
+                """SELECT 1 FROM rp_event_character_entries
+                   WHERE guild_id=? AND event_id=? AND character_id=?
+                   AND owner_id=? AND status='accepted'""",
+                (str(guild_id), int(event_id), int(character_id), str(player_id)),
+            ).fetchone()
+            if accepted_character is None:
+                raise ValueError("此角色沒有取得該活動的正式參與資格，不可領獎。")
 
         prior = db.execute(
             """
