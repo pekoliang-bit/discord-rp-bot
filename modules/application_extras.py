@@ -26,17 +26,18 @@ LOG = logging.getLogger(__name__)
 
 CATEGORIES = {
     # 舉報、申訴已改由專用保密系統處理；舊案件保留供群主查核。
-    "item": "📦 物品申請",
-    "item_create": "🧰 新增物品申請",
+    "item": "📦 物品領取申請",
+    "item_create": "🧰 官方商城商品上架申請",
     "company_bank": "🏦 公司／集團銀行帳號申請",
     "shop_bank": "🏪 店鋪／品牌銀行帳號申請",
     "role_retire": "🎭 原創角色刪除／退場申請",
     "character_edit": "📝 原創角色資料修改申請",
     "npc_resign": "👤 NPC 辭演申請",
     "npc_switch": "🔄 NPC 更換飾演申請",
-    "cp_register": "💍 伴侶／婚姻登記申請",
-    "location_add": "📍 新增地點申請",
-    "channel_add": "📺 頻道新增申請",
+    "cp_register": "💍 結婚／離婚申請",
+    "location_add": "📍 新增地點／頻道申請",
+    "channel_add": "📺 新增地點／頻道（舊入口）",
+    "action_expand": "➕ 現有頻道行動擴充申請",
     "faction_join": "🏳️ 加入陣營申請",
     "faction_exit": "🚪 退出陣營申請",
     "faction_change": "🔄 轉換陣營申請",
@@ -126,6 +127,44 @@ FORM_FIELDS["faction_change"] = [
 # 角色資料修改採一次填寫、一次送出；不用逐欄位開啟表單。
 FORM_FIELDS["character_edit"] = [
     ("每行一項：欄位名稱：修改後內容", 4000, True),
+]
+
+
+# 已核准的簡化表單。所有已存在的角色 / 商城 / 頻道資訊儘量由系統查核，
+# 不再要求沒有用途的證明網址。複雜場所行動另由 ActionApplicationView 分步收集。
+FORM_FIELDS["npc_resign"] = [
+    ("目前飾演 NPC 姓名", 100, False),
+    ("目前 NPC 編號", 70, False),
+    ("辭演原因", 1500, True),
+]
+FORM_FIELDS["npc_switch"] = [
+    ("原 NPC 姓名", 100, False),
+    ("原 NPC 編號", 70, False),
+    ("目標 NPC 姓名", 100, False),
+    ("更換原因及說明", 1300, True),
+    ("首次飾演真人照片連結（選填）", 500, False),
+]
+FORM_FIELDS["item_create"] = [
+    ("官方商城商品名稱及效果", 500, True),
+    ("上架分類", 100, False),
+    ("價格（金幣）", 30, False),
+    ("購買限制（不限／終身／週期）", 100, False),
+    ("限購數量及週期（選填）", 200, False),
+]
+FORM_FIELDS["item"] = [
+    ("申請物品名稱及數量", 140, False),
+    ("用途及取得理由", 1500, True),
+]
+FORM_FIELDS["role_retire"] = [
+    ("角色姓名", 100, False),
+    ("角色編號", 70, False),
+    ("申請操作（刪除／退場）及原因", 900, True),
+    ("角色結局", 1500, True),
+]
+FORM_FIELDS["cp_register"] = [
+    ("對方角色姓名", 100, False),
+    ("對方角色編號", 70, False),
+    ("登記操作（結婚／離婚）", 20, False),
 ]
 
 CHARACTER_EDIT_FIELDS = {
@@ -657,6 +696,7 @@ class ApplicationModal(discord.ui.Modal):
         i,
         kind,
         character_id=None,
+        preset=None,
     ):
 
         if kind not in CATEGORIES:
@@ -674,12 +714,15 @@ class ApplicationModal(discord.ui.Modal):
         self.gid = i.guild_id
         self.character_id = character_id
         self.fields = []
+        self.preset = dict(preset or {})
 
         for (
             label,
             max_length,
             paragraph,
         ) in FORM_FIELDS[kind]:
+            if label in self.preset:
+                continue
 
             optional = (
                 "選填" in label
@@ -731,10 +774,9 @@ class ApplicationModal(discord.ui.Modal):
 
             init_db()
 
-            values = [
-                str(f.value or "").strip()
-                for f in self.fields
-            ]
+            submitted = {f.label: str(f.value or "").strip() for f in self.fields}
+            submitted.update(self.preset)
+            values = [submitted.get(label, "") for label, _, _ in FORM_FIELDS[self.kind]]
 
             if self.kind == "character_edit":
                 if self.character_id is None:
@@ -757,15 +799,27 @@ class ApplicationModal(discord.ui.Modal):
             if not title:
                 raise ValueError("請填寫申請內容。")
 
+            if self.kind == "item_create":
+                if int(values[2]) < 0:
+                    raise ValueError("商城價格不能為負數")
+                if not values[1]:
+                    raise ValueError("必須選擇商城分類")
+                if not any(x in values[3] for x in ("不限", "終身", "週期")):
+                    raise ValueError("請填寫購買限制類型：不限／終身／週期")
+                if values[3] != "不限" and not values[4]:
+                    raise ValueError("限購商品必須填寫數量及週期")
+            if self.kind == "cp_register":
+                if values[2] not in ("結婚", "離婚"):
+                    raise ValueError("婚姻登記只提供結婚或離婚")
+            if self.kind == "npc_switch" and values[4]:
+                if not values[4].startswith(("https://", "http://")):
+                    raise ValueError("NPC 真人照片必須是有效網址")
             if self.kind == "character_edit" and not values[0]:
                 raise ValueError("請先寫完要修改的內容。")
 
             details = "\n".join(
-                f"【{f.label}】{value}"
-                for f, value in zip(
-                    self.fields,
-                    values,
-                )
+                f"【{label}】{value}"
+                for (label, _, _), value in zip(FORM_FIELDS[self.kind], values)
                 if value
             )
 
@@ -920,7 +974,7 @@ class ApplicationModal(discord.ui.Modal):
                         self.kind,
                         title,
                         details,
-                        "" if self.kind == "character_edit" else values[-1],
+                        "",
                     ),
                 )
 
@@ -1119,6 +1173,33 @@ class FactionRequestView(discord.ui.View):
             await i.response.send_message(f"⚠️ 送件失敗：{exc}", ephemeral=True)
 
 
+class ApplicationChoiceSelect(discord.ui.Select):
+    def __init__(self, kind, choices, selected_label):
+        self.kind = kind
+        self.selected_label = selected_label
+        super().__init__(placeholder="選擇" + selected_label, options=[
+            discord.SelectOption(label=name[:100], value=value) for value,name in choices[:25]
+        ])
+
+    async def callback(self, interaction):
+        v = self.view
+        if interaction.user.id != v.user_id or interaction.guild_id != v.guild_id:
+            return await interaction.response.send_message("這不是你的申請選單。", ephemeral=True)
+        await interaction.response.send_modal(ApplicationModal(
+            interaction, v.kind, v.character_id, preset={self.selected_label: self.values[0]}
+        ))
+
+
+class ApplicationChoiceView(discord.ui.View):
+    def __init__(self, guild_id, user_id, character_id, kind, choices, label):
+        super().__init__(timeout=300)
+        self.guild_id = guild_id
+        self.user_id = user_id
+        self.character_id = character_id
+        self.kind = kind
+        self.add_item(ApplicationChoiceSelect(kind, choices, label))
+
+
 async def dispatch_application_kind(i, view, kind):
     if str(i.user.id) != str(view.actor.user_id) or str(i.guild_id) != str(view.actor.guild_id):
         return await say(i, "⛔ 這不是你的申請選單。")
@@ -1142,6 +1223,19 @@ async def dispatch_application_kind(i, view, kind):
         return await i.response.send_message(
             "🎟️ **我主辦的活動**\n請輸入活動編號，系統會核對是否為該活動主辦者或管理員。",
             view=EventRegistrationAdminView(i), ephemeral=True,
+        )
+    if kind in {"location_add", "channel_add", "action_expand"}:
+        from modules.action_application_builder import ActionApplicationView
+        actual_kind = "location_add" if kind == "channel_add" else kind
+        return await i.response.send_message(
+            "📍 **場所與行動申請**\n"
+            "新地點請先設定名稱、所屬區域、頻道類型、用途與隨機事件概念；"
+            "再按＋分別新增打工、活動、課程各至少一項。"
+            "已有頻道可直接選頻道，按＋新增想擴充的行動。\n"
+            "數值最多三項：容貌:5 或 才智:隨機（1～15）；影響指數禁止。"
+            "活動與課程的價格會依實際抽到點數核算。",
+            view=ActionApplicationView(i.guild_id, i.user.id, view.character_id, actual_kind),
+            ephemeral=True,
         )
     if kind in {"faction_join", "faction_exit", "faction_change"}:
         if view.character_id is None:
@@ -1182,6 +1276,20 @@ async def dispatch_application_kind(i, view, kind):
             view=BankRequestView(i.guild_id, i.user.id, kind),
             ephemeral=True,
         )
+    if kind == "item_create":
+        from modules.zzz_shop_home import STORES
+        categories = [(code, f"{code} {name}") for code, name in STORES if code != "B10"]
+        return await i.response.send_message(
+            "請先選擇官方商城上架分類，再填寫商品名稱、價格及限購規則。",
+            view=ApplicationChoiceView(i.guild_id, i.user.id, view.character_id,
+                kind, categories, "上架分類"), ephemeral=True)
+    if kind == "cp_register":
+        if view.character_id is None:
+            return await say(i, "婚姻申請需要先選擇自己的啟用角色。")
+        return await i.response.send_message(
+            "婚姻登記需要雙方各自送件，請選擇結婚或離婚。",
+            view=ApplicationChoiceView(i.guild_id, i.user.id, view.character_id,
+                kind, [("結婚", "結婚"), ("離婚", "離婚")], "登記操作（結婚／離婚）"), ephemeral=True)
     if kind in CHARACTER_REQUIRED and view.character_id is None:
         return await say(i, "這類申請需先選擇自己的已啟用角色。")
     return await i.response.send_modal(ApplicationModal(i, kind, view.character_id))
@@ -1189,7 +1297,7 @@ async def dispatch_application_kind(i, view, kind):
 
 class ApplicationKindSelect(discord.ui.Select):
     def __init__(self, row=0):
-        excluded = {"character_edit", "item_create", "shop_bank", "npc_resign", "npc_switch", "faction_join", "faction_exit", "faction_change", "company_bank"}
+        excluded = {"character_edit", "channel_add", "shop_bank", "npc_resign", "npc_switch", "faction_join", "faction_exit", "faction_change", "company_bank"}
         options = [
             discord.SelectOption(label="🚨 舉報／處分申訴", value="reports"),
             discord.SelectOption(label="🎪 活動企劃／活動內容", value="events"),
@@ -1574,6 +1682,10 @@ class GeneralReviewView(
                             expected_penalty=int(penalty_match.group(1)),
                             db=db,
                         )
+
+                if accepted and r["kind"] == "action_expand":
+                    from core.channel_action_registry import approve
+                    approve(db, r, i.guild)
 
                 if accepted and r["kind"] in {"leave", "cp_register", "item"}:
                     from core.general_case_executors import execute_general_case
