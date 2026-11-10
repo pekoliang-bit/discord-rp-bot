@@ -1856,7 +1856,8 @@ def _shop_owned_characters(actor):
 
 
 async def _open_shop_for_character(interaction, character_id, black=False, category=""):
-    from modules.zzz_shop_home import ShopHome, home_text, make_store_screen
+    from modules.zzz_shop_home import home_text, make_store_screen
+    from modules.player_store_portal import ShopHubView
     actor = Actor.from_interaction(interaction)
     with get_connection() as conn:
         require_character(conn, actor, character_id)
@@ -1866,17 +1867,33 @@ async def _open_shop_for_character(interaction, character_id, black=False, categ
         content, view = make_store_screen(actor, character_id, code, 0)
     else:
         content = home_text(character_id, interaction.guild_id, black_allowed)
-        view = ShopHome(interaction.user.id, character_id, False, "", interaction.guild_id)
+        view = ShopHubView(interaction.user.id, character_id, interaction.guild_id)
     if interaction.response.is_done():
         await interaction.followup.send(content, view=view, ephemeral=True)
     else:
         await interaction.response.send_message(content, view=view, ephemeral=True)
 
 
+async def _hub(interaction, character_id, *, edit=False):
+    from modules.zzz_shop_home import home_text
+    from modules.player_store_portal import ShopHubView
+    from core.permissions import Actor
+    actor=Actor.from_interaction(interaction)
+    with get_connection() as db:
+        require_character(db,actor,character_id)
+        black_allowed=has_black_access(db,interaction.guild_id,character_id)
+    content=home_text(character_id,interaction.guild_id,black_allowed)
+    view=ShopHubView(interaction.user.id,character_id,interaction.guild_id)
+    if edit:
+        await interaction.response.edit_message(content=content,view=view)
+    else:
+        await interaction.response.send_message(content,view=view,ephemeral=True)
+
+
 class ShopCharacterSelect(discord.ui.Select):
     def __init__(self, parent, current):
         options = [
-            discord.SelectOption(label=f"#{cid}｜{name}"[:100], value=str(cid))
+            discord.SelectOption(label=str(name)[:100], value=str(cid))
             for cid, name in current
         ]
         super().__init__(placeholder="選擇本次購物角色", options=options, row=0)
@@ -1992,47 +2009,25 @@ class Shop(commands.Cog):
             ephemeral=True,
         )
 
-    @app_commands.command(
-        name="商城",
-        description="指定角色購物；不填角色則使用選單選擇",
-    )
-    async def shop(
-        self,
-        interaction: discord.Interaction,
-        角色編號: str = "",
-        黑卡商城: bool = False,
-        商品分類: str = "",
-    ):
-        if interaction.guild_id is None:
-            await interaction.response.send_message("請在伺服器內使用。", ephemeral=True)
-            return
+    @app_commands.command(name="商城", description="選擇本人角色，進入官方或玩家商鋪")
+    @app_commands.guild_only()
+    async def shop(self, interaction: discord.Interaction):
         try:
             actor = Actor.from_interaction(interaction)
-            if str(角色編號).strip():
-                from modules.economy import resolve_actor_character
-                cid = resolve_actor_character(actor, 角色編號)
-                await _open_shop_for_character(interaction, cid, 黑卡商城, 商品分類)
-                return
             characters = _shop_owned_characters(actor)
             if not characters:
-                await interaction.response.send_message(
-                    "⚠️ 你目前沒有可用的已啟用角色。請先完成創角與審核。",
-                    ephemeral=True,
-                )
-                return
-            picker = ShopCharacterPicker(interaction, characters, 黑卡商城, 商品分類)
+                return await interaction.response.send_message(
+                    "⚠️ 沒有已啟用的角色，請先完成創角與審核。", ephemeral=True)
+            view = ShopCharacterPicker(interaction, characters)
             await interaction.response.send_message(
-                "🛍️ 請選擇本次購物角色（第 1 頁）",
-                view=picker,
-                ephemeral=True,
-            )
-        except (ValueError, InvalidState, PermissionDenied, sqlite3.Error) as exc:
-            await interaction.response.send_message(f"⚠️ {exc}", ephemeral=True)
+                "🛍️ 請選擇本次購物角色：", view=view, ephemeral=True)
             try:
                 from modules.task_event_bridge import record_successful_command_interaction
-                record_successful_command_interaction(interaction, '商城')
+                record_successful_command_interaction(interaction,'商城')
             except Exception:
-                pass  # 教學紀錄不得影響原有功能
+                pass
+        except (ValueError, InvalidState, PermissionDenied, sqlite3.Error) as exc:
+            await interaction.response.send_message(f"⚠️ {exc}",ephemeral=True)
 
     @management.command(
         name="商城新增",
