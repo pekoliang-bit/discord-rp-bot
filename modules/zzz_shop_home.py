@@ -917,6 +917,18 @@ def make_store_screen(
         code,
     )
 
+    if code == "B09":
+        from core.ordinary_lottery_tickets import enabled as ticket_enabled, PRICE, balance
+        available = ticket_enabled(actor.guild_id)
+        msg = ("🎁 **特殊道具店**\n\n"
+               "目前只販售：🎟️ 普通抽獎券\n"
+               f"售價：{PRICE:,} 金幣／張\n"
+               "每位玩家每週最多購買 5 張；使用普通獎池。\n"
+               f"角色目前持有：{balance(actor.guild_id, character_id)} 張\n"
+               + ("✅ 已上架，可按下方按鈕購買。" if available else "⏳ 尚未由抽獎管理中心正式上架。"))
+        view = ShopHome(int(actor.user_id), character_id, False, "B09", actor.guild_id)
+        return msg, view
+
     store_name = STORE_NAMES[code]
 
     scope = (
@@ -1411,6 +1423,19 @@ class ShopHome(discord.ui.View):
         from core.ordinary_lottery_tickets import enabled as ticket_sale_enabled
         if self.category != 'B09' or not ticket_sale_enabled(self.guild_id):
             self.remove_item(self.ordinary_ticket)
+
+        # 行動值購買只保留在商城總首頁，不放在個別店鋪。
+        self.remove_item(self.action_info)
+
+        # B09 只販售普通抽獎券；舊特殊憑證不允許透過一般商品入口購買。
+        if self.category == "B09":
+            for control in list(self.children):
+                if control not in (self.ordinary_ticket, self.back):
+                    self.remove_item(control)
+            if self.ordinary_ticket in self.children:
+                self.ordinary_ticket.row = 0
+            self.back.row = 1
+            return
 
         # ----------------------------------
         # 商城首頁
