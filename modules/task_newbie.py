@@ -1,5 +1,6 @@
 """新手指令事件及專屬「機器人使用」帖子檢查；不自行攔截全部 Discord 指令。"""
 from __future__ import annotations
+import logging
 from core.database import get_connection
 from modules.task_repository import record_event, get_events
 
@@ -44,7 +45,14 @@ def can_use_training_channel(guild_id,character_id,user_id,channel_id,command):
 def record_success(guild_id,character_id,user_id,channel_id,command):
     """在指令成功顯示指定教學介面後由真正指令入口呼叫。"""
     if not can_use_training_channel(guild_id,character_id,user_id,channel_id,command):return False
-    return record_event(guild_id,character_id,'newbie:'+command,'command:'+command)
+    fresh = record_event(guild_id,character_id,'newbie:'+command,'command:'+command)
+    # 已完成的指令仍可重試尚未入帳的獎勵；真正的帳本都會以唯一來源鍵防重複。
+    try:
+        from modules.task_newbie_rewards import retry_completed
+        retry_completed(guild_id,character_id,user_id)
+    except Exception:
+        logging.getLogger(__name__).exception('新手完成後發獎／補發異常')
+    return fresh
 
 def newbie_required_channel(guild_id, character_id, user_id, channel_id, command):
     """對新手必修指令採強制本人帖子；畢業後由原頻道規則決定。"""
