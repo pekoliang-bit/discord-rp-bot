@@ -1001,104 +1001,78 @@ class ApplicationModal(discord.ui.Modal):
 # 申請類型下拉選單
 # ==========================================
 
-class ApplicationKindSelect(
-    discord.ui.Select
-):
+class GroupedApplicationSelect(discord.ui.Select):
+    def __init__(self, choices, row=0):
+        self._choices = choices
+        super().__init__(placeholder="選擇要執行的申請操作", row=row,
+                         options=[discord.SelectOption(label=name, value=kind)
+                                  for kind, name in choices])
 
-    def __init__(self):
+    async def callback(self, interaction):
+        await dispatch_application_kind(interaction, self.view, self.values[0])
 
-        opts = [
-            discord.SelectOption(label="🚨 舉報玩家／違規事項", value="report_private"),
-            discord.SelectOption(label="⚖️ 處分申訴", value="report_appeal"),
-            discord.SelectOption(
-                label="🎪 新建活動企劃",
-                value="event_new",
-            ),
-            discord.SelectOption(
-                label="🎪 活動企劃送審",
-                value="event_submit",
-            ),
-            discord.SelectOption(
-                label="🎪 補充活動企劃",
-                value="event_edit",
-            ),
+
+class GroupedApplicationView(discord.ui.View):
+    def __init__(self, actor, character_id, choices):
+        super().__init__(timeout=600)
+        self.actor = actor
+        self.character_id = character_id
+        self.add_item(GroupedApplicationSelect(choices))
+
+    async def interaction_check(self, interaction):
+        if str(interaction.user.id) != str(self.actor.user_id) or str(interaction.guild_id) != str(self.actor.guild_id):
+            await interaction.response.send_message("⛔ 這不是你的申請選單。", ephemeral=True)
+            return False
+        return True
+
+
+APPLICATION_GROUPS = {
+    "reports": [("report_private", "🚨 舉報玩家／違規事項"), ("report_appeal", "⚖️ 處分申訴")],
+    "events": [("event_new", "🎪 新建企劃／活動"), ("event_edit", "📝 補充活動內容" )],
+    "npc": [("npc_resign", "👤 NPC 辭演"), ("npc_switch", "🔄 NPC 更換飾演")],
+    "faction": [("faction_join", "🏳️ 加入陣營"), ("faction_exit", "🚪 退出陣營"), ("faction_change", "🔄 轉換陣營")],
+    "bank": [("company_bank", "🏦 公司銀行帳號"), ("shop_bank", "🏪 店鋪銀行帳號")],
+}
+
+
+async def dispatch_application_kind(i, view, kind):
+    if str(i.user.id) != str(view.actor.user_id) or str(i.guild_id) != str(view.actor.guild_id):
+        return await say(i, "⛔ 這不是你的申請選單。")
+    if kind in APPLICATION_GROUPS:
+        return await i.response.send_message(
+            "請選擇具體操作。", view=GroupedApplicationView(view.actor, view.character_id, APPLICATION_GROUPS[kind]), ephemeral=True)
+    if kind == "report_private":
+        from modules.report_commands import open_report_application
+        return await open_report_application(i)
+    if kind == "report_appeal":
+        from modules.report_commands import open_report_appeals
+        return await open_report_appeals(i)
+    if kind == "event_new":
+        from modules.event_project_manager import ProjectModal
+        return await i.response.send_modal(ProjectModal())
+    if kind == "event_edit":
+        from modules.player_applications import EventProjectNumberModal
+        return await i.response.send_modal(EventProjectNumberModal("edit"))
+    if kind in CHARACTER_REQUIRED and view.character_id is None:
+        return await say(i, "這類申請需先選擇自己的已啟用角色。")
+    return await i.response.send_modal(ApplicationModal(i, kind, view.character_id))
+
+
+class ApplicationKindSelect(discord.ui.Select):
+    def __init__(self, row=0):
+        excluded = {"character_edit", "item_create", "shop_bank", "npc_resign", "npc_switch", "faction_join", "faction_exit", "faction_change", "company_bank"}
+        options = [
+            discord.SelectOption(label="🚨 舉報／處分申訴", value="reports"),
+            discord.SelectOption(label="🎪 活動企劃／活動內容", value="events"),
+            discord.SelectOption(label="🏦 公司／店鋪銀行帳號", value="bank"),
+            discord.SelectOption(label="👤 NPC 辭演／更換飾演", value="npc"),
+            discord.SelectOption(label="🏳️ 陣營加入／退出／轉換", value="faction"),
         ]
-
-        opts += [
-            discord.SelectOption(
-                label=v,
-                value=k,
-            )
-            for k, v in CATEGORIES.items()
-            if k != "character_edit"  # 僅由 /查看 的本人角色面板提出
-        ]
-
-        super().__init__(
-            placeholder="選擇申請類型（含活動企劃）",
-            options=opts,
-            row=3,
-        )
+        options += [discord.SelectOption(label=v, value=k) for k,v in CATEGORIES.items() if k not in excluded]
+        super().__init__(placeholder="選擇申請類型（包含活動企劃）", options=options, row=row)
 
     async def callback(self, i):
-
-        v = self.view
-
-        if (
-            str(i.user.id) != str(v.actor.user_id)
-            or str(i.guild_id)
-            != str(v.actor.guild_id)
-        ):
-            return await say(
-                i,
-                "⛔ 這不是你的申請選單。"
-            )
-
-        kind = self.values[0]
-
-        if kind == "report_private":
-            from modules.report_commands import open_report_application
-            return await open_report_application(i)
-        if kind == "report_appeal":
-            from modules.report_commands import open_report_appeals
-            return await open_report_appeals(i)
-
-        if kind.startswith("event_"):
-
-            from modules.player_applications import (
-                EventProjectNumberModal,
-            )
-
-            if kind == "event_new":
-
-                from modules.event_project_manager import (
-                    ProjectModal,
-                )
-
-                return await i.response.send_modal(
-                    ProjectModal()
-                )
-
-            return await i.response.send_modal(
-                EventProjectNumberModal(
-                    "submit"
-                    if kind == "event_submit"
-                    else "edit"
-                )
-            )
-
-        if kind in CHARACTER_REQUIRED and v.character_id is None:
-            return await say(
-                i,
-                "這類申請需先選擇自己的已啟用角色。"
-            )
-
-        await i.response.send_modal(
-            ApplicationModal(
-                i,
-                kind,
-                v.character_id,
-            )
-        )
+        await dispatch_application_kind(i, self.view, self.values[0])
 
 
 # ==========================================
