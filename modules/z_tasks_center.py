@@ -24,9 +24,11 @@ class TaskPick(discord.ui.Select):
         super().__init__(placeholder='選擇角色', options=[discord.SelectOption(label=str(c['name'])[:80],value=str(c['id']),description="本人已啟用角色") for c in characters[:25]])
     async def callback(self,i):
         selected = int(self.values[0])
-        if not any(c['id']==selected for c in _thread_owned_characters(i)):
+        if not any(c['id']==selected for c in _reportable_characters_here(i)):
             await i.response.send_message('該角色不屬於此私人論壇，請重新使用 /任務。',ephemeral=False)
             return
+        if not _thread_owned_characters(i):
+            return await _show_report_for_work_channel(i,selected)
         await show_character(i,selected)
 
 class ProductionButton(discord.ui.Button):
@@ -107,12 +109,16 @@ class ListingsView(discord.ui.View):
         from discord.utils import escape_markdown
         page=self.rows[self.page*5:self.page*5+5]
         from core.work_schedule import task_slot
+        from core.work_duration import task_duration
         from datetime import datetime
         from zoneinfo import ZoneInfo
         lines=[]
         for r in page:
+            duration=task_duration(self.gid,r['id'])
             schedule=task_slot(self.gid,r['id'])
             date_line=(f"\n📅 正式檔期：{datetime.fromisoformat(schedule['starts_at']).astimezone(ZoneInfo('Asia/Taipei')).strftime('%m/%d %H:%M')} ～ {datetime.fromisoformat(schedule['ends_at']).astimezone(ZoneInfo('Asia/Taipei')).strftime('%m/%d %H:%M')}（台灣時間）" if schedule else "\n📅 未設定正式檔期（目前不鎖日曆）")
+            if duration:
+                date_line=f"\n📅 工作檔期：{duration['duration_days']} 天（每10有效字折抵1天）"
             lines.append(f"**#{r['id']}** {escape_markdown(r['title'])}（{r['subtype'] or '一般'}）\n最低接取條件：{public_minimums(self.gid,r)}"+date_line)
         text='\n'.join(lines)
         return (f'🎬 通告 {self.page+1}/{(len(self.rows)+4)//5} 頁\n'+text)[:1900]
@@ -293,6 +299,45 @@ def _thread_owned_characters(i):
     return matched
 
 
+def _reportable_characters_here(i):
+    """角色本人論壇，或已接通告在 report_json 指定的工作頻道。"""
+    result=_thread_owned_characters(i)
+    if result:return result
+    if not i.guild_id or not i.channel_id:return []
+    import json
+    with get_connection() as db:
+        rows=db.execute("""SELECT DISTINCT c.id,c.name,d.report_json
+          FROM characters c JOIN rp_task_progress p ON p.guild_id=c.guild_id
+             AND p.character_id=c.id AND p.status='accepted'
+          JOIN rp_task_definitions d ON d.guild_id=p.guild_id AND d.id=p.task_id
+          WHERE c.guild_id=? AND c.owner_id=? AND c.status='active' """,
+          (str(i.guild_id),str(i.user.id))).fetchall()
+    found={}
+    for row in rows:
+        try:report_options=json.loads(row['report_json'] or '{}')
+        except (TypeError,ValueError):continue
+        if str(report_options.get('channel_id') or '')==str(i.channel_id):
+            found[int(row['id'])]={'id':int(row['id']),'name':row['name']}
+    return list(found.values())
+
+
+async def _show_report_for_work_channel(i,cid):
+    with get_connection() as db:
+        rows=[dict(r) for r in db.execute("""SELECT p.task_id,d.title,d.report_json FROM rp_task_progress p
+          JOIN rp_task_definitions d ON d.guild_id=p.guild_id AND d.id=p.task_id
+          WHERE p.guild_id=? AND p.character_id=? AND p.status='accepted'
+          ORDER BY p.accepted_at DESC LIMIT 100""",(str(i.guild_id),int(cid))).fetchall()]
+    import json
+    from core.work_duration import assignment
+    rows=[r for r in rows
+          if assignment(i.guild_id,cid,r['task_id'])
+          and str(json.loads(r['report_json'] or '{}').get('channel_id') or '')==str(i.channel_id)]
+    rows=rows[:25]
+    if not rows:
+        return await i.response.send_message('這個工作頻道目前沒有你可回報的天數制通告。',ephemeral=False)
+    await i.response.send_message('📨 選擇要回報的通告：',
+        view=ReportTaskView(i.user.id,i.guild_id,cid,rows),ephemeral=False)
+
 class ReportTaskSelect(discord.ui.Select):
     def __init__(self, character_id, tasks):
         options = [discord.SelectOption(label=str(r['title'])[:95], value=str(r['task_id']))
@@ -305,6 +350,17 @@ class ReportTaskSelect(discord.ui.Select):
         task_id = int(self.values[0])
         if task_id not in self.task_ids:
             await interaction.response.send_message('任務選項已失效，請重新開啟。', ephemeral=False)
+            return
+        from core.work_duration import assignment
+        if assignment(interaction.guild_id,self.character_id,task_id):
+            try:
+                from modules.task_work_reporting import open_work_report
+                await open_work_report(interaction,self.character_id,task_id)
+            except ValueError as exc:
+                if interaction.response.is_done():
+                    await interaction.followup.send(str(exc),ephemeral=False)
+                else:
+                    await interaction.response.send_message(str(exc),ephemeral=False)
             return
         await interaction.response.defer(ephemeral=False, thinking=True)
         try:
@@ -343,11 +399,44 @@ class ReportTaskView(discord.ui.View):
         if interaction.user.id != self.uid or interaction.guild_id != self.gid:
             await interaction.response.send_message('請自行使用 /任務 開啟你的回報選單。', ephemeral=True)
             return False
-        if not any(r['id'] == self.children[0].character_id for r in _thread_owned_characters(interaction)):
+        if not any(r['id'] == self.children[0].character_id for r in _reportable_characters_here(interaction)):
             await interaction.response.send_message('此帖子不屬於你的角色論壇。', ephemeral=True)
             return False
         return True
 
+
+
+async def _maybe_auto_submit_long_thread(i,characters):
+    """在正確命名的本人作品帖直接輸入 /任務，無需手動填寫角色或通告 ID。"""
+    from modules.task_work_reporting import _matching_title,open_work_report
+    from core.work_duration import assignment
+    if not isinstance(i.channel,discord.Thread):return False
+    with get_connection() as db:
+        tasks=[dict(r) for r in db.execute("""SELECT p.character_id,p.task_id,d.title
+             FROM rp_task_progress p JOIN rp_task_definitions d
+               ON d.guild_id=p.guild_id AND d.id=p.task_id
+             WHERE p.guild_id=? AND p.status='accepted'
+               AND p.character_id IN (SELECT id FROM characters
+                   WHERE guild_id=? AND owner_id=? AND status='active')""",
+             (str(i.guild_id),str(i.guild_id),str(i.user.id))).fetchall()]
+    names={int(x['id']):str(x['name']) for x in characters}
+    matched=[t for t in tasks if int(t['character_id']) in names
+             and _matching_title(i.channel.name,names[int(t['character_id'])],t['title'])
+             and assignment(i.guild_id,t['character_id'],t['task_id'])]
+    if len(matched)>1:
+        await i.response.send_message('標題同時符合多份通告，請從任務面板手動選擇。',ephemeral=False)
+        return True
+    if len(matched)==1:
+        t=matched[0]
+        try:
+            await open_work_report(i,t['character_id'],t['task_id'])
+        except ValueError as exc:
+            if i.response.is_done():
+                await i.followup.send(str(exc),ephemeral=False)
+            else:
+                await i.response.send_message(str(exc),ephemeral=False)
+        return True
+    return False
 
 class TasksCenter(commands.Cog):
     def __init__(self, bot):
@@ -357,7 +446,7 @@ class TasksCenter(commands.Cog):
     @app_commands.guild_only()
     async def tasks(self, i: discord.Interaction):
         # 只有本人角色論壇的固定帖子或本人新建立的帖子可使用。
-        characters = _thread_owned_characters(i)
+        characters = _reportable_characters_here(i)
         if not characters:
             await i.response.send_message('請到自己角色的「機器人使用」帖子，或在自己角色論壇新建帖子後使用 /任務。', ephemeral=False)
             return
@@ -366,10 +455,15 @@ class TasksCenter(commands.Cog):
         seed_screen_tasks(i.guild_id)
         seed_variety_tasks(i.guild_id)
         seed_commercial_tasks(i.guild_id)
+        if _thread_owned_characters(i) and await _maybe_auto_submit_long_thread(i,characters):
+            return
         if len(characters) > 1:
             await i.response.send_message('請先選擇要操作的角色：', view=TaskView(i.user.id, characters), ephemeral=False)
             return
-        await show_character(i, characters[0]['id'])
+        if not _thread_owned_characters(i):
+            await _show_report_for_work_channel(i,characters[0]['id'])
+        else:
+            await show_character(i, characters[0]['id'])
 
 
 async def setup(bot):
