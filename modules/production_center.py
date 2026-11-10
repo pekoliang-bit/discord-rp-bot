@@ -20,7 +20,7 @@ from modules.official_center import has_staff_permission
 
 LOG = logging.getLogger(__name__)
 PAGE = 25
-CATEGORIES = ("電影", "電視劇", "網路劇", "音樂作品", "MV", "代言", "綜藝", "舞台劇", "商業活動", "其他")
+CATEGORIES = ("電影", "電視劇", "網路劇", "網劇", "音樂作品", "單純音樂錄製", "MV", "代言", "一般廣告", "綜藝", "舞台劇", "短劇", "秀場", "商業活動", "其他")
 
 
 def initialize():
@@ -43,6 +43,10 @@ def initialize():
         )""")
         db.execute("""CREATE INDEX IF NOT EXISTS idx_production_apps
             ON production_applications(guild_id,production_id,status)""")
+        db.execute("""CREATE TABLE IF NOT EXISTS rp_production_work_days (
+            guild_id TEXT NOT NULL, production_id INTEGER NOT NULL,
+            notice_type TEXT NOT NULL, duration_days INTEGER NOT NULL,
+            PRIMARY KEY (guild_id,production_id))""")
         db.execute("""CREATE TABLE IF NOT EXISTS production_completion (
             guild_id TEXT NOT NULL,
             production_id INTEGER NOT NULL,
@@ -81,7 +85,7 @@ def get_production(db, guild_id, pid):
     return dict(row)
 
 
-def create_production(actor, character_id, title, category, scale):
+def create_production(actor, character_id, title, category, scale, *, work_type=None, duration_days=None):
     title=str(title).strip()
     if not 1<=len(title)<=150:
         raise ValueError("作品名稱應為1～150字。")
@@ -89,12 +93,22 @@ def create_production(actor, character_id, title, category, scale):
         raise ValueError("請選擇現有登記類型。")
     if scale not in ("S1","S2","S3","S4","S5"):
         raise ValueError("作品規模須為 S1～S5。")
+    if (work_type is None) != (duration_days is None):
+        raise ValueError('玩家自製通告需同時提供工作類型與天數')
+    work_setting = None
+    if work_type is not None:
+        from core.work_duration import validate_duration
+        work_setting = validate_duration(work_type,duration_days)
     with transaction() as db:
         check(actor,character_id,db)
         cur=db.execute("""INSERT INTO productions(guild_id,title,category,scale,
             owner_character_id,status) VALUES(?,?,?,?,?,'recruiting')""",
             (actor.guild_id,title,category,scale,int(character_id)))
         pid=cur.lastrowid
+        if work_setting:
+            db.execute("""INSERT INTO rp_production_work_days
+                (guild_id,production_id,notice_type,duration_days) VALUES (?,?,?,?)""",
+                (actor.guild_id,pid,work_setting[0],work_setting[1]))
         pos=db.execute("""INSERT INTO production_positions
             (guild_id,production_id,title,capacity) VALUES(?,?,?,1)""",
             (actor.guild_id,pid,"製作人"))
@@ -308,13 +322,17 @@ class CreateModal(discord.ui.Modal,title="建立作品企劃"):
     title_field=discord.ui.TextInput(label="作品名稱",max_length=150)
     category_field=discord.ui.TextInput(label="作品分類",placeholder="電影／電視劇／MV／舞台劇等",max_length=30)
     scale_field=discord.ui.TextInput(label="規模",default="S1",max_length=2)
+    work_type_field=discord.ui.TextInput(label="通告類型（九類之一）",placeholder="電影／電視劇／網劇／MV／短劇／綜藝等",max_length=30)
+    duration_field=discord.ui.TextInput(label="工作天數",placeholder="只填天數，例如 30",max_length=5)
     def __init__(self,actor,cid):
         super().__init__()
         self.actor,self.cid=actor,cid
     async def on_submit(self,interaction):
         try:
             number=create_production(self.actor,self.cid,str(self.title_field.value),
-                str(self.category_field.value).strip(),str(self.scale_field.value).upper().strip())
+                str(self.category_field.value).strip(),str(self.scale_field.value).upper().strip(),
+                work_type=str(self.work_type_field.value).strip(),
+                duration_days=str(self.duration_field.value).strip())
             await interaction.response.send_message(
                 f"✅ 作品企劃 #{number} 建立成功。\n已將創辦角色登記為製作人。\n請從 /任務 → 作品製作中心 → 我的企劃 管理與新增招募職位。",
                 ephemeral=True)
