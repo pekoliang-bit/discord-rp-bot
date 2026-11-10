@@ -28,8 +28,8 @@ CATEGORIES = {
     # 舉報、申訴已改由專用保密系統處理；舊案件保留供群主查核。
     "item": "📦 物品申請",
     "item_create": "🧰 新增物品申請",
-    "company_bank": "🏦 公司銀行帳號申請",
-    "shop_bank": "🏪 店鋪銀行帳號申請",
+    "company_bank": "🏦 公司／集團銀行帳號申請",
+    "shop_bank": "🏪 店鋪／品牌銀行帳號申請",
     "role_retire": "🎭 原創角色刪除／退場申請",
     "character_edit": "📝 原創角色資料修改申請",
     "npc_resign": "👤 NPC 辭演申請",
@@ -353,66 +353,18 @@ CHARACTER_REQUIRED = {
 # 公司銀行帳號申請資格驗證
 # ==========================================
 
-def validate_company_bank_applicant(
-    db,
-    guild_id,
-    company_id,
-    applicant_id,
-):
-    """只有原公司申請人或正式代理人能申請。"""
-
-    company = db.execute(
-        """
-        SELECT
-            company_id,
-            original_applicant_id,
-            status
-        FROM rp_approved_company_authorizations
-        WHERE guild_id=?
-          AND company_id=?
-        """,
-        (
-            str(guild_id),
-            str(company_id),
-        ),
+def validate_company_bank_applicant(db, guild_id, company_id, applicant_id):
+    """公司或集團：僅實際登記持有人可送件，代理人不得代為開戶。"""
+    entity = db.execute(
+        "SELECT kind,owner_id,status FROM rp_business_entities "
+        "WHERE guild_id=? AND business_id=?",
+        (str(guild_id), str(company_id)),
     ).fetchone()
+    if not entity or entity["status"] != "active" or entity["kind"] not in ("company", "group"):
+        raise ValueError("找不到已核准且營運中的公司或集團。")
+    if str(entity["owner_id"]) != str(applicant_id):
+        raise PermissionError("只有公司／集團真正持有人可以申請銀行帳戶。")
 
-    if (
-        company is None
-        or company["status"] != "approved"
-    ):
-        raise ValueError(
-            "尚無經官方核實的公司登記，"
-            "請先由群主完成公司授權資料登記。"
-        )
-
-    if (
-        str(company["original_applicant_id"])
-        == str(applicant_id)
-    ):
-        return
-
-    proxy = db.execute(
-        """
-        SELECT 1
-        FROM rp_company_bank_proxies
-        WHERE guild_id=?
-          AND company_id=?
-          AND proxy_user_id=?
-          AND active=1
-        """,
-        (
-            str(guild_id),
-            str(company_id),
-            str(applicant_id),
-        ),
-    ).fetchone()
-
-    if proxy is None:
-        raise PermissionError(
-            "只有原公司申請人或已登記的"
-            "指定代理人能申請公司銀行帳戶。"
-        )
 
 
 # ==========================================
@@ -1031,7 +983,7 @@ APPLICATION_GROUPS = {
     "events": [("event_new", "🎪 新建企劃／活動"), ("event_edit", "📝 補充活動內容"), ("event_manage", "🎟️ 管理我主辦的活動")],
     "npc": [("npc_resign", "👤 NPC 辭演"), ("npc_switch", "🔄 NPC 更換飾演")],
     "faction": [("faction_join", "🏳️ 加入陣營"), ("faction_exit", "🚪 退出陣營"), ("faction_change", "🔄 轉換陣營")],
-    "bank": [("company_bank", "🏦 公司銀行帳號"), ("shop_bank", "🏪 店鋪銀行帳號")],
+    "bank": [("company_bank", "🏦 公司／集團銀行帳號"), ("shop_bank", "🏪 店鋪／品牌銀行帳號")],
 }
 
 
@@ -1223,6 +1175,13 @@ async def dispatch_application_kind(i, view, kind):
             )
         except (ValueError, sqlite3.Error) as exc:
             return await say(i, f"無法開啟陣營申請：{exc}")
+    if kind in {"company_bank", "shop_bank"}:
+        from modules.business_bank_request_ui import BankRequestView
+        return await i.response.send_message(
+            "🏦 **商業銀行帳戶申請**\n先填寫帳戶用途，再按「＋」加入至少一名授權操作人，逐人選擇權限。",
+            view=BankRequestView(i.guild_id, i.user.id, kind),
+            ephemeral=True,
+        )
     if kind in CHARACTER_REQUIRED and view.character_id is None:
         return await say(i, "這類申請需先選擇自己的已啟用角色。")
     return await i.response.send_modal(ApplicationModal(i, kind, view.character_id))
@@ -1531,29 +1490,37 @@ class GeneralReviewView(
                         "不能直接標為已核准；請待對應系統完成整合。"
                     )
 
-                if accepted and r["kind"] == "shop_bank":
-                    from core.shop_bank_opening import approve_shop_bank
-                    approve_shop_bank(
-                        db, self.gid, r["title"], r["user_id"],
-                        r["character_id"], r["id"],
+                if accepted and r["kind"] in ("company_bank", "shop_bank"):
+                    from core.bank_authorized_operators import save_from_application
+                    from modules.business_bank_request_ui import resolve_target
+                    # 所有權、授權角色與權限在真正開戶前再次驗證。
+                    subject, subject_kind = resolve_target(
+                        db, self.gid, r["kind"], r["title"], r["user_id"]
                     )
-
-                if accepted and r["kind"] == "company_bank":
-
-                    validate_company_bank_applicant(
-                        db,
-                        self.gid,
-                        r["title"],
-                        r["user_id"],
-                    )
-
-                    from core.company_bank_opening import approve_company_bank
-                    approve_company_bank(
-                        db,
-                        self.gid,
-                        r["title"],
-                        r["user_id"],
-                        r["id"],
+                    if r["kind"] == "company_bank":
+                        from core.company_bank_opening import approve_company_bank
+                        account_id = approve_company_bank(
+                            db, self.gid, subject, r["user_id"], r["id"]
+                        )
+                    elif subject_kind == "brand":
+                        from core.shop_bank_opening import approve_brand_bank
+                        account_id = approve_brand_bank(
+                            db, self.gid, subject.removeprefix("brand:"), r["user_id"], r["id"]
+                        )
+                    else:
+                        from core.shop_bank_opening import approve_shop_bank
+                        owner_character = db.execute(
+                            "SELECT character_id FROM personal_shops WHERE guild_id=? AND id=?",
+                            (str(self.gid),int(subject)),
+                        ).fetchone()
+                        if owner_character is None:raise ValueError("店鋪已不存在。")
+                        account_id = approve_shop_bank(
+                            db, self.gid, int(subject), r["user_id"],
+                            int(owner_character["character_id"]), r["id"],
+                        )
+                    save_from_application(
+                        db, self.gid, account_id, r["id"], r["user_id"],
+                        r["kind"], r["title"], r["details"]
                     )
 
                 if accepted and r["kind"] in {"faction_join", "faction_exit", "faction_change"}:
