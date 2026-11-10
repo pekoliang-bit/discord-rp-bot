@@ -59,3 +59,33 @@ def approve_shop_bank(db, guild_id, shop_id, user_id, character_id, application_
         VALUES (?,?,?,?,?)
     """, (guild_id,shop_id,account_id,user_id,application_id))
     return int(account_id)
+
+
+def initialize_brand_bank(db):
+    """品牌共用店鋪銀行申請入口，但與個人商店帳戶分表管理。"""
+    db.execute("""CREATE TABLE IF NOT EXISTS rp_brand_bank_accounts (
+        guild_id TEXT NOT NULL, brand_id TEXT NOT NULL,
+        account_id INTEGER NOT NULL, applicant_user_id TEXT NOT NULL,
+        application_id INTEGER NOT NULL,
+        opened_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        status TEXT NOT NULL DEFAULT 'active',
+        PRIMARY KEY(guild_id,brand_id), UNIQUE(guild_id,account_id),
+        UNIQUE(guild_id,application_id)
+    )""")
+
+
+def approve_brand_bank(db,guild_id,brand_id,user_id,application_id):
+    gid,bid,uid=str(guild_id),str(brand_id),str(user_id)
+    initialize_brand_bank(db)
+    row=db.execute("SELECT owner_id,kind,status FROM rp_business_entities WHERE guild_id=? AND business_id=?",(gid,bid)).fetchone()
+    if row is None or row['kind']!='brand' or row['status']!='active':
+        raise ValueError('品牌不存在或尚未核准。')
+    if str(row['owner_id'])!=uid:
+        raise PermissionError('只有品牌真正持有人可申請開戶。')
+    prev=db.execute('SELECT account_id,application_id FROM rp_brand_bank_accounts WHERE guild_id=? AND brand_id=?',(gid,bid)).fetchone()
+    if prev:
+        if int(prev['application_id'])==int(application_id):return int(prev['account_id'])
+        raise ValueError('這個品牌已開立銀行帳號。')
+    account_id=get_or_create_account(db,gid,'organization',bid,'bank')
+    db.execute('INSERT INTO rp_brand_bank_accounts(guild_id,brand_id,account_id,applicant_user_id,application_id) VALUES(?,?,?,?,?)',(gid,bid,account_id,uid,int(application_id)))
+    return int(account_id)
