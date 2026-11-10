@@ -8,7 +8,7 @@ from __future__ import annotations
 
 GENERAL_AUTO_EXECUTORS = frozenset({
     "company_bank", "shop_bank", "item", "faction_join", "faction_exit",
-    "faction_change", "character_edit", "leave", "cp_register",
+    "faction_change", "character_edit", "leave", "cp_register", "action_expand",
 })
 
 GENERAL_PENDING_EXECUTORS = frozenset({
