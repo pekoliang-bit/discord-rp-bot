@@ -33,6 +33,11 @@ CHANNEL_RE = re.compile(
 
 def initialize():
     with transaction() as db:
+        db.execute("""CREATE TABLE IF NOT EXISTS rp_rumor_extra_templates (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, guild_id TEXT NOT NULL,
+            polarity TEXT NOT NULL, category TEXT NOT NULL, content TEXT NOT NULL,
+            character_count INTEGER NOT NULL, created_by TEXT NOT NULL,
+            created_at INTEGER NOT NULL, active INTEGER NOT NULL DEFAULT 1)""")
         db.execute("""
             CREATE TABLE IF NOT EXISTS rp_rumor_optout (
                 guild_id TEXT NOT NULL,
@@ -133,6 +138,40 @@ def initialize():
             "system_default",
             now,
         ))
+
+
+def add_template(guild_id, polarity, category, content, creator_id):
+    """Add a guild-local approved template without touching the original 100."""
+    if polarity not in ('positive', 'negative'):
+        raise ValueError('傳聞方向必須是正面或負面')
+    category = str(category).strip()
+    content = str(content).strip()
+    if not (1 <= len(category) <= 40 and 12 <= len(content) <= 900):
+        raise ValueError('分類必須1～40字，內文必須12～900字')
+    if content.count('{角色}') != 1 or content.count('{角色2}') > 1:
+        raise ValueError('內文必須有且只有一個 {角色}，可另加一個 {角色2}')
+    if '@everyone' in content or '@here' in content:
+        raise ValueError('不可包含全員提及')
+    count = 2 if '{角色2}' in content else 1
+    with transaction() as db:
+        db.execute("""CREATE TABLE IF NOT EXISTS rp_rumor_extra_templates (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, guild_id TEXT NOT NULL,
+            polarity TEXT NOT NULL, category TEXT NOT NULL, content TEXT NOT NULL,
+            character_count INTEGER NOT NULL, created_by TEXT NOT NULL,
+            created_at INTEGER NOT NULL, active INTEGER NOT NULL DEFAULT 1)""")
+        cur = db.execute("""INSERT INTO rp_rumor_extra_templates
+          (guild_id,polarity,category,content,character_count,created_by,created_at)
+          VALUES (?,?,?,?,?,?,?)""",
+          (str(guild_id),polarity,category,content,count,str(creator_id),int(time.time())))
+        return f'CUSTOM-{cur.lastrowid:06d}'
+
+
+def extra_templates(guild_id, db):
+    rows = db.execute("""SELECT * FROM rp_rumor_extra_templates
+        WHERE guild_id=? AND active=1 ORDER BY id""", (str(guild_id),)).fetchall()
+    return [dict(id=f"CUSTOM-{r['id']:06d}", polarity=r['polarity'],
+                 category=r['category'], text=r['content'],
+                 character_count=r['character_count']) for r in rows]
 
 
 def templates():
@@ -366,7 +405,7 @@ def choose_entry(db, guild_id, *, rng=None):
 
     possible = []
 
-    for item in templates():
+    for item in templates() + extra_templates(guild_id, db):
         candidates = _eligible(
             db,
             guild_id,
