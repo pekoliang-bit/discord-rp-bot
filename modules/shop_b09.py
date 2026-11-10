@@ -1,4 +1,3 @@
-
 """Discord RP｜B09 特殊道具店。
 
 正式指令：
@@ -185,6 +184,19 @@ def init_db():
             )
             """
         )
+
+
+def retire_legacy_special_products(guild_id):
+    """將本模組登記的特殊憑證下架，不刪交易、庫存或歷史。"""
+    from core.database import transaction
+    with transaction() as db:
+        db.execute("""UPDATE shop_products SET active=0
+            WHERE guild_id=? AND id IN
+            (SELECT product_id FROM b09_catalog WHERE guild_id=?)""",
+            (str(guild_id), str(guild_id)))
+        db.execute("""UPDATE shop_products SET active=0
+            WHERE guild_id=? AND category=? AND description LIKE 'B09 特殊道具｜SP-%'""",
+            (str(guild_id), SHOP_CATEGORY))
 
 
 # ==========================================
@@ -477,6 +489,16 @@ class B09Shop(commands.Cog):
             init_db
         )
 
+    @group.command(name="下架舊商品", description="下架舊20種特殊憑證（不清除已購庫存與紀錄）")
+    async def retire_special(self, interaction: discord.Interaction):
+        try:
+            require_owner(interaction)
+            await asyncio.to_thread(retire_legacy_special_products, interaction.guild_id)
+            await interaction.response.send_message(
+                "✅ 已將本模組登記的20種舊特殊憑證下架。現有玩家持有物及交易歷史不會刪除。普通抽獎券仍按抽獎系統設定販售。",ephemeral=True)
+        except (ValueError,sqlite3.Error) as exc:
+            await interaction.response.send_message(f"⚠️ {exc}",ephemeral=True)
+
     @group.command(
         name="上架",
         description="批量上架 20 件特殊道具",
@@ -495,6 +517,10 @@ class B09Shop(commands.Cog):
             )
             return
 
+        return await interaction.response.send_message(
+            "⛔ 舊版20種特殊憑證已停止上架。請使用 /b09 下架舊商品 清理原有貨架；普通抽獎券由抽獎管理中心上架。",ephemeral=True)
+
+        # 舊版匯入邏輯封存，不可再由玩家操作。
         await interaction.response.defer(
             ephemeral=True
         )
