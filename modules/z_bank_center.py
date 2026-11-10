@@ -898,6 +898,18 @@ class BankViewV2(BankView):
             self.add_extra_button(
                 "🏢 公司帳戶", self.open_company_banking, row=1,
             )
+            # 按操作性質分排，保留全部原有功能與 callback。
+            order = {
+                "💰 存款": (0, 0), "💵 提款": (0, 1), "💸 轉帳": (0, 2),
+                "📈 定存事務": (1, 0), "📜 交易紀錄": (1, 1),
+                "📋 申辦進度": (1, 2), "🏢 公司帳戶": (1, 3),
+                "🏠 帳戶首頁": (2, 0), "🔄 重新整理": (2, 1),
+            }
+            for item in self.children:
+                if isinstance(item, discord.ui.Button) and item.label in order:
+                    item.row = order[item.label][0]
+            self._children.sort(key=lambda item: order.get(getattr(item, "label", None), (3, 0)))
+
     def add_extra_button(
         self,
         label,
