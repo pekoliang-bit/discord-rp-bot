@@ -187,8 +187,8 @@ class ActionChoice(discord.ui.Select):
 
             options.append(
                 discord.SelectOption(
-                    label=str(
-                        action.get("name", "未命名行動")
+                    label=(
+                        f"{action.get('category', '行動')}｜{action.get('name', '未命名行動')}"
                     )[:100],
                     value=str(index),
                     description=(
@@ -232,7 +232,7 @@ class ActionChoice(discord.ui.Select):
 
         message = (
             f"**{view.location['name']}｜"
-            f"{view.category}**\n\n"
+            f"{action.get('category', '行動')}**\n\n"
             f"**{action.get('name', '未命名行動')}**\n\n"
             f"{describe_action(action)}\n\n"
             f"狀態：{get_action_status(action)}\n"
@@ -267,7 +267,7 @@ class ActionChoice(discord.ui.Select):
                 confirm=ActionExecuteView(
                     guild_id=interaction.guild_id, channel_id=interaction.channel_id,
                     user_id=interaction.user.id, action_name=str(action.get('name','')),
-                    category=view.category, characters=rows,
+                    category=str(action.get('category', '')), characters=rows,
                     action_fingerprint=_fingerprint(str(view.location.get('key') or interaction.channel_id),action),
                 )
                 await interaction.response.send_message(message,view=confirm,ephemeral=True)
@@ -321,8 +321,9 @@ class ActionExecuteView(discord.ui.View):
         if not location or location.get('action_enabled') is False:
             await interaction.response.send_message("場所已被停用。",ephemeral=True)
             return
-        matching=[a for a in get_category_actions(location,self.category,owner_preview=False)
-                  if str(a.get('name','')) == self.action_name]
+        matching=[a for category in VALID_CATEGORIES
+                  for a in get_category_actions(location,category,owner_preview=False)
+                  if str(a.get('name','')) == self.action_name and a.get('category') == self.category]
         if len(matching)!=1:
             await interaction.response.send_message("行動已變更或不再開放，請重新使用 /行動。",ephemeral=True)
             return
@@ -437,7 +438,7 @@ class ActionPreview(discord.ui.View):
 
         return (
             f"**{self.location['name']}｜"
-            f"{self.category}**\n"
+            "可用行動**\n"
             f"共 {len(self.actions)} 項\n"
             f"第 {self.current_page + 1}"
             f"／{self.total_pages} 頁\n"
@@ -490,29 +491,9 @@ class LocationActionCommands(commands.Cog):
         description="查看所在地點的打工、活動、課程或醫療服務",
     )
     @app_commands.guild_only()
-    @app_commands.describe(
-        類別="選擇行動類別",
-    )
-    @app_commands.choices(
-        類別=[
-            app_commands.Choice(
-                name="打工", value="打工"
-            ),
-            app_commands.Choice(
-                name="活動", value="活動"
-            ),
-            app_commands.Choice(
-                name="課程", value="課程"
-            ),
-            app_commands.Choice(
-                name="醫療服務", value="醫療服務"
-            ),
-        ]
-    )
     async def action(
         self,
         interaction: discord.Interaction,
-        類別: str = "打工",
     ):
         guild = interaction.guild
         channel = interaction.channel
@@ -538,12 +519,6 @@ class LocationActionCommands(commands.Cog):
 
         # 醫院僅提供群主私密預覽；尚未核准不提供治療或整形交易。
         if location.get("key") == "hospital":
-            if 類別 != "醫療服務":
-                await interaction.response.send_message(
-                    "此處是醫院，請選擇 `/行動` 的「醫療服務」類別。",
-                    ephemeral=True,
-                )
-                return
             is_owner = interaction.user.id == guild.owner_id
             services = medical_service_rules.available_services(owner_preview=is_owner)
             if not services:
@@ -589,15 +564,17 @@ class LocationActionCommands(commands.Cog):
             interaction.user.id == guild.owner_id
         )
 
-        actions = get_category_actions(
-            location,
-            類別,
-            owner_preview=owner_preview,
-        )
+        actions = [
+            action
+            for category in VALID_CATEGORIES
+            for action in get_category_actions(
+                location, category, owner_preview=owner_preview,
+            )
+        ]
 
         if not actions:
             await interaction.response.send_message(
-                f"**{location['name']}｜{類別}**\n"
+                f"**{location['name']}｜可用行動**\n"
                 "目前沒有可查看的行動。",
                 ephemeral=True,
             )
@@ -606,7 +583,7 @@ class LocationActionCommands(commands.Cog):
         view = ActionPreview(
             location=location,
             provider=provider,
-            category=類別,
+            category="全部",
             actions=actions,
             user_id=interaction.user.id,
             owner_preview=owner_preview,
