@@ -1326,6 +1326,39 @@ class StorePicker(discord.ui.Select):
 # 商城互動面板
 # ==========================================
 
+class OrdinaryTicketConfirm(discord.ui.View):
+    """普通抽獎券：一次購買一張，額外顯示本週限額。"""
+    def __init__(self, user_id, guild_id, character_id):
+        super().__init__(timeout=180)
+        self.uid,self.gid,self.cid=int(user_id),int(guild_id),int(character_id)
+
+    async def interaction_check(self, interaction):
+        if interaction.user.id!=self.uid or interaction.guild_id!=self.gid:
+            await interaction.response.send_message('這不是你的購買介面。',ephemeral=True)
+            return False
+        return True
+
+    @discord.ui.button(label='✅ 購買一張（800 金幣）',style=discord.ButtonStyle.success,row=0)
+    async def confirm(self, interaction, button):
+        from core.ordinary_lottery_tickets import purchase,balance
+        from core.permissions import Actor
+        actor=Actor.from_interaction(interaction)
+        try:
+            require_access(actor,self.cid,'B09')
+            purchase(self.gid,self.uid,self.cid,f'ui:{interaction.id}',1)
+            quantity=balance(self.gid,self.cid)
+        except (ValueError, PermissionError, InvalidState, PermissionDenied, sqlite3.Error) as exc:
+            await interaction.response.send_message(f'⚠️ {exc}',ephemeral=True)
+            return
+        self.confirm.disabled=True
+        await interaction.response.edit_message(
+            content=f'✅ 已購買一張普通抽獎券。目前持有 {quantity} 張；每週最多買五張。',view=self)
+
+    @discord.ui.button(label='⬅️ 返回特殊商店',style=discord.ButtonStyle.secondary,row=0)
+    async def cancel(self, interaction, button):
+        await interaction.response.edit_message(content='已取消本次購買；沒有扣款。',view=None)
+
+
 class ShopHome(discord.ui.View):
     def __init__(
         self,
@@ -1375,6 +1408,9 @@ class ShopHome(discord.ui.View):
         if self.category not in STORE_NAMES:
             self.category = ""
             self.black = False
+        from core.ordinary_lottery_tickets import enabled as ticket_sale_enabled
+        if self.category != 'B09' or not ticket_sale_enabled(self.guild_id):
+            self.remove_item(self.ordinary_ticket)
 
         # ----------------------------------
         # 商城首頁
@@ -1441,6 +1477,22 @@ class ShopHome(discord.ui.View):
     # ======================================
     # 批量購買
     # ======================================
+
+    @discord.ui.button(label='🎟️ 普通抽獎券',style=discord.ButtonStyle.primary,row=4)
+    async def ordinary_ticket(self, interaction, button):
+        from core.ordinary_lottery_tickets import balance, PRICE
+        from core.permissions import Actor
+        actor=Actor.from_interaction(interaction)
+        try:
+            require_access(actor,self.character_id,'B09')
+            quantity=balance(self.guild_id,self.character_id)
+        except (ValueError, PermissionDenied, InvalidState, sqlite3.Error) as exc:
+            await interaction.response.send_message(f'⚠️ {exc}',ephemeral=True)
+            return
+        await interaction.response.send_message(
+            f'🎟️ 普通抽獎券｜每張 {PRICE:,} 金幣｜每週限買五張\n'
+            f'目前持有：{quantity} 張。購買成功後可用於「普通獎池」。',
+            view=OrdinaryTicketConfirm(interaction.user.id,self.guild_id,self.character_id),ephemeral=True)
 
     @discord.ui.button(
         label="🛒 批量購買商品",
