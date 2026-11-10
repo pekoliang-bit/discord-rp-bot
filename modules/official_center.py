@@ -1835,8 +1835,7 @@ def arrange_official_home(view):
     keys = (
         ("管理員申請", 0), ("管理員名單", 0),
         ("管理功能中心", 1), ("獎項管理", 1),
-        ("CP", 2), ("返回官方首頁", 2),
-        ("正式開群", 3),
+        ("正式開群", 2),
     )
     for button in view.children:
         label = getattr(button, 'label', '') or ''
@@ -1855,13 +1854,6 @@ class OfficialHome(PrivateView):
         if is_owner(interaction):
             self.add_item(LaunchAuditButton())
         arrange_official_home(self)
-
-    @discord.ui.button(label="⬅️ 返回官方首頁", style=discord.ButtonStyle.secondary, row=2)
-    async def back_to_home(self, interaction, button):
-        await interaction.response.edit_message(
-            content=official_home_text(interaction),
-            view=OfficialHome(interaction),
-        )
 
     @discord.ui.button(label="📝 管理員申請", style=discord.ButtonStyle.primary, row=0)
     async def apply_staff(self, interaction, button):
