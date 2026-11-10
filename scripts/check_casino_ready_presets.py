@@ -1,5 +1,4 @@
-
-"""娛樂城九款獎表與群主開關隔離測試。
+"""娛樂城十七款遊戲與群主開關隔離測試。
 
 執行：
 python scripts/check_casino_ready_presets.py
@@ -46,7 +45,7 @@ def run():
             "9950",
             actor_id="owner",
         )
-        assert len(first["created"]) == 9, first
+        assert len(first["created"]) == 17, first
         assert not list_games("9950"), (
             "預設不應自動開放"
         )
@@ -61,7 +60,7 @@ def run():
             "9950",
             enabled_only=False,
         )
-        assert len(records) == 9
+        assert len(records) == 17
 
         for row in records:
             assert row["enabled"] == 0
@@ -96,12 +95,19 @@ def run():
                 assert (
                     0 < spec["rtp_ppm"] < 1_000_000
                 )
-            else:
+            elif row["kind"] == "gacha":
                 spec = validate_gacha(verified)
                 assert len(spec["prizes"]) == 5
                 assert not spec["has_items"]
+            elif row["kind"] == "lottery":
+                from modules.casino_lottery import _settings as validate_lottery
+                assert validate_lottery(verified)["prizes"]
+            else:
+                settings = __import__('json').loads(verified["settings_json"])
+                assert settings["rules_verified"] is True
+                assert settings["wager_enabled"] is True
 
-        assert len(list_games("9950")) == 9
+        assert len(list_games("9950")) == 17
 
         disabled = toggle_game(
             "9950",
@@ -110,10 +116,10 @@ def run():
             enabled=False,
         )
         assert disabled["enabled"] == 0
-        assert len(list_games("9950")) == 8
+        assert len(list_games("9950")) == 16
 
         print(
-            "PASS: 9 款預設、未核准關閉、"
+            "PASS: 17 款預設、未核准關閉、"
             "重複安裝保護、獎表驗證、開放及停用"
         )
 
