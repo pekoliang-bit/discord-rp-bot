@@ -739,6 +739,13 @@ def make_character_embed(actor, character_id, *, private=False, detail_page=0):
         except Exception:
             LOG.exception('讀取已接取但未登記的工作檔期失敗：%s', character_id)
         # The task system has not provided an independent settlement timestamp.
+        try:
+            from core.work_duration import character_status_lines
+            duration_lines=character_status_lines(actor.guild_id,character_id)
+            if duration_lines:
+                schedule=duration_lines+'\n'+schedule
+        except Exception:
+            LOG.exception('讀取天數制通告進度失敗')
         embed.add_field(name="📅 工作檔期／倒數", value=shorten('剩餘檔期：\n' + shorten(schedule, 780) + '\n結算倒數：待正式通告提供結算時間（不以工作結束時刻冒充結算）', 1024), inline=False)
         embed.add_field(name="💕 CP", value=_panel_cp(actor, character_id), inline=True)
         try:
