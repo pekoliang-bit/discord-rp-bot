@@ -1037,14 +1037,21 @@ def buy(
             "treasury",
         )
 
-        if total:
+        from core.newbie_shop_credit import spend_in_transaction
+        credit_used = spend_in_transaction(
+            conn, actor.guild_id, character_id, total,
+            f'checkout:{key}',
+        )
+        due = total - credit_used
+
+        if due:
             _payment(
                 conn,
                 actor.guild_id,
                 f"shop:{key}",
                 wallet,
                 merchant,
-                total,
+                due,
                 (
                     f"官方商城購買："
                     f"{item['name']} x{quantity}"
@@ -1090,13 +1097,14 @@ def buy(
                 f"🛍️ 購買成功："
                 f"{item['name']} ×{quantity}\n"
                 f"🎖️ 使用稱號：{discount_title}\n"
-                f"💰 實際支付：{total:,} 金幣\n"
+                f"💰 現金支付：{due:,} 金幣\n"
+                f"🎁 商城禮金折抵：{credit_used:,} 金幣\n"
                 f"✨ 本次優惠：{saved_money:,} 金幣"
             )
 
         return (
             f"購買成功：{item['name']} ×{quantity}，"
-            f"支付 {total:,} 金幣。"
+            f"現金支付 {due:,} 金幣；商城禮金折抵 {credit_used:,}。"
         )
 
 def gift(
