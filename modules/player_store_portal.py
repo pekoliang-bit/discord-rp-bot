@@ -408,3 +408,11 @@ class ShopHubView(ShopHome):
             await show_store_list(i,self.character_id)
         switch.callback=switch_callback;personal.callback=personal_callback
         self.add_item(switch);self.add_item(personal)
+        action = discord.ui.Button(label='⚡ 購買行動值',style=discord.ButtonStyle.primary,row=2)
+        async def action_callback(i):
+            if i.user.id != self.owner_id or i.guild_id != self.guild_id:
+                return await _error(i,'這不是你的商城面板。')
+            from modules.zzz_shop_home import ActionBuyModal
+            await i.response.send_modal(ActionBuyModal(self))
+        action.callback=action_callback
+        self.add_item(action)
