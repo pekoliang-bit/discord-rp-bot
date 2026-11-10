@@ -7,6 +7,7 @@ LOG = logging.getLogger(__name__)
 import discord
 from modules.leaderboard_catalog import BOARDS,BOARD_NAMES
 from modules.leaderboard_service import leaderboard
+from core.database import get_connection
 
 PAGE_SIZE=10
 class BoardSelect(discord.ui.Select):
@@ -28,9 +29,9 @@ class ExtraSelect(discord.ui.Select):
         self.view.board=self.values[0];self.view.page=0
         await self.view.refresh(interaction)
 class LeaderboardView(discord.ui.View):
-    def __init__(self,user_id:int,guild_id:int):
+    def __init__(self,user_id:int,guild_id:int, *, owner:bool=False):
         super().__init__(timeout=600)
-        self.user_id=user_id;self.guild_id=guild_id
+        self.user_id=user_id;self.guild_id=guild_id;self.owner=bool(owner)
         self.board='appearance';self.page=0
         self.rebuild()
     async def interaction_check(self,interaction):
@@ -41,10 +42,11 @@ class LeaderboardView(discord.ui.View):
     def rebuild(self):
         self.clear_items();self.add_item(BoardSelect(self.board));self.add_item(ExtraSelect(self.board))
         self.add_item(self.previous);self.add_item(self.next_page)
-        # Activation changes a persisted guild-wide schedule, never a user's payout ledger.
-        self.enable_settlement.disabled = False
-        self.add_item(self.enable_settlement)
-        self.add_item(self.payout_readiness)
+        self.add_item(self.my_characters)
+        # 群主專用操作不應出現在一般玩家的面板。
+        if self.owner:
+            self.add_item(self.enable_settlement)
+            self.add_item(self.payout_readiness)
     def render(self):
         rows,status=leaderboard(self.guild_id,self.board)
         embed=discord.Embed(title='🏆 排行榜｜'+BOARD_NAMES[self.board],color=discord.Color.gold())
@@ -64,15 +66,17 @@ class LeaderboardView(discord.ui.View):
             from modules.leaderboard_cycle import settlement_countdown
             conf=get_config(self.guild_id)
             if conf and conf.get('enabled'):
-                self.enable_settlement.disabled = True
-                self.enable_settlement.label = '✅ 結算已啟用'
+                if self.owner:
+                    self.enable_settlement.disabled = True
+                    self.enable_settlement.label = '✅ 結算已啟用'
                 times=settlement_countdown(conf['anchor_utc'])
                 embed.add_field(name='⏳ 排行榜結算倒數', value=(
                     f"小結算（14天）：{times['14d']['remaining']}\n"
                     f"大結算（30天）：{times['30d']['remaining']}"),inline=False)
             else:
-                self.enable_settlement.disabled = False
-                self.enable_settlement.label = '⏳ 啟用結算'
+                if self.owner:
+                    self.enable_settlement.disabled = False
+                    self.enable_settlement.label = '⏳ 啟用結算'
                 embed.add_field(name='⏳ 排行榜結算倒數',value='本伺服器尚未啟用正式排行榜結算，無法推算倒數。',inline=False)
         except Exception:
             embed.add_field(name='⏳ 排行榜結算倒數',value='暫時無法讀取結算設定。',inline=False)
@@ -82,6 +86,18 @@ class LeaderboardView(discord.ui.View):
     async def refresh(self,interaction):
         self.rebuild()
         await interaction.response.edit_message(embed=self.render(),view=self)
+    @discord.ui.button(label='👤 我的角色排名',style=discord.ButtonStyle.primary,row=2)
+    async def my_characters(self,interaction,button):
+        # 只查詢本人的已啟用角色；排行榜仍以實際來源為準，不推算名次。
+        await interaction.response.defer(ephemeral=True)
+        try:
+            import asyncio
+            text = await asyncio.to_thread(my_character_ranks, self.guild_id, self.user_id, self.board)
+            await interaction.followup.send(text[:1900], ephemeral=True)
+        except Exception:
+            LOG.exception('查詢自己的角色排名失敗 guild=%s', self.guild_id)
+            await interaction.followup.send('目前無法查詢自己的角色排名。', ephemeral=True)
+
     @discord.ui.button(label='⏳ 啟用結算',style=discord.ButtonStyle.success,row=3)
     async def enable_settlement(self, interaction, button):
         # Guild owner only. Creating an anchor starts future periods; it must not
@@ -129,3 +145,25 @@ class LeaderboardView(discord.ui.View):
         self.page+=1
         await self.refresh(interaction)
 
+
+
+def my_character_ranks(guild_id, user_id, board):
+    """僅呈現有經驗證資料來源的名次，不包含他人私人角色編號。"""
+    with get_connection() as db:
+        members = [dict(r) for r in db.execute(
+            "SELECT id,name FROM characters WHERE guild_id=? AND owner_id=? AND status='active' ORDER BY id",
+            (str(guild_id), str(user_id))) ]
+    if not members:
+        return '你目前沒有已啟用的角色。'
+    rows, status = leaderboard(guild_id, board, limit=500)
+    if status != 'ready':
+        return '🏆 我的角色｜' + BOARD_NAMES[board] + '\n本榜目前沒有可驗證的排名資料。'
+    ranks = {str(r.get('character_id')): r for r in rows if r.get('character_id') is not None}
+    lines = ['🏆 **我的角色排名｜' + BOARD_NAMES[board] + '**']
+    for member in members:
+        result = ranks.get(str(member['id']))
+        lines.append(f"• {discord.utils.escape_markdown(member['name'])[:65]}：" + (
+            f"第 {result['rank']} 名｜{result['score']:,}" if result else '本榜未上榜或沒有可確認的名次'))
+    if len(rows) >= 500:
+        lines.append('註：本榜超過 500 筆時，未上榜不代表完全沒有排名。')
+    return '\n'.join(lines)
