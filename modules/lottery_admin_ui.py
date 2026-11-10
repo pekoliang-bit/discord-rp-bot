@@ -597,6 +597,209 @@ def draw_report(gid, only_unclaimed=False):
 # 抽獎管理中心
 # ======================================
 
+# ======================================
+# 現有獎單管理：下拉選擇、修改名稱與內容、修改未派發獎品
+# ======================================
+
+class EditLotteryListModal(discord.ui.Modal, title='📝 修改現有獎單'):
+    def __init__(self, lottery_id, name, description):
+        super().__init__(timeout=300)
+        self.list_id = int(lottery_id)
+        self.new_name = discord.ui.TextInput(label='獎單名稱', default=str(name)[:100], max_length=100)
+        self.description = discord.ui.TextInput(label='獎單內容／說明', default=str(description or '')[:500],
+            required=False, max_length=500, style=discord.TextStyle.paragraph)
+        self.add_item(self.new_name)
+        self.add_item(self.description)
+
+    async def on_submit(self, i):
+        if not allowed(i):
+            return await reply(i, '群主專用。')
+        from core.lottery_admin_editor import edit_list
+        try:
+            changed = edit_list(i.guild_id, i.user.id, self.list_id,
+                name=str(self.new_name.value), description=str(self.description.value))
+        except (ValueError, LookupError, sqlite3.Error) as exc:
+            return await reply(i, f'⚠️ {exc}')
+        await reply(i, f'✅ 獎單已更新為「{clean(changed)}」，原有抽獎紀錄與商品綁定保留。')
+
+
+class EditLotteryPrizeModal(discord.ui.Modal, title='🎁 修改獎品名稱與內容'):
+    def __init__(self, prize):
+        super().__init__(timeout=300)
+        self.prize_id = int(prize['id'])
+        self.new_name = discord.ui.TextInput(label='獎品名稱', default=str(prize['name'])[:100],max_length=100)
+        self.description = discord.ui.TextInput(label='獎品說明',default=str(prize['description'] or '')[:500],
+            max_length=500,required=False,style=discord.TextStyle.paragraph)
+        self.amount = discord.ui.TextInput(label='金幣獎額（禮物填0）',default=str(prize['amount']),
+            max_length=12,required=True)
+        self.stock = discord.ui.TextInput(label='剩餘數量（或填「不限量」）',
+            default='不限量' if prize['unlimited'] else str(prize['remaining']),max_length=15)
+        self.add_item(self.new_name)
+        self.add_item(self.description)
+        self.add_item(self.amount)
+        self.add_item(self.stock)
+
+    async def on_submit(self, i):
+        if not allowed(i):
+            return await reply(i, '群主專用。')
+        from core.lottery_admin_editor import edit_prize
+        try:
+            title = edit_prize(i.guild_id,i.user.id,self.prize_id,
+                name=str(self.new_name.value),description=str(self.description.value),
+                amount=str(self.amount.value),stock=str(self.stock.value))
+        except (ValueError, LookupError, sqlite3.Error) as exc:
+            return await reply(i,f'⚠️ {exc}')
+        await reply(i,f'✅ 已更新「{clean(title)}」；已派發的中獎資料不會被改寫。')
+
+
+class LotteryListEditorView(discord.ui.View):
+    def __init__(self, interaction, page=0):
+        super().__init__(timeout=600)
+        self.uid,self.gid=interaction.user.id,interaction.guild_id
+        self.page=max(0,int(page))
+        self.rebuild()
+
+    def rebuild(self):
+        from core.lottery_admin_editor import list_current
+        self.clear_items()
+        lists=list_current(self.gid)
+        self.page=min(self.page,max(0,(len(lists)-1)//25))
+        chunk=lists[self.page*25:self.page*25+25]
+        if chunk:
+            select=discord.ui.Select(placeholder='選擇目前要修改的獎單',row=0,
+                options=[discord.SelectOption(label=str(r['name'])[:100],value=str(r['id']),
+                    description='啟用' if r['enabled'] else '停用') for r in chunk])
+            async def pick(i):
+                list_id=int(select.values[0])
+                await i.response.edit_message(content='📝 選擇這張獎單要修改的項目：',
+                    view=LotterySelectedEditor(i,list_id))
+            select.callback=pick
+            self.add_item(select)
+        self.add_item(self.back)
+        if len(lists)>25:
+            for title,delta in [('◀ 上一頁',-1),('下一頁 ▶',1)]:
+                button=discord.ui.Button(label=title,style=discord.ButtonStyle.secondary,
+                    row=1,disabled=(self.page+delta<0 or (self.page+delta)*25>=len(lists)))
+                async def move(i,step=delta):
+                    self.page+=step
+                    self.rebuild()
+                    await i.response.edit_message(view=self)
+                button.callback=move
+                self.add_item(button)
+
+    async def interaction_check(self,i):
+        if i.user.id!=self.uid or i.guild_id!=self.gid or not allowed(i):
+            await reply(i,'這不是你的獎單編輯面板。')
+            return False
+        return True
+
+    @discord.ui.button(label='⬅️ 返回抽獎管理',style=discord.ButtonStyle.secondary,row=3)
+    async def back(self,i,button):
+        await i.response.edit_message(content='🎟️ 抽獎獎單管理',view=LotteryAdminView(i))
+
+
+class LotterySelectedEditor(discord.ui.View):
+    def __init__(self, i, lottery_id):
+        super().__init__(timeout=600)
+        self.gid,self.uid,self.lid=i.guild_id,i.user.id,int(lottery_id)
+
+    async def interaction_check(self,i):
+        if i.guild_id!=self.gid or i.user.id!=self.uid or not allowed(i):
+            await reply(i,'這不是你的獎單面板。')
+            return False
+        return True
+
+    @discord.ui.button(label='📝 修改獎單名稱／內容',style=discord.ButtonStyle.primary,row=0)
+    async def list_data(self,i,button):
+        from core.lottery_admin_editor import initialize
+        with transaction() as db:
+            initialize(db)
+            row=db.execute('SELECT name,description FROM rp_lottery_lists WHERE guild_id=? AND id=?',
+                (str(self.gid),self.lid)).fetchone()
+        if row is None:
+            return await reply(i,'此獎單不存在。')
+        await i.response.send_modal(EditLotteryListModal(self.lid,row['name'],row['description']))
+
+    @discord.ui.button(label='🎁 修改獎品',style=discord.ButtonStyle.primary,row=0)
+    async def prizes(self,i,button):
+        await i.response.edit_message(content='🎁 從下拉選單挑選要修改的獎品：',
+            view=LotteryPrizeEditorView(i,self.lid))
+
+    @discord.ui.button(label='⬅️ 返回獎單清單',style=discord.ButtonStyle.secondary,row=1)
+    async def back(self,i,button):
+        await i.response.edit_message(content='📝 選擇要修改的獎單：',view=LotteryListEditorView(i))
+
+
+class LotteryPrizeEditorView(discord.ui.View):
+    def __init__(self,i,lottery_id,page=0):
+        super().__init__(timeout=600)
+        self.uid,self.gid,self.lid=i.user.id,i.guild_id,int(lottery_id)
+        self.page=int(page)
+        self.rebuild()
+
+    def rebuild(self):
+        from core.lottery_admin_editor import list_prizes
+        self.clear_items()
+        prizes=list_prizes(self.gid,self.lid)
+        self.page=max(0,min(self.page,max(0,(len(prizes)-1)//25)))
+        chunk=prizes[self.page*25:self.page*25+25]
+        if chunk:
+            select=discord.ui.Select(placeholder='選擇獎品',row=0,
+                options=[discord.SelectOption(label=str(r['name'])[:100],value=str(r['id'])) for r in chunk])
+            async def pick(i):
+                prize=next((r for r in list_prizes(self.gid,self.lid)
+                    if int(r['id'])==int(select.values[0])),None)
+                if not prize:
+                    return await reply(i,'獎品已不存在。')
+                await i.response.send_modal(EditLotteryPrizeModal(prize))
+            select.callback=pick
+            self.add_item(select)
+        self.add_item(self.back)
+        if len(prizes)>25:
+            for title,delta in [('◀ 上一頁',-1),('下一頁 ▶',1)]:
+                b=discord.ui.Button(label=title,row=1,style=discord.ButtonStyle.secondary,
+                    disabled=self.page+delta<0 or (self.page+delta)*25>=len(prizes))
+                async def move(i,step=delta):
+                    self.page+=step
+                    self.rebuild()
+                    await i.response.edit_message(view=self)
+                b.callback=move
+                self.add_item(b)
+
+    async def interaction_check(self,i):
+        if i.user.id!=self.uid or i.guild_id!=self.gid or not allowed(i):
+            await reply(i,'這不是你的獎品編輯面板。')
+            return False
+        return True
+
+    @discord.ui.button(label='⬅️ 返回獎單',style=discord.ButtonStyle.secondary,row=3)
+    async def back(self,i,button):
+        await i.response.edit_message(content='📝 選擇這張獎單要修改的項目：',
+            view=LotterySelectedEditor(i,self.lid))
+
+
+class OrdinaryTicketSetupView(discord.ui.View):
+    def __init__(self,i):
+        super().__init__(timeout=180)
+        self.uid,self.gid=i.user.id,i.guild_id
+
+    async def interaction_check(self,i):
+        if i.user.id!=self.uid or i.guild_id!=self.gid or not allowed(i):
+            await reply(i,'群主專用。')
+            return False
+        return True
+
+    @discord.ui.button(label='✅ 上架普通抽獎券',style=discord.ButtonStyle.success,row=0)
+    async def publish(self,i,button):
+        from core.ordinary_lottery_tickets import configure
+        configure(self.gid,i.user.id)
+        await i.response.edit_message(content='✅ 普通抽獎券已上架特殊道具店：每張800金幣／每週每人限五張。獎池使用「普通獎池」帖子。',view=None)
+
+    @discord.ui.button(label='⬅️ 返回抽獎管理',style=discord.ButtonStyle.secondary,row=0)
+    async def back(self,i,button):
+        await i.response.edit_message(content='🎟️ 抽獎獎單管理',view=LotteryAdminView(i))
+
+
 class LotteryAdminView(discord.ui.View):
     def __init__(self, i):
         super().__init__(timeout=600)
@@ -699,6 +902,19 @@ class LotteryAdminView(discord.ui.View):
             view=EditRoleView(i),
             ephemeral=True,
         )
+
+    @discord.ui.button(label='📝 修改目前獎單',style=discord.ButtonStyle.primary,row=3)
+    async def edit_current(self,i,button):
+        await i.response.send_message('📝 選擇要修改的獎單：',
+            view=LotteryListEditorView(i),ephemeral=True)
+
+    @discord.ui.button(label='🎟️ 新增抽獎券',style=discord.ButtonStyle.success,row=3)
+    async def setup_ticket(self,i,button):
+        await i.response.send_message(
+            '🎟️ 普通抽獎券\n定價：800金幣／張\n每名玩家每週最多購買5張。\n'
+            '綁定「普通獎池」，每張票可抽一次；符合條件的商城商品及正式課程自動入池。\n'
+            '確認後將自動開放特殊道具店的購買入口。',
+            view=OrdinaryTicketSetupView(i),ephemeral=True)
 
     @discord.ui.button(
         label="↩️ 返回",
