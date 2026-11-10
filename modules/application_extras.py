@@ -1028,7 +1028,7 @@ class GroupedApplicationView(discord.ui.View):
 
 APPLICATION_GROUPS = {
     "reports": [("report_private", "🚨 舉報玩家／違規事項"), ("report_appeal", "⚖️ 處分申訴")],
-    "events": [("event_new", "🎪 新建企劃／活動"), ("event_edit", "📝 補充活動內容" )],
+    "events": [("event_new", "🎪 新建企劃／活動"), ("event_edit", "📝 補充活動內容"), ("event_manage", "🎟️ 管理我主辦的活動")],
     "npc": [("npc_resign", "👤 NPC 辭演"), ("npc_switch", "🔄 NPC 更換飾演")],
     "faction": [("faction_join", "🏳️ 加入陣營"), ("faction_exit", "🚪 退出陣營"), ("faction_change", "🔄 轉換陣營")],
     "bank": [("company_bank", "🏦 公司銀行帳號"), ("shop_bank", "🏪 店鋪銀行帳號")],
@@ -1053,6 +1053,12 @@ async def dispatch_application_kind(i, view, kind):
     if kind == "event_edit":
         from modules.player_applications import EventProjectNumberModal
         return await i.response.send_modal(EventProjectNumberModal("edit"))
+    if kind == "event_manage":
+        from modules.event_registration_flow import EventRegistrationAdminView
+        return await i.response.send_message(
+            "🎟️ **我主辦的活動**\n請輸入活動編號，系統會核對是否為該活動主辦者或管理員。",
+            view=EventRegistrationAdminView(i), ephemeral=True,
+        )
     if kind in CHARACTER_REQUIRED and view.character_id is None:
         return await say(i, "這類申請需先選擇自己的已啟用角色。")
     return await i.response.send_modal(ApplicationModal(i, kind, view.character_id))
