@@ -119,19 +119,19 @@ class ReviewModal(discord.ui.Modal,title='審核任務回報'):
         else:
             await reply(i,'✅ 回報通過，但有獎勵尚待發放：'+str(result.get('error') or result.get('items') or '請執行補發檢查'))
 
-class WorkScheduleModal(discord.ui.Modal,title='設定工作檔期'):
+class WorkScheduleModal(discord.ui.Modal,title='設定通告工作天數'):
     task_id=discord.ui.TextInput(label='通告 ID',placeholder='例如 12',max_length=12)
-    begins=discord.ui.TextInput(label='開始日期時間（含時區）',placeholder='2026-11-20T09:00+08:00',max_length=40)
-    ends=discord.ui.TextInput(label='結束日期時間（含時區）',placeholder='2026-11-22T18:00+08:00',max_length=40)
+    notice_type=discord.ui.TextInput(label='通告類型',placeholder='電影／電視劇／MV／網劇／短劇／一般廣告／秀場／單純音樂錄製／綜藝',max_length=30)
+    days=discord.ui.TextInput(label='工作天數（只填整數）',placeholder='例如 30',max_length=5)
     async def on_submit(self,i):
-        if not authorized(i):return await reply(i,'沒有設定官方檔期的權限')
+        if not authorized(i):return await reply(i,'沒有設定通告天數的權限')
         try:
-            from core.work_schedule import set_task_schedule
+            from core.work_duration import set_duration
             rid=int(str(self.task_id))
-            start,end=set_task_schedule(i.guild_id,rid,str(self.begins),str(self.ends),i.user.id)
-            log(i.guild_id,i.user.id,'work_schedule',rid,{'starts_at':start,'ends_at':end})
+            days=set_duration(i.guild_id,rid,str(self.notice_type),str(self.days),i.user.id)
+            log(i.guild_id,i.user.id,'work_duration',rid,{'days':days,'notice_type':str(self.notice_type)})
         except (ValueError,TypeError) as e:return await reply(i,'設定失敗：'+str(e))
-        await reply(i,f'✅ 通告 #{rid} 已確認工作檔期：\n{start} ～ {end}（UTC）。角色接取時會檢查撞期，並在 /查看 顯示。')
+        await reply(i,f'✅ 通告 #{rid} 設定為 {days} 工作天。新接取者按每10有效字折抵1天；既有接取紀錄不追溯變更。')
 
 class LegacyScheduleModal(discord.ui.Modal,title='補登記舊通告檔期'):
     task_id=discord.ui.TextInput(label='既有通告 ID',max_length=12)
@@ -158,7 +158,7 @@ class TaskAdminView(discord.ui.View):
         'tasks': ('建立草稿','編輯任務','發布／停用','五級條件','任務清單'),
         'review': ('審核回報','待審清單','綜藝待審','審核綜藝'),
         'variety': ('綜藝下一期','綜藝播出'),
-        'operations': ('授權管理員','操作紀錄','設定工作檔期','補登記舊工作'),
+        'operations': ('授權管理員','操作紀錄','設定工作天數','補登記舊工作'),
     }
 
     def __init__(self,user_id,guild_id,section='home'):
@@ -300,7 +300,7 @@ class VarietyTaskAdminView(TaskAdminView):
     async def variety_episode(self,i,b):await i.response.send_modal(VarietyNewEpisode())
     @discord.ui.button(label='綜藝播出',row=3)
     async def variety_air(self,i,b):await i.response.send_modal(VarietyBroadcast())
-    @discord.ui.button(label='設定工作檔期',row=4)
+    @discord.ui.button(label='設定工作天數',row=4)
     async def work_schedule(self,i,b):await i.response.send_modal(WorkScheduleModal())
     @discord.ui.button(label='補登記舊工作',row=4)
     async def backfill_work_schedule(self,i,b):await i.response.send_modal(LegacyScheduleModal())
