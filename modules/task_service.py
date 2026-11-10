@@ -108,7 +108,7 @@ def accept(guild_id,character_id,user_id,task_id):
         cycle=current_cycle()[0]
     return accept_task(guild_id,character_id,task_id,cycle_key=cycle)
 
-def report(guild_id,character_id,user_id,task_id,channel_id,*,evidence=None):
+def report(guild_id,character_id,user_id,task_id,channel_id,*,evidence=None,verified_personal_forum_id=None):
     # 送審前核對 Discord 留言證據。
 
     evidence: {'message_id','author_id','channel_id','created_at','content'}
@@ -128,14 +128,20 @@ def report(guild_id,character_id,user_id,task_id,channel_id,*,evidence=None):
         if settings.get('mode','manual') not in ('manual', 'character_story'):
             raise ValueError('此任務應由系統自動結算，不接受人工回報')
         required=settings.get('channel_id')
+        link=db.execute("""SELECT forum_id,story_id,bot_id FROM character_forum_links
+                           WHERE guild_id=? AND character_id=?""",
+                        (str(guild_id),int(character_id))).fetchone()
+        personal_forum_ok = (verified_personal_forum_id is not None
+            and link is not None and link['forum_id'] is not None
+            and str(verified_personal_forum_id)==str(link['forum_id']))
+        # 真實的帖子擁有者、伺服器及父論壇，由 Discord 指令入口核對。
+        # 此參數不能由玩家表單或一般外部 service 呼叫傳入。
+        authorized_threads = {str(link[k]) for k in ('bot_id','story_id') if link and link[k]}
         if settings.get('mode') == 'character_story':
-            link=db.execute("SELECT story_id FROM character_forum_links WHERE guild_id=? AND character_id=?",
-                            (str(guild_id), int(character_id))).fetchone()
-            required=link['story_id'] if link else None
-            if not required:
-                raise ValueError('尚未建立角色專屬「劇情討論」帖子，請聯絡管理員')
-        if not required or str(required)!=str(channel_id):
-            raise ValueError('請在通告指定的討論串回報')
+            if not (str(channel_id) in authorized_threads or personal_forum_ok):
+                raise ValueError('請在本人角色論壇的「機器人使用」、劇情帖子或本人新建帖子回報')
+        elif not personal_forum_ok and (not required or str(required)!=str(channel_id)):
+            raise ValueError('請在任務指定或本人角色論壇帖子回報')
         if snapshot.get('kind')=='daily':
             from modules.task_daily import current_cycle
             if r['cycle_key']!=current_cycle()[0]:
