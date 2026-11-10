@@ -975,12 +975,10 @@ class ProjectModal(
                 int(str(self.capacity)),
             )
 
-            await respond(
-                i,
+            await i.response.send_message(
                 f"✅ 企劃 #{eid} 已建立草稿。\n"
-                "請使用 `/活動企劃補充` "
-                "填寫頻道、時間、獎勵與稱號，"
-                "再使用 `/活動企劃送審`。",
+                "下一步選擇活動參加頻道，然後填寫時間與獎勵；填完會自動送審。",
+                view=ProjectChannelView(eid, i.user.id), ephemeral=True,
             )
 
         except (ValueError, sqlite3.Error) as exc:
@@ -1029,9 +1027,13 @@ class DetailModal(
         max_length=400,
     )
 
-    def __init__(self, eid):
+    def __init__(self, eid, mode=None, channel_id=None):
         super().__init__()
         self.eid = eid
+        if mode is not None:
+            self.mode.default = mode
+        if channel_id is not None:
+            self.channel.default = str(channel_id)
 
     async def on_submit(self, i):
         try:
@@ -1050,10 +1052,11 @@ class DetailModal(
                 str(self.schedule),
             )
 
+            submit_for_review(i.guild_id, i.user.id, self.eid)
             await respond(
                 i,
-                f"✅ 已補齊企劃 #{self.eid}。"
-                "請使用 `/活動企劃送審`。",
+                f"✅ 企劃 #{self.eid} 已補齊活動頻道、時間與獎勵，並自動送交審核。"
+                "審核通過後，可由官方活動管理設定截止時間、公告頻道與報名資格。",
             )
 
         except (
@@ -1063,6 +1066,30 @@ class DetailModal(
         ) as exc:
             await respond(i, f"⚠️ {exc}")
 
+
+class ProjectChannelSelect(discord.ui.ChannelSelect):
+    def __init__(self, eid, uid, use_category=False):
+        super().__init__(
+            placeholder="選擇新頻道的分類" if use_category else "選擇活動參加頻道",
+            channel_types=[discord.ChannelType.category] if use_category else [discord.ChannelType.text],
+            min_values=1, max_values=1,
+        )
+        self.eid = eid
+        self.uid = uid
+        self.use_category = use_category
+
+    async def callback(self, i):
+        if i.user.id != self.uid:
+            return await i.response.send_message("這不是你的企劃選單。", ephemeral=True)
+        mode = "new" if self.use_category else "existing"
+        await i.response.send_modal(DetailModal(self.eid, mode, self.values[0].id))
+
+
+class ProjectChannelView(discord.ui.View):
+    def __init__(self, eid, uid):
+        super().__init__(timeout=600)
+        self.add_item(ProjectChannelSelect(eid, uid, False))
+        self.add_item(ProjectChannelSelect(eid, uid, True))
 
 # ==========================================
 # 活動管理介面
@@ -1142,6 +1169,18 @@ class EventAdminView(discord.ui.View):
     async def creating(self, i, button):
         await i.response.send_modal(
             ProjectModal()
+        )
+
+    @discord.ui.button(
+        label="🎟️ 報名／公告／抽籤",
+        style=discord.ButtonStyle.primary,
+        row=1,
+    )
+    async def registration(self, i, button):
+        from modules.event_registration_flow import EventRegistrationAdminView
+        await i.response.send_message(
+            "🎟️ **活動報名管理**\n可以設定截止、資格、公告頻道、審核及抽籤。",
+            view=EventRegistrationAdminView(i), ephemeral=True,
         )
 
     @discord.ui.button(
