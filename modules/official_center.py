@@ -1837,18 +1837,36 @@ class LaunchAuditButton(discord.ui.Button):
 
 
 def arrange_official_home(view):
-    """依既有元件重新排版，外掛模組新增按鈕後也需再次呼叫。"""
-    keys = (
-        ("管理申請", 0), ("管理名單", 0),
-        ("功能管理", 1), ("獎項管理", 1),
-        ("正式開群", 2),
+    """固定 /官方 首頁按鈕為 2 / 2 / 1，包含後加的獎項管理按鈕。
+
+    注意 Discord View 按鈕除了 row 屬性，還需要依顯示順序加入 View。
+    只設 row 而不調整 children 順序，後續模組插入按鈕時仍會亂序。
+    """
+    layout = (
+        ("管理申請", 0, 0),
+        ("管理名單", 0, 1),
+        ("功能管理", 1, 0),
+        ("獎項管理", 1, 1),
+        ("正式開群", 2, 0),
     )
-    for button in view.children:
-        label = getattr(button, 'label', '') or ''
-        for token, target in keys:
+
+    original_children = list(view.children)
+
+    def position(item):
+        label = getattr(item, "label", "") or ""
+        for token, row, order in layout:
             if token in label:
-                button.row = target
-                break
+                item.row = row
+                return (row, order)
+        # 不修改其他未知元件；僅在排版最後保留。
+        return (4, original_children.index(item))
+
+    ordered = sorted(original_children, key=position)
+    if ordered != original_children:
+        for item in original_children:
+            view.remove_item(item)
+        for item in ordered:
+            view.add_item(item)
 
 
 class OfficialHome(PrivateView):
