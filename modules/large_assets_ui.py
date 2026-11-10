@@ -50,10 +50,64 @@ class Form(discord.ui.Modal):
         except Exception as exc:
             await interaction.followup.send(clean_error(exc),ephemeral=True)
 
+ASSET_ACTION_GROUPS = {
+    "market": ("🛒 資產市場", ["官方商品", "購買資產", "二手／出租市場", "購買／接受贈與", "拍賣出價"]),
+    "holdings": ("🏠 我的資產與交易", ["我的資產", "出售／出租／贈與", "住所／維護費", "清算前盤點"]),
+    "leases": ("🔑 租賃管理", ["官方租屋", "簽訂租約", "租約續租", "申請／同意退租"]),
+    "company": ("🏢 公司與共有資產", ["公司購買資產", "公司持有／出售", "共有產權邀請", "接受共有", "共有維護費"]),
+    "admin": ("🛠️ 官方管理及其他", ["官方新增資產", "官方修改資產", "補登元老住宅", "銀行與貸款"]),
+}
+
+
+class AssetActionSelect(discord.ui.Select):
+    def __init__(self, actions):
+        super().__init__(placeholder="選擇要使用的資產功能", row=0,
+                         options=[discord.SelectOption(label=name, value=name) for name in actions])
+
+    async def callback(self, interaction):
+        if not await self.view.interaction_check(interaction):
+            return
+        await self.view.actions[self.values[0]].callback(interaction)
+
+
+class AssetActionView(discord.ui.View):
+    def __init__(self, uid, actions):
+        super().__init__(timeout=540)
+        self.uid = str(uid)
+        self.actions = actions
+        self.add_item(AssetActionSelect(actions))
+
+    async def interaction_check(self, interaction):
+        if str(interaction.user.id) != self.uid:
+            await interaction.response.send_message("請使用自己的 /資產 介面。", ephemeral=True)
+            return False
+        return True
+
+
+class AssetGroupSelect(discord.ui.Select):
+    def __init__(self):
+        super().__init__(placeholder="選擇資產管理分類", row=0,
+                         options=[discord.SelectOption(label=label, value=key)
+                                  for key, (label, _) in ASSET_ACTION_GROUPS.items()])
+
+    async def callback(self, interaction):
+        if not await self.view.interaction_check(interaction):
+            return
+        label, names = ASSET_ACTION_GROUPS[self.values[0]]
+        actions = {name: self.view.actions[name] for name in names if name in self.view.actions}
+        return await interaction.response.send_message(label, view=AssetActionView(interaction.user.id, actions), ephemeral=True)
+
+
 class AssetView(discord.ui.View):
     def __init__(self,uid):
         super().__init__(timeout=540)
         self.uid=str(uid)
+        # Discord View may have at most 25 components; group operations in menus.
+        self.actions = {child.label: child for child in list(self.children)
+                        if isinstance(child, discord.ui.Button)}
+        for child in list(self.children):
+            self.remove_item(child)
+        self.add_item(AssetGroupSelect())
     async def interaction_check(self,interaction):
         if str(interaction.user.id)!=self.uid:
             await interaction.response.send_message('請使用你自己的 /資產 介面。',ephemeral=True)
