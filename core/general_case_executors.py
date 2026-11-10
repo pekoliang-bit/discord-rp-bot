@@ -83,52 +83,73 @@ def _execute_leave(db, r, reviewer_id):
 
 
 def _execute_partnership(db, r, reviewer_id, owner_mode):
+    # 雙方各自申請，兩件申請由同一交易核准。
     if r['character_id'] is None:
-        raise ValueError('關係登記必須指定自己的角色。')
+        raise ValueError('婚姻申請必須選擇自己已啟用的角色。')
     gid = str(r['guild_id'])
     a = int(r['character_id'])
     _character(db, gid, a, r['user_id'])
-    raw_target = _field(r['details'], '對方角色編號')
-    if not raw_target.isdecimal():
-        raise ValueError('請填寫有效的對方角色編號。')
-    b = int(raw_target)
-    if a == b:
-        raise ValueError('不可與自己登記。')
-    target = db.execute("SELECT id,owner_id,status FROM characters WHERE guild_id=? AND id=?",(gid,b)).fetchone()
-    if target is None or target['status']!='active':
-        raise ValueError('對方角色不存在或未啟用。')
-    rel_kind = _field(r['details'],'關係類型（伴侶／婚姻）')
-    if rel_kind not in {'伴侶','婚姻'}:
-        raise ValueError('關係類型必須是「伴侶」或「婚姻」。')
-    if not owner_mode and str(target['owner_id']) == str(reviewer_id):
-        raise PermissionError('審核員不得間接核准自己角色的關係登記。')
-    other = db.execute("""SELECT id,details FROM rp_general_applications
-       WHERE guild_id=? AND kind='cp_register' AND character_id=?
-         AND user_id=? AND status='pending' AND id<>?
-       ORDER BY id DESC""",(gid,b,str(target['owner_id']),int(r['id']))).fetchall()
-    other_id = None
-    for candidate in other:
-        if (_field(candidate['details'],'對方角色編號') == str(a)
-                and _field(candidate['details'],'關係類型（伴侶／婚姻）')==rel_kind):
-            other_id=int(candidate['id']); break
-    if other_id is None:
-        raise ValueError('對方尚未提交相互對應的關係申請，暫不能核准。')
-    left,right=sorted([a,b])
-    for cid in (left,right):
-        exists=db.execute("""SELECT 1 FROM rp_registered_partnerships
-            WHERE guild_id=? AND (character_a=? OR character_b=?)""",(gid,cid,cid)).fetchone()
-        if exists:
-            raise ValueError('其中一方已有有效登記關係，請先處理原有關係。')
-    db.execute("""INSERT INTO rp_registered_partnerships
-      (guild_id,character_a,character_b,relationship_kind,application_a,application_b,reviewer_id)
-      VALUES(?,?,?,?,?,?,?)""",(gid,left,right,rel_kind,int(r['id']),other_id,str(reviewer_id)))
-    # 相互送件代表兩位角色擁有者皆同意，雙件作為一組共同結案。
-    updated=db.execute("""UPDATE rp_general_applications SET status='approved',
-      reviewer_id=?,reviewed_at=CURRENT_TIMESTAMP WHERE guild_id=? AND id=? AND status='pending'""",
-      (str(reviewer_id),gid,other_id))
-    if updated.rowcount!=1:
-        raise ValueError('對方的同意申請狀態已改變，請重試。')
+    source = db.execute('SELECT name,public_code FROM characters WHERE guild_id=? AND id=?',
+                        (gid,a)).fetchone()
+    target_code = _field(r['details'], '對方角色編號')
+    target_name = _field(r['details'], '對方角色姓名')
+    operation = _field(r['details'], '登記操作（結婚／離婚）')
+    if operation not in ('結婚', '離婚'):
+        raise ValueError('婚姻操作只接受結婚或離婚。')
+    if not target_code:
+        raise ValueError('請填對方角色編號。')
+    row = db.execute('''SELECT id,name,owner_id,status,public_code FROM characters
+        WHERE guild_id=? AND (CAST(id AS TEXT)=? OR public_code=?)''',
+        (gid,target_code,target_code)).fetchone()
+    if not row or row['status'] != 'active' or row['name'] != target_name:
+        raise ValueError('對方角色名稱、編號不匹配或尚未啟用。')
+    b = int(row['id'])
+    if a == b or str(row['owner_id']) == str(r['user_id']):
+        raise ValueError('婚姻登記需由不同玩家的兩名角色各自提出申請。')
+    if not owner_mode and str(row['owner_id']) == str(reviewer_id):
+        raise PermissionError('審核員不能間接核准自己角色的婚姻申請。')
+    counterpart = db.execute('''SELECT id,details FROM rp_general_applications
+        WHERE guild_id=? AND kind='cp_register' AND character_id=? AND user_id=?
+        AND status='pending' AND id<>? ORDER BY id DESC''',
+        (gid,b,str(row['owner_id']),int(r['id']))).fetchall()
+    matched = None
+    for candidate in counterpart:
+        their_code = _field(candidate['details'],'對方角色編號')
+        their_name = _field(candidate['details'],'對方角色姓名')
+        their_op = _field(candidate['details'],'登記操作（結婚／離婚）')
+        if (their_code in (str(a), str(source['public_code'] or ''))
+            and their_name == source['name'] and their_op == operation):
+            matched = int(candidate['id'])
+            break
+    if matched is None:
+        raise ValueError('雙方尚未各自提交互相對應的婚姻申請。')
+    left,right = sorted((a,b))
+    current = db.execute('''SELECT 1 FROM rp_registered_partnerships
+        WHERE guild_id=? AND character_a=? AND character_b=?''',(gid,left,right)).fetchone()
+    if operation == '結婚':
+        if current:
+            raise ValueError('雙方已經登記結婚。')
+        for cid in (a,b):
+            existing = db.execute('''SELECT 1 FROM rp_registered_partnerships
+                WHERE guild_id=? AND (character_a=? OR character_b=?)''',(gid,cid,cid)).fetchone()
+            if existing:
+                raise ValueError('其中一方已有有效婚姻，請先辦理離婚。')
+        db.execute('''INSERT INTO rp_registered_partnerships
+            (guild_id,character_a,character_b,relationship_kind,application_a,application_b,reviewer_id)
+            VALUES(?,?,?,?,?,?,?)''',(gid,left,right,'婚姻',int(r['id']),matched,str(reviewer_id)))
+    else:
+        if not current:
+            raise ValueError('雙方目前沒有有效婚姻紀錄。')
+        db.execute('''DELETE FROM rp_registered_partnerships
+            WHERE guild_id=? AND character_a=? AND character_b=?''',(gid,left,right))
+    updated = db.execute('''UPDATE rp_general_applications
+        SET status='approved',reviewer_id=?,reviewed_at=CURRENT_TIMESTAMP
+        WHERE guild_id=? AND id=? AND status='pending' ''',
+        (str(reviewer_id),gid,matched))
+    if updated.rowcount != 1:
+        raise ValueError('對方的同意申請狀態已改變。')
     return 'cp_register'
+
 
 def _execute_item(db, r, reviewer_id):
     """核發現存的上架商品，不從申請文字自創商品或金錢。"""
