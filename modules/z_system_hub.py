@@ -303,7 +303,7 @@ class SystemHub(commands.Cog):
         if not allowed:
             return
         try:
-            view = LeaderboardView(interaction.user.id, interaction.guild_id)
+            view = LeaderboardView(interaction.user.id, interaction.guild_id, owner=(interaction.guild is not None and interaction.user.id == interaction.guild.owner_id))
             await interaction.response.send_message(embed=view.render(), view=view, ephemeral=True)
             mark_tutorial_after_reply(interaction, '排行', tutorial_character)
         except Exception:
