@@ -1,4 +1,3 @@
-
 """統一通知中心（第一階段）。
 
 公開 API：queue_notification(guild_id, kind, event_type, message, *, character_id=None,
@@ -534,7 +533,8 @@ class NotificationView(discord.ui.View):
     @discord.ui.button(
         label='通知項目開關',
         emoji='⚙️',
-        style=discord.ButtonStyle.secondary
+        style=discord.ButtonStyle.secondary,
+        row=0,
     )
     async def switches(
         self,
@@ -557,7 +557,8 @@ class NotificationView(discord.ui.View):
     @discord.ui.button(
         label='發送測試通知',
         emoji='🧪',
-        style=discord.ButtonStyle.secondary
+        style=discord.ButtonStyle.secondary,
+        row=0,
     )
     async def test(
         self,
@@ -580,7 +581,8 @@ class NotificationView(discord.ui.View):
     @discord.ui.button(
         label='立即發布更新',
         emoji='📢',
-        style=discord.ButtonStyle.success
+        style=discord.ButtonStyle.success,
+        row=1,
     )
     async def publish_bulletin(
         self,
@@ -654,7 +656,8 @@ class NotificationView(discord.ui.View):
     @discord.ui.button(
         label='狀態刷新',
         emoji='🔄',
-        style=discord.ButtonStyle.primary
+        style=discord.ButtonStyle.primary,
+        row=2,
     )
     async def refresh(
         self,
@@ -868,7 +871,18 @@ def status_text(guild_id):
 
     lines = [
         '🔔 **通知管理中心**',
-        '通知頻道：'
+        '📖 **通知功能介紹**',
+        '📢 主通知：系統更新、重大公告及重要違規資訊。',
+        '👤 角色相關：角色啟用、公司、升級與個人重要事件。',
+        '🎉 活動頻道：活動消息、報名及活動結果。',
+        '🗣️ 傳聞頻道：系統及玩家傳聞。',
+        '🔒 私人通知：送到角色專屬論壇的固定「通知」帖子，不使用 Discord 私訊。',
+        '⚙️ 通知開關：由群主選擇各種事件是否發布。',
+        '🧪 測試通知：驗證已設定頻道的發送權限。',
+        '📢 立即發布更新：將已核准的更新排入公告佇列。',
+        '📋 公告管理：查詢發布歷史與補發失敗的公告。',
+        '',
+        '**目前頻道設定**'
     ]
 
     lines.extend(
