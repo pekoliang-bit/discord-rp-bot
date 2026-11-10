@@ -288,6 +288,67 @@ class NewcomerRoleSelect(discord.ui.View):
         return True
 
 
+async def _ordinary_draw(i, character_id):
+    from core.ordinary_lottery_pool import draw as draw_pool
+    from core.ordinary_lottery_tickets import balance as ticket_balance
+    await i.response.defer(ephemeral=True, thinking=True)
+    try:
+        award, fresh = draw_pool(i.guild_id,i.user.id,character_id,f'discord:{i.id}')
+        remaining=ticket_balance(i.guild_id,character_id)
+    except (ValueError, PermissionError, sqlite3.Error) as exc:
+        return await i.followup.send(f'⚠️ {exc}',ephemeral=True)
+    except Exception:
+        LOG.exception('普通獎池抽獎發獎失敗')
+        return await i.followup.send('⚠️ 抽獎暫時失敗，交易已取消；請重試。',ephemeral=True)
+    prize_type='商城物品（已入背包）' if award['prize_type']=='product' else '正式課程（已建立修課紀錄）'
+    await i.followup.send(
+        f'🎉 抽中「{discord.utils.escape_mentions(award["prize_name"])}」！\n'
+        f'獎品類型：{prize_type}\n'
+        f'剩餘普通抽獎券：{remaining} 張。',ephemeral=True)
+
+
+class OrdinaryRoleView(discord.ui.View):
+    def __init__(self,guild_id,user_id,characters):
+        super().__init__(timeout=180)
+        self.gid,self.uid=str(guild_id),str(user_id)
+        self.characters=characters
+        self.page=0
+        self.render()
+
+    def render(self):
+        self.clear_items()
+        page=self.characters[self.page*25:self.page*25+25]
+        select=discord.ui.Select(placeholder='選擇使用普通抽獎券的本人角色',row=0,
+            options=[discord.SelectOption(label=str(c['name'])[:95],value=str(c['id'])) for c in page])
+        async def chosen(i):
+            from core.database import get_connection
+            with get_connection() as db:
+                row=db.execute("SELECT id FROM characters WHERE guild_id=? AND owner_id=? AND id=? AND status='active'",
+                               (self.gid,self.uid,int(select.values[0]))).fetchone()
+            if not row:
+                await i.response.send_message('角色不屬於你或已停用。',ephemeral=True)
+                return
+            await _ordinary_draw(i,int(row['id']))
+        select.callback=chosen
+        self.add_item(select)
+        if len(self.characters)>25:
+            for label,delta in [('◀️ 上一頁',-1),('下一頁 ▶️',1)]:
+                b=discord.ui.Button(label=label,style=discord.ButtonStyle.secondary,
+                    disabled=(self.page+delta<0 or (self.page+delta)*25>=len(self.characters)),row=1)
+                async def move(i,step=delta):
+                    self.page+=step
+                    self.render()
+                    await i.response.edit_message(view=self)
+                b.callback=move
+                self.add_item(b)
+
+    async def interaction_check(self,i):
+        if str(i.guild_id)!=self.gid or str(i.user.id)!=self.uid:
+            await i.response.send_message('請自行使用 /抽獎 選擇角色。',ephemeral=True)
+            return False
+        return True
+
+
 class LotteryCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -444,6 +505,17 @@ class LotteryCog(commands.Cog):
                 view=NewcomerRoleSelect(i.guild_id, i.user.id, characters),
                 ephemeral=True,
             )
+
+        # 普通獎池與舊「每玩家一抽」獎單隔離：每張券單獨一次機會。
+        if i.channel.name.strip() == '普通獎池':
+            characters=_newcomer_owned_characters(i.guild_id,i.user.id)
+            if not characters:
+                return await tell(i,'目前沒有你名下可用的已啟用角色。')
+            if len(characters)==1:
+                return await _ordinary_draw(i,int(characters[0]['id']))
+            return await i.response.send_message(
+                '🎟️ 請選擇要使用普通抽獎券的角色：',
+                view=OrdinaryRoleView(i.guild_id,i.user.id,characters),ephemeral=True)
 
         lottery = find_list(i.guild_id, i.channel.name)
 
