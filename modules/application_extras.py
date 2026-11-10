@@ -1044,7 +1044,7 @@ class ApplicationKindSelect(
         v = self.view
 
         if (
-            i.user.id != v.actor.user_id
+            str(i.user.id) != str(v.actor.user_id)
             or str(i.guild_id)
             != str(v.actor.guild_id)
         ):
