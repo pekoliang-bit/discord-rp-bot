@@ -1,4 +1,3 @@
-
 """娛樂城預設可核准獎表：五款刮刮樂、四個純金幣抽抽樂池。
 
 僅供管理者明確按鈕操作；安裝不開放販售、不改動現有設定。
@@ -389,3 +388,85 @@ def manageable_games(guild_id: int | str) -> list[dict]:
         )
         if row["kind"] != "pvp"
     ]
+
+
+# 版本化首次開放：只針對內建的 17 個代碼執行一次。
+# 群主日後個別停用，不會因玩家重新進入 /娛樂城而被再次開啟。
+AUTO_OPEN_KEY = "default_games_open_v1"
+
+
+def activate_defaults_once(guild_id: int | str, *, actor_id: int | str = "system") -> dict:
+    """依群主要求開放內建遊戲，保留自訂設定與永久停用權。"""
+    init_casino_schema()
+    with transaction() as db:
+        done = db.execute(
+            "SELECT 1 FROM casino_audit WHERE guild_id=? AND action=? LIMIT 1",
+            (str(guild_id), AUTO_OPEN_KEY),
+        ).fetchone()
+    if done:
+        return {"already_processed": True, "opened": [], "errors": []}
+
+    install_all(guild_id, actor_id=actor_id)
+    codes = [row[0] for row in DEFAULT_SCRATCH]
+    codes += [row[0] for row in DEFAULT_POOLS]
+    codes += [row[0] for row in DEFAULT_LOTTERY]
+    codes += [row[0] for row in DEFAULT_CASINO_TABLES]
+    opened, errors = [], []
+    for code in codes:
+        try:
+            row = get_game(guild_id, code)
+            if row and row["enabled"]:
+                opened.append(code)
+                continue
+            toggle_game(guild_id, code, actor_id=actor_id, enabled=True)
+            opened.append(code)
+        except (ValueError, KeyError, TypeError) as exc:
+            errors.append({"game": code, "reason": str(exc)[:150]})
+
+    # 單次嘗試結果必須留存，避免手動停用後被下一位玩家重新開啟。
+    with transaction() as db:
+        db.execute(
+            "INSERT INTO casino_audit(guild_id,actor_id,action,ref_key,details_json) "
+            "VALUES(?,?,?,?,?)",
+            (str(guild_id), str(actor_id), AUTO_OPEN_KEY, "default_games",
+             json.dumps({"opened": opened, "errors": errors}, ensure_ascii=False)),
+        )
+    return {"already_processed": False, "opened": opened, "errors": errors}
+
+
+def ensure_open_lottery_draws(guild_id: int | str) -> list[str]:
+    """僅為已開放的彩票補建下一個可售期別；不重複開期。"""
+    from datetime import datetime, timedelta, timezone
+    from core.database import get_connection
+    from modules.casino_lottery import create_draw, init_lottery_schema
+
+    init_lottery_schema()
+    now = datetime.now(timezone.utc)
+    created = []
+    for code, *_ in DEFAULT_LOTTERY:
+        game = get_game(guild_id, code)
+        if not game or not game["enabled"]:
+            continue
+        with get_connection() as db:
+            selling = db.execute(
+                "SELECT 1 FROM casino_lottery_draws d "
+                "JOIN casino_games g ON g.id=d.game_id AND g.guild_id=d.guild_id "
+                "WHERE d.guild_id=? AND g.code=? AND d.state='selling' "
+                "AND d.cutoff_at>? LIMIT 1",
+                (str(guild_id), code, now.isoformat()),
+            ).fetchone()
+        if selling:
+            continue
+        tomorrow = now + timedelta(days=1)
+        cutoff = tomorrow - timedelta(minutes=20)
+        draw_code = f"{code}-{tomorrow:%Y%m%d%H%M}"
+        try:
+            create_draw(
+                guild_id=guild_id, game_code=code, draw_code=draw_code,
+                cutoff_at=cutoff.isoformat(), draw_at=tomorrow.isoformat(),
+            )
+            created.append(code)
+        except ValueError:
+            # 預設期別失敗不影響其他遊戲；留給管理員手動查看。
+            continue
+    return created
