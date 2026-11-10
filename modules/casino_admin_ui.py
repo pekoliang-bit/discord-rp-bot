@@ -1,4 +1,3 @@
-
 """娛樂城群主管理按鈕。非 Cog，不建立新斜線指令。"""
 from __future__ import annotations
 
@@ -42,7 +41,7 @@ class CasinoAdminButton(discord.ui.Button):
             return
 
         await interaction.response.send_message(
-            "⚙️ 娛樂城獎池管理（先安裝、後核准開放）",
+            "⚙️ 娛樂城遊戲管理（先安裝預設內容、再逐款核准開放；玩家對賭停用）",
             view=CasinoAdminView(interaction.user.id),
             ephemeral=True,
         )
@@ -71,7 +70,7 @@ class CasinoAdminView(discord.ui.View):
         return True
 
     @discord.ui.button(
-        label="安裝 9 款預設獎表",
+        label="安裝 17 款預設遊戲",
         emoji="📦",
         style=discord.ButtonStyle.primary,
     )
@@ -92,7 +91,7 @@ class CasinoAdminView(discord.ui.View):
                 f"✅ 新增 {len(result['created'])} 款"
                 "（全部保持關閉）；"
                 f"既有 {len(result['existing_unchanged'])} 款不變。\n"
-                "下一步請點「開放／停用獎池」，逐款核准。",
+                "彩票另需建立期別；玩家對賭仍暫停。下一步請點「開放／停用獎池」逐款核准。",
                 ephemeral=True,
             )
         except Exception:
@@ -102,6 +101,12 @@ class CasinoAdminView(discord.ui.View):
                 "沒有開放任何未核准遊戲。",
                 ephemeral=True,
             )
+
+    @discord.ui.button(
+        label="建立彩票期別", emoji="🎫", style=discord.ButtonStyle.secondary,
+    )
+    async def make_draw(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.send_modal(LotteryDrawModal())
 
     @discord.ui.button(
         label="開放／停用獎池",
@@ -121,13 +126,13 @@ class CasinoAdminView(discord.ui.View):
 
             if not rows:
                 await interaction.response.send_message(
-                    "尚無獎池，請先按「安裝 9 款預設獎表」。",
+                    "尚無獎池，請先按「安裝 17 款預設遊戲」。",
                     ephemeral=True,
                 )
                 return
 
             await interaction.response.send_message(
-                "選擇遊戲，再確認要開放或停用。",
+                "選擇遊戲，再確認要開放或停用。彩票核准後仍須建立期別。",
                 view=CasinoGameToggleView(
                     interaction.user.id,
                     rows,
@@ -140,6 +145,30 @@ class CasinoAdminView(discord.ui.View):
                 "⚠️ 無法取得獎池清單。",
                 ephemeral=True,
             )
+
+
+class LotteryDrawModal(discord.ui.Modal, title="建立彩票期別"):
+    game_code = discord.ui.TextInput(label="彩票代碼", placeholder="lottery_daily / lottery_royal / lottery_dream", max_length=80)
+    draw_code = discord.ui.TextInput(label="期別名稱", placeholder="例如 20261110-A", max_length=80)
+    cutoff = discord.ui.TextInput(label="截止時間（含時區）", placeholder="2026-11-11T19:00:00+08:00", max_length=40)
+    draw_at = discord.ui.TextInput(label="開獎時間（含時區）", placeholder="2026-11-11T20:00:00+08:00", max_length=40)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        if not await _owner(interaction):
+            return
+        await interaction.response.defer(ephemeral=True)
+        try:
+            from modules.casino_lottery import create_draw
+            draw = await asyncio.to_thread(
+                create_draw, guild_id=interaction.guild_id,
+                game_code=str(self.game_code.value).strip(), draw_code=str(self.draw_code.value).strip(),
+                cutoff_at=str(self.cutoff.value).strip(), draw_at=str(self.draw_at.value).strip(),
+            )
+            await interaction.followup.send(
+                f"✅ 已建立彩票期別 #{draw['id']}。開獎及派獎仍需運作彩票維護排程。", ephemeral=True)
+        except Exception as exc:
+            LOG.exception("建立彩票期別失敗")
+            await interaction.followup.send(f"⚠️ 建立失敗：{str(exc)[:1000]}", ephemeral=True)
 
 
 class CasinoGameToggleView(discord.ui.View):
