@@ -37,11 +37,11 @@ def approve_company_bank(db, guild_id, company_id, applicant_id, application_id)
     from modules.application_extras import validate_company_bank_applicant
     validate_company_bank_applicant(db, gid, bid, uid)
     company = db.execute("""
-        SELECT business_id FROM rp_business_entities
-        WHERE guild_id=? AND business_id=? AND kind='company' AND status='active'
+        SELECT business_id,kind FROM rp_business_entities
+        WHERE guild_id=? AND business_id=? AND kind IN ('company','group') AND status='active'
     """, (gid, bid)).fetchone()
     if company is None:
-        raise ValueError('公司不存在或尚未啟用')
+        raise ValueError('公司／集團不存在或尚未啟用')
     existing = db.execute("""
         SELECT account_id,application_id FROM rp_company_bank_accounts
         WHERE guild_id=? AND company_id=?
@@ -49,7 +49,7 @@ def approve_company_bank(db, guild_id, company_id, applicant_id, application_id)
     if existing is not None:
         if int(existing['application_id']) == app_id:
             return int(existing['account_id'])
-        raise ValueError('這家公司已開立銀行帳戶')
+        raise ValueError('此公司／集團已開立銀行帳戶')
     account_id = get_or_create_account(db,gid,'organization',bid,'bank')
     db.execute("""
         INSERT INTO rp_company_bank_accounts
