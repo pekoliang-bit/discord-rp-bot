@@ -1035,6 +1035,138 @@ APPLICATION_GROUPS = {
 }
 
 
+
+class FactionRequestSelect(discord.ui.Select):
+    def __init__(self, groups):
+        super().__init__(
+            placeholder="選擇陣營名稱",
+            min_values=1,
+            max_values=1,
+            options=[discord.SelectOption(label=str(g["name"])[:100], value=str(g["id"]))
+                     for g in groups[:25]],
+        )
+
+    async def callback(self, i):
+        v = self.view
+        v.selected = int(self.values[0])
+        await i.response.edit_message(content=await v.summary(), view=v)
+
+
+class FactionRequestView(discord.ui.View):
+    def __init__(self, guild_id, user_id, character_id, kind, groups):
+        super().__init__(timeout=300)
+        self.gid = int(guild_id)
+        self.uid = int(user_id)
+        self.character_id = int(character_id)
+        self.kind = kind
+        self.selected = None
+        self.groups = {int(g["id"]): str(g["name"]) for g in groups}
+        self.add_item(FactionRequestSelect(groups))
+
+    async def interaction_check(self, i):
+        if i.guild_id != self.gid or i.user.id != self.uid:
+            await i.response.send_message("這不是你的申請選單。", ephemeral=True)
+            return False
+        return True
+
+    async def summary(self):
+        if self.selected is None:
+            return "請先選擇陣營。"
+        line = f"**{CATEGORIES[self.kind]}**\n目標：{self.groups[self.selected]}"
+        if self.kind != "faction_join":
+            from modules import faction_membership
+            with get_connection() as db:
+                current = db.execute(
+                    "SELECT faction_id FROM faction_members WHERE guild_id=? AND character_id=?",
+                    (str(self.gid), self.character_id),
+                ).fetchone()
+            if current is None:
+                return line + "\n⚠️ 角色已無陣營，無法送出。"
+            penalty = faction_membership.get_penalty(self.gid, int(current["faction_id"]))
+            line += (f"\n目前退出違約金：{penalty:,} 金幣" if penalty is not None
+                     else "\n目前原陣營尚未設定退出違約金，無法送出。")
+        return line + "\n按確認後送至 /審核，審核核准時才會進行實際異動。"
+
+    @discord.ui.button(label="確認送出陣營申請", style=discord.ButtonStyle.success, row=1)
+    async def confirm(self, i, button):
+        if self.selected is None:
+            return await i.response.send_message("請先選擇陣營名稱。", ephemeral=True)
+        try:
+            init_db()
+            from modules import faction_membership
+            faction_membership.initialize()
+            with transaction() as db:
+                character = db.execute(
+                    "SELECT 1 FROM characters WHERE guild_id=? AND id=? AND owner_id=? "
+                    "AND status='active' AND character_type='player'",
+                    (str(self.gid), self.character_id, str(self.uid)),
+                ).fetchone()
+                if character is None:
+                    raise ValueError("申請角色已失效或不屬於你。")
+                current = db.execute(
+                    "SELECT faction_id FROM faction_members WHERE guild_id=? AND character_id=?",
+                    (str(self.gid), self.character_id),
+                ).fetchone()
+                target = self.selected
+                group = db.execute(
+                    "SELECT name FROM faction_groups WHERE guild_id=? AND id=?",
+                    (str(self.gid), target),
+                ).fetchone()
+                if group is None:
+                    raise ValueError("選擇的陣營已不存在。")
+                if self.kind == "faction_join":
+                    if current is not None:
+                        raise ValueError("角色已經加入陣營，請使用轉換申請。")
+                else:
+                    if current is None:
+                        raise ValueError("角色目前沒有陣營。")
+                    if self.kind == "faction_exit" and int(current["faction_id"]) != target:
+                        raise ValueError("角色所屬陣營已改變，請重新選擇。")
+                    if self.kind == "faction_change" and int(current["faction_id"]) == target:
+                        raise ValueError("不可轉換到目前所屬陣營。")
+                penalty = None
+                if self.kind != "faction_join":
+                    penalty_row = db.execute(
+                        "SELECT penalty FROM faction_exit_rules WHERE guild_id=? AND faction_id=?",
+                        (str(self.gid), int(current["faction_id"])),
+                    ).fetchone()
+                    penalty = int(penalty_row["penalty"]) if (
+                        penalty_row is not None and penalty_row["penalty"] is not None
+                    ) else None
+                    if penalty is None:
+                        raise ValueError("原陣營尚未設定退出違約金。")
+                field = "目前所屬陣營編號" if self.kind == "faction_exit" else "目標陣營編號"
+                details = f"【{field}】{target}\n【陣營名稱】{group['name']}"
+                if penalty is not None:
+                    details += f"\n【已確認違約金（金幣）】{penalty}"
+                title = f"角色 #{self.character_id}｜{CATEGORIES[self.kind]}｜{group['name']}"
+                prior = db.execute(
+                    "SELECT id FROM rp_general_applications WHERE guild_id=? AND character_id=? "
+                    "AND kind IN ('faction_join','faction_exit','faction_change') "
+                    "AND status='pending' LIMIT 1",
+                    (str(self.gid), self.character_id),
+                ).fetchone()
+                if prior:
+                    raise ValueError(f"此角色已有待審陣營案件 #{prior['id']}。")
+                cur = db.execute(
+                    "INSERT INTO rp_general_applications "
+                    "(guild_id,user_id,character_id,kind,title,details,reference) "
+                    "VALUES (?,?,?,?,?,?,?)",
+                    (str(self.gid), str(self.uid), self.character_id,
+                     self.kind, title, details, ""),
+                )
+                rid = cur.lastrowid
+            self.stop()
+            for child in self.children:
+                child.disabled = True
+            await i.response.edit_message(
+                content=f"✅ {CATEGORIES[self.kind]} #{rid} 已送審。\n{general_status_text(self.kind)}",
+                view=self,
+            )
+        except (ValueError, sqlite3.Error, PermissionError) as exc:
+            await i.response.send_message(f"⚠️ 送件失敗：{exc}", ephemeral=True)
+
+
 async def dispatch_application_kind(i, view, kind):
     if str(i.user.id) != str(view.actor.user_id) or str(i.guild_id) != str(view.actor.guild_id):
         return await say(i, "⛔ 這不是你的申請選單。")
@@ -1059,6 +1191,38 @@ async def dispatch_application_kind(i, view, kind):
             "🎟️ **我主辦的活動**\n請輸入活動編號，系統會核對是否為該活動主辦者或管理員。",
             view=EventRegistrationAdminView(i), ephemeral=True,
         )
+    if kind in {"faction_join", "faction_exit", "faction_change"}:
+        if view.character_id is None:
+            return await say(i, "請先選擇自己的已啟用角色。")
+        try:
+            from modules import faction_core
+            faction_core.ensure_guild(i.guild_id)
+            with get_connection() as db:
+                groups = db.execute(
+                    "SELECT id, name FROM faction_groups WHERE guild_id=? ORDER BY id",
+                    (str(i.guild_id),),
+                ).fetchall()
+                current = db.execute(
+                    "SELECT faction_id FROM faction_members WHERE guild_id=? AND character_id=?",
+                    (str(i.guild_id), int(view.character_id)),
+                ).fetchone()
+            if kind == "faction_join" and current is not None:
+                return await say(i, "角色已有陣營，請使用轉換陣營。")
+            if kind != "faction_join" and current is None:
+                return await say(i, "角色目前沒有陣營。")
+            if kind == "faction_exit":
+                groups = [g for g in groups if int(g["id"]) == int(current["faction_id"])]
+            elif kind == "faction_change" and current is not None:
+                groups = [g for g in groups if int(g["id"]) != int(current["faction_id"])]
+            if not groups:
+                return await say(i, "目前沒有可選擇的陣營。")
+            return await i.response.send_message(
+                "請選擇陣營名稱，系統會再次確認角色資格與違約金。",
+                view=FactionRequestView(i.guild_id, i.user.id, view.character_id, kind, groups),
+                ephemeral=True,
+            )
+        except (ValueError, sqlite3.Error) as exc:
+            return await say(i, f"無法開啟陣營申請：{exc}")
     if kind in CHARACTER_REQUIRED and view.character_id is None:
         return await say(i, "這類申請需先選擇自己的已啟用角色。")
     return await i.response.send_modal(ApplicationModal(i, kind, view.character_id))
