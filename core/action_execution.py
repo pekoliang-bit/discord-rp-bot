@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import secrets
 from datetime import datetime, timezone
 
 from core.database import transaction, get_or_create_account
@@ -146,9 +147,21 @@ def execute_action(guild_id, user_id, character_id, location_key, action, reques
             if int(old['character_id']) != character_id or old['action_fingerprint'] != fp:
                 raise ActionExecutionError('此請求編號已用於其他行動')
             return dict(json.loads(old['result_json']), duplicated=True)
+        # 抽取與原子扣款在同一交易內完成；重試直接返回原結果。
+        rolled = []
+        for spec in action.get('stat_rewards', []):
+            amount = (spec['amount'] if spec['mode'] == 'fixed'
+                      else secrets.randbelow(15) + 1)
+            rolled.append({'name': spec['name'], 'amount': amount})
+        minimum = (300 if action['category'] == '活動' else 500) if action['category'] != '打工' else 0
+        cost = int(action.get('cost_coins', 0))
+        if rolled and minimum:
+            total_points = sum(x['amount'] for x in rolled)
+            total_points += int(action.get('attribute_increase', 0))
+            total_points += sum(int(v) for v in (action.get('point_rewards') or {}).values())
+            cost = max(cost, total_points * minimum)
         ap=int(action.get('action_points_cost',0))
         spent=_spend_action_points(db,guild_id,character_id,ap,datetime.now(timezone.utc).isoformat())
-        cost=int(action.get('cost_coins',0))
         earn=int(action.get('reward_coins',0))
         if cost or earn:
             wallet=get_or_create_account(db,guild_id,'character',character_id,'wallet')
@@ -176,6 +189,24 @@ def execute_action(guild_id, user_id, character_id, location_key, action, reques
                   VALUES(?,?,?,?) ON CONFLICT(guild_id,character_id,skill_name)
                   DO UPDATE SET skill_value=skill_value+excluded.skill_value""",
                   (guild_id,character_id,name,increase))
+        # 多項實際抽取的數值獎勵，與扣款同一筆 SQLite 事務入帳。
+        for rolled_stat in rolled:
+            name, amount = rolled_stat['name'], rolled_stat['amount']
+            if name in RESTRICTED_DIRECT_STATS:
+                raise ActionExecutionError('管制數值不得由一般行動增加')
+            try:
+                validate_target('skill', 'skill', name)
+            except ValueError:
+                validate_target('free', 'attribute', name)
+                db.execute("""INSERT INTO attributes(guild_id,character_id,name,value)
+                  VALUES(?,?,?,?) ON CONFLICT(guild_id,character_id,name)
+                  DO UPDATE SET value=value+excluded.value,version=version+1""",
+                  (guild_id, character_id, name, amount))
+            else:
+                db.execute("""INSERT INTO character_skills(guild_id,character_id,skill_name,skill_value)
+                  VALUES(?,?,?,?) ON CONFLICT(guild_id,character_id,skill_name)
+                  DO UPDATE SET skill_value=skill_value+excluded.skill_value""",
+                  (guild_id,character_id,name,amount))
         health=int(action.get('health_delta',0))
         if health:
             # 不清楚角色正式健康值來源時，不可無聲略過懲罰或胡亂改寫。
@@ -185,7 +216,7 @@ def execute_action(guild_id, user_id, character_id, location_key, action, reques
         result={'character_id':character_id,'action_name':str(action.get('name','未命名行動')),
                 'cost_coins':cost,'reward_coins':earn,'action_points_spent':ap,
                 'free_action_points_spent':spent['free'], 'paid_action_points_spent':spent['paid'],
-                'attribute_increase':increase,'point_rewards':action.get('point_rewards') or {},
+                'attribute_increase':increase,'rolled_stats':rolled,'point_rewards':action.get('point_rewards') or {},
                 'duplicated':False}
         db.execute("""INSERT INTO rp_location_action_events(
           guild_id,request_key,character_id,action_fingerprint,location_key,action_name,result_json)
