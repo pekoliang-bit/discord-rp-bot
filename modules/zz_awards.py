@@ -600,7 +600,7 @@ def patch_interfaces():
         def init_official(self, interaction, *args, **kwargs):
             original(self, interaction, *args, **kwargs)
             if owner(interaction):
-                button = discord.ui.Button(label="🏆 獎項管理", style=discord.ButtonStyle.success, row=3)
+                button = discord.ui.Button(label="🏆 獎項管理", style=discord.ButtonStyle.success, row=1)
 
                 async def open_awards(clicked):
                     try:
