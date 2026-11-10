@@ -1630,12 +1630,8 @@ class ShopHome(discord.ui.View):
                     self.guild_id,
                     self._black_allowed(),
                 ),
-                view=ShopHome(
-                    self.owner_id,
-                    self.character_id,
-                    False,
-                    "",
-                    self.guild_id,
+                view=__import__('modules.player_store_portal',fromlist=['ShopHubView']).ShopHubView(
+                    self.owner_id,self.character_id,self.guild_id,
                 ),
             )
 
