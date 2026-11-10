@@ -50,7 +50,9 @@ from modules.casino_scratch import (
     validate_scratch,
 )
 from modules.casino_service import CasinoError
-from modules.casino_ready_presets import install_all as install_casino_presets
+from modules.casino_ready_presets import (
+    activate_defaults_once, ensure_open_lottery_draws,
+)
 from modules.casino_maintenance import process_due_lotteries
 from modules.casino_admin_ui import CasinoAdminButton, CasinoOwnerOnlyView
 from modules.casino_wager_service import play_wager
@@ -1187,6 +1189,20 @@ class CasinoGameMenu(discord.ui.View):
 
         self.character_id = character_id
         self.owner_id = owner_id
+        self._arrange_buttons()
+
+    def _arrange_buttons(self):
+        """同類遊戲排在一起：彩票／抽獎；賭桌；排行榜。"""
+        by_label = {
+            "刮刮樂": (0, 0), "彩票": (0, 1), "抽抽樂": (0, 2),
+            "賭場": (1, 0), "牌桌／賓果": (1, 1),
+            "玩家對賭（暫停）": (1, 2), "排行榜": (2, 0),
+        }
+        for button in self.children:
+            if isinstance(button, discord.ui.Button) and button.label in by_label:
+                button.row = by_label[button.label][0]
+        self._children.sort(key=lambda button: by_label.get(
+            getattr(button, "label", None), (3, 0)))
 
     async def _open(
         self,
@@ -1577,6 +1593,7 @@ class CasinoCommands(commands.Cog):
         for guild in list(self.bot.guilds):
             try:
                 result = await asyncio.to_thread(process_due_lotteries, guild_id=guild.id)
+                await asyncio.to_thread(ensure_open_lottery_draws, guild.id)
                 if result.get('errors'):
                     LOG.warning('彩票維護有待檢查的期別：guild=%s result=%s',
                                 guild.id, result['errors'])
@@ -1604,9 +1621,13 @@ class CasinoCommands(commands.Cog):
             return
 
         try:
-            # 安裝所有缺少的遊戲獎表；保持停用，必須由群主逐款核准。
-            await asyncio.to_thread(install_casino_presets, interaction.guild_id,
-                                    actor_id='system')
+            # 群主已要求內建 17 款遊戲一次性開放；後續人工停用仍然有效。
+            launch = await asyncio.to_thread(
+                activate_defaults_once, interaction.guild_id, actor_id="system"
+            )
+            if launch.get("errors"):
+                LOG.warning("娛樂城預設開放部分失敗：%s", launch["errors"])
+            await asyncio.to_thread(ensure_open_lottery_draws, interaction.guild_id)
             characters = await asyncio.to_thread(
                 _characters,
                 interaction.guild_id,
