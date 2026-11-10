@@ -52,6 +52,17 @@ def ensure_companies(db, guild_id):
 
 def public_company(db, guild_id, business_id):
     gid, bid = str(guild_id), str(business_id)
+    # 正式開群後使用新式 C/G-伺服器-成立月日-流水號；
+    # 舊的業務主鍵與舊碼保留供歷史交易查詢，不直接遷移。
+    from core.business_public_ids import issue
+    entity = db.execute(
+        "SELECT kind FROM rp_business_entities WHERE guild_id=? AND business_id=?",
+        (gid, bid),
+    ).fetchone()
+    if entity is not None and entity["kind"] in ("company", "group"):
+        new_code = issue(db, gid, str(entity["kind"]), bid)
+        if new_code:
+            return new_code
     ensure_companies(db, gid)
     row = db.execute("SELECT public_code FROM rp_company_public_codes WHERE guild_id=? AND business_id=?",
                      (gid, bid)).fetchone()
@@ -60,6 +71,9 @@ def public_company(db, guild_id, business_id):
 
 def resolve_company(db, guild_id, supplied):
     gid, supplied = str(guild_id), str(supplied).strip()
+    if supplied.startswith(("C-", "G-")):
+        from core.business_public_ids import resolve_business
+        return resolve_business(db, gid, supplied, allowed=("company", "group"))
     ensure_companies(db, gid)
     row = db.execute("SELECT business_id FROM rp_company_public_codes WHERE guild_id=? AND public_code=?",
                      (gid, supplied)).fetchone()
