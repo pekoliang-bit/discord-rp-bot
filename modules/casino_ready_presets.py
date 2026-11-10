@@ -17,6 +17,9 @@ from modules.casino_repository import (
     list_games,
 )
 from modules.casino_scratch import DEFAULT_SCRATCH, validate_scratch
+from modules.casino_lottery import (
+    DEFAULT_LOTTERY, _settings as validate_lottery, prize_probabilities,
+)
 from modules.casino_gacha import (
     DEFAULT_POOLS,
     DEFAULT_WEIGHTS,
@@ -121,6 +124,79 @@ def _gacha_settings(price: int, code: str) -> dict:
     }
 
 
+# 其他賭場遊戲：在官方核准前只建立停用的獎表範本。
+# 支付金額、上限與賠率必須與 casino_wager_service / casino_table_service 一致。
+DEFAULT_CASINO_TABLES = (
+    ("roulette_standard", "歐式輪盤", "roulette", 1000,
+     {"wager_enabled": False, "rules_verified": False, "max_single_reward": 36000,
+      "daily_purchase_limit": 20}),
+    ("sicbo_standard", "骰寶", "sicbo", 1000,
+     {"wager_enabled": False, "rules_verified": False, "max_single_reward": 151000,
+      "daily_purchase_limit": 20}),
+    ("slots_classic", "經典三軸老虎機", "slots", 1000,
+     {"wager_enabled": False, "rules_verified": False, "max_single_reward": 20000,
+      "daily_purchase_limit": 20, "symbols": ["🍒", "🍋", "🔔", "⭐", "💎"],
+      "weights": [35, 30, 20, 10, 5], "reels": 3,
+      "paytable": {"🍒": 3, "🍋": 5, "🔔": 8, "⭐": 12, "💎": 20}}),
+    ("blackjack_standard", "簡易二十一點", "blackjack", 1000,
+     {"wager_enabled": False, "rules_verified": False, "max_single_reward": 2500,
+      "daily_purchase_limit": 20, "table_variant": "auto_stand"}),
+    ("bingo_instant", "即開五乘五賓果", "bingo", 1000,
+     {"wager_enabled": False, "rules_verified": False, "max_single_reward": 12000,
+      "daily_purchase_limit": 20, "table_variant": "instant_5x5", "draw_count": 25,
+      "line_multiplier": {"0": 0, "1": 2, "2": 4, "3": 6, "4": 8,
+                          "5": 10, "6": 12, "7": 12, "8": 12, "9": 12,
+                          "10": 12, "11": 12, "12": 12}}),
+)
+
+
+def _lottery_settings(price: int, pool: int, picks: int, jackpot: int) -> dict:
+    # 非累積彩池；不同命中數對應固定獎金。開賣前仍須創建期別。
+    return {
+        "number_pool": pool, "pick_count": picks,
+        "max_single_reward": jackpot, "rules_verified": False,
+        "daily_purchase_limit": 100, "rollover": False,
+        "announcements": {"jackpot": True},
+        "prizes": {str(picks): jackpot, str(picks - 1): max(price * 10, jackpot // 200),
+                   str(picks - 2): price * 2},
+    }
+
+
+def _validate_other_game(row: dict) -> None:
+    cfg = json.loads(row["settings_json"] or "{}")
+    kind = row["kind"]
+    if kind == "lottery":
+        validate_lottery(row)
+        prob = prize_probabilities(number_pool=cfg["number_pool"], pick_count=cfg["pick_count"])
+        rtp = sum(prob.get(int(k), 0) * v for k, v in cfg["prizes"].items()) / row["ticket_price"]
+        if rtp > 1:
+            raise ValueError("彩票獎表預期返還率超過100%，需要重新核准")
+    elif kind in {"roulette", "sicbo", "slots", "blackjack", "bingo"}:
+        if row["funding_mode"] != "direct" or cfg.get("wager_enabled") is not True:
+            raise ValueError("賭場規則或資金來源未核准")
+        if type(cfg.get("max_single_reward")) is not int or cfg["max_single_reward"] < 0:
+            raise ValueError("遊戲最高返還額不合法")
+        if not (100 <= row["ticket_price"] <= 100000):
+            raise ValueError("下注金額不合法")
+        if kind == "blackjack" and cfg.get("table_variant") != "auto_stand":
+            raise ValueError("二十一點模式尚未支援")
+        if kind == "bingo" and (cfg.get("table_variant") != "instant_5x5" or
+            cfg.get("draw_count", 0) not in range(1, 76) or
+            not isinstance(cfg.get("line_multiplier"), dict)):
+            raise ValueError("賓果規則尚未完整設定")
+        if kind == "slots":
+            from modules.casino_games import slot_spin, slot_result
+            symbols, weights = cfg["symbols"], cfg["weights"]
+            if set(cfg["paytable"]) - set(symbols):
+                raise ValueError("老虎機賠率對應到未定義圖案")
+            spin = [symbols[0]] * cfg["reels"]
+            slot_result(spun=spin, bet=row["ticket_price"], paytable=cfg["paytable"])
+            if max(cfg["paytable"].values()) * row["ticket_price"] > cfg["max_single_reward"]:
+                raise ValueError("老虎機獎金超過單次上限")
+    else:
+        raise ValueError("不支援的遊戲類型")
+
+
 def install_all(
     guild_id: int | str,
     *,
@@ -165,16 +241,32 @@ def install_all(
         )
         created.append(code)
 
-    return {
-        "created": created,
-        "existing_unchanged": skipped,
-    }
+    for code, name, price, pool, picks, jackpot in DEFAULT_LOTTERY:
+        if get_game(guild_id, code):
+            skipped.append(code)
+            continue
+        upsert_game(guild_id=guild_id, code=code, name=name, kind="lottery",
+                    ticket_price=price, settings=_lottery_settings(price, pool, picks, jackpot),
+                    enabled=False, actor_id=actor_id)
+        created.append(code)
+
+    for code, name, kind, price, settings in DEFAULT_CASINO_TABLES:
+        if get_game(guild_id, code):
+            skipped.append(code)
+            continue
+        upsert_game(guild_id=guild_id, code=code, name=name, kind=kind,
+                    ticket_price=price, settings=settings, enabled=False, actor_id=actor_id)
+        created.append(code)
+
+    return {"created": created, "existing_unchanged": skipped}
 
 
 def _validate_ready(row: dict) -> None:
     staged = dict(row)
     settings = json.loads(row["settings_json"])
     settings["rules_verified"] = True
+    if row["kind"] in {"roulette", "sicbo", "slots", "blackjack", "bingo"}:
+        settings["wager_enabled"] = True
 
     staged["settings_json"] = json.dumps(
         settings,
@@ -186,9 +278,7 @@ def _validate_ready(row: dict) -> None:
     elif row["kind"] == "gacha":
         validate_gacha(staged)
     else:
-        raise ValueError(
-            "這個管理面板目前只處理刮刮樂及抽抽樂"
-        )
+        _validate_other_game(staged)
 
 
 def toggle_game(
@@ -217,8 +307,8 @@ def toggle_game(
 
         row = dict(row)
 
-        if row["kind"] not in ("scratch", "gacha"):
-            raise ValueError("只能開關刮刮樂與抽抽樂")
+        if row["kind"] == "pvp":
+            raise ValueError("玩家對賭尚未完成對手加入及退款流程，禁止開放")
 
         if enabled:
             _validate_ready(row)
@@ -227,6 +317,8 @@ def toggle_game(
 
         if enabled:
             settings["rules_verified"] = True
+            if row["kind"] in {"roulette", "sicbo", "slots", "blackjack", "bingo"}:
+                settings["wager_enabled"] = True
 
         db.execute(
             """
@@ -295,5 +387,5 @@ def manageable_games(guild_id: int | str) -> list[dict]:
             guild_id,
             enabled_only=False,
         )
-        if row["kind"] in ("scratch", "gacha")
+        if row["kind"] != "pvp"
     ]
