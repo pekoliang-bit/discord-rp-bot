@@ -1213,15 +1213,61 @@ class AppealReviewOpen(discord.ui.Button):
         await open_report_appeal_review(interaction)
 
 
+class ReviewMenuView(discord.ui.View):
+    def __init__(self, actor):
+        super().__init__(timeout=600)
+        self.actor = actor
+
+    async def interaction_check(self, interaction):
+        if str(interaction.user.id) != str(self.actor.user_id) or str(interaction.guild_id) != str(self.actor.guild_id):
+            await interaction.response.send_message("⛔ 這不是你的審核選單。", ephemeral=True)
+            return False
+        return True
+
+
+class UnifiedReviewSelect(discord.ui.Select):
+    def __init__(self, options):
+        super().__init__(placeholder="選擇審核類型", options=options, row=0)
+
+    async def callback(self, interaction):
+        if not await self.view.interaction_check(interaction):
+            return
+        action = self.values[0]
+        if action in KINDS:
+            _, total, page, last = pending(self.view.actor, action)
+            return await interaction.response.edit_message(
+                content=f"{KINDS[action][0]}\n待審：{total}件\n第 {page+1}/{last+1} 頁",
+                embed=None, view=PendingView(self.view.actor, action))
+        if action == "general":
+            from modules.application_extras import GeneralReviewView
+            return await interaction.response.send_message("📨 其他申請審核", view=GeneralReviewView(interaction), ephemeral=True)
+        if action == "business":
+            button = self.view._review_buttons["business"]
+            return await button.callback(interaction)
+        if action == "event":
+            return await interaction.response.send_message("🎪 活動案件審核", view=EventReviewButtons(interaction.user.id), ephemeral=True)
+
+
 def make_review_home(actor, interaction):
-    view = Home(actor) if has_staff_permission(interaction, "reviewer") else discord.ui.View(timeout=600)
-    if has_staff_permission(interaction, "reviewer"):
-        from modules.application_extras import OpenGeneralReview
+    reviewer = has_staff_permission(interaction, "reviewer")
+    event_staff = is_event_admin(interaction)
+    view = ReviewMenuView(actor)
+    # One primary dropdown, incident reports and appeals remain their own buttons.
+    for child in list(view.children):
+        view.remove_item(child)
+    view._review_buttons = {}
+    options = []
+    if reviewer:
+        options.extend(discord.SelectOption(label=info[0], value=key) for key, info in KINDS.items())
+        options.append(discord.SelectOption(label="📨 其他申請審核", value="general"))
         from modules.company_business_review_ui import OpenBusinessReview
-        view.add_item(OpenGeneralReview())
-        view.add_item(OpenBusinessReview())
-    if is_event_admin(interaction):
-        view.add_item(EventReviewOpen())
+        business = OpenBusinessReview()
+        view._review_buttons["business"] = business
+        options.append(discord.SelectOption(label="🏢 公司／品牌／集團審核", value="business"))
+    if event_staff:
+        options.append(discord.SelectOption(label="🎪 活動審核", value="event"))
+    if options:
+        view.add_item(UnifiedReviewSelect(options))
     from modules.report_permission_service import is_guild_owner, is_discipline_staff
     if is_guild_owner(interaction) or is_discipline_staff(interaction):
         view.add_item(ReportReviewOpen())
