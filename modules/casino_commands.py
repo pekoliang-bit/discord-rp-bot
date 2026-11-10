@@ -1,4 +1,3 @@
-
 """Discord RP 娛樂城正式指令入口。
 
 包含：
@@ -22,11 +21,12 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 from datetime import datetime, timezone
 
 import discord
 from discord import app_commands
-from discord.ext import commands
+from discord.ext import commands, tasks
 
 from core.database import get_connection
 from modules.casino_repository import (
@@ -50,6 +50,8 @@ from modules.casino_scratch import (
     validate_scratch,
 )
 from modules.casino_service import CasinoError
+from modules.casino_ready_presets import install_all as install_casino_presets
+from modules.casino_maintenance import process_due_lotteries
 from modules.casino_admin_ui import CasinoAdminButton, CasinoOwnerOnlyView
 from modules.casino_wager_service import play_wager
 from modules.casino_gacha import (
@@ -57,6 +59,9 @@ from modules.casino_gacha import (
     draw_gacha,
     draw_ten,
 )
+
+
+LOG = logging.getLogger(__name__)
 
 
 def _characters(guild_id: int, user_id: int) -> list[dict]:
@@ -1559,6 +1564,29 @@ class CasinoCommands(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
+    async def cog_load(self):
+        # 彩票維護只會處理已核准且已到期的期別；不會自動開放遊戲。
+        if not self._lottery_maintenance.is_running():
+            self._lottery_maintenance.start()
+
+    def cog_unload(self):
+        self._lottery_maintenance.cancel()
+
+    @tasks.loop(minutes=5)
+    async def _lottery_maintenance(self):
+        for guild in list(self.bot.guilds):
+            try:
+                result = await asyncio.to_thread(process_due_lotteries, guild_id=guild.id)
+                if result.get('errors'):
+                    LOG.warning('彩票維護有待檢查的期別：guild=%s result=%s',
+                                guild.id, result['errors'])
+            except Exception:
+                LOG.exception('彩票自動維護失敗：guild=%s', guild.id)
+
+    @_lottery_maintenance.before_loop
+    async def _before_lottery_maintenance(self):
+        await self.bot.wait_until_ready()
+
     @app_commands.command(
         name="娛樂城",
         description="開啟角色娛樂城",
@@ -1576,6 +1604,9 @@ class CasinoCommands(commands.Cog):
             return
 
         try:
+            # 安裝所有缺少的遊戲獎表；保持停用，必須由群主逐款核准。
+            await asyncio.to_thread(install_casino_presets, interaction.guild_id,
+                                    actor_id='system')
             characters = await asyncio.to_thread(
                 _characters,
                 interaction.guild_id,
