@@ -307,12 +307,16 @@ async def setup(bot):
         # 角色詳情已統一七鍵入口，避免重複增設背包及關係按鈕。
     character_view.CharacterDetailView.__init__ = new_detail_init
 
-    old_official_init = official_center.OfficialHome.__init__
-    def new_official_init(self, *args, **kwargs):
-        old_official_init(self, *args, **kwargs)
-        if len(self.children) < 25:
-            self.add_item(CPAdminButton())
-        official_center.arrange_official_home(self)
-    official_center.OfficialHome.__init__ = new_official_init
+    # CP 登記屬於次級管理功能，不在 /官方 首頁擠出第六顆按鈕。
+    old_tools_init = official_center.AdminToolsView.__init__
+    if not getattr(official_center.AdminToolsView, '_rp_cp_patched', False):
+        def new_tools_init(self, interaction, *args, **kwargs):
+            old_tools_init(self, interaction, *args, **kwargs)
+            if official_center.is_owner(interaction):
+                button = CPAdminButton()
+                button.row = 3
+                self.add_item(button)
+        official_center.AdminToolsView.__init__ = new_tools_init
+        official_center.AdminToolsView._rp_cp_patched = True
 
     await bot.add_cog(ShopRelationships(bot))
