@@ -1,4 +1,3 @@
-
 """在 /官方 管理功能中心嵌入「定時傳聞」設定，不新增頂層斜線指令。"""
 from __future__ import annotations
 
@@ -126,6 +125,27 @@ class ChannelModal(
             )
 
 
+class AddRumorTemplateModal(discord.ui.Modal, title="新增傳聞模板"):
+    polarity = discord.ui.TextInput(label="傳聞方向（正面／負面）", max_length=10)
+    category = discord.ui.TextInput(label="分類（如：工作、生活）", max_length=40)
+    content = discord.ui.TextInput(label="模板內文（必須使用 {角色}）",
+        style=discord.TextStyle.paragraph, min_length=12, max_length=900)
+
+    async def on_submit(self, i):
+        if not owner(i):
+            return await i.response.send_message("僅群主可新增傳聞模板。", ephemeral=True)
+        value = self.polarity.value.strip()
+        polarity = {"正面":"positive", "負面":"negative",
+                    "positive":"positive", "negative":"negative"}.get(value)
+        try:
+            code = auto.add_template(i.guild_id, polarity, self.category.value,
+                                     self.content.value, i.user.id)
+        except Exception as e:
+            LOG.warning("新增傳聞模板未完成：%s", e)
+            return await i.response.send_message(f"⚠️ 新增失敗：{e}", ephemeral=True)
+        await i.response.send_message(f"✅ 新增傳聞模板 {code}。原有100則未變更；新增模板已加入本伺服器定時抽取池。", ephemeral=True)
+
+
 class RumorAutoView(discord.ui.View):
     def __init__(self, i):
         super().__init__(timeout=600)
@@ -195,6 +215,10 @@ class RumorAutoView(discord.ui.View):
             content=summary(i.guild_id),
             view=RumorAutoView(i)
         )
+
+    @discord.ui.button(label="➕ 新增傳聞模板",style=discord.ButtonStyle.primary,row=1)
+    async def add_template_button(self, i, b):
+        await i.response.send_modal(AddRumorTemplateModal())
 
     @discord.ui.button(
         label="返回官方管理",
