@@ -54,25 +54,34 @@ def resolve_location(
     guild_id: int | str,
     channel_id: int | str,
 ) -> tuple[dict | None, Any | None]:
-    """依照伺服器及頻道辨識地點。"""
+    """合併預設場所與已審核的頻道行動，按頻道直接供 /行動 使用。"""
+    location = None
+    provider_used = None
     for provider in PROVIDERS:
         try:
-            location = provider.lookup_channel(
-                guild_id,
-                channel_id,
-            )
-
-            if location is not None:
-                return location, provider
-
+            found = provider.lookup_channel(guild_id, channel_id)
+            if found is not None:
+                location, provider_used = found, provider
+                break
         except Exception:
-            LOG.exception(
-                "地點查詢錯誤：guild=%s channel=%s",
-                guild_id,
-                channel_id,
-            )
+            LOG.exception("地點查詢錯誤：guild=%s channel=%s", guild_id, channel_id)
 
-    return None, None
+    from core.channel_action_registry import list_channel_actions
+    try:
+        extra, name = list_channel_actions(guild_id, channel_id)
+    except Exception:
+        LOG.exception("新增場所行動查詢失敗")
+        extra, name = [], None
+    if not extra:
+        return location, provider_used
+    if location is None:
+        location = {'key': str(channel_id), 'channel_id': str(channel_id),
+                    'name': name or '新增場所', 'action_enabled': True,
+                    'actions': extra}
+    else:
+        location = dict(location)
+        location['actions'] = list(location.get('actions', [])) + extra
+    return location, provider_used
 
 
 def describe_action(action: dict) -> str:
@@ -84,7 +93,11 @@ def describe_action(action: dict) -> str:
     if reward:
         parts.append(f"金幣 +{reward:,}")
 
-    if cost:
+    if action.get('stat_rewards') and action.get('category') in ('活動','課程'):
+        from core.action_application_rules import preview_cost
+        price = preview_cost(action['category'], cost, action['stat_rewards'])
+        parts.append(f"花費 {price['min']:,}～{price['max']:,} 金幣")
+    elif cost:
         parts.append(f"花費 {cost:,} 金幣")
 
     attribute = action.get("attribute")
@@ -96,6 +109,14 @@ def describe_action(action: dict) -> str:
         skill_name = action.get("skill_name")
         name = skill_name or attribute
         parts.append(f"{name} +{increase}")
+
+    for spec in action.get("stat_rewards", []):
+        if spec.get('mode') == 'random':
+            parts.append(f"{spec['name']} +1～15（隨機）")
+        else:
+            parts.append(f"{spec['name']} +{spec['amount']}")
+    if action.get("stat_rewards") and action.get("category") in ("活動", "課程"):
+        parts.append("按實際點數浮動收費")
 
     pools = action.get("point_rewards") or {}
 
@@ -259,6 +280,8 @@ class ActionChoice(discord.ui.Select):
 
         if action.get('approved') is True and valid :
             message += "\n\n選擇自己的角色後，可確認執行（依可用餘額扣除免費／付費行動值；不扣體力）。"
+            if action.get('stat_rewards') and action.get('category') in ('活動', '課程'):
+                message += "\n⚠️ 本次實際金幣收費將依隨機增加的點數計算，可能高於基本價格；金幣不足將取消整筆交易。"
             with get_connection() as db:
                 rows=db.execute("""SELECT id,name FROM characters WHERE guild_id=? AND owner_id=?
                     AND status='active' ORDER BY id LIMIT 25""",
@@ -346,7 +369,7 @@ class ActionExecuteView(discord.ui.View):
             item.disabled=True
         await interaction.followup.send(
             f"✅ {result['action_name']} 完成。\n金幣收入：{result['reward_coins']:,}\n"
-            f"金幣花費：{result['cost_coins']:,}\n消耗行動值：{result['action_points_spent']}"
+            f"金幣花費：{result['cost_coins']:,}\n本次數值：{result.get('rolled_stats', [])}\n消耗行動值：{result['action_points_spent']}"
             f"（免費 {result['free_action_points_spent']}／付費 {result['paid_action_points_spent']}）",ephemeral=True)
 
 
