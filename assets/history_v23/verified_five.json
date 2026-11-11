@@ -1,0 +1,12 @@
+[
+  {"pool":"general","asset_id":"HB-0046","title":"GO WANDER 漫遊GO","tier":"B1"},
+  {"pool":"general","asset_id":"HB-0047","title":"NEST & REST 安棲旅宿","tier":"B2"},
+  {"pool":"general","asset_id":"HB-0048","title":"CITY LOOP 城市環線","tier":"B3"},
+  {"pool":"general","asset_id":"HB-0049","title":"AURELIA JOURNEYS 曜光旅程","tier":"B4"},
+  {"pool":"general","asset_id":"HB-0050","title":"MAISON VOYAGE 旅境之邸","tier":"B5"},
+  {"pool":"general","asset_id":"HE-0151","title":"GO WANDER 漫遊GO｜B1 大眾｜旅遊推薦官","tier":"B1","rarity":"R1","meta":{"hb_id":"HB-0046"}},
+  {"pool":"general","asset_id":"HE-0166","title":"NEST & REST 安棲旅宿｜B2 平價｜旅行大使","tier":"B2","rarity":"R1","meta":{"hb_id":"HB-0047"}},
+  {"pool":"general","asset_id":"HE-0186","title":"CITY LOOP 城市環線｜B3 小資｜旅遊大使","tier":"B3","rarity":"R1","meta":{"hb_id":"HB-0048"}},
+  {"pool":"general","asset_id":"HE-0206","title":"AURELIA JOURNEYS 曜光旅程｜B4 中端｜形象代言人","tier":"B4","rarity":"R1","meta":{"hb_id":"HB-0049"}},
+  {"pool":"general","asset_id":"HE-0221","title":"MAISON VOYAGE 旅境之邸｜B5 高端｜旅遊形象代言人","tier":"B5","rarity":"R1","meta":{"hb_id":"HB-0050"}}
+]
