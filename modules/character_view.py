@@ -1410,20 +1410,56 @@ def _panel_awards(actor, cid):
 
 
 def _panel_career(actor,cid,mode,page=0):
+    """原正式作品登記與 V2.3 歷史快照並列，不重複建立現役合約。"""
+    entries=[]
     with get_connection() as db:
-        if not _panel_table(db,'career_registrations'):
-            return '尚無登記作品與代言。',0
-        types=('代言',) if mode=='endorsement' else ('電影','電視劇','網路劇','音樂作品','MV','綜藝','舞台劇','其他','商業活動')
-        placeholders=','.join('?' for _ in types)
-        rows=db.execute(f"""SELECT r.title,r.status,t.name AS category FROM career_registrations r
-          JOIN registration_types t ON t.id=r.type_id AND t.guild_id=r.guild_id
-          WHERE r.guild_id=? AND r.character_id=? AND t.name IN ({placeholders})
-            AND r.status='approved' ORDER BY r.id DESC""",
-          [str(actor.guild_id),cid,*types]).fetchall()
-    last=max(0,(len(rows)-1)//10);page=max(0,min(page,last))
-    lines=[f"{page*10+i+1}. **{r['title']}**｜{r['category']}｜已核准" for i,r in enumerate(rows[page*10:page*10+10])]
-    return ('\n'.join(lines) or '目前尚無已核准的'+('代言' if mode=='endorsement' else '作品')+'紀錄。')+f'\n\n第 {page+1}/{last+1} 頁',last
+        if _panel_table(db,'career_registrations'):
+            types=('代言',) if mode=='endorsement' else ('電影','電視劇','網路劇','音樂作品','MV','綜藝','舞台劇','其他','商業活動')
+            placeholders=','.join('?' for _ in types)
+            rows=db.execute(f"""SELECT r.title,r.status,t.name AS category FROM career_registrations r
+                JOIN registration_types t ON t.id=r.type_id AND t.guild_id=r.guild_id
+                WHERE r.guild_id=? AND r.character_id=? AND t.name IN ({placeholders})
+                AND r.status='approved' ORDER BY r.id DESC""",
+                [str(actor.guild_id),cid,*types]).fetchall()
+            entries.extend(f"**{r['title']}**｜{r['category']}｜已核准" for r in rows)
+        if _panel_table(db,'rp_history_results_v23'):
+            history=db.execute("""SELECT kind,asset_id,snapshot_json FROM rp_history_results_v23
+                WHERE guild_id=? AND character_id=? ORDER BY slot""",(str(actor.guild_id),cid)).fetchall()
+            for r in history:
+                if (mode=='endorsement') != (r['kind']=='endorsement'):
+                    continue
+                try:
+                    snapshot=json.loads(r['snapshot_json'])
+                    name=snapshot.get('title',r['asset_id'])
+                except (ValueError,TypeError):name=r['asset_id']
+                entries.append(f"**{name}**｜歷史履歷 {r['asset_id']}")
+    last=max(0,(len(entries)-1)//10);page=max(0,min(page,last))
+    lines=[f'{page*10+i+1}. {text}' for i,text in enumerate(entries[page*10:page*10+10])]
+    if not lines:lines=['目前尚無已核准的'+('代言' if mode=='endorsement' else '作品')+'紀錄。']
+    return '\n'.join(lines)+f'\n\n第 {page+1}/{last+1} 頁',last
 
+
+def _panel_history(actor,cid,page=0):
+    """展示五筆正式鎖定的過往履歷，不展示抽取機率與數值。"""
+    with get_connection() as db:
+        if not _panel_table(db,'rp_history_results_v23'):
+            return '歷史履歷尚未建立。',0
+        rows=db.execute("""SELECT slot,kind,asset_id,snapshot_json FROM rp_history_results_v23
+            WHERE guild_id=? AND character_id=? ORDER BY slot""",(str(actor.guild_id),cid)).fetchall()
+        pending=db.execute('SELECT reason FROM rp_history_pending_v23 WHERE guild_id=? AND character_id=?',(str(actor.guild_id),cid)).fetchone() if _panel_table(db,'rp_history_pending_v23') else None
+    if not rows:
+        return ('歷史履歷待正式素材完成後補建。' if pending else '角色尚未取得歷史履歷。'),0
+    lines=[]
+    for r in rows:
+        try:
+            item=json.loads(r['snapshot_json'])
+            title=item.get('title',r['asset_id'])
+            note=item.get('participation_role','')
+            char=item.get('character_name','')
+            if char:note+='｜飾演 '+char
+        except (ValueError,TypeError):title=r['asset_id'];note=''
+        lines.append(f"{r['slot']}. **{title[:160]}**"+(f'｜{note[:80]}' if note else ''))
+    return '\n'.join(lines),0
 
 def _panel_faction(actor, cid):
     """依照正式陣營表 faction_groups 讀取角色歸屬。"""
@@ -1759,6 +1795,7 @@ class PanelSubView(discord.ui.View):
         if mode=='bag':text,last=_panel_inventory(actor,cid,page);title='🎒 背包'
         elif mode=='relations':text,last=_panel_relationships(actor,cid,page);title='💕 關係'
         elif mode=='awards':text=_panel_awards(actor,cid);last=0;title='🏆 成就與榮譽'
+        elif mode=='history':text,last=_panel_history(actor,cid,page);title='📜 歷史履歷'
         elif mode in ('works','endorsement'):text,last=_panel_career(actor,cid,mode,page);title='🎬 已完成作品' if mode=='works' else '📣 代言紀錄'
         else:text=_panel_routes(actor,cid);last=0;title='📖 官方角色攻略'
         page=max(0,min(page,last));view=PanelSubView(self.parent,mode,page)
@@ -2029,6 +2066,10 @@ class CharacterDetailView(discord.ui.View):
     @discord.ui.button(label='🏆 成就榮譽',style=discord.ButtonStyle.secondary,row=1)
     async def awards_button(self,interaction,button):
         await PanelSubView(self,'awards').show(interaction,'awards')
+    @discord.ui.button(label='📜 歷史履歷',style=discord.ButtonStyle.secondary,row=1)
+    async def historical_records(self,interaction,button):
+        await PanelSubView(self,'history').show(interaction,'history')
+
     def _edit_controls(self, interaction):
         view = CharacterEditStartView(interaction.user.id, self.character_id, interaction.guild_id)
         view.refresh_buttons()
