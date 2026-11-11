@@ -1597,6 +1597,7 @@ class ContentTypeSelect(
                 )
                 for key, name in TYPES.items()
             ] + [
+                discord.SelectOption(label="📚 歷史履歷雙素材庫", value="history_v23", description="一般角色與路人分離管理"),
                 discord.SelectOption(label="🚶 路人角色", value="extra_characters", description="批次建立與管理路人角色"),
                 discord.SelectOption(label="📋 通用官方內容管理", value="content_records", description="查看清單、編輯草稿、發布與下架"),
             ],
@@ -1611,6 +1612,11 @@ class ContentTypeSelect(
         selected = self.values[0]
         if not owner(i) and selected != "mission":
             return await tell(i, "⛔ 任務授權只適用於任務管理。")
+
+        if selected == "history_v23":
+            from modules.npc_history_v23 import AssetManagerView
+            await i.response.edit_message(content="📚 **歷史履歷 V2.3 素材庫**\n一般角色與路人庫彼此隔離。只有核准且啟用的素材能參與抽取。",view=AssetManagerView(i))
+            return
 
         if selected == "extra_characters":
             from modules.extra_character_manager import ExtraCharacterView
