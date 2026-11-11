@@ -2112,6 +2112,11 @@ def home_text(count):
 
 
 class HomeView(OwnedView):
+    def __init__(self, actor):
+        super().__init__(actor)
+        from modules.npc_history_v23 import NPCCreateButton
+        self.add_item(NPCCreateButton())
+
     @discord.ui.button(
         label="➕ 建立新角色",
         style=discord.ButtonStyle.success,
