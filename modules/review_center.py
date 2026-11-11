@@ -1238,6 +1238,11 @@ class UnifiedReviewSelect(discord.ui.Select):
             return await interaction.response.edit_message(
                 content=f"{KINDS[action][0]}\n待審：{total}件\n第 {page+1}/{last+1} 頁",
                 embed=None, view=PendingView(self.view.actor, action))
+        if action == "npc_claim":
+            from modules.npc_history_v23 import pending as npc_pending,NPCReviewView
+            rows=npc_pending(interaction.guild_id)
+            summary="\n".join(f'#{r["id"]}｜{r["name"]}｜{r["status"]}' for r in rows)
+            return await interaction.response.send_message("🧾 NPC 認領雙審\n"+(summary or "目前無案件"),view=NPCReviewView(interaction),ephemeral=True)
         if action == "general":
             from modules.application_extras import GeneralReviewView
             return await interaction.response.send_message("📨 其他申請審核", view=GeneralReviewView(interaction), ephemeral=True)
@@ -1259,6 +1264,7 @@ def make_review_home(actor, interaction):
     options = []
     if reviewer:
         options.extend(discord.SelectOption(label=info[0], value=key) for key, info in KINDS.items())
+        options.append(discord.SelectOption(label="🧾 NPC 認領雙審", value="npc_claim"))
         options.append(discord.SelectOption(label="📨 其他申請審核", value="general"))
         from modules.company_business_review_ui import OpenBusinessReview
         business = OpenBusinessReview()
