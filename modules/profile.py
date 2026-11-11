@@ -1018,6 +1018,23 @@ class Profile(commands.Cog):
                     },
                 )
 
+            # 僅在正式 approved→active 成功後處理歷史抽取；
+            # 未匯入合法素材時記錄待補建，絕不捏造作品或提前加成。
+            try:
+                from core.history_v23 import attempt_lock
+                attempt_lock(actor.guild_id, character_id)
+            except Exception:
+                import logging
+                logging.getLogger(__name__).exception("歷史履歷待補建：角色 %s",character_id)
+            try:
+                from modules.notifications import queue_notification
+                queue_notification(actor.guild_id,'private','role',
+                    f'🎉 角色 #{character_id} 已正式啟用。新人禮包請至原本領取入口辦理；歷史履歷在素材齊備後顯示。',
+                    character_id=character_id,dedupe_key=f'v23:activation:{actor.guild_id}:{character_id}')
+            except Exception:
+                import logging
+                logging.getLogger(__name__).exception("啟用私人通知排程失敗")
+
             await reply(
                 interaction,
                 (
