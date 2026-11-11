@@ -1,4 +1,4 @@
-"""Discord RP｜角色單訊息連結登記與標籤庫整合。
+"""Discord RP｜角色單訊息連結登記與"""Discord RP｜角色單訊息連結登記與標籤庫整合。
 
 支援：
 - /角色單登記
@@ -420,6 +420,13 @@ def register_sheet(
             "未知的角色種類。"
         )
 
+    if kind == "player_npc" and character_id is None:
+        raise ValueError(
+            "玩家 NPC 不能直接透過角色單連結啟用。"
+            "請由群主從 /登記 匯入待認領模板，"
+            "玩家再使用 /創角 → NPC 申請，完成兩階段審核。"
+        )
+
     name = name.strip()
 
     if not 1 <= len(name) <= 100:
@@ -745,6 +752,13 @@ async def do_register(
         birthday=explicit_sheet_birthday(message.content or ""),
     )
 
+    # 官方 NPC 的群主登記已是正式授權；玩家 NPC 只能申請後啟用。
+    if kind == "official_npc":
+        try:
+            from core.history_v23 import attempt_lock
+            attempt_lock(interaction.guild_id,new_id)
+        except Exception:
+            LOG.exception("官方 NPC 歷史履歷等待補建：%s",new_id)
     return (
         new_id,
         true_owner,
