@@ -1,0 +1,24 @@
+歷史履歷 V2.3 一次整合交付清單
+
+原始檔：discord-rp-bot-main(20261111-083603).zip
+
+【需覆蓋更新】共 7 個檔案：
+  modules/character_sheet_registration.py
+  modules/character_view.py
+  modules/content_builder.py
+  modules/creation_wizard.py
+  modules/profile.py
+  modules/registration.py
+  modules/review_center.py
+
+【需要新增】共 6 個檔案：
+  core/history_v23.py
+  modules/npc_history_v23.py
+  assets/history_v23/verified_five.json
+  tests/verify_history_v23.py
+  HISTORY_V23_INSTALL.md
+  HISTORY_V23_FILE_LIST.txt
+
+主檔 main.py：未修改，沿用原檔，已另附一份可直接下載的完整副本。
+重要：原始 ZIP 無完整 580 項核准素材來源，請依 HISTORY_V23_INSTALL.md 核對後匯入，不能聲稱已入庫。
+數值獎勵、NPC 固定屬性：不在本次修改範圍。
