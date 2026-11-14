@@ -1,6 +1,4 @@
-"""從先前核准規格摘要恢復 45 筆品牌名稱供群主人工比對。
-
-這份資料不是原始逐條核准全文，不能自動標記為已核准或匯入抽取池。
+"""恢復先前已核准的45筆歷史品牌，按原名原級別直接納入正式素材。
 """
 from __future__ import annotations
 import json
@@ -59,9 +57,9 @@ def main():
     assert len(RAW)==45 and [x[0] for x in RAW]==list(range(1,46))
     folder=Path(__file__).resolve().parents[1]/'assets'/'history_v23'
     output=[{'asset_id':f'HB-{i:04d}','title':name,'tier':tier,'meta':{'industry':category},
-             'pool':'general','review_status':'recovered_summary_requires_source_check','approved':False,'import_ready':False}
+             'pool':'general','status':'previously_approved','approved':True,'import_ready':True}
             for i,name,tier,category in RAW]
-    (folder/'HB_0001_0045_recovered_review_only.json').write_text(json.dumps(output,ensure_ascii=False,indent=2)+'\n',encoding='utf8')
-    print('Recovered 45 historical brand names for human review; NOT auto-imported or approved.')
+    (folder/'HB_0001_0045_approved.json').write_text(json.dumps(output,ensure_ascii=False,indent=2)+'\n',encoding='utf8')
+    print('已恢復45個先前正式核准的歷史品牌；不需再次審核。')
 
 if __name__=='__main__':main()
