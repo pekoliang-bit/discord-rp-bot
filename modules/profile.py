@@ -1,4 +1,3 @@
-
 """Discord RP：角色資料、感情設定、審核及正式啟用。"""
 
 from __future__ import annotations
@@ -34,6 +33,7 @@ from core.attribute_validation import (
 FIELDS = {
     "姓名": "name",
     "年齡": "age",
+    "生日（月／日）": "birthday",
     "職業": "occupation",
     "性別": "gender",
     "國籍或出身": "nationality",
@@ -157,6 +157,14 @@ def validate_field(field, raw, age):
                     )
 
         return number
+
+    if field == "birthday":
+        # 與正式角色公開編號使用完全相同的月／日驗證規則。
+        from modules.character_numbering import normalize_birthday
+        normalized = normalize_birthday(value)
+        if normalized is None:
+            raise ValueError("生日請填月／日，例如 04/18；須為實際存在的日期。")
+        return f"{normalized[:2]}/{normalized[2:]}"
 
     if field in {"height_cm", "weight_kg"}:
         try:
@@ -919,121 +927,20 @@ class Profile(commands.Cog):
                 interaction
             )
 
+            from core.character_activation_v23 import activate_in_transaction
             with transaction() as conn:
-                character = conn.execute(
-                    """
-                    SELECT *
-                    FROM characters
-                    WHERE guild_id = ?
-                      AND id = ?
-                    """,
-                    (
-                        actor.guild_id,
-                        character_id,
-                    ),
-                ).fetchone()
-
-                if character is None:
-                    raise InvalidState(
-                        "角色不存在。"
-                    )
-
-                if (
-                    character["owner_id"]
-                    != actor.user_id
-                    or character["character_type"]
-                    != "player"
-                ):
-                    raise PermissionDenied(
-                        "只有角色擁有者可以啟用。"
-                    )
-
-                if character["status"] != "approved":
-                    raise InvalidState(
-                        "角色必須先通過兩階段審核。"
-                    )
-
-                missing = missing_fields(character)
-
-                if missing:
-                    raise InvalidState(
-                        "角色必填資料不完整："
-                        + "、".join(missing)
-                    )
-
-                # 關鍵：在同一筆交易中驗證屬性、
-                # 更新狀態，避免檢查後被插隊修改。
-                validation = validate_initial_attributes(
-                    conn,
-                    actor.guild_id,
-                    character_id,
+                validation = activate_in_transaction(
+                    conn, actor.guild_id, character_id, actor.user_id,
+                    allowed_types=("player",),
                 )
+                audit(conn, actor, "character.activate", character_id,
+                    {"from":"approved", "to":"active",
+                     "schema_version":validation.get("schema_version"),
+                     "main_track":validation.get("main_track"),
+                     "secondary_track":validation.get("secondary_track")})
 
-                result = conn.execute(
-                    """
-                    UPDATE characters
-                    SET status = 'active',
-                        version = version + 1
-                    WHERE guild_id = ?
-                      AND id = ?
-                      AND status = 'approved'
-                    """,
-                    (
-                        actor.guild_id,
-                        character_id,
-                    ),
-                )
-
-                if result.rowcount != 1:
-                    raise InvalidState(
-                        "角色狀態已變更，請重試。"
-                    )
-
-                from core.character_creation_consent import persist_rumor_consent
-                from core.character_proxy_identity import activate as activate_proxy
-                persist_rumor_consent(conn,actor.guild_id,character_id,read_settings(character))
-                activate_proxy(conn,actor.guild_id,character_id)
-
-                # 正式開群前永不核發公開編號；開群後才核發。
-                from modules.character_numbering import issue_in_transaction
-                issue_in_transaction(conn, actor.guild_id, character_id)
-
-                audit(
-                    conn,
-                    actor,
-                    "character.activate",
-                    character_id,
-                    {
-                        "from": "approved",
-                        "to": "active",
-                        "schema_version": validation[
-                            "schema_version"
-                        ],
-                        "main_track": validation[
-                            "main_track"
-                        ],
-                        "secondary_track": validation[
-                            "secondary_track"
-                        ],
-                    },
-                )
-
-            # 僅在正式 approved→active 成功後處理歷史抽取；
-            # 未匯入合法素材時記錄待補建，絕不捏造作品或提前加成。
-            try:
-                from core.history_v23 import attempt_lock
-                attempt_lock(actor.guild_id, character_id)
-            except Exception:
-                import logging
-                logging.getLogger(__name__).exception("歷史履歷待補建：角色 %s",character_id)
-            try:
-                from modules.notifications import queue_notification
-                queue_notification(actor.guild_id,'private','role',
-                    f'🎉 角色 #{character_id} 已正式啟用。新人禮包請至原本領取入口辦理；歷史履歷在素材齊備後顯示。',
-                    character_id=character_id,dedupe_key=f'v23:activation:{actor.guild_id}:{character_id}')
-            except Exception:
-                import logging
-                logging.getLogger(__name__).exception("啟用私人通知排程失敗")
+            from core.character_activation_v23 import history_notification
+            history_notification(actor.guild_id, character_id)
 
             await reply(
                 interaction,
