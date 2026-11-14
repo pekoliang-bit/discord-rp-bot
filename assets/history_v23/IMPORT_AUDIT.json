@@ -2,6 +2,8 @@
   "expected": 580,
   "source_verified": 10,
   "missing_original_text": 570,
+  "recovered_brand_titles_review_only": 45,
+  "still_no_title_at_all": 525,
   "sections": [
     {
       "group": "作品",
@@ -46,5 +48,5 @@
       "missing": 75
     }
   ],
-  "warning": "未提供原始全文的條目只是索引，絕對不能用空標題核准或啟用，也不能以自行創作內容替代。"
+  "warning": "先前核准摘要恢復的45個品牌名稱尚需對照原始核准全文。只有verified_import_ready.json內10筆可直接匯入。"
 }
