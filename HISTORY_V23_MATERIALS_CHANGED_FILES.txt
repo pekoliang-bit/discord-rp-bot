@@ -1,0 +1,38 @@
+
+《流光城》V2.3 素材庫一次性整合｜2026-11-14
+基礎版本：discord-rp-bot-main(20261114-132855).zip
+本清單從原始 ZIP 與本次最終檔逐檔比對自動產生；僅列出實際新增／內容不同的檔案。
+
+【新增檔案（9 個）】
+HISTORY_V23_MATERIALS_ONE_PASS.md
+assets/history_v23/HE_0151_0230_approved_rarity_mapping.json
+assets/history_v23/WN_0193_0200_original_missing.json
+assets/history_v23/approved_structure_v23.json
+assets/history_v23/candidate_text_index_517.json
+tests/verify_history_v23_approved_structure.py
+tests/verify_history_v23_materials_one_pass.py
+tools/backup_history_v23_database.py
+HISTORY_V23_MATERIALS_CHANGED_FILES.txt
+
+【需要覆蓋（13 個）】
+assets/history_v23/CN_0001_0100_inventory.json
+assets/history_v23/HB_0001_0050_inventory.json
+assets/history_v23/HE_0001_0075_inventory.json
+assets/history_v23/HE_0076_0150_inventory.json
+assets/history_v23/HE_0151_0230_inventory.json
+assets/history_v23/IMPORT_AUDIT.json
+assets/history_v23/WN_0001_0200_inventory.json
+assets/history_v23/WN_0001_0200_rebuilt_import.json
+assets/history_v23/catalog_580_inventory.json
+core/history_v23.py
+modules/npc_history_v23.py
+tools/build_history_v23_catalog.py
+tools/import_history_v23_assets.py
+
+【不需覆蓋】main.py（與原始版本相同：True）
+
+【使用方式】
+方案A：在備份之後直接使用完整機器人 ZIP 作為測試環境專案。
+方案B：更新 ZIP 在專案上一層解壓，依其根目錄 discord-rp-bot-main/ 自動覆蓋。
+確認 DATABASE_PATH，先離線測試及備份，再採用 --apply。
+僅55筆具有可忠實入庫的原文；517筆新編候選不在正式抽取池。
