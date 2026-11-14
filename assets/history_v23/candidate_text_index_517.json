@@ -1,0 +1,4138 @@
+[
+  {
+    "asset_id": "WN-0001",
+    "candidate_title": "霧港最後一班船",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0002",
+    "candidate_title": "紙月亮失物招領",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0003",
+    "candidate_title": "午夜第七月台",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0004",
+    "candidate_title": "春日不寄信",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0005",
+    "candidate_title": "鹽田裡的星星",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0006",
+    "candidate_title": "零號證人",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0007",
+    "candidate_title": "玻璃候鳥",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0008",
+    "candidate_title": "海風把名字吹走",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0009",
+    "candidate_title": "最後一張藍圖",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0010",
+    "candidate_title": "黑膠上的指紋",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0011",
+    "candidate_title": "夏末單車環島",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0012",
+    "candidate_title": "長夜守塔人",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0013",
+    "candidate_title": "第十三次謝幕",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0014",
+    "candidate_title": "瓷白色的謊言",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0015",
+    "candidate_title": "蟬聲以北",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0016",
+    "candidate_title": "逆光追影",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0017",
+    "candidate_title": "微光修理鋪",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0018",
+    "candidate_title": "未完成的海圖",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0019",
+    "candidate_title": "塔樓裡的孩子",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0020",
+    "candidate_title": "落日之前再跳一次",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0021",
+    "candidate_title": "冷雨與白玫瑰",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0022",
+    "candidate_title": "時間寄存櫃",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0023",
+    "candidate_title": "最後的調香師",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0024",
+    "candidate_title": "橙色救援線",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0025",
+    "candidate_title": "窗邊的第四把椅子",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0026",
+    "candidate_title": "紙飛機越過國境",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0027",
+    "candidate_title": "漫長星期二",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0028",
+    "candidate_title": "暗河鐘擺",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0029",
+    "candidate_title": "白色海嘯",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0030",
+    "candidate_title": "流星墜入庭院",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0031",
+    "candidate_title": "名為家的邊界",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0032",
+    "candidate_title": "冬日最後一道菜",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0033",
+    "candidate_title": "無聲煙火",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0034",
+    "candidate_title": "雨林的第二顆心",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0035",
+    "candidate_title": "深夜映畫館",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0036",
+    "candidate_title": "都會第九區",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0037",
+    "candidate_title": "星河公寓管理員",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0038",
+    "candidate_title": "當我們還在學告別",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0039",
+    "candidate_title": "首席之下",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0040",
+    "candidate_title": "錦衣夜行錄",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0041",
+    "candidate_title": "白塔值班日誌",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0042",
+    "candidate_title": "租屋合約第七條",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0043",
+    "candidate_title": "零時播報",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0044",
+    "candidate_title": "北境學園紀事",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0045",
+    "candidate_title": "午夜花市",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0046",
+    "candidate_title": "長安異聞司",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0047",
+    "candidate_title": "繼承人候補",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0048",
+    "candidate_title": "雙城交換日記",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0049",
+    "candidate_title": "戀愛觀測局",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0050",
+    "candidate_title": "一號法庭",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0051",
+    "candidate_title": "山城消防線",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0052",
+    "candidate_title": "小巷美術館",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0053",
+    "candidate_title": "名廚預備班",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0054",
+    "candidate_title": "第三個秋天",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0055",
+    "candidate_title": "霧島旅社",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0056",
+    "candidate_title": "鏡頭之外",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0057",
+    "candidate_title": "長街說書人",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0058",
+    "candidate_title": "離婚前的晚餐",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0059",
+    "candidate_title": "星圖導航員",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0060",
+    "candidate_title": "她的第十封委託書",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0061",
+    "candidate_title": "海上電台",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0062",
+    "candidate_title": "公關危機處理室",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0063",
+    "candidate_title": "金線裁縫師",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0064",
+    "candidate_title": "倒數六十秒",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0065",
+    "candidate_title": "白夜圖書委員會",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0066",
+    "candidate_title": "玫瑰與鐵門",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0067",
+    "candidate_title": "月台上的陌生人",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0068",
+    "candidate_title": "天鵝失去影子",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0069",
+    "candidate_title": "鐘樓的第十二封信",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0070",
+    "candidate_title": "宴會尚未結束",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0071",
+    "candidate_title": "南方船歌",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0072",
+    "candidate_title": "花園裡的審判",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0073",
+    "candidate_title": "白紙劇團",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0074",
+    "candidate_title": "一千零一個早晨",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0075",
+    "candidate_title": "黑貓旅館",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0076",
+    "candidate_title": "遙遠王國的麥穗",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0077",
+    "candidate_title": "最後一排的觀眾",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0078",
+    "candidate_title": "謊言博物館",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0079",
+    "candidate_title": "雨落在鋼琴上",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0080",
+    "candidate_title": "王冠與麵包",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0081",
+    "candidate_title": "借我一束燈光",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0082",
+    "candidate_title": "島嶼的第三場雪",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0083",
+    "candidate_title": "一夜玫瑰市場",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0084",
+    "candidate_title": "影子的契約",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0085",
+    "candidate_title": "大宅失竊案",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0086",
+    "candidate_title": "群星沒有名字",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0087",
+    "candidate_title": "倒著走的時鐘",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0088",
+    "candidate_title": "最後的馬戲團",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0089",
+    "candidate_title": "冬港鐘聲",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0090",
+    "candidate_title": "心跳節拍器",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0091",
+    "candidate_title": "凌晨四點的藍",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0092",
+    "candidate_title": "把夏天裝進口袋",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0093",
+    "candidate_title": "潮汐情書",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0094",
+    "candidate_title": "夜色有形狀",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0095",
+    "candidate_title": "沿途都是風",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0096",
+    "candidate_title": "候鳥不回信",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0097",
+    "candidate_title": "銀河慢舞",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0098",
+    "candidate_title": "不合時宜的溫柔",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0099",
+    "candidate_title": "紅絲絨凌晨",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0100",
+    "candidate_title": "雨滴修補術",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0101",
+    "candidate_title": "風箏線",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0102",
+    "candidate_title": "零重力戀人",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0103",
+    "candidate_title": "今日晴朗機率",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0104",
+    "candidate_title": "夜行植物",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0105",
+    "candidate_title": "站在光背後",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0106",
+    "candidate_title": "七月的未接來電",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0107",
+    "candidate_title": "別替我說再見",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0108",
+    "candidate_title": "藍色果醬",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0109",
+    "candidate_title": "月亮偏航",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0110",
+    "candidate_title": "四季練習題",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0111",
+    "candidate_title": "晚安，陌生城市",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0112",
+    "candidate_title": "薄荷色謊言",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0113",
+    "candidate_title": "想像中的海岸線",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0114",
+    "candidate_title": "白紙上的花火",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0115",
+    "candidate_title": "第九顆流星",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0116",
+    "candidate_title": "花窗之下",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0117",
+    "candidate_title": "錯過末班車的人",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0118",
+    "candidate_title": "星塵便利店",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0119",
+    "candidate_title": "晨霧散場",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0120",
+    "candidate_title": "橘子汽水宇宙",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0121",
+    "candidate_title": "寫給未來的錯字",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0122",
+    "candidate_title": "黑白之間有金色",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0123",
+    "candidate_title": "逆光日記",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0124",
+    "candidate_title": "雪落無聲時",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0125",
+    "candidate_title": "仍然熱愛",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0126",
+    "candidate_title": "今晚誰來掌鏡",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0127",
+    "candidate_title": "一日交換人生",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0128",
+    "candidate_title": "星光料理練習生",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0129",
+    "candidate_title": "未公開的練習室",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0130",
+    "candidate_title": "城市聲音採集簿",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0131",
+    "candidate_title": "今天不讀台本",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0132",
+    "candidate_title": "慢速旅行俱樂部",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0133",
+    "candidate_title": "舞台後的名字",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0134",
+    "candidate_title": "奇怪知識研究所",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0135",
+    "candidate_title": "雙人默契診療室",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0136",
+    "candidate_title": "午夜唱片相談室",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0137",
+    "candidate_title": "有話請上車",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0138",
+    "candidate_title": "青春再開機",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0139",
+    "candidate_title": "一百種謝幕方式",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0140",
+    "candidate_title": "我家巷口有高手",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0141",
+    "candidate_title": "料理不設限",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0142",
+    "candidate_title": "夜談事務所",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0143",
+    "candidate_title": "反轉劇本大會",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0144",
+    "candidate_title": "地圖之外的週末",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0145",
+    "candidate_title": "明日製作人",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0146",
+    "candidate_title": "破曉前的脈搏",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0147",
+    "candidate_title": "玻璃羽翼",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0148",
+    "candidate_title": "紅線之間",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0149",
+    "candidate_title": "重力遊戲",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0150",
+    "candidate_title": "影子比我先到",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0151",
+    "candidate_title": "雨季返航",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0152",
+    "candidate_title": "時差二十四格",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0153",
+    "candidate_title": "白噪音花園",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0154",
+    "candidate_title": "霓虹折返跑",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0155",
+    "candidate_title": "風從身後來",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0156",
+    "candidate_title": "倒映的第二人",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0157",
+    "candidate_title": "紙鳶墜落之前",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0158",
+    "candidate_title": "城市褶皺",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0159",
+    "candidate_title": "潮間帶呼吸",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0160",
+    "candidate_title": "最後一顆節拍",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0161",
+    "candidate_title": "星砂郵差",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0162",
+    "candidate_title": "機械森林保育員",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0163",
+    "candidate_title": "魔女的茶會日誌",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0164",
+    "candidate_title": "深海圖書館",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0165",
+    "candidate_title": "雲端小鎮修理師",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0166",
+    "candidate_title": "黑曜之門",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0167",
+    "candidate_title": "七號太空電台",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0168",
+    "candidate_title": "蒲公英探險隊",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0169",
+    "candidate_title": "夜鶯與銀鑰匙",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0170",
+    "candidate_title": "最後一頁攻略",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0171",
+    "candidate_title": "回聲航線",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0172",
+    "candidate_title": "便利店守護靈",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0173",
+    "candidate_title": "像素王國假期",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0174",
+    "candidate_title": "黃昏信使",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0175",
+    "candidate_title": "月球玻璃工房",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0176",
+    "candidate_title": "凌晨聊天室",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0177",
+    "candidate_title": "一週一幅城市",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0178",
+    "candidate_title": "開箱異想收藏室",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0179",
+    "candidate_title": "百元料理挑戰簿",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0180",
+    "candidate_title": "今天也要練習唱歌",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0181",
+    "candidate_title": "一鏡到底小劇場",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0182",
+    "candidate_title": "五分鐘看懂舞台",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0183",
+    "candidate_title": "週末手作宇宙",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0184",
+    "candidate_title": "虛擬旅伴日記",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0185",
+    "candidate_title": "巷口聲音地圖",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0186",
+    "candidate_title": "不按劇本直播間",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0187",
+    "candidate_title": "銀幕冷知識實驗",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0188",
+    "candidate_title": "線上迷你音樂祭",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0189",
+    "candidate_title": "今日穿搭研究社",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0190",
+    "candidate_title": "書架背後的故事",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0191",
+    "candidate_title": "午夜藍緞帶",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "WN-0192",
+    "candidate_title": "日光之下",
+    "candidate_file": "WN_0001_0200_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0001",
+    "candidate_title": "沈知遙",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0002",
+    "candidate_title": "林見秋",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0003",
+    "candidate_title": "許望川",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0004",
+    "candidate_title": "周以寧",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0005",
+    "candidate_title": "陸星禾",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0006",
+    "candidate_title": "唐雨棠",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0007",
+    "candidate_title": "江予澄",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0008",
+    "candidate_title": "魏時安",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0009",
+    "candidate_title": "葉初嵐",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0010",
+    "candidate_title": "顧行舟",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0011",
+    "candidate_title": "謝雲辭",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0012",
+    "candidate_title": "裴照霜",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0013",
+    "candidate_title": "蘇晚照",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0014",
+    "candidate_title": "聞人清朔",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0015",
+    "candidate_title": "容未央",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0016",
+    "candidate_title": "沈孤鴻",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0017",
+    "candidate_title": "洛千翎",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0018",
+    "candidate_title": "段玄策",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0019",
+    "candidate_title": "慕容綺羅",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0020",
+    "candidate_title": "晏無塵",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0021",
+    "candidate_title": "朝霧澪",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0022",
+    "candidate_title": "藤原悠真",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0023",
+    "candidate_title": "橘紗月",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0024",
+    "candidate_title": "雨宮朔",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0025",
+    "candidate_title": "白石凪",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0026",
+    "candidate_title": "九條理央",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0027",
+    "candidate_title": "瀨戶千尋",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0028",
+    "candidate_title": "相澤陽斗",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0029",
+    "candidate_title": "水無月琴葉",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0030",
+    "candidate_title": "神崎冬馬",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0031",
+    "candidate_title": "篠宮紫苑",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0032",
+    "candidate_title": "高嶺伊織",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0033",
+    "candidate_title": "葛城紅葉",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0034",
+    "candidate_title": "如月宗介",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0035",
+    "candidate_title": "風間千鶴",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0036",
+    "candidate_title": "久世景虎",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0037",
+    "candidate_title": "小夜霧",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0038",
+    "candidate_title": "鷹司真尋",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0039",
+    "candidate_title": "月岡蓮次",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0040",
+    "candidate_title": "花房璃子",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0041",
+    "candidate_title": "尹瑞妍",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0042",
+    "candidate_title": "韓道允",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0043",
+    "candidate_title": "朴夏琳",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0044",
+    "candidate_title": "徐智勳",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0045",
+    "candidate_title": "金娜璟",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0046",
+    "candidate_title": "李宥真",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0047",
+    "candidate_title": "崔允浩",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0048",
+    "candidate_title": "姜世雅",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0049",
+    "candidate_title": "鄭民奎",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0050",
+    "candidate_title": "申惠媛",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0051",
+    "candidate_title": "Élise Moreau（艾莉絲・莫侯）",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0052",
+    "candidate_title": "Lucien Valette（呂西安・瓦萊特）",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0053",
+    "candidate_title": "Ada Bellini（艾達・貝里尼）",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0054",
+    "candidate_title": "Matteo Rinaldi（馬泰奧・里納爾迪）",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0055",
+    "candidate_title": "Clara Weiss（克拉拉・魏斯）",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0056",
+    "candidate_title": "Emil Hartmann（埃米爾・哈特曼）",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0057",
+    "candidate_title": "Ingrid Falk（英格麗・法爾克）",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0058",
+    "candidate_title": "Sofia Lindholm（索菲亞・林德霍姆）",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0059",
+    "candidate_title": "Aleksander Nowak（亞歷山德・諾瓦克）",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0060",
+    "candidate_title": "Zofia Zielińska（佐菲亞・傑林斯卡）",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0061",
+    "candidate_title": "Maya Reed（瑪雅・里德）",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0062",
+    "candidate_title": "Ethan Brooks（伊森・布魯克斯）",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0063",
+    "candidate_title": "Olivia Grant（奧莉薇亞・葛蘭特）",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0064",
+    "candidate_title": "Noah Bennett（諾亞・班奈特）",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0065",
+    "candidate_title": "Amara Collins（阿瑪拉・柯林斯）",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0066",
+    "candidate_title": "Julian Mercer（朱利安・默瑟）",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0067",
+    "candidate_title": "Ruby Fletcher（露比・弗萊徹）",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0068",
+    "candidate_title": "Theo Sinclair（西奧・辛克萊）",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0069",
+    "candidate_title": "Iris Walker（艾莉絲・沃克）",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0070",
+    "candidate_title": "Caleb Hughes（凱勒布・休斯）",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0071",
+    "candidate_title": "Lucía Navarro（露西亞・納瓦羅）",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0072",
+    "candidate_title": "Diego Salazar（迪亞哥・薩拉薩）",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0073",
+    "candidate_title": "Camila Rojas（卡蜜拉・羅哈斯）",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0074",
+    "candidate_title": "Gabriel Duarte（加布里埃爾・杜阿爾特）",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0075",
+    "candidate_title": "Beatriz Costa（碧翠絲・科斯塔）",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0076",
+    "candidate_title": "Mateo Herrera（馬特奧・埃雷拉）",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0077",
+    "candidate_title": "Valentina Cruz（瓦倫蒂娜・克魯斯）",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0078",
+    "candidate_title": "Rafael Ortega（拉斐爾・奧爾特加）",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0079",
+    "candidate_title": "Isabela Ferreira（伊莎貝拉・費雷拉）",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0080",
+    "candidate_title": "Tomás Beltrán（托馬斯・貝爾特蘭）",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0081",
+    "candidate_title": "Aanya Mehta（安雅・梅塔）",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0082",
+    "candidate_title": "Arjun Rao（阿俊・拉奧）",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0083",
+    "candidate_title": "Zoya Farooq（卓婭・法魯克）",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0084",
+    "candidate_title": "Kabir Sen（卡比爾・森）",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0085",
+    "candidate_title": "Leyla Demir（蕾拉・德米爾）",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0086",
+    "candidate_title": "Emir Kaya（埃米爾・卡亞）",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0087",
+    "candidate_title": "Noura Haddad（努拉・哈達德）",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0088",
+    "candidate_title": "Samir Rahman（薩米爾・拉赫曼）",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0089",
+    "candidate_title": "Amara Okafor（阿瑪拉・奧卡福）",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0090",
+    "candidate_title": "Kwame Mensah（夸梅・門薩）",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0091",
+    "candidate_title": "黎曜・七號",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0092",
+    "candidate_title": "賽拉・星冕",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0093",
+    "candidate_title": "諾恩・灰鑄",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0094",
+    "candidate_title": "伊芙琳・夜潮",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0095",
+    "candidate_title": "岚音・零式",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0096",
+    "candidate_title": "泰洛・銀脊",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0097",
+    "candidate_title": "芙洛菈・苔冠",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0098",
+    "candidate_title": "凜月・赤砂",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0099",
+    "candidate_title": "卡西安・黑曜",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "CN-0100",
+    "candidate_title": "米拉・光隙",
+    "candidate_file": "CN_0001_0100_rebuilt_import.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0001",
+    "candidate_title": "荒島長鏡頭的臨時主角",
+    "candidate_file": "HE_0001_0075.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0002",
+    "candidate_title": "最後一幕的無聲表演",
+    "candidate_file": "HE_0001_0075.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0003",
+    "candidate_title": "暴雨之夜的重拍決定",
+    "candidate_file": "HE_0001_0075.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0004",
+    "candidate_title": "地下劇場的第二輪加演",
+    "candidate_file": "HE_0001_0075.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0005",
+    "candidate_title": "跨語言短片首演",
+    "candidate_file": "HE_0001_0075.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0006",
+    "candidate_title": "反派角色的突破選角",
+    "candidate_file": "HE_0001_0075.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0007",
+    "candidate_title": "七日內完成的微電影",
+    "candidate_file": "HE_0001_0075.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0008",
+    "candidate_title": "舞台替補的即興救場",
+    "candidate_file": "HE_0001_0075.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0009",
+    "candidate_title": "首次主導的群像作品",
+    "candidate_file": "HE_0001_0075.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0010",
+    "candidate_title": "默片修復的重新上映",
+    "candidate_file": "HE_0001_0075.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0011",
+    "candidate_title": "車站月台的街頭首唱",
+    "candidate_file": "HE_0001_0075.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0012",
+    "candidate_title": "深夜電台的現場錄音",
+    "candidate_file": "HE_0001_0075.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0013",
+    "candidate_title": "首張獨立EP的完成",
+    "candidate_file": "HE_0001_0075.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0014",
+    "candidate_title": "與民謠樂團的跨界合作",
+    "candidate_file": "HE_0001_0075.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0015",
+    "candidate_title": "失聰觀眾友善演唱會",
+    "candidate_file": "HE_0001_0075.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0016",
+    "candidate_title": "巡演終站的原創安可",
+    "candidate_file": "HE_0001_0075.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0017",
+    "candidate_title": "電影片尾曲首次入選",
+    "candidate_file": "HE_0001_0075.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0018",
+    "candidate_title": "古樂器與電子聲響實驗",
+    "candidate_file": "HE_0001_0075.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0019",
+    "candidate_title": "音樂製作幕後轉台前",
+    "candidate_file": "HE_0001_0075.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0020",
+    "candidate_title": "雙語創作曲的正式發行",
+    "candidate_file": "HE_0001_0075.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0021",
+    "candidate_title": "輪椅共融舞作首演",
+    "candidate_file": "HE_0001_0075.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0022",
+    "candidate_title": "古典舞當代表演改編",
+    "candidate_file": "HE_0001_0075.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0023",
+    "candidate_title": "街舞團體決賽逆轉",
+    "candidate_file": "HE_0001_0075.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0024",
+    "candidate_title": "肢體劇的無道具挑戰",
+    "candidate_file": "HE_0001_0075.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0025",
+    "candidate_title": "首次參與國際舞蹈駐村",
+    "candidate_file": "HE_0001_0075.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0026",
+    "candidate_title": "音樂劇雙角色輪替",
+    "candidate_file": "HE_0001_0075.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0027",
+    "candidate_title": "劇場導聆與示範演出",
+    "candidate_file": "HE_0001_0075.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0028",
+    "candidate_title": "屋頂舞台的日落首演",
+    "candidate_file": "HE_0001_0075.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0029",
+    "candidate_title": "十人群舞的重組編排",
+    "candidate_file": "HE_0001_0075.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0030",
+    "candidate_title": "傳統戲曲身段跨界合作",
+    "candidate_file": "HE_0001_0075.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0031",
+    "candidate_title": "一鏡到底的分鏡實驗",
+    "candidate_file": "HE_0001_0075.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0032",
+    "candidate_title": "微預算道具再利用",
+    "candidate_file": "HE_0001_0075.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0033",
+    "candidate_title": "劇本圍讀的角色重寫",
+    "candidate_file": "HE_0001_0075.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0034",
+    "candidate_title": "老戲院紀錄片修復",
+    "candidate_file": "HE_0001_0075.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0035",
+    "candidate_title": "水下攝影的安全協作",
+    "candidate_file": "HE_0001_0075.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0036",
+    "candidate_title": "獨立動畫聲音重製",
+    "candidate_file": "HE_0001_0075.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0037",
+    "candidate_title": "跨時區遠距後期製作",
+    "candidate_file": "HE_0001_0075.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0038",
+    "candidate_title": "無障礙字幕版本發表",
+    "candidate_file": "HE_0001_0075.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0039",
+    "candidate_title": "虛擬攝影棚首次實拍",
+    "candidate_file": "HE_0001_0075.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0040",
+    "candidate_title": "戲劇教育短片系列製作",
+    "candidate_file": "HE_0001_0075.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0041",
+    "candidate_title": "深夜人物訪談首度主持",
+    "candidate_file": "HE_0001_0075.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0042",
+    "candidate_title": "地方方言節目獲得迴響",
+    "candidate_file": "HE_0001_0075.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0043",
+    "candidate_title": "直播募書活動超出目標",
+    "candidate_file": "HE_0001_0075.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0044",
+    "candidate_title": "百人觀眾的公開問答",
+    "candidate_file": "HE_0001_0075.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0045",
+    "candidate_title": "專題報導聚焦幕後職人",
+    "candidate_file": "HE_0001_0075.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0046",
+    "candidate_title": "跨國連線直播的主持突破",
+    "candidate_file": "HE_0001_0075.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0047",
+    "candidate_title": "人氣節目特別嘉賓回歸",
+    "candidate_file": "HE_0001_0075.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0048",
+    "candidate_title": "冷門職業專題形成系列",
+    "candidate_file": "HE_0001_0075.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0049",
+    "candidate_title": "全程無提示卡主持挑戰",
+    "candidate_file": "HE_0001_0075.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0050",
+    "candidate_title": "公開文化講座首度登台",
+    "candidate_file": "HE_0001_0075.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0051",
+    "candidate_title": "海港影展青年交流代表",
+    "candidate_file": "HE_0001_0075.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0052",
+    "candidate_title": "雙城劇團交換演出",
+    "candidate_file": "HE_0001_0075.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0053",
+    "candidate_title": "海外動畫配音合作",
+    "candidate_file": "HE_0001_0075.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0054",
+    "candidate_title": "民族樂器跨國即興舞台",
+    "candidate_file": "HE_0001_0075.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0055",
+    "candidate_title": "國際公益攝影共創",
+    "candidate_file": "HE_0001_0075.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0056",
+    "candidate_title": "海外品牌短片創意顧問",
+    "candidate_file": "HE_0001_0075.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0057",
+    "candidate_title": "劇場手語詮釋共創實驗",
+    "candidate_file": "HE_0001_0075.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0058",
+    "candidate_title": "跨海音樂工作坊交流",
+    "candidate_file": "HE_0001_0075.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0059",
+    "candidate_title": "漫畫影像改編交流提案",
+    "candidate_file": "HE_0001_0075.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0060",
+    "candidate_title": "國際服裝設計展合作演出",
+    "candidate_file": "HE_0001_0075.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0061",
+    "candidate_title": "偏鄉移動劇場巡迴",
+    "candidate_file": "HE_0001_0075.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0062",
+    "candidate_title": "銀髮口述記憶舞台計畫",
+    "candidate_file": "HE_0001_0075.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0063",
+    "candidate_title": "失親兒少影像陪伴課程",
+    "candidate_file": "HE_0001_0075.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0064",
+    "candidate_title": "災後社區文化義演",
+    "candidate_file": "HE_0001_0075.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0065",
+    "candidate_title": "友善劇場志工培訓",
+    "candidate_file": "HE_0001_0075.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0066",
+    "candidate_title": "原住民族故事授權展演",
+    "candidate_file": "HE_0001_0075.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0067",
+    "candidate_title": "少年劇團暑期培力",
+    "candidate_file": "HE_0001_0075.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0068",
+    "candidate_title": "海岸淨灘聲音採集",
+    "candidate_file": "HE_0001_0075.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0069",
+    "candidate_title": "新人短片單元入圍",
+    "candidate_file": "HE_0001_0075.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0070",
+    "candidate_title": "舞台服裝設計特別提名",
+    "candidate_file": "HE_0001_0075.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0071",
+    "candidate_title": "十年創作回顧展",
+    "candidate_file": "HE_0001_0075.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0072",
+    "candidate_title": "年度青年主持新秀",
+    "candidate_file": "HE_0001_0075.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0073",
+    "candidate_title": "原創舞作評審推薦",
+    "candidate_file": "HE_0001_0075.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0074",
+    "candidate_title": "影集編劇首獲署名",
+    "candidate_file": "HE_0001_0075.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0075",
+    "candidate_title": "音樂創作獲教育機構典藏",
+    "candidate_file": "HE_0001_0075.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0076",
+    "candidate_title": "被剪去的關鍵獨白",
+    "candidate_file": "HE_0076_0150.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0077",
+    "candidate_title": "試映場的集體沉默",
+    "candidate_file": "HE_0076_0150.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0078",
+    "candidate_title": "颱風夜停拍的外景",
+    "candidate_file": "HE_0076_0150.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0079",
+    "candidate_title": "口音爭議的試播集",
+    "candidate_file": "HE_0076_0150.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0080",
+    "candidate_title": "道具失誤的定格畫面",
+    "candidate_file": "HE_0076_0150.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0081",
+    "candidate_title": "改檔期的主角席位",
+    "candidate_file": "HE_0076_0150.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0082",
+    "candidate_title": "錯過的最後一場戲",
+    "candidate_file": "HE_0076_0150.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0083",
+    "candidate_title": "雨幕下的收音故障",
+    "candidate_file": "HE_0076_0150.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0084",
+    "candidate_title": "字幕漏譯引發的誤讀",
+    "candidate_file": "HE_0076_0150.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0085",
+    "candidate_title": "首映前撤下的結局",
+    "candidate_file": "HE_0076_0150.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0086",
+    "candidate_title": "失真的首版母帶",
+    "candidate_file": "HE_0076_0150.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0087",
+    "candidate_title": "半途取消的專輯企劃",
+    "candidate_file": "HE_0076_0150.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0088",
+    "candidate_title": "錯誤版本的單曲封面",
+    "candidate_file": "HE_0076_0150.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0089",
+    "candidate_title": "無法同步的遠端合唱",
+    "candidate_file": "HE_0076_0150.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0090",
+    "candidate_title": "現場走音的安可曲",
+    "candidate_file": "HE_0076_0150.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0091",
+    "candidate_title": "電台拒播的過長前奏",
+    "candidate_file": "HE_0076_0150.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0092",
+    "candidate_title": "混音室遺失的和聲軌",
+    "candidate_file": "HE_0076_0150.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0093",
+    "candidate_title": "改編授權的最後關卡",
+    "candidate_file": "HE_0076_0150.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0094",
+    "candidate_title": "默默無聞的實體首刷",
+    "candidate_file": "HE_0076_0150.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0095",
+    "candidate_title": "音樂節的縮短演出",
+    "candidate_file": "HE_0076_0150.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0096",
+    "candidate_title": "錯過升降台的節拍",
+    "candidate_file": "HE_0076_0150.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0097",
+    "candidate_title": "替身無法到場的夜晚",
+    "candidate_file": "HE_0076_0150.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0098",
+    "candidate_title": "燈光追錯的獨舞",
+    "candidate_file": "HE_0076_0150.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0099",
+    "candidate_title": "傾斜地板的開幕日",
+    "candidate_file": "HE_0076_0150.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0100",
+    "candidate_title": "服裝裂線的第三幕",
+    "candidate_file": "HE_0076_0150.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0101",
+    "candidate_title": "無聲的第一首合唱",
+    "candidate_file": "HE_0076_0150.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0102",
+    "candidate_title": "觀眾席上的排練爭議",
+    "candidate_file": "HE_0076_0150.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0103",
+    "candidate_title": "巡演行李的遲到",
+    "candidate_file": "HE_0076_0150.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0104",
+    "candidate_title": "重排的雙人托舉",
+    "candidate_file": "HE_0076_0150.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0105",
+    "candidate_title": "忘詞後的即興補救",
+    "candidate_file": "HE_0076_0150.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0106",
+    "candidate_title": "被退回的首版劇本",
+    "candidate_file": "HE_0076_0150.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0107",
+    "candidate_title": "預算表上的漏項",
+    "candidate_file": "HE_0076_0150.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0108",
+    "candidate_title": "剪輯室的時間線倒錯",
+    "candidate_file": "HE_0076_0150.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0109",
+    "candidate_title": "提案會上失效的投影",
+    "candidate_file": "HE_0076_0150.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0110",
+    "candidate_title": "不被採用的主題曲",
+    "candidate_file": "HE_0076_0150.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0111",
+    "candidate_title": "失去版權窗口的舞台改編",
+    "candidate_file": "HE_0076_0150.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0112",
+    "candidate_title": "後製特效的返工季",
+    "candidate_file": "HE_0076_0150.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0113",
+    "candidate_title": "片場協調失敗的一天",
+    "candidate_file": "HE_0076_0150.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0114",
+    "candidate_title": "說明不清的試鏡條件",
+    "candidate_file": "HE_0076_0150.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0115",
+    "candidate_title": "殺青後的檔案找回",
+    "candidate_file": "HE_0076_0150.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0116",
+    "candidate_title": "斷章取義的預告訪談",
+    "candidate_file": "HE_0076_0150.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0117",
+    "candidate_title": "直播問答的沉默時刻",
+    "candidate_file": "HE_0076_0150.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0118",
+    "candidate_title": "紅毯致詞的譯名失誤",
+    "candidate_file": "HE_0076_0150.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0119",
+    "candidate_title": "失焦的公益海報",
+    "candidate_file": "HE_0076_0150.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0120",
+    "candidate_title": "提早流出的活動流程",
+    "candidate_file": "HE_0076_0150.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0121",
+    "candidate_title": "錯發的宣傳貼文",
+    "candidate_file": "HE_0076_0150.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0122",
+    "candidate_title": "語意不明的舊日留言",
+    "candidate_file": "HE_0076_0150.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0123",
+    "candidate_title": "粉絲見面會的隊伍混亂",
+    "candidate_file": "HE_0076_0150.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0124",
+    "candidate_title": "未經核對的節目標題",
+    "candidate_file": "HE_0076_0150.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0125",
+    "candidate_title": "誤認他人的合照標註",
+    "candidate_file": "HE_0076_0150.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0126",
+    "candidate_title": "時差造成的失約視訊",
+    "candidate_file": "HE_0076_0150.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0127",
+    "candidate_title": "展映規格不符的影片",
+    "candidate_file": "HE_0076_0150.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0128",
+    "candidate_title": "海外巡演的海關延滯",
+    "candidate_file": "HE_0076_0150.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0129",
+    "candidate_title": "跨語言配音的重配",
+    "candidate_file": "HE_0076_0150.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0130",
+    "candidate_title": "合演舞台的節奏落差",
+    "candidate_file": "HE_0076_0150.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0131",
+    "candidate_title": "授權區域的串流下架",
+    "candidate_file": "HE_0076_0150.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0132",
+    "candidate_title": "國際訪問的剪輯爭議",
+    "candidate_file": "HE_0076_0150.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0133",
+    "candidate_title": "翻譯稿外洩的取消合作",
+    "candidate_file": "HE_0076_0150.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0134",
+    "candidate_title": "無法交付的多語字幕",
+    "candidate_file": "HE_0076_0150.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0135",
+    "candidate_title": "跨境聯名未能定案",
+    "candidate_file": "HE_0076_0150.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0136",
+    "candidate_title": "社區展演的場地衝突",
+    "candidate_file": "HE_0076_0150.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0137",
+    "candidate_title": "課程材料的錯誤預估",
+    "candidate_file": "HE_0076_0150.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0138",
+    "candidate_title": "紀錄訪談的撤回同意",
+    "candidate_file": "HE_0076_0150.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0139",
+    "candidate_title": "失去贊助的兒童音樂會",
+    "candidate_file": "HE_0076_0150.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0140",
+    "candidate_title": "文化導覽的稱謂錯誤",
+    "candidate_file": "HE_0076_0150.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0141",
+    "candidate_title": "校園演出遭遇突發停電",
+    "candidate_file": "HE_0076_0150.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0142",
+    "candidate_title": "報名系統漏信的講座",
+    "candidate_file": "HE_0076_0150.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0143",
+    "candidate_title": "未能如期公開的公益短片",
+    "candidate_file": "HE_0076_0150.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0144",
+    "candidate_title": "決選前的缺席",
+    "candidate_file": "HE_0076_0150.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0145",
+    "candidate_title": "提名名單外的一票之差",
+    "candidate_file": "HE_0076_0150.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0146",
+    "candidate_title": "未通過的正式團員考核",
+    "candidate_file": "HE_0076_0150.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0147",
+    "candidate_title": "未達成的首演目標",
+    "candidate_file": "HE_0076_0150.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0148",
+    "candidate_title": "錯過署名的片尾字幕",
+    "candidate_file": "HE_0076_0150.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0149",
+    "candidate_title": "沒有續約的常駐節目",
+    "candidate_file": "HE_0076_0150.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0150",
+    "candidate_title": "退回的導演長片補助案",
+    "candidate_file": "HE_0076_0150.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0152",
+    "candidate_title": "Mellow Day 柔日｜B1 大眾｜校園日常推薦官",
+    "candidate_file": "HE_0151_0230.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0153",
+    "candidate_title": "PUREMINT 薄荷日記｜B1 大眾｜青春清新形象大使",
+    "candidate_file": "HE_0151_0230.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0154",
+    "candidate_title": "DAYFOLD 日褶｜B1 大眾｜街頭穿搭推薦官",
+    "candidate_file": "HE_0151_0230.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0155",
+    "candidate_title": "COTTON MOON 棉月｜B1 大眾｜舒適生活合作藝人",
+    "candidate_file": "HE_0151_0230.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0156",
+    "candidate_title": "LUMEN RING 光環｜B1 大眾｜日常飾品推薦官",
+    "candidate_file": "HE_0151_0230.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0157",
+    "candidate_title": "BYTEPOP 位元泡泡｜B1 大眾｜數位娛樂推薦官",
+    "candidate_file": "HE_0151_0230.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0158",
+    "candidate_title": "SUNNY BITE 晴日小食｜B1 大眾｜活力美食大使",
+    "candidate_file": "HE_0151_0230.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0159",
+    "candidate_title": "POPCORN PLANET 爆米星球｜B1 大眾｜歡樂觀影合作藝人",
+    "candidate_file": "HE_0151_0230.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0160",
+    "candidate_title": "CLEANO 潔樂｜B1 大眾｜清潔生活推薦官",
+    "candidate_file": "HE_0151_0230.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0161",
+    "candidate_title": "GO WANDER 漫遊GO｜B1 大眾｜城市探索推薦官",
+    "candidate_file": "HE_0151_0230.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0162",
+    "candidate_title": "Mellow Day 柔日｜B1 大眾｜新秀保養體驗官",
+    "candidate_file": "HE_0151_0230.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0163",
+    "candidate_title": "DAYFOLD 日褶｜B1 大眾｜青年舞台服飾夥伴",
+    "candidate_file": "HE_0151_0230.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0164",
+    "candidate_title": "BYTEPOP 位元泡泡｜B1 大眾｜創作校園推廣大使",
+    "candidate_file": "HE_0151_0230.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0165",
+    "candidate_title": "SUNNY BITE 晴日小食｜B1 大眾｜節慶餐桌推薦官",
+    "candidate_file": "HE_0151_0230.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0167",
+    "candidate_title": "LUMIYA 露米雅｜B2 平價｜清透肌膚形象大使",
+    "candidate_file": "HE_0151_0230.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0168",
+    "candidate_title": "Bloom & Dew 花露集｜B2 平價｜花香系列推薦官",
+    "candidate_file": "HE_0151_0230.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0169",
+    "candidate_title": "LINE & LEAF 線葉｜B2 平價｜簡約服飾品牌大使",
+    "candidate_file": "HE_0151_0230.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0170",
+    "candidate_title": "VIVID FORM 鮮形｜B2 平價｜潮流造型合作藝人",
+    "candidate_file": "HE_0151_0230.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0171",
+    "candidate_title": "SILVER TALE 銀色寓言｜B2 平價｜銀飾故事推薦官",
+    "candidate_file": "HE_0151_0230.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0172",
+    "candidate_title": "PIXEL DAY 像素日常｜B2 平價｜影像創作大使",
+    "candidate_file": "HE_0151_0230.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0173",
+    "candidate_title": "SONOVA 聲諾｜B2 平價｜聲音生活推薦官",
+    "candidate_file": "HE_0151_0230.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0174",
+    "candidate_title": "FRESH HOUR 鮮時光｜B2 平價｜健康餐飲形象大使",
+    "candidate_file": "HE_0151_0230.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0175",
+    "candidate_title": "MILK CLOUD 奶雲研究所｜B2 平價｜甜品聯名推薦官",
+    "candidate_file": "HE_0151_0230.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0176",
+    "candidate_title": "SOFT NEST 柔巢｜B2 平價｜家居舒適大使",
+    "candidate_file": "HE_0151_0230.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0177",
+    "candidate_title": "LITTLE HABIT 日常小事｜B2 平價｜生活選品推廣官",
+    "candidate_file": "HE_0151_0230.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0178",
+    "candidate_title": "NEST & REST 安棲旅宿｜B2 平價｜旅宿體驗形象大使",
+    "candidate_file": "HE_0151_0230.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0179",
+    "candidate_title": "LUMIYA 露米雅｜B2 平價｜音樂影像合作藝人",
+    "candidate_file": "HE_0151_0230.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0180",
+    "candidate_title": "LINE & LEAF 線葉｜B2 平價｜工作衣櫥代言人",
+    "candidate_file": "HE_0151_0230.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0181",
+    "candidate_title": "PIXEL DAY 像素日常｜B2 平價｜數位校園夥伴",
+    "candidate_file": "HE_0151_0230.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0182",
+    "candidate_title": "SONOVA 聲諾｜B2 平價｜音樂巡演聲音夥伴",
+    "candidate_file": "HE_0151_0230.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0183",
+    "candidate_title": "FRESH HOUR 鮮時光｜B2 平價｜城市餐飲推薦官",
+    "candidate_file": "HE_0151_0230.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0184",
+    "candidate_title": "SOFT NEST 柔巢｜B2 平價｜家庭影像合作藝人",
+    "candidate_file": "HE_0151_0230.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0185",
+    "candidate_title": "NEST & REST 安棲旅宿｜B2 平價｜週末旅宿推薦官",
+    "candidate_file": "HE_0151_0230.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0187",
+    "candidate_title": "SOLENNE 索蘭｜B3 小資｜都市護膚形象代言人",
+    "candidate_file": "HE_0151_0230.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0188",
+    "candidate_title": "AMBER VEIL 琥珀紗｜B3 小資｜香氛保養合作藝人",
+    "candidate_file": "HE_0151_0230.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0189",
+    "candidate_title": "ÉTOILE SKIN 星緹｜B3 小資｜星緹品牌推薦官",
+    "candidate_file": "HE_0151_0230.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0190",
+    "candidate_title": "MONAIRE 莫奈爾｜B3 小資｜摩登服飾系列大使",
+    "candidate_file": "HE_0151_0230.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0191",
+    "candidate_title": "ATELIER NOIR 黑色工坊｜B3 小資｜暗色美學合作藝人",
+    "candidate_file": "HE_0151_0230.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0192",
+    "candidate_title": "SEVÉRA 賽薇拉｜B3 小資｜季節衣裝形象大使",
+    "candidate_file": "HE_0151_0230.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0193",
+    "candidate_title": "ORBIS JEWEL 星軌珠寶｜B3 小資｜珠寶造型合作藝人",
+    "candidate_file": "HE_0151_0230.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0194",
+    "candidate_title": "VÉRANE 維蘭｜B3 小資｜珠寶故事代言人",
+    "candidate_file": "HE_0151_0230.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0195",
+    "candidate_title": "NEBULA CORE 星核｜B3 小資｜科技影像大使",
+    "candidate_file": "HE_0151_0230.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0196",
+    "candidate_title": "VECTRA 維科特｜B3 小資｜科技創作代言人",
+    "candidate_file": "HE_0151_0230.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0197",
+    "candidate_title": "MIDNIGHT CUP 午夜杯｜B3 小資｜夜間飲品形象大使",
+    "candidate_file": "HE_0151_0230.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0198",
+    "candidate_title": "HONEY GROVE 蜜森｜B3 小資｜蜂蜜生活合作藝人",
+    "candidate_file": "HE_0151_0230.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0199",
+    "candidate_title": "HOME & HAZE 霧居｜B3 小資｜空間風格大使",
+    "candidate_file": "HE_0151_0230.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0200",
+    "candidate_title": "CITY LOOP 城市環線｜B3 小資｜城市旅行代言人",
+    "candidate_file": "HE_0151_0230.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0201",
+    "candidate_title": "SOLENNE 索蘭｜B3 小資｜舞台後台保養夥伴",
+    "candidate_file": "HE_0151_0230.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0202",
+    "candidate_title": "ATELIER NOIR 黑色工坊｜B3 小資｜聲光時裝企劃主角",
+    "candidate_file": "HE_0151_0230.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0203",
+    "candidate_title": "ORBIS JEWEL 星軌珠寶｜B3 小資｜紀念系列珠寶大使",
+    "candidate_file": "HE_0151_0230.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0204",
+    "candidate_title": "NEBULA CORE 星核｜B3 小資｜電競文化推廣大使",
+    "candidate_file": "HE_0151_0230.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0205",
+    "candidate_title": "MIDNIGHT CUP 午夜杯｜B3 小資｜音樂節限定合作藝人",
+    "candidate_file": "HE_0151_0230.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0207",
+    "candidate_title": "VELORIA 薇洛莉亞｜B4 中端｜年度高端護膚代言人",
+    "candidate_file": "HE_0151_0230.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0208",
+    "candidate_title": "AURELLE 奧蕾爾｜B4 中端｜高端美妝形象代言人",
+    "candidate_file": "HE_0151_0230.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0209",
+    "candidate_title": "VELVET HOUR 絲絨時刻｜B4 中端｜高級服飾系列代言人",
+    "candidate_file": "HE_0151_0230.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0210",
+    "candidate_title": "ÉCLAT NOIR 黑曜之光｜B4 中端｜高級珠寶品牌大使",
+    "candidate_file": "HE_0151_0230.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0211",
+    "candidate_title": "AURIX 奧瑞克斯｜B4 中端｜旗艦科技形象代言人",
+    "candidate_file": "HE_0151_0230.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0212",
+    "candidate_title": "L'ATELIER DU THÉ 茶藝之所｜B4 中端｜精品茶飲形象大使",
+    "candidate_file": "HE_0151_0230.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0213",
+    "candidate_title": "LIVING FORM 生活形制｜B4 中端｜生活美學代言人",
+    "candidate_file": "HE_0151_0230.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0214",
+    "candidate_title": "AURELIA JOURNEYS 曜光旅程｜B4 中端｜旅遊形象合作藝人",
+    "candidate_file": "HE_0151_0230.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0215",
+    "candidate_title": "VELORIA 薇洛莉亞｜B4 中端｜典藏護膚系列繆思",
+    "candidate_file": "HE_0151_0230.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0216",
+    "candidate_title": "VELVET HOUR 絲絨時刻｜B4 中端｜時裝展演特邀代言人",
+    "candidate_file": "HE_0151_0230.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0217",
+    "candidate_title": "ÉCLAT NOIR 黑曜之光｜B4 中端｜珠寶設計合作繆思",
+    "candidate_file": "HE_0151_0230.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0218",
+    "candidate_title": "AURIX 奧瑞克斯｜B4 中端｜國際影像合作大使",
+    "candidate_file": "HE_0151_0230.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0219",
+    "candidate_title": "L'ATELIER DU THÉ 茶藝之所｜B4 中端｜茶藝文化推廣大使",
+    "candidate_file": "HE_0151_0230.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0220",
+    "candidate_title": "AURELIA JOURNEYS 曜光旅程｜B4 中端｜精品旅程代言人",
+    "candidate_file": "HE_0151_0230.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0222",
+    "candidate_title": "MAISON CÉLESTE 天穹之庭｜B5 高端｜頂級護膚系列形象代言人",
+    "candidate_file": "HE_0151_0230.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0223",
+    "candidate_title": "MAISON ARDENT 熾焰之屋｜B5 高端｜高級時裝品牌繆思",
+    "candidate_file": "HE_0151_0230.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0224",
+    "candidate_title": "MAISON D'OR 金曜之庭｜B5 高端｜典藏珠寶系列代言人",
+    "candidate_file": "HE_0151_0230.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0225",
+    "candidate_title": "NEXION 領界｜B5 高端｜頂級數位科技品牌大使",
+    "candidate_file": "HE_0151_0230.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0226",
+    "candidate_title": "MAISON SUCRÉE 糖霜之庭｜B5 高端｜精品甜點形象代言人",
+    "candidate_file": "HE_0151_0230.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0227",
+    "candidate_title": "MAISON VOYAGE 旅境之邸｜B5 高端｜尊榮旅程品牌大使",
+    "candidate_file": "HE_0151_0230.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0228",
+    "candidate_title": "MAISON CÉLESTE 天穹之庭｜B5 高端｜藝術保養企劃繆思",
+    "candidate_file": "HE_0151_0230.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0229",
+    "candidate_title": "MAISON ARDENT 熾焰之屋｜B5 高端｜高級訂製服形象大使",
+    "candidate_file": "HE_0151_0230.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  },
+  {
+    "asset_id": "HE-0230",
+    "candidate_title": "MAISON D'OR 金曜之庭｜B5 高端｜高級珠寶文化合作大使",
+    "candidate_file": "HE_0151_0230.json",
+    "content_origin": "newly_rewritten_not_restored_original",
+    "original_text_restored": false,
+    "import_ready": false
+  }
+]
