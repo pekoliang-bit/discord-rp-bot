@@ -1,4 +1,3 @@
-
 """V2.3 NPC 人設匯入、認領雙審與雙素材庫 UI；不修改角色初始屬性、金錢或額外加成。"""
 from __future__ import annotations
 import json
@@ -340,9 +339,16 @@ class AssetModal(discord.ui.Modal,title='歷史履歷素材新增／核准'):
                 if not isinstance(payload,dict) or not isinstance(payload.get('title'),str):
                     raise ValueError('素材 JSON 必須具有 title 欄位。')
                 label=payload['title']
-                for key in ('work_type','occupations','roles'):
+                if not payload.get('approved',True) or payload.get('import_ready') is False:
+                    raise ValueError('候選來源不可由新增介面直接冒充正式原文。')
+                if payload.get('status') not in (None,'source_verified','previously_approved'):
+                    raise ValueError('此來源標示為重建候選，不能直接核准。')
+                supplied=payload.get('meta',{})
+                if not isinstance(supplied,dict):raise ValueError('meta 必須是 JSON 物件。')
+                meta.update(supplied)
+                for key in ('work_type','occupations','roles','history_group','hot_search','title_tier'):
                     if key in payload:meta[key]=payload[key]
-                if code.startswith('HE-') and payload.get('hb_id'):
+                if payload.get('hb_id'):
                     meta['hb_id']=payload['hb_id']
             asset_put(i.guild_id,str(self.pool.value),code,label,grade,str(self.rarity.value or ''),meta=meta,approved=True)
             await i.response.send_message(f'✅ {self.code.value} 已登記為核准素材；不會因此發放任何數值。',ephemeral=True)
@@ -361,6 +367,51 @@ class AssetStateModal(discord.ui.Modal,title='停用／恢復素材'):
             await i.response.send_message('✅ 素材狀態更新成功；既有角色歷史不變。',ephemeral=True)
         except (ValueError,sqlite3.Error) as exc:await i.response.send_message(f'⚠️ {exc}',ephemeral=True)
 
+class AssetBrowseModal(discord.ui.Modal,title='搜尋歷史素材（唯讀）'):
+    pool=discord.ui.TextInput(label='素材池 general 或 passerby',default='general',max_length=15)
+    category=discord.ui.TextInput(label='分類 WN / CN / HB / HE（可空）',required=False,max_length=4)
+    keyword=discord.ui.TextInput(label='名稱或編號關鍵字（可空）',required=False,max_length=90)
+    page=discord.ui.TextInput(label='頁碼，從 1 開始',default='1',max_length=4)
+    async def on_submit(self,i):
+        if not i.guild or i.user.id!=i.guild.owner_id:
+            return await i.response.send_message('只有群主可查詢素材管理清單。',ephemeral=True)
+        try:
+            from core.history_v23 import list_assets
+            page=max(1,int(str(self.page.value)))
+            records=list_assets(i.guild_id,str(self.pool.value).strip(),str(self.category.value or '').strip().upper(),str(self.keyword.value or '').strip(),page-1)
+            lines=[f"{r['asset_id']}｜{r['title'][:65]}｜{r['tier'] or '-'}／{r['rarity'] or '-'}｜{'啟用' if r['enabled'] else '停用'}｜v{r['revision']}" for r in records]
+            await i.response.send_message(f'📚 素材查詢｜第 {page} 頁\n'+('\n'.join(lines) if lines else '本頁沒有對應素材。'),ephemeral=True)
+        except (ValueError,sqlite3.Error) as exc:
+            await i.response.send_message(f'⚠️ {exc}',ephemeral=True)
+
+
+class AssetEditModal(discord.ui.Modal,title='明確修訂既有已核准素材'):
+    pool=discord.ui.TextInput(label='素材池 general 或 passerby',default='general',max_length=15)
+    code=discord.ui.TextInput(label='既有素材編號',max_length=12)
+    title_text=discord.ui.TextInput(label='修改後完整名稱／內容',style=discord.TextStyle.paragraph,max_length=4000)
+    tier_rarity=discord.ui.TextInput(label='品牌 B 級 / 稀有度（如 B1/R3，可空）',required=False,max_length=12)
+    meta_json=discord.ui.TextInput(label='完整 meta JSON（可空時沿用舊版）',required=False,style=discord.TextStyle.paragraph,max_length=4000)
+    async def on_submit(self,i):
+        if not i.guild or i.user.id!=i.guild.owner_id:
+            return await i.response.send_message('只有群主可修訂素材。',ephemeral=True)
+        try:
+            pool=str(self.pool.value).strip();code=str(self.code.value).strip().upper()
+            with get_connection() as db:
+                history_init(db)
+                old=db.execute("""SELECT tier,rarity,metadata_json FROM rp_history_assets_v23
+                    WHERE guild_id=? AND pool=? AND asset_id=? AND approved=1""",
+                    (str(i.guild_id),pool,code)).fetchone()
+            if old is None:raise ValueError('素材不存在，請改用新增素材。')
+            parts=str(self.tier_rarity.value or '').strip().split('/',1)
+            grade=parts[0].strip() if parts and parts[0].strip() else old['tier']
+            rarity=parts[1].strip() if len(parts)==2 and parts[1].strip() else old['rarity']
+            metadata=json.loads(str(self.meta_json.value)) if str(self.meta_json.value or '').strip() else json.loads(old['metadata_json'] or '{}')
+            changed=asset_put(i.guild_id,pool,code,str(self.title_text.value),grade,rarity,meta=metadata,approved=True,replace_existing=True)
+            await i.response.send_message(f'✅ {code} '+('已完成修訂，舊版本存入修訂稽核表；既有角色的履歷快照不改變。' if changed else '內容相同，沒有修改版號。'),ephemeral=True)
+        except (ValueError,TypeError,json.JSONDecodeError,sqlite3.Error) as exc:
+            await i.response.send_message(f'⚠️ {exc}',ephemeral=True)
+
+
 class AssetBulkImportModal(discord.ui.Modal,title='批次匯入已核准的歷史素材'):
     pool=discord.ui.TextInput(label='素材庫 general 或 passerby',default='general',max_length=15)
     link=discord.ui.TextInput(label='Discord JSON 素材訊息連結',max_length=300)
@@ -371,38 +422,36 @@ class AssetBulkImportModal(discord.ui.Modal,title='批次匯入已核准的歷�
             from modules.character_sheet_registration import fetch_sheet
             _channel,msg=await fetch_sheet(i,str(self.link.value))
             if msg.author.id!=i.guild.owner_id:raise ValueError('批次素材訊息必須由群主發表。')
-            raw=msg.content.strip()
-            if raw.startswith('```'):
-                raw=raw.split('\n',1)[1].rsplit('```',1)[0]
+            if msg.attachments:
+                attachment=msg.attachments[0]
+                if not attachment.filename.lower().endswith('.json') or attachment.size>2_000_000:
+                    raise ValueError('只接受最多 2 MB 的 .json 附件。')
+                raw=(await attachment.read()).decode('utf-8-sig')
+            else:
+                raw=msg.content.strip()
+                if raw.startswith('```'):
+                    raw=raw.split('\n',1)[1].rsplit('```',1)[0]
             rows=json.loads(raw)
             count=put_batch(i.guild_id,rows,pool=str(self.pool.value).strip())
-            await i.response.send_message(f'✅ 已驗證並處理 {count} 筆素材（相同內容不重複插入）。',ephemeral=True)
+            await i.response.send_message(f'✅ 本批 {len(rows)} 筆已檢查；新增 {count} 筆、相同內容略過 {len(rows)-count} 筆。所有資料在一筆交易中處理。',ephemeral=True)
         except (ValueError,KeyError,TypeError,sqlite3.Error,discord.HTTPException) as exc:
             await i.response.send_message(f'⚠️ 整批匯入失敗：{exc}',ephemeral=True)
 
 class VerifiedSeedButton(discord.ui.Button):
-    def __init__(self):super().__init__(label='📌 匯入已核實5品牌＋5代言',style=discord.ButtonStyle.secondary,row=1)
+    def __init__(self):
+        super().__init__(label='📌 匯入已核准55筆（50品牌＋5代言）',style=discord.ButtonStyle.secondary,row=1)
     async def callback(self,i):
         if not i.guild or i.user.id!=i.guild.owner_id:
             return await i.response.send_message('僅群主能正式匯入素材。',ephemeral=True)
-        from pathlib import Path
-        entries=json.loads((Path(__file__).resolve().parents[1]/'assets/history_v23/verified_five.json').read_text(encoding='utf-8'))
-        added=0;skipped=0
         try:
-            for x in entries:
-                with get_connection() as db:
-                    history_init(db)
-                    old=db.execute('SELECT title,tier,rarity,metadata_json FROM rp_history_assets_v23 WHERE guild_id=? AND pool=? AND asset_id=?',
-                        (str(i.guild_id),x['pool'],x['asset_id'])).fetchone()
-                if old:
-                    if old['title']!=x['title'] or old['tier']!=x['tier']:
-                        raise ValueError(f'{x["asset_id"]} 已存在不同內容，拒絕自動覆蓋。')
-                    skipped+=1;continue
-                asset_put(i.guild_id,x['pool'],x['asset_id'],x['title'],x.get('tier',''),x.get('rarity',''),x.get('meta',{}),approved=True)
-                added+=1
-            await i.response.send_message(f'✅ 已匯入 {added} 筆已核實素材；{skipped} 筆既有相同編號略過。其他75則代言仍需要 HB 對照。',ephemeral=True)
+            from pathlib import Path
+            source=Path(__file__).resolve().parents[1]/'assets/history_v23/verified_import_ready.json'
+            entries=json.loads(source.read_text(encoding='utf-8'))
+            if len(entries)!=55:raise ValueError('來源不是正式核准的55筆素材，已停止。')
+            added=put_batch(i.guild_id,entries,pool='general')
+            await i.response.send_message(f'✅ 已檢查 55 筆；新增 {added} 筆，略過相同 {55-added} 筆。整批交易成功，不會抽取履歷或發獎。',ephemeral=True)
         except (OSError,ValueError,sqlite3.Error) as exc:
-            await i.response.send_message(f'⚠️ 匯入中止：{exc}。已匯入的既有資料不會自動覆蓋。',ephemeral=True)
+            await i.response.send_message(f'⚠️ 匯入失敗，整批交易不成立：{exc}',ephemeral=True)
 
 class AssetManagerView(discord.ui.View):
     def __init__(self,i):
@@ -421,6 +470,10 @@ class AssetManagerView(discord.ui.View):
     @discord.ui.button(label='🔄 補建已啟用角色',style=discord.ButtonStyle.secondary,row=2)
     async def rebuild(self,i,b):
         await HistoryRebuildButton().callback(i)
+    @discord.ui.button(label='🔍 查詢素材',style=discord.ButtonStyle.secondary,row=2)
+    async def browse(self,i,b):await i.response.send_modal(AssetBrowseModal())
+    @discord.ui.button(label='✏️ 修訂素材（留存版本）',style=discord.ButtonStyle.secondary,row=3)
+    async def edit(self,i,b):await i.response.send_modal(AssetEditModal())
     @discord.ui.button(label='📊 雙素材庫統計',style=discord.ButtonStyle.primary)
     async def stats(self,i,b):
         lines=[]
