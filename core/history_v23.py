@@ -229,7 +229,10 @@ def attempt_lock(gid, cid):
         def allowed_work(item):
             m=metadata(item)
             jobs=m.get('occupations') or []
-            return not jobs or occupation in jobs
+            return (not jobs or occupation in jobs or
+                    (('網紅' in occupation or '主播' in occupation) and
+                     ('網路創作者' in jobs or '主播' in jobs)) or
+                    ('演員' in occupation and '演員' in jobs))
         works=[x for x in assets if x['category']=='WN' and allowed_work(x)]
         names=[x for x in assets if x['category']=='CN']
         max_tier=3 if character['character_type']=='player' else 5
@@ -258,7 +261,8 @@ def attempt_lock(gid, cid):
             if m.get('hot_search') is True:viral.append(x)
         influencer='網紅' in occupation or '網紅' in str(settings.get('main_track',''))
         if influencer:
-            work_candidates=[x for x in works if metadata(x).get('work_type') in ('網路作品','直播','網路直播','短影音')]
+            work_candidates=[x for x in works if (metadata(x).get('work_category')=='online' or
+                 any(t in str(metadata(x).get('work_type','')) for t in ('網路','直播','短影音')))]
         else:work_candidates=works[:]
         needs_name=('演員' in occupation or '配音' in occupation)
         pools={'work':works,'endorsement':endorses,'achievement':achievements,'honor':honors}
