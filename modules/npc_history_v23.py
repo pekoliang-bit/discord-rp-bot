@@ -37,6 +37,7 @@ def parse_text(text):
         m=FIELD.match(line)
         if not m:continue
         key,val=m.group(1).strip().lstrip('# ').strip(),m.group(2).strip()
+        if key=='持有金錢':continue  # 預設 NPC 的金額一律移除，正式啟用後由另行核准的經濟流程決定。
         if key in fields:continue
         fields[key]=val
         if key in PROTECTED:
@@ -50,6 +51,51 @@ def parse_text(text):
     if '／' in name:name=name.split('／')[-1].strip()
     if not name or len(name)>100:raise ValueError('人設單必須包含可辨識的「本名／藝名」或「角色姓名」。')
     return name,fields,custom
+
+def profile_settings_from_sheet(fields):
+    """只映射已填妥的敘事資料；數值、金幣不在本功能修改。"""
+    def choose(*keys):
+        for key in keys:
+            val=str(fields.get(key,'')).strip()
+            if val and not CUSTOM.search(val) and val not in ('待填','無','（待填）'):
+                return val
+        return ''
+    result={}
+    for attr,source in {
+        'nationality':('國籍',), 'education':('學歷',),
+        'languages':('擅長語言','語言'), 'biography':('生平簡述',),
+        'main_track':('主攻賽道',), 'portrait_url':('角色照片','角色形象圖片','角色形象'),
+        'public_persona':('外貌氣質','性格'), 'private_personality':('私下性格',),
+    }.items():
+        value=choose(*source)
+        if value:result[attr]=value
+    full=choose('本名／藝名','本名/藝名')
+    if full:
+        parts=re.split(r'[/／]',full,maxsplit=1)
+        if len(parts)==2:
+            if parts[0].strip():result['real_name']=parts[0].strip()
+            if parts[1].strip():result['stage_name']=parts[1].strip()
+        else:result['stage_name']=full
+    else:
+        stage=choose('藝名')
+        if stage:result['stage_name']=stage
+        name=choose('本名')
+        if name:result['real_name']=name
+    gender=choose('性別／性向','性別/性向','性別')
+    if gender:result['gender']=re.split(r'[/／]',gender)[0].strip()
+    height=choose('身高／體重','身高/體重','身高')
+    if height:result['height_cm']=re.split(r'[/／]',height)[0].replace('cm','').strip()
+    weight=choose('身高／體重','身高/體重','體重')
+    if weight:
+        parts=re.split(r'[/／]',weight)
+        if len(parts)==2:result['weight_kg']=parts[1].replace('kg','').strip()
+        elif '體重' in fields:result['weight_kg']=weight.replace('kg','').strip()
+    years=choose('出道資歷','資歷年數')
+    if years:
+        m=re.search(r'\d+',years)
+        if m:result['experience_years']=int(m.group(0))
+    result['npc_sheet_fields']={k:v for k,v in fields.items() if k!='持有金錢'}
+    return result
 
 def import_template(gid,message,channel,body,kind):
     name,fields,custom=parse_text(body)
@@ -117,8 +163,9 @@ def decide(gid,cid,reviewer,guild_owner,approve):
         try: age=int(age)
         except (ValueError,TypeError):age=None
         occupation=combined.get('職業','')
-        settings={'npc_template_id':row['template_key'],'npc_sheet_fields':combined,
-                  'npc_original_message':row['source_message'],'npc_claim_id':int(cid)}
+        settings=profile_settings_from_sheet(combined)
+        settings.update({'npc_template_id':row['template_key'],
+                  'npc_original_message':row['source_message'],'npc_claim_id':int(cid)})
         db.execute('INSERT OR IGNORE INTO guilds(guild_id) VALUES (?)',(str(gid),))
         created=db.execute('''INSERT INTO characters(guild_id,owner_id,name,age,occupation,status,character_type,settings_json)
                VALUES (?,?,?,?,?,'approved','player_npc',?)''',(str(gid),str(row['applicant_id']),row['name'],age,occupation,json.dumps(settings,ensure_ascii=False))).lastrowid
@@ -127,28 +174,19 @@ def decide(gid,cid,reviewer,guild_owner,approve):
         return 'approved',created
 
 def activate_claim(gid,uid,claim_id):
+    from core.character_activation_v23 import activate_in_transaction,history_notification
     with transaction() as db:
         init(db)
-        row=db.execute("SELECT * FROM rp_npc_claims_v23 WHERE guild_id=? AND id=? AND applicant_id=? AND status='approved'",(str(gid),int(claim_id),str(uid))).fetchone()
-        if not row:raise ValueError('找不到已完成二審且屬於你的 NPC 申請。')
-        c=db.execute('SELECT status FROM characters WHERE guild_id=? AND id=?',(str(gid),int(row['character_id']))).fetchone()
-        if not c or c['status']!='approved':raise ValueError('角色已啟用或狀態不符。')
-        db.execute("UPDATE characters SET status='active',version=version+1 WHERE guild_id=? AND id=? AND status='approved'",(str(gid),int(row['character_id'])))
-        from modules.character_numbering import issue_in_transaction
-        issue_in_transaction(db,gid,int(row['character_id']))
+        row=db.execute("SELECT * FROM rp_npc_claims_v23 WHERE guild_id=? AND id=? AND applicant_id=? AND status='approved'",
+                       (str(gid),int(claim_id),str(uid))).fetchone()
+        if not row or not row['character_id']:
+            raise ValueError('找不到已完成二審且屬於你的 NPC 申請。')
         cid=int(row['character_id'])
-    # 素材不完整時只留待補建，不假造歷史與獎勵。
-    try:history=attempt_lock(gid,cid)
-    except (ValueError,sqlite3.Error):history='pending_assets'
-    try:
-        from modules.notifications import queue_notification
-        queue_notification(gid,'private','role',
-          f'🎉 你認領的 NPC #{cid} 已正式啟用。新人禮包請依現有領取入口辦理。歷史履歷：{history}。',
-          character_id=cid,dedupe_key=f'v23:npc:activation:{gid}:{cid}')
-    except Exception:
-        import logging
-        logging.getLogger(__name__).exception('NPC 通知排程失敗，角色啟用不回滾。')
-    return cid,history
+        # 完整共用原創角色啟用：status、授權、代理身分、正式編號，一筆交易提交。
+        # 缺少另一討論串核准的 NPC 數值時直接拒絕，不能以 0 或隨機數值取代。
+        activate_in_transaction(db,gid,cid,uid,allowed_types=('player_npc',))
+    state=history_notification(gid,cid)
+    return cid,state
 
 class ImportNPCModal(discord.ui.Modal,title='匯入 NPC 人設訊息'):
     link=discord.ui.TextInput(label='Discord 角色單訊息連結',max_length=300)
