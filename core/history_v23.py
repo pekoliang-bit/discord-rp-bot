@@ -90,91 +90,171 @@ def stats(gid,pool):
              FROM rp_history_assets_v23 WHERE guild_id=? AND pool=? GROUP BY category''',(str(gid),pool))]
 
 
-def attempt_lock(gid,cid):
-    """僅在 active 後嘗試五筆原子保存；素材不足時不建立半套歷史。
+def attempt_lock(gid, cid):
+    """正式 active 後一次鎖定五筆；絕不在送審時預抽、絕不發獎。
 
-    作品池必須有職業匹配的 WN；角色名只在需要劇中角色時使用。
-    即使 HE 素材不足也不假造內容。留待官方正式內容匯入後重試。
+    保底 WN 代表作品一筆與 HE 歷史代言一筆；其餘三筆依
+    作品30%、代言25%、成就25%、榮譽20% 抽取。從未核准、停用、
+    缺少類別標記的資料不得進入候選池。事件的成就／榮譽分類
+    必須出自已核准 meta.history_group，不自行推論或覆寫原文。
     """
-    gid=str(gid);cid=int(cid)
+    gid, cid = str(gid), int(cid)
+    rng = random.SystemRandom()
     with transaction() as db:
         init(db)
-        c=db.execute('SELECT character_type,occupation,status,settings_json FROM characters WHERE guild_id=? AND id=?',(gid,cid)).fetchone()
-        if not c or c['status']!='active' or c['character_type'] not in ('player','player_npc','official_npc'):
+        character = db.execute('''SELECT character_type,occupation,status,settings_json FROM characters
+            WHERE guild_id=? AND id=?''', (gid,cid)).fetchone()
+        if not character or character['status'] != 'active' or character['character_type'] not in ('player','player_npc','official_npc'):
             return 'not_active'
-        old=db.execute('SELECT COUNT(*) AS n FROM rp_history_results_v23 WHERE guild_id=? AND character_id=?',(gid,cid)).fetchone()['n']
-        if old==5:return 'already'
-        if old:raise ValueError('已有不完整的鎖定資料，需要人工核對，禁止重骰。')
-        role=c['character_type'];occupation=c['occupation'] or ''
-        settings=json.loads(c['settings_json'] or '{}')
-        years=settings.get('career_years',settings.get('出道資歷',0))
-        try:years=max(0,int(years))
-        except (ValueError,TypeError):years=0
-        weights=WEIGHTS[0 if years<=1 else 1 if years<=4 else 2 if years<=9 else 3]
-        def pool(cat,extra=''):
-            sql="SELECT * FROM rp_history_assets_v23 WHERE guild_id=? AND pool='general' AND category=? AND approved=1 AND enabled=1 "+extra
-            return [dict(r) for r in db.execute(sql,(gid,cat))]
-        works=pool('WN'); brands=pool('HE',"AND asset_id BETWEEN 'HE-0151' AND 'HE-0230'")
-        events=pool('HE',"AND asset_id BETWEEN 'HE-0001' AND 'HE-0150'")
-        works=[w for w in works if not json.loads(w['metadata_json'] or '{}').get('occupations') or occupation in json.loads(w['metadata_json'] or '{}').get('occupations',[])]
-        maxb=3 if role=='player' else 5
-        brands=[b for b in brands if b['tier'] in ('B1','B2','B3','B4','B5') and int(b['tier'][1])<=maxb
-                and json.loads(b['metadata_json'] or '{}').get('hb_id')]
-        brands=[b for b in brands if db.execute("SELECT 1 FROM rp_history_assets_v23 WHERE guild_id=? AND pool='general' AND asset_id=? AND tier=? AND approved=1 AND enabled=1",(gid,json.loads(b['metadata_json'])['hb_id'],b['tier'])).fetchone()]
-        needs_cname=('演員' in occupation or '配音' in occupation)
-        names=pool('CN') if needs_cname else []
-        if not works or not brands or len(events)<3 or (needs_cname and not names):
-            reason=f'尚缺少可抽素材：作品={len(works)}、代言={len(brands)}、事件={len(events)}、劇中姓名={len(names)}'
-            db.execute('INSERT INTO rp_history_pending_v23 VALUES (?,?,?,CURRENT_TIMESTAMP) ON CONFLICT(guild_id,character_id) DO UPDATE SET reason=excluded.reason,updated_at=CURRENT_TIMESTAMP',(gid,cid,reason))
+        existing = db.execute('''SELECT COUNT(*) FROM rp_history_results_v23
+            WHERE guild_id=? AND character_id=?''',(gid,cid)).fetchone()[0]
+        if existing == 5:
+            return 'already'
+        if existing:
+            raise ValueError('已有不足五筆的歷史履歷；必須人工修復，不能重新抽取。')
+        occupation = str(character['occupation'] or '')
+        try:
+            settings = json.loads(character['settings_json'] or '{}')
+            if not isinstance(settings,dict):settings = {}
+        except (ValueError,TypeError):settings = {}
+        years = settings.get('experience_years', settings.get('career_years',settings.get('出道資歷',0)))
+        try: years = max(0,int(years))
+        except (TypeError,ValueError):years = 0
+        weights = WEIGHTS[0 if years<=1 else 1 if years<=4 else 2 if years<=9 else 3]
+        assets = [dict(x) for x in db.execute('''SELECT * FROM rp_history_assets_v23
+            WHERE guild_id=? AND pool='general' AND approved=1 AND enabled=1''',(gid,))]
+        def metadata(item):
+            try:return json.loads(item['metadata_json'] or '{}')
+            except (TypeError,ValueError):return {}
+        def allowed_work(item):
+            m=metadata(item)
+            jobs=m.get('occupations') or []
+            return not jobs or occupation in jobs
+        works=[x for x in assets if x['category']=='WN' and allowed_work(x)]
+        names=[x for x in assets if x['category']=='CN']
+        max_tier=3 if character['character_type']=='player' else 5
+        max_title=4 if character['character_type']=='player' else 6
+        hb={x['asset_id']:x for x in assets if x['category']=='HB'}
+        endorses=[]
+        for x in assets:
+            if x['category']!='HE' or not 'HE-0151'<=x['asset_id']<='HE-0230':continue
+            m=metadata(x)
+            linked=hb.get(m.get('hb_id'))
+            if not linked or linked['tier']!=x['tier'] or x['tier'] not in ('B1','B2','B3','B4','B5'):
+                continue
+            if int(x['tier'][1])>max_tier:continue
+            title_tier=m.get('title_tier')
+            if title_tier is not None:
+                try:
+                    if int(title_tier)>max_title:continue
+                except (ValueError,TypeError):continue
+            endorses.append(x)
+        achievements=[];honors=[];viral=[]
+        for x in assets:
+            if x['category']!='HE' or not 'HE-0001'<=x['asset_id']<='HE-0150':continue
+            m=metadata(x)
+            if m.get('history_group')=='achievement':achievements.append(x)
+            elif m.get('history_group')=='honor':honors.append(x)
+            if m.get('hot_search') is True:viral.append(x)
+        influencer='網紅' in occupation or '網紅' in str(settings.get('main_track',''))
+        if influencer:
+            work_candidates=[x for x in works if metadata(x).get('work_type') in ('網路作品','直播','網路直播','短影音')]
+        else:work_candidates=works[:]
+        needs_name=('演員' in occupation or '配音' in occupation)
+        pools={'work':works,'endorsement':endorses,'achievement':achievements,'honor':honors}
+        # 每一類必須有足夠不同素材，才能在三次混抽中不重複抽到同 ID。
+        missing=[k for k,v in pools.items() if len(v)<(4 if k in ('work','endorsement') else 3)]
+        if not work_candidates or (needs_name and not names) or (influencer and not viral) or missing:
+            reason='素材尚未齊備：'+', '.join(f'{k}={len(v)}' for k,v in pools.items())
+            if influencer and not viral:reason+='；網紅熱搜素材缺失'
+            if needs_name and not names:reason+='；劇中姓名缺失'
+            db.execute('''INSERT INTO rp_history_pending_v23(guild_id,character_id,reason)
+                VALUES (?,?,?) ON CONFLICT(guild_id,character_id) DO UPDATE SET
+                reason=excluded.reason,updated_at=CURRENT_TIMESTAMP''',(gid,cid,reason))
             return 'pending_assets'
-        # 單一交易內全數選中、全數儲存，遇失敗即回滾。
-        rng=random.SystemRandom()
-        def rarity_draw(rows):
-            target=rng.choices(RARITIES,weights=weights,k=1)[0]
-            ix=RARITIES.index(target)
-            eligible=[r for r in rows if r['rarity']==target]
-            while not eligible and ix>0:
-                ix-=1;eligible=[r for r in rows if r['rarity']==RARITIES[ix]]
-            return rng.choice(eligible) if eligible else None
-        # WN 名稱不是固定 HE 稀有度；若未指定稀有度，作品參與時隨機決定。
-        first=rarity_draw(works)
-        if first is None and works and all(not r['rarity'] for r in works):
-            first=dict(rng.choice(works))
-            first['rarity']=rng.choices(RARITIES,weights=weights,k=1)[0]
-        second=rarity_draw(brands)
-        if first is None or second is None:
-            return 'pending_assets'
-        drawn=[];remaining=events[:]
-        for _ in range(3):
-            item=rarity_draw(remaining)
-            if not item:return 'pending_assets'
-            drawn.append(item);remaining.remove(item)
-        # 作品同名同類共用身分；明確唯一席位一人一位，不能互相覆蓋。
-        work_type=json.loads(first['metadata_json'] or '{}').get('work_type','作品')
-        normalized=re.sub(r'\s+','',first['title']).casefold()
-        db.execute('INSERT OR IGNORE INTO rp_history_works_v23(guild_id,work_type,normalized_title,title) VALUES (?,?,?,?)',
-            (gid,work_type,normalized,first['title']))
-        work_id=db.execute('SELECT id FROM rp_history_works_v23 WHERE guild_id=? AND work_type=? AND normalized_title=?',
-            (gid,work_type,normalized)).fetchone()['id']
-        role_options=json.loads(first['metadata_json'] or '{}').get('roles',[])
-        if not role_options:role_options=[occupation or '參與者']
-        rng.shuffle(role_options)
-        seat=None
-        for role in role_options:
-            occupied=db.execute('SELECT 1 FROM rp_history_participants_v23 WHERE guild_id=? AND work_id=? AND seat=?',
-                (gid,work_id,role)).fetchone()
-            if not occupied:seat=role;break
-        if seat is None:
-            db.execute('INSERT INTO rp_history_pending_v23 VALUES (?,?,?,CURRENT_TIMESTAMP) ON CONFLICT(guild_id,character_id) DO UPDATE SET reason=excluded.reason,updated_at=CURRENT_TIMESTAMP',
-                (gid,cid,'代表作品所有合法席位均已被占用'))
+        def choose(rows, used):
+            options=[x for x in rows if x['asset_id'] not in used]
+            if not options:return None
+            wanted=rng.choices(RARITIES,weights=weights,k=1)[0]
+            tiers=[r for r in options if r['rarity']==wanted]
+            if not tiers:
+                ix=RARITIES.index(wanted)
+                for j in list(range(ix-1,-1,-1))+list(range(ix+1,5)):
+                    tiers=[r for r in options if r['rarity']==RARITIES[j]]
+                    if tiers:break
+            if not tiers:tiers=options  # WN 通常不預設稀有度，按資歷抽工作等級
+            result=dict(rng.choice(tiers))
+            if not result['rarity']:
+                result['rarity']=wanted
+            return result
+        def available_seat(item):
+            m=metadata(item)
+            wt=m.get('work_type','作品')
+            normalized=re.sub(r'\\s+','',item['title']).casefold()
+            work=db.execute('SELECT id FROM rp_history_works_v23 WHERE guild_id=? AND work_type=? AND normalized_title=?',
+                (gid,wt,normalized)).fetchone()
+            seats=m.get('roles') or []
+            if not seats: # 非排他性群演／通告／演唱等參與可多人重複
+                return (wt,normalized,occupation or '參與者',f'{occupation or "參與"}:CHAR:{cid}',work)
+            seats=list(dict.fromkeys(str(r) for r in seats if str(r).strip()))
+            rng.shuffle(seats)
+            for seat in seats:
+                if not work or not db.execute('''SELECT 1 FROM rp_history_participants_v23
+                    WHERE guild_id=? AND work_id=? AND seat=?''',(gid,work['id'],seat)).fetchone():
+                    return (wt,normalized,seat,seat,work)
+            return None
+        # 優先選尚有合法席位的代表作品；不能悄悄擠掉別人的角色。
+        candidates=work_candidates[:];rng.shuffle(candidates)
+        selected=None;seat_data=None
+        for item in candidates:
+            result=available_seat(item)
+            if result:
+                selected=dict(item);seat_data=result;break
+        if not selected:
+            db.execute('''INSERT INTO rp_history_pending_v23(guild_id,character_id,reason)
+                VALUES (?,?,?) ON CONFLICT(guild_id,character_id) DO UPDATE SET
+                reason=excluded.reason,updated_at=CURRENT_TIMESTAMP''',(gid,cid,'代表作品沒有合法剩餘席位'))
             return 'pending_seat'
-        character_name=rng.choice(names)['title'] if needs_cname else ''
-        db.execute('INSERT INTO rp_history_participants_v23(guild_id,work_id,character_id,seat,role_name) VALUES (?,?,?,?,?)',
-            (gid,work_id,cid,seat,character_name))
-        first=dict(first);first['work_id']=work_id;first['participation_role']=seat;first['character_name']=character_name
-        for slot,(kind,item) in enumerate([('work',first),('endorsement',second)]+[('event',x) for x in drawn],1):
-            db.execute('INSERT INTO rp_history_results_v23(guild_id,character_id,slot,kind,asset_id,snapshot_json) VALUES (?,?,?,?,?,?)',
-                (gid,cid,slot,kind,item['asset_id'],json.dumps(item,ensure_ascii=False)))
+        used={selected['asset_id']}
+        selected['rarity']=rng.choices(RARITIES,weights=weights,k=1)[0]
+        second=choose(endorses,used)
+        if not second:return 'pending_assets'
+        used.add(second['asset_id'])
+        kinds=['work','endorsement','achievement','honor']
+        drawn=[]
+        for _ in range(3):
+            available_kinds=[k for k in kinds if any(x['asset_id'] not in used and (k!='work' or available_seat(x)) for x in pools[k])]
+            if len(available_kinds)!=4:return 'pending_assets'
+            category=rng.choices(kinds,weights=(30,25,25,20),k=1)[0]
+            choice=choose([x for x in pools[category] if category!='work' or available_seat(x)],used)
+            if not choice:return 'pending_assets'
+            used.add(choice['asset_id']);drawn.append((category,choice))
+        # 五筆中的每一部作品（不只代表作品）都共用同一作品 ID 與席位表。
+        # 所有寫入仍位於單一 transaction，若任何席位衝突則整批回滾。
+        outputs=[('work',selected),('endorsement',second)]+drawn
+        for kind,item in outputs:
+            if kind!='work':continue
+            if item is selected:current=seat_data
+            else:current=available_seat(item)
+            if not current:raise ValueError('抽取過程作品席位已滿，請管理員檢查。')
+            wt,normalized,role,seat,_work=current
+            db.execute('''INSERT OR IGNORE INTO rp_history_works_v23
+                (guild_id,work_type,normalized_title,title) VALUES (?,?,?,?)''',
+                (gid,wt,normalized,item['title']))
+            work_id=db.execute('''SELECT id FROM rp_history_works_v23 WHERE
+                guild_id=? AND work_type=? AND normalized_title=?''',(gid,wt,normalized)).fetchone()['id']
+            role_name=rng.choice(names)['title'] if needs_name else ''
+            db.execute('''INSERT INTO rp_history_participants_v23
+                (guild_id,work_id,character_id,seat,role_name) VALUES (?,?,?,?,?)''',
+                (gid,work_id,cid,seat,role_name))
+            item['work_id']=work_id;item['participation_role']=role;item['character_name']=role_name
+        if influencer:
+            hot=rng.choice(viral)
+            selected['paired_hot_search']={'asset_id':hot['asset_id'],'title':hot['title']}
+        for slot,(kind,item) in enumerate(outputs,1):
+            db.execute('''INSERT INTO rp_history_results_v23
+                (guild_id,character_id,slot,kind,asset_id,snapshot_json)
+                VALUES (?,?,?,?,?,?)''',(gid,cid,slot,kind,item['asset_id'],json.dumps(item,ensure_ascii=False)))
         db.execute('DELETE FROM rp_history_pending_v23 WHERE guild_id=? AND character_id=?',(gid,cid))
         return 'locked'
 
