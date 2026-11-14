@@ -11,10 +11,10 @@ def read(filename):return json.loads((A/filename).read_text(encoding='utf-8'))
 catalog=read('catalog_580_inventory.json')
 assert len(catalog)==580 and len({r['asset_id'] for r in catalog})==580
 assert all(r['previously_approved'] for r in catalog)
-assert sum(r['import_ready'] for r in catalog)==55
-assert sum(r['candidate_available'] for r in catalog)==517
-assert sum(not r['import_ready'] and not r['candidate_available'] for r in catalog)==8
-assert [r['asset_id'] for r in catalog if not r['import_ready'] and not r['candidate_available']]==[f'WN-{n:04}' for n in range(193,201)]
+assert sum(r['import_ready'] for r in catalog)==580
+assert sum(r['candidate_available'] for r in catalog)==0
+assert sum(not r['import_ready'] and not r['candidate_available'] for r in catalog)==0
+assert set(r['asset_id'] for r in catalog)==set(r['asset_id'] for r in read('current_adopted_580.json'))
 source=read('verified_import_ready.json')
 assert len(source)==55
 assert len(read('WN_0001_0200_rebuilt_import.json'))==192
@@ -83,4 +83,4 @@ with tempfile.TemporaryDirectory() as tmp:
         print(proc.stdout,proc.stderr)
         raise SystemExit(proc.returncode)
     print(proc.stdout.strip())
-print('PASS: 580 inventory / 80 rarity mappings / 517 candidate texts / 8 WN missing')
+print('PASS: 580 current approved/import-ready inventory; original 55 legacy source still preserved')
