@@ -70,6 +70,9 @@ def activate_in_transaction(db, guild_id, character_id, user_id, *, allowed_type
         WHERE guild_id=? AND id=? AND status='approved' ''', (gid, cid))
     if changed.rowcount != 1:
         raise InvalidState('角色狀態已改變，未重複啟用。')
+    if row['character_type'] in ('player_npc','official_npc'):
+        from core.npc_initial_grants_v23 import award_in_transaction
+        award_in_transaction(db,gid,cid)
     persist_rumor_consent(db, gid, cid, settings)
     activate_proxy(db, gid, cid)
     # 正式開群前不核發公開編號。
