@@ -1,4 +1,4 @@
-"""Safely import only fully sourced historical assets. Dry-run is default."""
+"""Import already approved historical assets with available text. Dry-run is default."""
 from __future__ import annotations
 import argparse,json,re,sys
 from pathlib import Path
@@ -15,7 +15,7 @@ def validate_data(path):
         if not PAT.fullmatch(k) or k in seen:raise ValueError(f'Invalid or duplicate ID: {k}')
         seen.add(k)
         if (not isinstance(r.get('title'),str) or not r['title'].strip()
-            or r.get('status') not in (None,'source_verified')
+            or r.get('status') not in (None,'source_verified','previously_approved')
             or r.get('import_ready') is False or r.get('approved') is False
             or r.get('review_status')):
             raise ValueError(f'Asset is not source-verified and must not be imported: {k}')
