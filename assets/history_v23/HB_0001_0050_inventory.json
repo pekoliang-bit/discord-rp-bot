@@ -1,4 +1,4 @@
-[
+
   {
     "asset_id": "HB-0001",
     "pool": "general",
@@ -15,7 +15,7 @@
     "approved": true,
     "import_ready": true,
     "candidate_available": false,
-    "candidate_source_file": null
+    "current_project_content_adopted": true
   },
   {
     "asset_id": "HB-0002",
@@ -33,7 +33,7 @@
     "approved": true,
     "import_ready": true,
     "candidate_available": false,
-    "candidate_source_file": null
+    "current_project_content_adopted": true
   },
   {
     "asset_id": "HB-0003",
@@ -51,7 +51,7 @@
     "approved": true,
     "import_ready": true,
     "candidate_available": false,
-    "candidate_source_file": null
+    "current_project_content_adopted": true
   },
   {
     "asset_id": "HB-0004",
@@ -69,7 +69,7 @@
     "approved": true,
     "import_ready": true,
     "candidate_available": false,
-    "candidate_source_file": null
+    "current_project_content_adopted": true
   },
   {
     "asset_id": "HB-0005",
@@ -87,7 +87,7 @@
     "approved": true,
     "import_ready": true,
     "candidate_available": false,
-    "candidate_source_file": null
+    "current_project_content_adopted": true
   },
   {
     "asset_id": "HB-0006",
@@ -105,7 +105,7 @@
     "approved": true,
     "import_ready": true,
     "candidate_available": false,
-    "candidate_source_file": null
+    "current_project_content_adopted": true
   },
   {
     "asset_id": "HB-0007",
@@ -123,7 +123,7 @@
     "approved": true,
     "import_ready": true,
     "candidate_available": false,
-    "candidate_source_file": null
+    "current_project_content_adopted": true
   },
   {
     "asset_id": "HB-0008",
@@ -141,7 +141,7 @@
     "approved": true,
     "import_ready": true,
     "candidate_available": false,
-    "candidate_source_file": null
+    "current_project_content_adopted": true
   },
   {
     "asset_id": "HB-0009",
@@ -159,7 +159,7 @@
     "approved": true,
     "import_ready": true,
     "candidate_available": false,
-    "candidate_source_file": null
+    "current_project_content_adopted": true
   },
   {
     "asset_id": "HB-0010",
@@ -177,7 +177,7 @@
     "approved": true,
     "import_ready": true,
     "candidate_available": false,
-    "candidate_source_file": null
+    "current_project_content_adopted": true
   },
   {
     "asset_id": "HB-0011",
@@ -195,7 +195,7 @@
     "approved": true,
     "import_ready": true,
     "candidate_available": false,
-    "candidate_source_file": null
+    "current_project_content_adopted": true
   },
   {
     "asset_id": "HB-0012",
@@ -213,7 +213,7 @@
     "approved": true,
     "import_ready": true,
     "candidate_available": false,
-    "candidate_source_file": null
+    "current_project_content_adopted": true
   },
   {
     "asset_id": "HB-0013",
@@ -231,7 +231,7 @@
     "approved": true,
     "import_ready": true,
     "candidate_available": false,
-    "candidate_source_file": null
+    "current_project_content_adopted": true
   },
   {
     "asset_id": "HB-0014",
@@ -249,7 +249,7 @@
     "approved": true,
     "import_ready": true,
     "candidate_available": false,
-    "candidate_source_file": null
+    "current_project_content_adopted": true
   },
   {
     "asset_id": "HB-0015",
@@ -267,7 +267,7 @@
     "approved": true,
     "import_ready": true,
     "candidate_available": false,
-    "candidate_source_file": null
+    "current_project_content_adopted": true
   },
   {
     "asset_id": "HB-0016",
@@ -285,7 +285,7 @@
     "approved": true,
     "import_ready": true,
     "candidate_available": false,
-    "candidate_source_file": null
+    "current_project_content_adopted": true
   },
   {
     "asset_id": "HB-0017",
@@ -303,7 +303,7 @@
     "approved": true,
     "import_ready": true,
     "candidate_available": false,
-    "candidate_source_file": null
+    "current_project_content_adopted": true
   },
   {
     "asset_id": "HB-0018",
@@ -321,7 +321,7 @@
     "approved": true,
     "import_ready": true,
     "candidate_available": false,
-    "candidate_source_file": null
+    "current_project_content_adopted": true
   },
   {
     "asset_id": "HB-0019",
@@ -339,7 +339,7 @@
     "approved": true,
     "import_ready": true,
     "candidate_available": false,
-    "candidate_source_file": null
+    "current_project_content_adopted": true
   },
   {
     "asset_id": "HB-0020",
@@ -357,7 +357,7 @@
     "approved": true,
     "import_ready": true,
     "candidate_available": false,
-    "candidate_source_file": null
+    "current_project_content_adopted": true
   },
   {
     "asset_id": "HB-0021",
@@ -375,7 +375,7 @@
     "approved": true,
     "import_ready": true,
     "candidate_available": false,
-    "candidate_source_file": null
+    "current_project_content_adopted": true
   },
   {
     "asset_id": "HB-0022",
@@ -393,7 +393,7 @@
     "approved": true,
     "import_ready": true,
     "candidate_available": false,
-    "candidate_source_file": null
+    "current_project_content_adopted": true
   },
   {
     "asset_id": "HB-0023",
@@ -411,7 +411,7 @@
     "approved": true,
     "import_ready": true,
     "candidate_available": false,
-    "candidate_source_file": null
+    "current_project_content_adopted": true
   },
   {
     "asset_id": "HB-0024",
@@ -429,7 +429,7 @@
     "approved": true,
     "import_ready": true,
     "candidate_available": false,
-    "candidate_source_file": null
+    "current_project_content_adopted": true
   },
   {
     "asset_id": "HB-0025",
@@ -447,7 +447,7 @@
     "approved": true,
     "import_ready": true,
     "candidate_available": false,
-    "candidate_source_file": null
+    "current_project_content_adopted": true
   },
   {
     "asset_id": "HB-0026",
@@ -465,7 +465,7 @@
     "approved": true,
     "import_ready": true,
     "candidate_available": false,
-    "candidate_source_file": null
+    "current_project_content_adopted": true
   },
   {
     "asset_id": "HB-0027",
@@ -483,7 +483,7 @@
     "approved": true,
     "import_ready": true,
     "candidate_available": false,
-    "candidate_source_file": null
+    "current_project_content_adopted": true
   },
   {
     "asset_id": "HB-0028",
@@ -501,7 +501,7 @@
     "approved": true,
     "import_ready": true,
     "candidate_available": false,
-    "candidate_source_file": null
+    "current_project_content_adopted": true
   },
   {
     "asset_id": "HB-0029",
@@ -519,7 +519,7 @@
     "approved": true,
     "import_ready": true,
     "candidate_available": false,
-    "candidate_source_file": null
+    "current_project_content_adopted": true
   },
   {
     "asset_id": "HB-0030",
@@ -537,7 +537,7 @@
     "approved": true,
     "import_ready": true,
     "candidate_available": false,
-    "candidate_source_file": null
+    "current_project_content_adopted": true
   },
   {
     "asset_id": "HB-0031",
@@ -555,7 +555,7 @@
     "approved": true,
     "import_ready": true,
     "candidate_available": false,
-    "candidate_source_file": null
+    "current_project_content_adopted": true
   },
   {
     "asset_id": "HB-0032",
@@ -573,7 +573,7 @@
     "approved": true,
     "import_ready": true,
     "candidate_available": false,
-    "candidate_source_file": null
+    "current_project_content_adopted": true
   },
   {
     "asset_id": "HB-0033",
@@ -591,7 +591,7 @@
     "approved": true,
     "import_ready": true,
     "candidate_available": false,
-    "candidate_source_file": null
+    "current_project_content_adopted": true
   },
   {
     "asset_id": "HB-0034",
@@ -609,7 +609,7 @@
     "approved": true,
     "import_ready": true,
     "candidate_available": false,
-    "candidate_source_file": null
+    "current_project_content_adopted": true
   },
   {
     "asset_id": "HB-0035",
@@ -627,7 +627,7 @@
     "approved": true,
     "import_ready": true,
     "candidate_available": false,
-    "candidate_source_file": null
+    "current_project_content_adopted": true
   },
   {
     "asset_id": "HB-0036",
@@ -645,7 +645,7 @@
     "approved": true,
     "import_ready": true,
     "candidate_available": false,
-    "candidate_source_file": null
+    "current_project_content_adopted": true
   },
   {
     "asset_id": "HB-0037",
@@ -663,7 +663,7 @@
     "approved": true,
     "import_ready": true,
     "candidate_available": false,
-    "candidate_source_file": null
+    "current_project_content_adopted": true
   },
   {
     "asset_id": "HB-0038",
@@ -681,7 +681,7 @@
     "approved": true,
     "import_ready": true,
     "candidate_available": false,
-    "candidate_source_file": null
+    "current_project_content_adopted": true
   },
   {
     "asset_id": "HB-0039",
@@ -699,7 +699,7 @@
     "approved": true,
     "import_ready": true,
     "candidate_available": false,
-    "candidate_source_file": null
+    "current_project_content_adopted": true
   },
   {
     "asset_id": "HB-0040",
@@ -717,7 +717,7 @@
     "approved": true,
     "import_ready": true,
     "candidate_available": false,
-    "candidate_source_file": null
+    "current_project_content_adopted": true
   },
   {
     "asset_id": "HB-0041",
@@ -735,7 +735,7 @@
     "approved": true,
     "import_ready": true,
     "candidate_available": false,
-    "candidate_source_file": null
+    "current_project_content_adopted": true
   },
   {
     "asset_id": "HB-0042",
@@ -753,7 +753,7 @@
     "approved": true,
     "import_ready": true,
     "candidate_available": false,
-    "candidate_source_file": null
+    "current_project_content_adopted": true
   },
   {
     "asset_id": "HB-0043",
@@ -771,7 +771,7 @@
     "approved": true,
     "import_ready": true,
     "candidate_available": false,
-    "candidate_source_file": null
+    "current_project_content_adopted": true
   },
   {
     "asset_id": "HB-0044",
@@ -789,7 +789,7 @@
     "approved": true,
     "import_ready": true,
     "candidate_available": false,
-    "candidate_source_file": null
+    "current_project_content_adopted": true
   },
   {
     "asset_id": "HB-0045",
@@ -807,7 +807,7 @@
     "approved": true,
     "import_ready": true,
     "candidate_available": false,
-    "candidate_source_file": null
+    "current_project_content_adopted": true
   },
   {
     "asset_id": "HB-0046",
@@ -817,13 +817,13 @@
     "tier": "B1",
     "rarity": null,
     "meta": {},
-    "status": "source_verified",
+    "status": "previously_approved",
     "previously_approved": true,
     "original_text_restored": true,
     "approved": true,
     "import_ready": true,
     "candidate_available": false,
-    "candidate_source_file": null
+    "current_project_content_adopted": true
   },
   {
     "asset_id": "HB-0047",
@@ -833,13 +833,13 @@
     "tier": "B2",
     "rarity": null,
     "meta": {},
-    "status": "source_verified",
+    "status": "previously_approved",
     "previously_approved": true,
     "original_text_restored": true,
     "approved": true,
     "import_ready": true,
     "candidate_available": false,
-    "candidate_source_file": null
+    "current_project_content_adopted": true
   },
   {
     "asset_id": "HB-0048",
@@ -849,13 +849,13 @@
     "tier": "B3",
     "rarity": null,
     "meta": {},
-    "status": "source_verified",
+    "status": "previously_approved",
     "previously_approved": true,
     "original_text_restored": true,
     "approved": true,
     "import_ready": true,
     "candidate_available": false,
-    "candidate_source_file": null
+    "current_project_content_adopted": true
   },
   {
     "asset_id": "HB-0049",
@@ -865,13 +865,13 @@
     "tier": "B4",
     "rarity": null,
     "meta": {},
-    "status": "source_verified",
+    "status": "previously_approved",
     "previously_approved": true,
     "original_text_restored": true,
     "approved": true,
     "import_ready": true,
     "candidate_available": false,
-    "candidate_source_file": null
+    "current_project_content_adopted": true
   },
   {
     "asset_id": "HB-0050",
@@ -881,12 +881,12 @@
     "tier": "B5",
     "rarity": null,
     "meta": {},
-    "status": "source_verified",
+    "status": "previously_approved",
     "previously_approved": true,
     "original_text_restored": true,
     "approved": true,
     "import_ready": true,
     "candidate_available": false,
-    "candidate_source_file": null
+    "current_project_content_adopted": true
   }
 ]
