@@ -101,8 +101,6 @@ def decide(gid,cid,reviewer,guild_owner,approve):
         WHERE c.guild_id=? AND c.id=?''',(str(gid),int(cid))).fetchone()
         if not row or row['status'] not in ('review_1','review_2'):raise ValueError('案件已處理或不存在。')
         if str(reviewer)==str(row['applicant_id']) and str(reviewer)!=str(guild_owner):raise PermissionError('非群主不可審核自己的申請。')
-        if approve and row['status']=='review_2' and str(row['first_reviewer'])==str(reviewer) and str(reviewer)!=str(guild_owner):
-            raise PermissionError('非群主不可連續擔任一、二審。')
         if not approve:
             db.execute("UPDATE rp_npc_claims_v23 SET status='rejected' WHERE id=?",(int(cid),))
             db.execute("UPDATE rp_npc_templates_v23 SET state='available',claimed_by=NULL WHERE id=? AND state='reserved'",(row['template_key'],))
