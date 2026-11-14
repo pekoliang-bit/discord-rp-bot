@@ -1,60 +1,40 @@
 {
   "total_slots": 580,
-  "historically_approved_spec": 580,
-  "original_text_import_ready": 55,
-  "candidate_text_only_not_approved_original": 517,
-  "no_available_full_text": 8,
-  "awaiting_original_text": 525,
-  "endorsement_rarity_mapped": 80,
+  "current_version_approved_import_ready": 580,
+  "previous_source_verified": 55,
+  "owner_adopted_candidate": 517,
+  "newly_filled_wn": 8,
   "sections": [
     {
       "group": "作品",
-      "range": "WN-0001～WN-0200",
       "expected": 200,
-      "import_ready": 0,
-      "candidate_only": 192,
-      "original_missing": 200
+      "import_ready": 200
     },
     {
       "group": "劇中姓名",
-      "range": "CN-0001～CN-0100",
       "expected": 100,
-      "import_ready": 0,
-      "candidate_only": 100,
-      "original_missing": 100
+      "import_ready": 100
     },
     {
       "group": "歷史品牌",
-      "range": "HB-0001～HB-0050",
       "expected": 50,
-      "import_ready": 50,
-      "candidate_only": 0,
-      "original_missing": 0
+      "import_ready": 50
     },
     {
       "group": "正面經歷",
-      "range": "HE-0001～HE-0075",
       "expected": 75,
-      "import_ready": 0,
-      "candidate_only": 75,
-      "original_missing": 75
+      "import_ready": 75
     },
     {
       "group": "負面經歷",
-      "range": "HE-0076～HE-0150",
       "expected": 75,
-      "import_ready": 0,
-      "candidate_only": 75,
-      "original_missing": 75
+      "import_ready": 75
     },
     {
       "group": "歷史代言",
-      "range": "HE-0151～HE-0230",
       "expected": 80,
-      "import_ready": 5,
-      "candidate_only": 75,
-      "original_missing": 75
+      "import_ready": 80
     }
   ],
-  "warning": "580項曾核准；已找回可忠實入庫原文僅55。517項為後來新編候選，與先前核准原文不同，不能直接匯入。WN0193-0200無可解析完整候選。"
+  "warning": "目前採用現行專案文字；不再追索舊稿。8筆WN為本次新補。"
 }
