@@ -1,0 +1,47 @@
+歷史品牌 HB-0001～HB-0045｜先前核准摘要恢復，待逐條原文核對，尚不可自動匯入
+
+□ HB-0001｜Mellow Day 柔日｜B1｜美妝護膚
+□ HB-0002｜PUREMINT 薄荷日記｜B1｜美妝護膚
+□ HB-0003｜LUMIYA 露米雅｜B2｜美妝護膚
+□ HB-0004｜Bloom & Dew 花露集｜B2｜美妝護膚
+□ HB-0005｜SOLENNE 索蘭｜B3｜美妝護膚
+□ HB-0006｜AMBER VEIL 琥珀紗｜B3｜美妝護膚
+□ HB-0007｜ÉTOILE SKIN 星緹｜B3｜美妝護膚
+□ HB-0008｜VELORIA 薇洛莉亞｜B4｜美妝護膚
+□ HB-0009｜AURELLE 奧蕾爾｜B4｜美妝護膚
+□ HB-0010｜MAISON CÉLESTE 天穹之庭｜B5｜美妝護膚
+□ HB-0011｜DAYFOLD 日褶｜B1｜服飾時尚
+□ HB-0012｜COTTON MOON 棉月｜B1｜服飾時尚
+□ HB-0013｜LINE & LEAF 線葉｜B2｜服飾時尚
+□ HB-0014｜VIVID FORM 鮮形｜B2｜服飾時尚
+□ HB-0015｜MONAIRE 莫奈爾｜B3｜服飾時尚
+□ HB-0016｜ATELIER NOIR 黑色工坊｜B3｜服飾時尚
+□ HB-0017｜SEVÉRA 賽薇拉｜B3｜服飾時尚
+□ HB-0018｜VELVET HOUR 絲絨時刻｜B4｜服飾時尚
+□ HB-0019｜MAISON ARDENT 熾焰之屋｜B5｜服飾時尚
+□ HB-0020｜LUMEN RING 光環｜B1｜珠寶配飾
+□ HB-0021｜SILVER TALE 銀色寓言｜B2｜珠寶配飾
+□ HB-0022｜ORBIS JEWEL 星軌珠寶｜B3｜珠寶配飾
+□ HB-0023｜VÉRANE 維蘭｜B3｜珠寶配飾
+□ HB-0024｜ÉCLAT NOIR 黑曜之光｜B4｜珠寶配飾
+□ HB-0025｜MAISON D'OR 金曜之庭｜B5｜珠寶配飾
+□ HB-0026｜BYTEPOP 位元泡泡｜B1｜數碼科技
+□ HB-0027｜PIXEL DAY 像素日常｜B2｜數碼科技
+□ HB-0028｜SONOVA 聲諾｜B2｜數碼科技
+□ HB-0029｜NEBULA CORE 星核｜B3｜數碼科技
+□ HB-0030｜VECTRA 維科特｜B3｜數碼科技
+□ HB-0031｜AURIX 奧瑞克斯｜B4｜數碼科技
+□ HB-0032｜NEXION 領界｜B5｜數碼科技
+□ HB-0033｜SUNNY BITE 晴日小食｜B1｜食品飲料
+□ HB-0034｜POPCORN PLANET 爆米星球｜B1｜食品飲料
+□ HB-0035｜FRESH HOUR 鮮時光｜B2｜食品飲料
+□ HB-0036｜MILK CLOUD 奶雲研究所｜B2｜食品飲料
+□ HB-0037｜MIDNIGHT CUP 午夜杯｜B3｜食品飲料
+□ HB-0038｜HONEY GROVE 蜜森｜B3｜食品飲料
+□ HB-0039｜L'ATELIER DU THÉ 茶藝之所｜B4｜食品飲料
+□ HB-0040｜MAISON SUCRÉE 糖霜之庭｜B5｜食品飲料
+□ HB-0041｜CLEANO 潔樂｜B1｜家居生活
+□ HB-0042｜SOFT NEST 柔巢｜B2｜家居生活
+□ HB-0043｜LITTLE HABIT 日常小事｜B2｜家居生活
+□ HB-0044｜HOME & HAZE 霧居｜B3｜家居生活
+□ HB-0045｜LIVING FORM 生活形制｜B4｜家居生活
