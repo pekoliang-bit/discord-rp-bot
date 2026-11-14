@@ -1,3 +1,4 @@
+
 """V2.3 NPC 人設匯入、認領雙審與雙素材庫 UI；不修改角色初始屬性、金錢或額外加成。"""
 from __future__ import annotations
 import json
@@ -50,6 +51,11 @@ def parse_text(text):
     if '/' in name:name=name.split('/')[-1].strip()
     if '／' in name:name=name.split('／')[-1].strip()
     if not name or len(name)>100:raise ValueError('人設單必須包含可辨識的「本名／藝名」或「角色姓名」。')
+    # 玩家 NPC 也必須具備生日，否則正式開群後無法核發公開編號。
+    # 舊模板沒有這個欄位時，僅新增「待填」而不擅自編造出生日期。
+    if '生日' not in fields and '生日（月／日）' not in fields:
+        fields['生日（月／日）']='（自定義）'
+        custom['生日（月／日）']='（自定義）'
     return name,fields,custom
 
 def profile_settings_from_sheet(fields):
@@ -64,6 +70,7 @@ def profile_settings_from_sheet(fields):
     for attr,source in {
         'nationality':('國籍',), 'education':('學歷',),
         'languages':('擅長語言','語言'), 'biography':('生平簡述',),
+        'birthday':('生日（月／日）','生日'),
         'main_track':('主攻賽道',), 'portrait_url':('角色照片','角色形象圖片','角色形象'),
         'public_persona':('外貌氣質','性格'), 'private_personality':('私下性格',),
     }.items():
@@ -94,6 +101,12 @@ def profile_settings_from_sheet(fields):
     if years:
         m=re.search(r'\d+',years)
         if m:result['experience_years']=int(m.group(0))
+    # 生日是唯一的公开号碼日期來源，沿用 /角色填寫 的驗證規則。
+    if 'birthday' in result:
+        from modules.character_numbering import normalize_birthday
+        valid=normalize_birthday(result['birthday'])
+        if not valid:raise ValueError('NPC 生日必須是有效的月／日，例如 04/18。')
+        result['birthday']=f'{valid[:2]}/{valid[2:]}'
     result['npc_sheet_fields']={k:v for k,v in fields.items() if k!='持有金錢'}
     return result
 
@@ -127,6 +140,10 @@ def claim(gid,uid,tid,answers):
         missing=[f for f in fields if not answers.get(f,'').strip()]
         if missing:raise ValueError('缺少自定義欄位：'+ '、'.join(missing[:10]))
         if set(answers)-set(fields):raise ValueError('不可變更 NPC 固定欄位。')
+        birthday=answers.get('生日（月／日）') or answers.get('生日')
+        if birthday:
+            from modules.character_numbering import normalize_birthday
+            if not normalize_birthday(birthday):raise ValueError('生日格式錯誤，請使用月／日，例如 04/18。')
         changed=db.execute("UPDATE rp_npc_templates_v23 SET state='reserved',claimed_by=? WHERE id=? AND state='available'",(str(uid),int(tid)))
         if changed.rowcount!=1:raise ValueError('角色已被其他申請佔用。')
         return db.execute('INSERT INTO rp_npc_claims_v23 (guild_id,template_id,applicant_id,answers_json) VALUES (?,?,?,?)',
@@ -164,6 +181,8 @@ def decide(gid,cid,reviewer,guild_owner,approve):
         except (ValueError,TypeError):age=None
         occupation=combined.get('職業','')
         settings=profile_settings_from_sheet(combined)
+        if not settings.get('birthday'):
+            raise ValueError('NPC 尚未填寫生日，不能完成第二階段審核。')
         settings.update({'npc_template_id':row['template_key'],
                   'npc_original_message':row['source_message'],'npc_claim_id':int(cid)})
         db.execute('INSERT OR IGNORE INTO guilds(guild_id) VALUES (?)',(str(gid),))
