@@ -9,9 +9,10 @@ rows=json.loads(CAT.read_text(encoding='utf8'))
 assert len(rows)==580
 assert len({r['asset_id'] for r in rows})==580
 assert sum(bool(r['import_ready']) for r in rows)==10
-assert sum(r['title'] is None for r in rows)==570
+assert sum(r['title'] is None for r in rows)==525
+assert sum(r['status']=='recovered_summary_needs_original_text_review' for r in rows)==45
 assert len(json.loads(IM.read_text(encoding='utf8')))==10
-print('PASS: 580 IDs complete; 570 items blocked without source; 10 items documented')
+print('PASS: 580 IDs complete; 45 brand titles recovered for review; 570 blocked without source; 10 documented')
 with tempfile.TemporaryDirectory() as directory:
     db=Path(directory)/'isolated.sqlite3'
     env={**os.environ,'DATABASE_PATH':str(db)}
