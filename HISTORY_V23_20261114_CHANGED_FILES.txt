@@ -1,0 +1,24 @@
+歷史履歷 V2.3｜2026-11-14 修改清單
+原始底版：discord-rp-bot-main(20261114-091943).zip
+
+【覆蓋修改 1 個】
+modules/character_sheet_registration.py
+
+【新增 14 個】
+HISTORY_V23_SOURCE_STATUS_20261114.md
+HISTORY_V23_20261114_CHANGED_FILES.txt
+assets/history_v23/CN_0001_0100_inventory.json
+assets/history_v23/HB_0001_0050_inventory.json
+assets/history_v23/HE_0001_0075_inventory.json
+assets/history_v23/HE_0076_0150_inventory.json
+assets/history_v23/HE_0151_0230_inventory.json
+assets/history_v23/IMPORT_AUDIT.json
+assets/history_v23/WN_0001_0200_inventory.json
+assets/history_v23/catalog_580_inventory.json
+assets/history_v23/verified_import_ready.json
+tests/verify_history_v23_assets.py
+tools/build_history_v23_catalog.py
+tools/import_history_v23_assets.py
+
+main.py：未修改，原版保留。
+580 筆素材 ID 索引不等於 580 筆已入庫：10 筆原文可核實／570 筆缺原始全文。
