@@ -1,0 +1,2362 @@
+[
+  {
+    "asset_id": "CN-0001",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "沈知遙",
+    "meta": {
+      "character_name": "沈知遙",
+      "culture_background": "華語近現代",
+      "era": "1990～2020年代",
+      "genre": "都市懸疑／家庭",
+      "performance_types": [
+        "電影",
+        "電視劇",
+        "網路劇"
+      ],
+      "background_setting": "舊城改建案的建築修復師，從祖父留下的圖紙中發現被抹去的街道",
+      "description": "虛構劇中人物「沈知遙」：舊城改建案的建築修復師，從祖父留下的圖紙中發現被抹去的街道。適用於都市懸疑／家庭題材的電影、電視劇、網路劇。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0002",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "林見秋",
+    "meta": {
+      "character_name": "林見秋",
+      "culture_background": "華語近現代",
+      "era": "1990～2020年代",
+      "genre": "都市懸疑／家庭",
+      "performance_types": [
+        "電影",
+        "電視劇",
+        "網路劇"
+      ],
+      "background_setting": "替失語者整理口述史的錄音師，在一段舊磁帶中聽見自己的名字",
+      "description": "虛構劇中人物「林見秋」：替失語者整理口述史的錄音師，在一段舊磁帶中聽見自己的名字。適用於都市懸疑／家庭題材的電影、電視劇、網路劇。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0003",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "許望川",
+    "meta": {
+      "character_name": "許望川",
+      "culture_background": "華語近現代",
+      "era": "1990～2020年代",
+      "genre": "都市懸疑／家庭",
+      "performance_types": [
+        "電影",
+        "電視劇",
+        "網路劇"
+      ],
+      "background_setting": "沿海漁村的返鄉醫師，為即將遷村的居民尋找醫療資源",
+      "description": "虛構劇中人物「許望川」：沿海漁村的返鄉醫師，為即將遷村的居民尋找醫療資源。適用於都市懸疑／家庭題材的電影、電視劇、網路劇。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0004",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "周以寧",
+    "meta": {
+      "character_name": "周以寧",
+      "culture_background": "華語近現代",
+      "era": "1990～2020年代",
+      "genre": "都市懸疑／家庭",
+      "performance_types": [
+        "電影",
+        "電視劇",
+        "網路劇"
+      ],
+      "background_setting": "地方報社記者，追查一宗被誤認為失蹤的跨國尋親案",
+      "description": "虛構劇中人物「周以寧」：地方報社記者，追查一宗被誤認為失蹤的跨國尋親案。適用於都市懸疑／家庭題材的電影、電視劇、網路劇。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0005",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "陸星禾",
+    "meta": {
+      "character_name": "陸星禾",
+      "culture_background": "華語近現代",
+      "era": "1990～2020年代",
+      "genre": "都市懸疑／家庭",
+      "performance_types": [
+        "電影",
+        "電視劇",
+        "網路劇"
+      ],
+      "background_setting": "城市交通規劃員，意外得知一條廢棄鐵路的秘密",
+      "description": "虛構劇中人物「陸星禾」：城市交通規劃員，意外得知一條廢棄鐵路的秘密。適用於都市懸疑／家庭題材的電影、電視劇、網路劇。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0006",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "唐雨棠",
+    "meta": {
+      "character_name": "唐雨棠",
+      "culture_background": "華語近現代",
+      "era": "1990～2020年代",
+      "genre": "都市懸疑／家庭",
+      "performance_types": [
+        "電影",
+        "電視劇",
+        "網路劇"
+      ],
+      "background_setting": "修復戲服的職人，藉一道縫線找回失散的劇團",
+      "description": "虛構劇中人物「唐雨棠」：修復戲服的職人，藉一道縫線找回失散的劇團。適用於都市懸疑／家庭題材的電影、電視劇、網路劇。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0007",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "江予澄",
+    "meta": {
+      "character_name": "江予澄",
+      "culture_background": "華語近現代",
+      "era": "1990～2020年代",
+      "genre": "都市懸疑／家庭",
+      "performance_types": [
+        "電影",
+        "電視劇",
+        "網路劇"
+      ],
+      "background_setting": "地下電台主持人，用匿名點歌幫陌生人傳遞道歉",
+      "description": "虛構劇中人物「江予澄」：地下電台主持人，用匿名點歌幫陌生人傳遞道歉。適用於都市懸疑／家庭題材的電影、電視劇、網路劇。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0008",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "魏時安",
+    "meta": {
+      "character_name": "魏時安",
+      "culture_background": "華語近現代",
+      "era": "1990～2020年代",
+      "genre": "都市懸疑／家庭",
+      "performance_types": [
+        "電影",
+        "電視劇",
+        "網路劇"
+      ],
+      "background_setting": "市立圖書館典藏員，整理無人領取的百年捐贈物",
+      "description": "虛構劇中人物「魏時安」：市立圖書館典藏員，整理無人領取的百年捐贈物。適用於都市懸疑／家庭題材的電影、電視劇、網路劇。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0009",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "葉初嵐",
+    "meta": {
+      "character_name": "葉初嵐",
+      "culture_background": "華語近現代",
+      "era": "1990～2020年代",
+      "genre": "都市懸疑／家庭",
+      "performance_types": [
+        "電影",
+        "電視劇",
+        "網路劇"
+      ],
+      "background_setting": "獨立紀錄片導演，拍攝父母不願提起的返鄉往事",
+      "description": "虛構劇中人物「葉初嵐」：獨立紀錄片導演，拍攝父母不願提起的返鄉往事。適用於都市懸疑／家庭題材的電影、電視劇、網路劇。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0010",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "顧行舟",
+    "meta": {
+      "character_name": "顧行舟",
+      "culture_background": "華語近現代",
+      "era": "1990～2020年代",
+      "genre": "都市懸疑／家庭",
+      "performance_types": [
+        "電影",
+        "電視劇",
+        "網路劇"
+      ],
+      "background_setting": "城市夜班輪渡長，守著最後一條即將停運的航線",
+      "description": "虛構劇中人物「顧行舟」：城市夜班輪渡長，守著最後一條即將停運的航線。適用於都市懸疑／家庭題材的電影、電視劇、網路劇。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0011",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "謝雲辭",
+    "meta": {
+      "character_name": "謝雲辭",
+      "culture_background": "華語古裝",
+      "era": "架空王朝／古典時期",
+      "genre": "宮廷權謀／江湖／奇幻",
+      "performance_types": [
+        "古裝電視劇",
+        "舞台劇",
+        "動畫配音"
+      ],
+      "background_setting": "落榜書生以書吏身分進入朝堂，查清一份失蹤戶籍",
+      "description": "虛構劇中人物「謝雲辭」：落榜書生以書吏身分進入朝堂，查清一份失蹤戶籍。適用於宮廷權謀／江湖／奇幻題材的古裝電視劇、舞台劇、動畫配音。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0012",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "裴照霜",
+    "meta": {
+      "character_name": "裴照霜",
+      "culture_background": "華語古裝",
+      "era": "架空王朝／古典時期",
+      "genre": "宮廷權謀／江湖／奇幻",
+      "performance_types": [
+        "古裝電視劇",
+        "舞台劇",
+        "動畫配音"
+      ],
+      "background_setting": "邊境驛站女掌櫃，暗中保護來往的流民",
+      "description": "虛構劇中人物「裴照霜」：邊境驛站女掌櫃，暗中保護來往的流民。適用於宮廷權謀／江湖／奇幻題材的古裝電視劇、舞台劇、動畫配音。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0013",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "蘇晚照",
+    "meta": {
+      "character_name": "蘇晚照",
+      "culture_background": "華語古裝",
+      "era": "架空王朝／古典時期",
+      "genre": "宮廷權謀／江湖／奇幻",
+      "performance_types": [
+        "古裝電視劇",
+        "舞台劇",
+        "動畫配音"
+      ],
+      "background_setting": "被派去記錄天象的史官，發現星曆遭人更改",
+      "description": "虛構劇中人物「蘇晚照」：被派去記錄天象的史官，發現星曆遭人更改。適用於宮廷權謀／江湖／奇幻題材的古裝電視劇、舞台劇、動畫配音。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0014",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "聞人清朔",
+    "meta": {
+      "character_name": "聞人清朔",
+      "culture_background": "華語古裝",
+      "era": "架空王朝／古典時期",
+      "genre": "宮廷權謀／江湖／奇幻",
+      "performance_types": [
+        "古裝電視劇",
+        "舞台劇",
+        "動畫配音"
+      ],
+      "background_setting": "山門少主，奉命尋回藏有舊約的青銅鑰",
+      "description": "虛構劇中人物「聞人清朔」：山門少主，奉命尋回藏有舊約的青銅鑰。適用於宮廷權謀／江湖／奇幻題材的古裝電視劇、舞台劇、動畫配音。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0015",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "容未央",
+    "meta": {
+      "character_name": "容未央",
+      "culture_background": "華語古裝",
+      "era": "架空王朝／古典時期",
+      "genre": "宮廷權謀／江湖／奇幻",
+      "performance_types": [
+        "古裝電視劇",
+        "舞台劇",
+        "動畫配音"
+      ],
+      "background_setting": "宮廷樂師，靠失傳曲譜破解家族舊案",
+      "description": "虛構劇中人物「容未央」：宮廷樂師，靠失傳曲譜破解家族舊案。適用於宮廷權謀／江湖／奇幻題材的古裝電視劇、舞台劇、動畫配音。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0016",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "沈孤鴻",
+    "meta": {
+      "character_name": "沈孤鴻",
+      "culture_background": "華語古裝",
+      "era": "架空王朝／古典時期",
+      "genre": "宮廷權謀／江湖／奇幻",
+      "performance_types": [
+        "古裝電視劇",
+        "舞台劇",
+        "動畫配音"
+      ],
+      "background_setting": "前御前侍衛，退隱後在小鎮教授劍法",
+      "description": "虛構劇中人物「沈孤鴻」：前御前侍衛，退隱後在小鎮教授劍法。適用於宮廷權謀／江湖／奇幻題材的古裝電視劇、舞台劇、動畫配音。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0017",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "洛千翎",
+    "meta": {
+      "character_name": "洛千翎",
+      "culture_background": "華語古裝",
+      "era": "架空王朝／古典時期",
+      "genre": "宮廷權謀／江湖／奇幻",
+      "performance_types": [
+        "古裝電視劇",
+        "舞台劇",
+        "動畫配音"
+      ],
+      "background_setting": "藥谷學徒，奔走各城交換失傳的疫方",
+      "description": "虛構劇中人物「洛千翎」：藥谷學徒，奔走各城交換失傳的疫方。適用於宮廷權謀／江湖／奇幻題材的古裝電視劇、舞台劇、動畫配音。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0018",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "段玄策",
+    "meta": {
+      "character_name": "段玄策",
+      "culture_background": "華語古裝",
+      "era": "架空王朝／古典時期",
+      "genre": "宮廷權謀／江湖／奇幻",
+      "performance_types": [
+        "古裝電視劇",
+        "舞台劇",
+        "動畫配音"
+      ],
+      "background_setting": "年輕水師將領，試圖阻止一場毫無必要的戰事",
+      "description": "虛構劇中人物「段玄策」：年輕水師將領，試圖阻止一場毫無必要的戰事。適用於宮廷權謀／江湖／奇幻題材的古裝電視劇、舞台劇、動畫配音。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0019",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "慕容綺羅",
+    "meta": {
+      "character_name": "慕容綺羅",
+      "culture_background": "華語古裝",
+      "era": "架空王朝／古典時期",
+      "genre": "宮廷權謀／江湖／奇幻",
+      "performance_types": [
+        "古裝電視劇",
+        "舞台劇",
+        "動畫配音"
+      ],
+      "background_setting": "異國和親使節，善於用談判化解宮廷猜忌",
+      "description": "虛構劇中人物「慕容綺羅」：異國和親使節，善於用談判化解宮廷猜忌。適用於宮廷權謀／江湖／奇幻題材的古裝電視劇、舞台劇、動畫配音。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0020",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "晏無塵",
+    "meta": {
+      "character_name": "晏無塵",
+      "culture_background": "華語古裝",
+      "era": "架空王朝／古典時期",
+      "genre": "宮廷權謀／江湖／奇幻",
+      "performance_types": [
+        "古裝電視劇",
+        "舞台劇",
+        "動畫配音"
+      ],
+      "background_setting": "無名說書人，口中的民間故事與國史完全相反",
+      "description": "虛構劇中人物「晏無塵」：無名說書人，口中的民間故事與國史完全相反。適用於宮廷權謀／江湖／奇幻題材的古裝電視劇、舞台劇、動畫配音。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0021",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "朝霧澪",
+    "meta": {
+      "character_name": "朝霧澪",
+      "culture_background": "日本現代",
+      "era": "平成末期～令和",
+      "genre": "青春／職場／推理",
+      "performance_types": [
+        "電影",
+        "日劇",
+        "舞台劇",
+        "遊戲配音"
+      ],
+      "background_setting": "小鎮天文館解說員，為一場百年一遇的流星雨奔走",
+      "description": "虛構劇中人物「朝霧澪」：小鎮天文館解說員，為一場百年一遇的流星雨奔走。適用於青春／職場／推理題材的電影、日劇、舞台劇、遊戲配音。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0022",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "藤原悠真",
+    "meta": {
+      "character_name": "藤原悠真",
+      "culture_background": "日本現代",
+      "era": "平成末期～令和",
+      "genre": "青春／職場／推理",
+      "performance_types": [
+        "電影",
+        "日劇",
+        "舞台劇",
+        "遊戲配音"
+      ],
+      "background_setting": "剛入職的鐵道調度員，遇上暴雪封線的夜晚",
+      "description": "虛構劇中人物「藤原悠真」：剛入職的鐵道調度員，遇上暴雪封線的夜晚。適用於青春／職場／推理題材的電影、日劇、舞台劇、遊戲配音。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0023",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "橘紗月",
+    "meta": {
+      "character_name": "橘紗月",
+      "culture_background": "日本現代",
+      "era": "平成末期～令和",
+      "genre": "青春／職場／推理",
+      "performance_types": [
+        "電影",
+        "日劇",
+        "舞台劇",
+        "遊戲配音"
+      ],
+      "background_setting": "街角花店繼承人，替離世祖母完成未寄出的花束",
+      "description": "虛構劇中人物「橘紗月」：街角花店繼承人，替離世祖母完成未寄出的花束。適用於青春／職場／推理題材的電影、日劇、舞台劇、遊戲配音。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0024",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "雨宮朔",
+    "meta": {
+      "character_name": "雨宮朔",
+      "culture_background": "日本現代",
+      "era": "平成末期～令和",
+      "genre": "青春／職場／推理",
+      "performance_types": [
+        "電影",
+        "日劇",
+        "舞台劇",
+        "遊戲配音"
+      ],
+      "background_setting": "少年漫畫助手，從遺稿發現創作者未曾公開的結局",
+      "description": "虛構劇中人物「雨宮朔」：少年漫畫助手，從遺稿發現創作者未曾公開的結局。適用於青春／職場／推理題材的電影、日劇、舞台劇、遊戲配音。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0025",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "白石凪",
+    "meta": {
+      "character_name": "白石凪",
+      "culture_background": "日本現代",
+      "era": "平成末期～令和",
+      "genre": "青春／職場／推理",
+      "performance_types": [
+        "電影",
+        "日劇",
+        "舞台劇",
+        "遊戲配音"
+      ],
+      "background_setting": "海邊高中的游泳隊長，在傷後轉任教練",
+      "description": "虛構劇中人物「白石凪」：海邊高中的游泳隊長，在傷後轉任教練。適用於青春／職場／推理題材的電影、日劇、舞台劇、遊戲配音。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0026",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "九條理央",
+    "meta": {
+      "character_name": "九條理央",
+      "culture_background": "日本現代",
+      "era": "平成末期～令和",
+      "genre": "青春／職場／推理",
+      "performance_types": [
+        "電影",
+        "日劇",
+        "舞台劇",
+        "遊戲配音"
+      ],
+      "background_setting": "古書修復師，於借閱卡上尋找跨越年代的筆友",
+      "description": "虛構劇中人物「九條理央」：古書修復師，於借閱卡上尋找跨越年代的筆友。適用於青春／職場／推理題材的電影、日劇、舞台劇、遊戲配音。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0027",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "瀨戶千尋",
+    "meta": {
+      "character_name": "瀨戶千尋",
+      "culture_background": "日本現代",
+      "era": "平成末期～令和",
+      "genre": "青春／職場／推理",
+      "performance_types": [
+        "電影",
+        "日劇",
+        "舞台劇",
+        "遊戲配音"
+      ],
+      "background_setting": "地方祭典的鼓手，想挽救即將解散的祭典組織",
+      "description": "虛構劇中人物「瀨戶千尋」：地方祭典的鼓手，想挽救即將解散的祭典組織。適用於青春／職場／推理題材的電影、日劇、舞台劇、遊戲配音。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0028",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "相澤陽斗",
+    "meta": {
+      "character_name": "相澤陽斗",
+      "culture_background": "日本現代",
+      "era": "平成末期～令和",
+      "genre": "青春／職場／推理",
+      "performance_types": [
+        "電影",
+        "日劇",
+        "舞台劇",
+        "遊戲配音"
+      ],
+      "background_setting": "警署資料分析員，用一張舊照片重審未解案件",
+      "description": "虛構劇中人物「相澤陽斗」：警署資料分析員，用一張舊照片重審未解案件。適用於青春／職場／推理題材的電影、日劇、舞台劇、遊戲配音。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0029",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "水無月琴葉",
+    "meta": {
+      "character_name": "水無月琴葉",
+      "culture_background": "日本現代",
+      "era": "平成末期～令和",
+      "genre": "青春／職場／推理",
+      "performance_types": [
+        "電影",
+        "日劇",
+        "舞台劇",
+        "遊戲配音"
+      ],
+      "background_setting": "聲優新人，錄製兒時最喜歡的廣播劇續篇",
+      "description": "虛構劇中人物「水無月琴葉」：聲優新人，錄製兒時最喜歡的廣播劇續篇。適用於青春／職場／推理題材的電影、日劇、舞台劇、遊戲配音。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0030",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "神崎冬馬",
+    "meta": {
+      "character_name": "神崎冬馬",
+      "culture_background": "日本現代",
+      "era": "平成末期～令和",
+      "genre": "青春／職場／推理",
+      "performance_types": [
+        "電影",
+        "日劇",
+        "舞台劇",
+        "遊戲配音"
+      ],
+      "background_setting": "獨立咖啡師，蒐集客人留下的旅行明信片",
+      "description": "虛構劇中人物「神崎冬馬」：獨立咖啡師，蒐集客人留下的旅行明信片。適用於青春／職場／推理題材的電影、日劇、舞台劇、遊戲配音。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0031",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "篠宮紫苑",
+    "meta": {
+      "character_name": "篠宮紫苑",
+      "culture_background": "日本時代／和風奇譚",
+      "era": "江戶末期～昭和初期／架空",
+      "genre": "歷史／奇幻／文學",
+      "performance_types": [
+        "時代劇",
+        "電影",
+        "舞台劇",
+        "動畫配音"
+      ],
+      "background_setting": "書坊學徒，偷偷保存被禁印的地方遊記",
+      "description": "虛構劇中人物「篠宮紫苑」：書坊學徒，偷偷保存被禁印的地方遊記。適用於歷史／奇幻／文學題材的時代劇、電影、舞台劇、動畫配音。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0032",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "高嶺伊織",
+    "meta": {
+      "character_name": "高嶺伊織",
+      "culture_background": "日本時代／和風奇譚",
+      "era": "江戶末期～昭和初期／架空",
+      "genre": "歷史／奇幻／文學",
+      "performance_types": [
+        "時代劇",
+        "電影",
+        "舞台劇",
+        "動畫配音"
+      ],
+      "background_setting": "巡迴戲班的傀儡師，試圖修復失傳的人偶機關",
+      "description": "虛構劇中人物「高嶺伊織」：巡迴戲班的傀儡師，試圖修復失傳的人偶機關。適用於歷史／奇幻／文學題材的時代劇、電影、舞台劇、動畫配音。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0033",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "葛城紅葉",
+    "meta": {
+      "character_name": "葛城紅葉",
+      "culture_background": "日本時代／和風奇譚",
+      "era": "江戶末期～昭和初期／架空",
+      "genre": "歷史／奇幻／文學",
+      "performance_types": [
+        "時代劇",
+        "電影",
+        "舞台劇",
+        "動畫配音"
+      ],
+      "background_setting": "明治女學生，為鄉間孩子開辦夜學",
+      "description": "虛構劇中人物「葛城紅葉」：明治女學生，為鄉間孩子開辦夜學。適用於歷史／奇幻／文學題材的時代劇、電影、舞台劇、動畫配音。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0034",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "如月宗介",
+    "meta": {
+      "character_name": "如月宗介",
+      "culture_background": "日本時代／和風奇譚",
+      "era": "江戶末期～昭和初期／架空",
+      "genre": "歷史／奇幻／文學",
+      "performance_types": [
+        "時代劇",
+        "電影",
+        "舞台劇",
+        "動畫配音"
+      ],
+      "background_setting": "山村守林人，調查月夜傳來的鐘聲",
+      "description": "虛構劇中人物「如月宗介」：山村守林人，調查月夜傳來的鐘聲。適用於歷史／奇幻／文學題材的時代劇、電影、舞台劇、動畫配音。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0035",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "風間千鶴",
+    "meta": {
+      "character_name": "風間千鶴",
+      "culture_background": "日本時代／和風奇譚",
+      "era": "江戶末期～昭和初期／架空",
+      "genre": "歷史／奇幻／文學",
+      "performance_types": [
+        "時代劇",
+        "電影",
+        "舞台劇",
+        "動畫配音"
+      ],
+      "background_setting": "藥材商的長女，在商路封鎖後組織互助車隊",
+      "description": "虛構劇中人物「風間千鶴」：藥材商的長女，在商路封鎖後組織互助車隊。適用於歷史／奇幻／文學題材的時代劇、電影、舞台劇、動畫配音。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0036",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "久世景虎",
+    "meta": {
+      "character_name": "久世景虎",
+      "culture_background": "日本時代／和風奇譚",
+      "era": "江戶末期～昭和初期／架空",
+      "genre": "歷史／奇幻／文學",
+      "performance_types": [
+        "時代劇",
+        "電影",
+        "舞台劇",
+        "動畫配音"
+      ],
+      "background_setting": "失勢家臣，轉行畫匠繪製民間百工圖",
+      "description": "虛構劇中人物「久世景虎」：失勢家臣，轉行畫匠繪製民間百工圖。適用於歷史／奇幻／文學題材的時代劇、電影、舞台劇、動畫配音。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0037",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "小夜霧",
+    "meta": {
+      "character_name": "小夜霧",
+      "culture_background": "日本時代／和風奇譚",
+      "era": "江戶末期～昭和初期／架空",
+      "genre": "歷史／奇幻／文學",
+      "performance_types": [
+        "時代劇",
+        "電影",
+        "舞台劇",
+        "動畫配音"
+      ],
+      "background_setting": "山寺見習巫女，見證村民遺忘的古老祭儀",
+      "description": "虛構劇中人物「小夜霧」：山寺見習巫女，見證村民遺忘的古老祭儀。適用於歷史／奇幻／文學題材的時代劇、電影、舞台劇、動畫配音。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0038",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "鷹司真尋",
+    "meta": {
+      "character_name": "鷹司真尋",
+      "culture_background": "日本時代／和風奇譚",
+      "era": "江戶末期～昭和初期／架空",
+      "genre": "歷史／奇幻／文學",
+      "performance_types": [
+        "時代劇",
+        "電影",
+        "舞台劇",
+        "動畫配音"
+      ],
+      "background_setting": "昭和初期報社攝影記者，記錄城市拆遷",
+      "description": "虛構劇中人物「鷹司真尋」：昭和初期報社攝影記者，記錄城市拆遷。適用於歷史／奇幻／文學題材的時代劇、電影、舞台劇、動畫配音。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0039",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "月岡蓮次",
+    "meta": {
+      "character_name": "月岡蓮次",
+      "culture_background": "日本時代／和風奇譚",
+      "era": "江戶末期～昭和初期／架空",
+      "genre": "歷史／奇幻／文學",
+      "performance_types": [
+        "時代劇",
+        "電影",
+        "舞台劇",
+        "動畫配音"
+      ],
+      "background_setting": "旅館掌櫃，守護一份沒有寄出的戰前家書",
+      "description": "虛構劇中人物「月岡蓮次」：旅館掌櫃，守護一份沒有寄出的戰前家書。適用於歷史／奇幻／文學題材的時代劇、電影、舞台劇、動畫配音。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0040",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "花房璃子",
+    "meta": {
+      "character_name": "花房璃子",
+      "culture_background": "日本時代／和風奇譚",
+      "era": "江戶末期～昭和初期／架空",
+      "genre": "歷史／奇幻／文學",
+      "performance_types": [
+        "時代劇",
+        "電影",
+        "舞台劇",
+        "動畫配音"
+      ],
+      "background_setting": "巡演歌舞伎劇團中的年輕編劇，力圖改寫舊戲",
+      "description": "虛構劇中人物「花房璃子」：巡演歌舞伎劇團中的年輕編劇，力圖改寫舊戲。適用於歷史／奇幻／文學題材的時代劇、電影、舞台劇、動畫配音。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0041",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "尹瑞妍",
+    "meta": {
+      "character_name": "尹瑞妍",
+      "culture_background": "韓國都市",
+      "era": "2000～2030年代",
+      "genre": "職場／愛情／律政",
+      "performance_types": [
+        "韓劇",
+        "電影",
+        "網路劇"
+      ],
+      "background_setting": "公設辯護律師，重新調查一樁欠缺證人的舊案",
+      "description": "虛構劇中人物「尹瑞妍」：公設辯護律師，重新調查一樁欠缺證人的舊案。適用於職場／愛情／律政題材的韓劇、電影、網路劇。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0042",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "韓道允",
+    "meta": {
+      "character_name": "韓道允",
+      "culture_background": "韓國都市",
+      "era": "2000～2030年代",
+      "genre": "職場／愛情／律政",
+      "performance_types": [
+        "韓劇",
+        "電影",
+        "網路劇"
+      ],
+      "background_setting": "音樂製作人，為解散樂團保存最後一張母帶",
+      "description": "虛構劇中人物「韓道允」：音樂製作人，為解散樂團保存最後一張母帶。適用於職場／愛情／律政題材的韓劇、電影、網路劇。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0043",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "朴夏琳",
+    "meta": {
+      "character_name": "朴夏琳",
+      "culture_background": "韓國都市",
+      "era": "2000～2030年代",
+      "genre": "職場／愛情／律政",
+      "performance_types": [
+        "韓劇",
+        "電影",
+        "網路劇"
+      ],
+      "background_setting": "急診護理師，推動偏鄉夜間救護合作",
+      "description": "虛構劇中人物「朴夏琳」：急診護理師，推動偏鄉夜間救護合作。適用於職場／愛情／律政題材的韓劇、電影、網路劇。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0044",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "徐智勳",
+    "meta": {
+      "character_name": "徐智勳",
+      "culture_background": "韓國都市",
+      "era": "2000～2030年代",
+      "genre": "職場／愛情／律政",
+      "performance_types": [
+        "韓劇",
+        "電影",
+        "網路劇"
+      ],
+      "background_setting": "文化資產修復師，協助老市場商家保存招牌",
+      "description": "虛構劇中人物「徐智勳」：文化資產修復師，協助老市場商家保存招牌。適用於職場／愛情／律政題材的韓劇、電影、網路劇。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0045",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "金娜璟",
+    "meta": {
+      "character_name": "金娜璟",
+      "culture_background": "韓國都市",
+      "era": "2000～2030年代",
+      "genre": "職場／愛情／律政",
+      "performance_types": [
+        "韓劇",
+        "電影",
+        "網路劇"
+      ],
+      "background_setting": "新聞編輯，追查深偽影音造成的假消息",
+      "description": "虛構劇中人物「金娜璟」：新聞編輯，追查深偽影音造成的假消息。適用於職場／愛情／律政題材的韓劇、電影、網路劇。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0046",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "李宥真",
+    "meta": {
+      "character_name": "李宥真",
+      "culture_background": "韓國都市",
+      "era": "2000～2030年代",
+      "genre": "職場／愛情／律政",
+      "performance_types": [
+        "韓劇",
+        "電影",
+        "網路劇"
+      ],
+      "background_setting": "舞蹈學院講師，陪伴受傷學生重返舞台",
+      "description": "虛構劇中人物「李宥真」：舞蹈學院講師，陪伴受傷學生重返舞台。適用於職場／愛情／律政題材的韓劇、電影、網路劇。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0047",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "崔允浩",
+    "meta": {
+      "character_name": "崔允浩",
+      "culture_background": "韓國都市",
+      "era": "2000～2030年代",
+      "genre": "職場／愛情／律政",
+      "performance_types": [
+        "韓劇",
+        "電影",
+        "網路劇"
+      ],
+      "background_setting": "企業稽核員，意外發現帳目裡的慈善基金",
+      "description": "虛構劇中人物「崔允浩」：企業稽核員，意外發現帳目裡的慈善基金。適用於職場／愛情／律政題材的韓劇、電影、網路劇。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0048",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "姜世雅",
+    "meta": {
+      "character_name": "姜世雅",
+      "culture_background": "韓國都市",
+      "era": "2000～2030年代",
+      "genre": "職場／愛情／律政",
+      "performance_types": [
+        "韓劇",
+        "電影",
+        "網路劇"
+      ],
+      "background_setting": "夜班計程車司機，蒐集城市裡的離別故事",
+      "description": "虛構劇中人物「姜世雅」：夜班計程車司機，蒐集城市裡的離別故事。適用於職場／愛情／律政題材的韓劇、電影、網路劇。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0049",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "鄭民奎",
+    "meta": {
+      "character_name": "鄭民奎",
+      "culture_background": "韓國都市",
+      "era": "2000～2030年代",
+      "genre": "職場／愛情／律政",
+      "performance_types": [
+        "韓劇",
+        "電影",
+        "網路劇"
+      ],
+      "background_setting": "地方料理研究者，尋找失落的家族食譜",
+      "description": "虛構劇中人物「鄭民奎」：地方料理研究者，尋找失落的家族食譜。適用於職場／愛情／律政題材的韓劇、電影、網路劇。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0050",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "申惠媛",
+    "meta": {
+      "character_name": "申惠媛",
+      "culture_background": "韓國都市",
+      "era": "2000～2030年代",
+      "genre": "職場／愛情／律政",
+      "performance_types": [
+        "韓劇",
+        "電影",
+        "網路劇"
+      ],
+      "background_setting": "校園廣播社前社長，十年後重啟舊頻道",
+      "description": "虛構劇中人物「申惠媛」：校園廣播社前社長，十年後重啟舊頻道。適用於職場／愛情／律政題材的韓劇、電影、網路劇。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0051",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "Élise Moreau（艾莉絲・莫侯）",
+    "meta": {
+      "character_name": "Élise Moreau（艾莉絲・莫侯）",
+      "culture_background": "歐陸歷史",
+      "era": "17～20世紀初",
+      "genre": "歷史／冒險／文藝",
+      "performance_types": [
+        "電影",
+        "歐陸時代劇",
+        "音樂劇"
+      ],
+      "background_setting": "法國印刷工之女，秘密保存被追查的戲劇手稿",
+      "description": "虛構劇中人物「Élise Moreau（艾莉絲・莫侯）」：法國印刷工之女，秘密保存被追查的戲劇手稿。適用於歷史／冒險／文藝題材的電影、歐陸時代劇、音樂劇。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0052",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "Lucien Valette（呂西安・瓦萊特）",
+    "meta": {
+      "character_name": "Lucien Valette（呂西安・瓦萊特）",
+      "culture_background": "歐陸歷史",
+      "era": "17～20世紀初",
+      "genre": "歷史／冒險／文藝",
+      "performance_types": [
+        "電影",
+        "歐陸時代劇",
+        "音樂劇"
+      ],
+      "background_setting": "巴黎舞台設計師，為災後劇院重建布景",
+      "description": "虛構劇中人物「Lucien Valette（呂西安・瓦萊特）」：巴黎舞台設計師，為災後劇院重建布景。適用於歷史／冒險／文藝題材的電影、歐陸時代劇、音樂劇。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0053",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "Ada Bellini（艾達・貝里尼）",
+    "meta": {
+      "character_name": "Ada Bellini（艾達・貝里尼）",
+      "culture_background": "歐陸歷史",
+      "era": "17～20世紀初",
+      "genre": "歷史／冒險／文藝",
+      "performance_types": [
+        "電影",
+        "歐陸時代劇",
+        "音樂劇"
+      ],
+      "background_setting": "義大利修復師，破解一幅畫中被覆蓋的署名",
+      "description": "虛構劇中人物「Ada Bellini（艾達・貝里尼）」：義大利修復師，破解一幅畫中被覆蓋的署名。適用於歷史／冒險／文藝題材的電影、歐陸時代劇、音樂劇。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0054",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "Matteo Rinaldi（馬泰奧・里納爾迪）",
+    "meta": {
+      "character_name": "Matteo Rinaldi（馬泰奧・里納爾迪）",
+      "culture_background": "歐陸歷史",
+      "era": "17～20世紀初",
+      "genre": "歷史／冒險／文藝",
+      "performance_types": [
+        "電影",
+        "歐陸時代劇",
+        "音樂劇"
+      ],
+      "background_setting": "威尼斯製琴師，追尋失竊的大提琴",
+      "description": "虛構劇中人物「Matteo Rinaldi（馬泰奧・里納爾迪）」：威尼斯製琴師，追尋失竊的大提琴。適用於歷史／冒險／文藝題材的電影、歐陸時代劇、音樂劇。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0055",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "Clara Weiss（克拉拉・魏斯）",
+    "meta": {
+      "character_name": "Clara Weiss（克拉拉・魏斯）",
+      "culture_background": "歐陸歷史",
+      "era": "17～20世紀初",
+      "genre": "歷史／冒險／文藝",
+      "performance_types": [
+        "電影",
+        "歐陸時代劇",
+        "音樂劇"
+      ],
+      "background_setting": "德語地區植物學者，記錄高山消失的藥草",
+      "description": "虛構劇中人物「Clara Weiss（克拉拉・魏斯）」：德語地區植物學者，記錄高山消失的藥草。適用於歷史／冒險／文藝題材的電影、歐陸時代劇、音樂劇。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0056",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "Emil Hartmann（埃米爾・哈特曼）",
+    "meta": {
+      "character_name": "Emil Hartmann（埃米爾・哈特曼）",
+      "culture_background": "歐陸歷史",
+      "era": "17～20世紀初",
+      "genre": "歷史／冒險／文藝",
+      "performance_types": [
+        "電影",
+        "歐陸時代劇",
+        "音樂劇"
+      ],
+      "background_setting": "十九世紀鐵道工程師，設計偏遠村落支線",
+      "description": "虛構劇中人物「Emil Hartmann（埃米爾・哈特曼）」：十九世紀鐵道工程師，設計偏遠村落支線。適用於歷史／冒險／文藝題材的電影、歐陸時代劇、音樂劇。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0057",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "Ingrid Falk（英格麗・法爾克）",
+    "meta": {
+      "character_name": "Ingrid Falk（英格麗・法爾克）",
+      "culture_background": "歐陸歷史",
+      "era": "17～20世紀初",
+      "genre": "歷史／冒險／文藝",
+      "performance_types": [
+        "電影",
+        "歐陸時代劇",
+        "音樂劇"
+      ],
+      "background_setting": "北歐燈塔管理者，守護冬季海上的求救訊號",
+      "description": "虛構劇中人物「Ingrid Falk（英格麗・法爾克）」：北歐燈塔管理者，守護冬季海上的求救訊號。適用於歷史／冒險／文藝題材的電影、歐陸時代劇、音樂劇。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0058",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "Sofia Lindholm（索菲亞・林德霍姆）",
+    "meta": {
+      "character_name": "Sofia Lindholm（索菲亞・林德霍姆）",
+      "culture_background": "歐陸歷史",
+      "era": "17～20世紀初",
+      "genre": "歷史／冒險／文藝",
+      "performance_types": [
+        "電影",
+        "歐陸時代劇",
+        "音樂劇"
+      ],
+      "background_setting": "北歐民謠採集者，尋訪即將失傳的歌聲",
+      "description": "虛構劇中人物「Sofia Lindholm（索菲亞・林德霍姆）」：北歐民謠採集者，尋訪即將失傳的歌聲。適用於歷史／冒險／文藝題材的電影、歐陸時代劇、音樂劇。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0059",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "Aleksander Nowak（亞歷山德・諾瓦克）",
+    "meta": {
+      "character_name": "Aleksander Nowak（亞歷山德・諾瓦克）",
+      "culture_background": "歐陸歷史",
+      "era": "17～20世紀初",
+      "genre": "歷史／冒險／文藝",
+      "performance_types": [
+        "電影",
+        "歐陸時代劇",
+        "音樂劇"
+      ],
+      "background_setting": "波蘭流亡劇作家，在陌生城市成立小劇團",
+      "description": "虛構劇中人物「Aleksander Nowak（亞歷山德・諾瓦克）」：波蘭流亡劇作家，在陌生城市成立小劇團。適用於歷史／冒險／文藝題材的電影、歐陸時代劇、音樂劇。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0060",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "Zofia Zielińska（佐菲亞・傑林斯卡）",
+    "meta": {
+      "character_name": "Zofia Zielińska（佐菲亞・傑林斯卡）",
+      "culture_background": "歐陸歷史",
+      "era": "17～20世紀初",
+      "genre": "歷史／冒險／文藝",
+      "performance_types": [
+        "電影",
+        "歐陸時代劇",
+        "音樂劇"
+      ],
+      "background_setting": "鄉村教師，利用流動圖書箱維持戰時教育",
+      "description": "虛構劇中人物「Zofia Zielińska（佐菲亞・傑林斯卡）」：鄉村教師，利用流動圖書箱維持戰時教育。適用於歷史／冒險／文藝題材的電影、歐陸時代劇、音樂劇。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0061",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "Maya Reed（瑪雅・里德）",
+    "meta": {
+      "character_name": "Maya Reed（瑪雅・里德）",
+      "culture_background": "英語現代",
+      "era": "1980～2030年代",
+      "genre": "科幻／司法／人際",
+      "performance_types": [
+        "電影",
+        "影集",
+        "廣播劇",
+        "遊戲配音"
+      ],
+      "background_setting": "海洋資料科學家，分析異常潮汐與沉船記錄",
+      "description": "虛構劇中人物「Maya Reed（瑪雅・里德）」：海洋資料科學家，分析異常潮汐與沉船記錄。適用於科幻／司法／人際題材的電影、影集、廣播劇、遊戲配音。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0062",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "Ethan Brooks（伊森・布魯克斯）",
+    "meta": {
+      "character_name": "Ethan Brooks（伊森・布魯克斯）",
+      "culture_background": "英語現代",
+      "era": "1980～2030年代",
+      "genre": "科幻／司法／人際",
+      "performance_types": [
+        "電影",
+        "影集",
+        "廣播劇",
+        "遊戲配音"
+      ],
+      "background_setting": "災害應變協調員，修復兩座城市的失聯通訊",
+      "description": "虛構劇中人物「Ethan Brooks（伊森・布魯克斯）」：災害應變協調員，修復兩座城市的失聯通訊。適用於科幻／司法／人際題材的電影、影集、廣播劇、遊戲配音。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0063",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "Olivia Grant（奧莉薇亞・葛蘭特）",
+    "meta": {
+      "character_name": "Olivia Grant（奧莉薇亞・葛蘭特）",
+      "culture_background": "英語現代",
+      "era": "1980～2030年代",
+      "genre": "科幻／司法／人際",
+      "performance_types": [
+        "電影",
+        "影集",
+        "廣播劇",
+        "遊戲配音"
+      ],
+      "background_setting": "移民社區的辯護律師，尋回遺失的案卷",
+      "description": "虛構劇中人物「Olivia Grant（奧莉薇亞・葛蘭特）」：移民社區的辯護律師，尋回遺失的案卷。適用於科幻／司法／人際題材的電影、影集、廣播劇、遊戲配音。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0064",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "Noah Bennett（諾亞・班奈特）",
+    "meta": {
+      "character_name": "Noah Bennett（諾亞・班奈特）",
+      "culture_background": "英語現代",
+      "era": "1980～2030年代",
+      "genre": "科幻／司法／人際",
+      "performance_types": [
+        "電影",
+        "影集",
+        "廣播劇",
+        "遊戲配音"
+      ],
+      "background_setting": "資安工程師，發現城市系統被植入虛假記憶檔",
+      "description": "虛構劇中人物「Noah Bennett（諾亞・班奈特）」：資安工程師，發現城市系統被植入虛假記憶檔。適用於科幻／司法／人際題材的電影、影集、廣播劇、遊戲配音。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0065",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "Amara Collins（阿瑪拉・柯林斯）",
+    "meta": {
+      "character_name": "Amara Collins（阿瑪拉・柯林斯）",
+      "culture_background": "英語現代",
+      "era": "1980～2030年代",
+      "genre": "科幻／司法／人際",
+      "performance_types": [
+        "電影",
+        "影集",
+        "廣播劇",
+        "遊戲配音"
+      ],
+      "background_setting": "非營利電台主持人，讓偏遠社區重新被聽見",
+      "description": "虛構劇中人物「Amara Collins（阿瑪拉・柯林斯）」：非營利電台主持人，讓偏遠社區重新被聽見。適用於科幻／司法／人際題材的電影、影集、廣播劇、遊戲配音。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0066",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "Julian Mercer（朱利安・默瑟）",
+    "meta": {
+      "character_name": "Julian Mercer（朱利安・默瑟）",
+      "culture_background": "英語現代",
+      "era": "1980～2030年代",
+      "genre": "科幻／司法／人際",
+      "performance_types": [
+        "電影",
+        "影集",
+        "廣播劇",
+        "遊戲配音"
+      ],
+      "background_setting": "博物館策展人，追查一件文物的真正來源",
+      "description": "虛構劇中人物「Julian Mercer（朱利安・默瑟）」：博物館策展人，追查一件文物的真正來源。適用於科幻／司法／人際題材的電影、影集、廣播劇、遊戲配音。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0067",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "Ruby Fletcher（露比・弗萊徹）",
+    "meta": {
+      "character_name": "Ruby Fletcher（露比・弗萊徹）",
+      "culture_background": "英語現代",
+      "era": "1980～2030年代",
+      "genre": "科幻／司法／人際",
+      "performance_types": [
+        "電影",
+        "影集",
+        "廣播劇",
+        "遊戲配音"
+      ],
+      "background_setting": "當代編舞家，為失去聽力的舞者設計新作品",
+      "description": "虛構劇中人物「Ruby Fletcher（露比・弗萊徹）」：當代編舞家，為失去聽力的舞者設計新作品。適用於科幻／司法／人際題材的電影、影集、廣播劇、遊戲配音。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0068",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "Theo Sinclair（西奧・辛克萊）",
+    "meta": {
+      "character_name": "Theo Sinclair（西奧・辛克萊）",
+      "culture_background": "英語現代",
+      "era": "1980～2030年代",
+      "genre": "科幻／司法／人際",
+      "performance_types": [
+        "電影",
+        "影集",
+        "廣播劇",
+        "遊戲配音"
+      ],
+      "background_setting": "太空站植物學員，培育最後一批地球種子",
+      "description": "虛構劇中人物「Theo Sinclair（西奧・辛克萊）」：太空站植物學員，培育最後一批地球種子。適用於科幻／司法／人際題材的電影、影集、廣播劇、遊戲配音。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0069",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "Iris Walker（艾莉絲・沃克）",
+    "meta": {
+      "character_name": "Iris Walker（艾莉絲・沃克）",
+      "culture_background": "英語現代",
+      "era": "1980～2030年代",
+      "genre": "科幻／司法／人際",
+      "performance_types": [
+        "電影",
+        "影集",
+        "廣播劇",
+        "遊戲配音"
+      ],
+      "background_setting": "山林消防調度員，在極端天候中組織撤離",
+      "description": "虛構劇中人物「Iris Walker（艾莉絲・沃克）」：山林消防調度員，在極端天候中組織撤離。適用於科幻／司法／人際題材的電影、影集、廣播劇、遊戲配音。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0070",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "Caleb Hughes（凱勒布・休斯）",
+    "meta": {
+      "character_name": "Caleb Hughes（凱勒布・休斯）",
+      "culture_background": "英語現代",
+      "era": "1980～2030年代",
+      "genre": "科幻／司法／人際",
+      "performance_types": [
+        "電影",
+        "影集",
+        "廣播劇",
+        "遊戲配音"
+      ],
+      "background_setting": "獨立遊戲開發者，將父親的錄音做成解謎世界",
+      "description": "虛構劇中人物「Caleb Hughes（凱勒布・休斯）」：獨立遊戲開發者，將父親的錄音做成解謎世界。適用於科幻／司法／人際題材的電影、影集、廣播劇、遊戲配音。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0071",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "Lucía Navarro（露西亞・納瓦羅）",
+    "meta": {
+      "character_name": "Lucía Navarro（露西亞・納瓦羅）",
+      "culture_background": "拉丁語系／南歐與拉美",
+      "era": "19～21世紀",
+      "genre": "魔幻寫實／音樂／家族",
+      "performance_types": [
+        "電影",
+        "影集",
+        "音樂劇",
+        "動畫配音"
+      ],
+      "background_setting": "西語海港小鎮的鐘錶匠，修復會記住聲音的時計",
+      "description": "虛構劇中人物「Lucía Navarro（露西亞・納瓦羅）」：西語海港小鎮的鐘錶匠，修復會記住聲音的時計。適用於魔幻寫實／音樂／家族題材的電影、影集、音樂劇、動畫配音。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0072",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "Diego Salazar（迪亞哥・薩拉薩）",
+    "meta": {
+      "character_name": "Diego Salazar（迪亞哥・薩拉薩）",
+      "culture_background": "拉丁語系／南歐與拉美",
+      "era": "19～21世紀",
+      "genre": "魔幻寫實／音樂／家族",
+      "performance_types": [
+        "電影",
+        "影集",
+        "音樂劇",
+        "動畫配音"
+      ],
+      "background_setting": "安地斯山區郵差，沿著古道運送被遺忘的信件",
+      "description": "虛構劇中人物「Diego Salazar（迪亞哥・薩拉薩）」：安地斯山區郵差，沿著古道運送被遺忘的信件。適用於魔幻寫實／音樂／家族題材的電影、影集、音樂劇、動畫配音。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0073",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "Camila Rojas（卡蜜拉・羅哈斯）",
+    "meta": {
+      "character_name": "Camila Rojas（卡蜜拉・羅哈斯）",
+      "culture_background": "拉丁語系／南歐與拉美",
+      "era": "19～21世紀",
+      "genre": "魔幻寫實／音樂／家族",
+      "performance_types": [
+        "電影",
+        "影集",
+        "音樂劇",
+        "動畫配音"
+      ],
+      "background_setting": "智利民歌採集者，用歌聲追查祖母的故鄉",
+      "description": "虛構劇中人物「Camila Rojas（卡蜜拉・羅哈斯）」：智利民歌採集者，用歌聲追查祖母的故鄉。適用於魔幻寫實／音樂／家族題材的電影、影集、音樂劇、動畫配音。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0074",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "Gabriel Duarte（加布里埃爾・杜阿爾特）",
+    "meta": {
+      "character_name": "Gabriel Duarte（加布里埃爾・杜阿爾特）",
+      "culture_background": "拉丁語系／南歐與拉美",
+      "era": "19～21世紀",
+      "genre": "魔幻寫實／音樂／家族",
+      "performance_types": [
+        "電影",
+        "影集",
+        "音樂劇",
+        "動畫配音"
+      ],
+      "background_setting": "葡語漁港的燈光師，籌辦一場海上露天電影節",
+      "description": "虛構劇中人物「Gabriel Duarte（加布里埃爾・杜阿爾特）」：葡語漁港的燈光師，籌辦一場海上露天電影節。適用於魔幻寫實／音樂／家族題材的電影、影集、音樂劇、動畫配音。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0075",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "Beatriz Costa（碧翠絲・科斯塔）",
+    "meta": {
+      "character_name": "Beatriz Costa（碧翠絲・科斯塔）",
+      "culture_background": "拉丁語系／南歐與拉美",
+      "era": "19～21世紀",
+      "genre": "魔幻寫實／音樂／家族",
+      "performance_types": [
+        "電影",
+        "影集",
+        "音樂劇",
+        "動畫配音"
+      ],
+      "background_setting": "巴西壁畫家，替即將拆除的市場留下色彩",
+      "description": "虛構劇中人物「Beatriz Costa（碧翠絲・科斯塔）」：巴西壁畫家，替即將拆除的市場留下色彩。適用於魔幻寫實／音樂／家族題材的電影、影集、音樂劇、動畫配音。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0076",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "Mateo Herrera（馬特奧・埃雷拉）",
+    "meta": {
+      "character_name": "Mateo Herrera（馬特奧・埃雷拉）",
+      "culture_background": "拉丁語系／南歐與拉美",
+      "era": "19～21世紀",
+      "genre": "魔幻寫實／音樂／家族",
+      "performance_types": [
+        "電影",
+        "影集",
+        "音樂劇",
+        "動畫配音"
+      ],
+      "background_setting": "墨西哥劇團團長，試圖讓巡迴戲回到鄉間",
+      "description": "虛構劇中人物「Mateo Herrera（馬特奧・埃雷拉）」：墨西哥劇團團長，試圖讓巡迴戲回到鄉間。適用於魔幻寫實／音樂／家族題材的電影、影集、音樂劇、動畫配音。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0077",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "Valentina Cruz（瓦倫蒂娜・克魯斯）",
+    "meta": {
+      "character_name": "Valentina Cruz（瓦倫蒂娜・克魯斯）",
+      "culture_background": "拉丁語系／南歐與拉美",
+      "era": "19～21世紀",
+      "genre": "魔幻寫實／音樂／家族",
+      "performance_types": [
+        "電影",
+        "影集",
+        "音樂劇",
+        "動畫配音"
+      ],
+      "background_setting": "家族餐館傳人，在一本空白食譜找到線索",
+      "description": "虛構劇中人物「Valentina Cruz（瓦倫蒂娜・克魯斯）」：家族餐館傳人，在一本空白食譜找到線索。適用於魔幻寫實／音樂／家族題材的電影、影集、音樂劇、動畫配音。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0078",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "Rafael Ortega（拉斐爾・奧爾特加）",
+    "meta": {
+      "character_name": "Rafael Ortega（拉斐爾・奧爾特加）",
+      "culture_background": "拉丁語系／南歐與拉美",
+      "era": "19～21世紀",
+      "genre": "魔幻寫實／音樂／家族",
+      "performance_types": [
+        "電影",
+        "影集",
+        "音樂劇",
+        "動畫配音"
+      ],
+      "background_setting": "城市樹木調查員，發現古老庭院的神秘地圖",
+      "description": "虛構劇中人物「Rafael Ortega（拉斐爾・奧爾特加）」：城市樹木調查員，發現古老庭院的神秘地圖。適用於魔幻寫實／音樂／家族題材的電影、影集、音樂劇、動畫配音。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0079",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "Isabela Ferreira（伊莎貝拉・費雷拉）",
+    "meta": {
+      "character_name": "Isabela Ferreira（伊莎貝拉・費雷拉）",
+      "culture_background": "拉丁語系／南歐與拉美",
+      "era": "19～21世紀",
+      "genre": "魔幻寫實／音樂／家族",
+      "performance_types": [
+        "電影",
+        "影集",
+        "音樂劇",
+        "動畫配音"
+      ],
+      "background_setting": "葡萄牙港口的天文學徒，紀錄失去的星名",
+      "description": "虛構劇中人物「Isabela Ferreira（伊莎貝拉・費雷拉）」：葡萄牙港口的天文學徒，紀錄失去的星名。適用於魔幻寫實／音樂／家族題材的電影、影集、音樂劇、動畫配音。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0080",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "Tomás Beltrán（托馬斯・貝爾特蘭）",
+    "meta": {
+      "character_name": "Tomás Beltrán（托馬斯・貝爾特蘭）",
+      "culture_background": "拉丁語系／南歐與拉美",
+      "era": "19～21世紀",
+      "genre": "魔幻寫實／音樂／家族",
+      "performance_types": [
+        "電影",
+        "影集",
+        "音樂劇",
+        "動畫配音"
+      ],
+      "background_setting": "西語山城的提琴手，用一首老歌尋找失散兄長",
+      "description": "虛構劇中人物「Tomás Beltrán（托馬斯・貝爾特蘭）」：西語山城的提琴手，用一首老歌尋找失散兄長。適用於魔幻寫實／音樂／家族題材的電影、影集、音樂劇、動畫配音。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0081",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "Aanya Mehta（安雅・梅塔）",
+    "meta": {
+      "character_name": "Aanya Mehta（安雅・梅塔）",
+      "culture_background": "南亞／中東／非洲",
+      "era": "古代～近未來",
+      "genre": "冒險／社會／奇幻",
+      "performance_types": [
+        "電影",
+        "影集",
+        "舞台劇",
+        "動畫配音"
+      ],
+      "background_setting": "印度城市的公共交通設計師，改善夜間通勤",
+      "description": "虛構劇中人物「Aanya Mehta（安雅・梅塔）」：印度城市的公共交通設計師，改善夜間通勤。適用於冒險／社會／奇幻題材的電影、影集、舞台劇、動畫配音。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0082",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "Arjun Rao（阿俊・拉奧）",
+    "meta": {
+      "character_name": "Arjun Rao（阿俊・拉奧）",
+      "culture_background": "南亞／中東／非洲",
+      "era": "古代～近未來",
+      "genre": "冒險／社會／奇幻",
+      "performance_types": [
+        "電影",
+        "影集",
+        "舞台劇",
+        "動畫配音"
+      ],
+      "background_setting": "德干高原的語言學家，解讀逐漸消失的方言",
+      "description": "虛構劇中人物「Arjun Rao（阿俊・拉奧）」：德干高原的語言學家，解讀逐漸消失的方言。適用於冒險／社會／奇幻題材的電影、影集、舞台劇、動畫配音。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0083",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "Zoya Farooq（卓婭・法魯克）",
+    "meta": {
+      "character_name": "Zoya Farooq（卓婭・法魯克）",
+      "culture_background": "南亞／中東／非洲",
+      "era": "古代～近未來",
+      "genre": "冒險／社會／奇幻",
+      "performance_types": [
+        "電影",
+        "影集",
+        "舞台劇",
+        "動畫配音"
+      ],
+      "background_setting": "南亞檔案館員，整理一位無名女攝影師的底片",
+      "description": "虛構劇中人物「Zoya Farooq（卓婭・法魯克）」：南亞檔案館員，整理一位無名女攝影師的底片。適用於冒險／社會／奇幻題材的電影、影集、舞台劇、動畫配音。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0084",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "Kabir Sen（卡比爾・森）",
+    "meta": {
+      "character_name": "Kabir Sen（卡比爾・森）",
+      "culture_background": "南亞／中東／非洲",
+      "era": "古代～近未來",
+      "genre": "冒險／社會／奇幻",
+      "performance_types": [
+        "電影",
+        "影集",
+        "舞台劇",
+        "動畫配音"
+      ],
+      "background_setting": "孟加拉灣沿岸的氣象觀測員，預警異常季風",
+      "description": "虛構劇中人物「Kabir Sen（卡比爾・森）」：孟加拉灣沿岸的氣象觀測員，預警異常季風。適用於冒險／社會／奇幻題材的電影、影集、舞台劇、動畫配音。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0085",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "Leyla Demir（蕾拉・德米爾）",
+    "meta": {
+      "character_name": "Leyla Demir（蕾拉・德米爾）",
+      "culture_background": "南亞／中東／非洲",
+      "era": "古代～近未來",
+      "genre": "冒險／社會／奇幻",
+      "performance_types": [
+        "電影",
+        "影集",
+        "舞台劇",
+        "動畫配音"
+      ],
+      "background_setting": "土耳其古城的修復學徒，追尋被遺失的壁畫",
+      "description": "虛構劇中人物「Leyla Demir（蕾拉・德米爾）」：土耳其古城的修復學徒，追尋被遺失的壁畫。適用於冒險／社會／奇幻題材的電影、影集、舞台劇、動畫配音。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0086",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "Emir Kaya（埃米爾・卡亞）",
+    "meta": {
+      "character_name": "Emir Kaya（埃米爾・卡亞）",
+      "culture_background": "南亞／中東／非洲",
+      "era": "古代～近未來",
+      "genre": "冒險／社會／奇幻",
+      "performance_types": [
+        "電影",
+        "影集",
+        "舞台劇",
+        "動畫配音"
+      ],
+      "background_setting": "安納托利亞的青年說書人，巡迴保存祖輩傳說",
+      "description": "虛構劇中人物「Emir Kaya（埃米爾・卡亞）」：安納托利亞的青年說書人，巡迴保存祖輩傳說。適用於冒險／社會／奇幻題材的電影、影集、舞台劇、動畫配音。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0087",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "Noura Haddad（努拉・哈達德）",
+    "meta": {
+      "character_name": "Noura Haddad（努拉・哈達德）",
+      "culture_background": "南亞／中東／非洲",
+      "era": "古代～近未來",
+      "genre": "冒險／社會／奇幻",
+      "performance_types": [
+        "電影",
+        "影集",
+        "舞台劇",
+        "動畫配音"
+      ],
+      "background_setting": "阿拉伯語城市的建築研究員，保護百年市集",
+      "description": "虛構劇中人物「Noura Haddad（努拉・哈達德）」：阿拉伯語城市的建築研究員，保護百年市集。適用於冒險／社會／奇幻題材的電影、影集、舞台劇、動畫配音。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0088",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "Samir Rahman（薩米爾・拉赫曼）",
+    "meta": {
+      "character_name": "Samir Rahman（薩米爾・拉赫曼）",
+      "culture_background": "南亞／中東／非洲",
+      "era": "古代～近未來",
+      "genre": "冒險／社會／奇幻",
+      "performance_types": [
+        "電影",
+        "影集",
+        "舞台劇",
+        "動畫配音"
+      ],
+      "background_setting": "沙漠商路的導航員，於廢棄驛站發現星圖",
+      "description": "虛構劇中人物「Samir Rahman（薩米爾・拉赫曼）」：沙漠商路的導航員，於廢棄驛站發現星圖。適用於冒險／社會／奇幻題材的電影、影集、舞台劇、動畫配音。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0089",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "Amara Okafor（阿瑪拉・奧卡福）",
+    "meta": {
+      "character_name": "Amara Okafor（阿瑪拉・奧卡福）",
+      "culture_background": "南亞／中東／非洲",
+      "era": "古代～近未來",
+      "genre": "冒險／社會／奇幻",
+      "performance_types": [
+        "電影",
+        "影集",
+        "舞台劇",
+        "動畫配音"
+      ],
+      "background_setting": "西非音樂檔案員，讓失散的鼓樂手重新合作",
+      "description": "虛構劇中人物「Amara Okafor（阿瑪拉・奧卡福）」：西非音樂檔案員，讓失散的鼓樂手重新合作。適用於冒險／社會／奇幻題材的電影、影集、舞台劇、動畫配音。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0090",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "Kwame Mensah（夸梅・門薩）",
+    "meta": {
+      "character_name": "Kwame Mensah（夸梅・門薩）",
+      "culture_background": "南亞／中東／非洲",
+      "era": "古代～近未來",
+      "genre": "冒險／社會／奇幻",
+      "performance_types": [
+        "電影",
+        "影集",
+        "舞台劇",
+        "動畫配音"
+      ],
+      "background_setting": "迦納海岸的海洋教育者，挽救即將關閉的研究站",
+      "description": "虛構劇中人物「Kwame Mensah（夸梅・門薩）」：迦納海岸的海洋教育者，挽救即將關閉的研究站。適用於冒險／社會／奇幻題材的電影、影集、舞台劇、動畫配音。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0091",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "黎曜・七號",
+    "meta": {
+      "character_name": "黎曜・七號",
+      "culture_background": "架空世界／未來",
+      "era": "平行世界／22～24世紀",
+      "genre": "賽博龐克／高幻想／太空歌劇",
+      "performance_types": [
+        "動畫",
+        "遊戲配音",
+        "電影",
+        "舞台劇"
+      ],
+      "background_setting": "環城列車的記憶保管員，守護被刪除的乘客名冊",
+      "description": "虛構劇中人物「黎曜・七號」：環城列車的記憶保管員，守護被刪除的乘客名冊。適用於賽博龐克／高幻想／太空歌劇題材的動畫、遊戲配音、電影、舞台劇。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0092",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "賽拉・星冕",
+    "meta": {
+      "character_name": "賽拉・星冕",
+      "culture_background": "架空世界／未來",
+      "era": "平行世界／22～24世紀",
+      "genre": "賽博龐克／高幻想／太空歌劇",
+      "performance_types": [
+        "動畫",
+        "遊戲配音",
+        "電影",
+        "舞台劇"
+      ],
+      "background_setting": "星際殖民地導航官，尋找失聯的母艦",
+      "description": "虛構劇中人物「賽拉・星冕」：星際殖民地導航官，尋找失聯的母艦。適用於賽博龐克／高幻想／太空歌劇題材的動畫、遊戲配音、電影、舞台劇。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0093",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "諾恩・灰鑄",
+    "meta": {
+      "character_name": "諾恩・灰鑄",
+      "culture_background": "架空世界／未來",
+      "era": "平行世界／22～24世紀",
+      "genre": "賽博龐克／高幻想／太空歌劇",
+      "performance_types": [
+        "動畫",
+        "遊戲配音",
+        "電影",
+        "舞台劇"
+      ],
+      "background_setting": "蒸汽城的機械工匠，修復停止運轉的天空鐘",
+      "description": "虛構劇中人物「諾恩・灰鑄」：蒸汽城的機械工匠，修復停止運轉的天空鐘。適用於賽博龐克／高幻想／太空歌劇題材的動畫、遊戲配音、電影、舞台劇。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0094",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "伊芙琳・夜潮",
+    "meta": {
+      "character_name": "伊芙琳・夜潮",
+      "culture_background": "架空世界／未來",
+      "era": "平行世界／22～24世紀",
+      "genre": "賽博龐克／高幻想／太空歌劇",
+      "performance_types": [
+        "動畫",
+        "遊戲配音",
+        "電影",
+        "舞台劇"
+      ],
+      "background_setting": "浮島王國的風暴占測師，預告一場逆向季風",
+      "description": "虛構劇中人物「伊芙琳・夜潮」：浮島王國的風暴占測師，預告一場逆向季風。適用於賽博龐克／高幻想／太空歌劇題材的動畫、遊戲配音、電影、舞台劇。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0095",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "岚音・零式",
+    "meta": {
+      "character_name": "岚音・零式",
+      "culture_background": "架空世界／未來",
+      "era": "平行世界／22～24世紀",
+      "genre": "賽博龐克／高幻想／太空歌劇",
+      "performance_types": [
+        "動畫",
+        "遊戲配音",
+        "電影",
+        "舞台劇"
+      ],
+      "background_setting": "人工生命歌者，以失傳曲譜質疑自身來源",
+      "description": "虛構劇中人物「岚音・零式」：人工生命歌者，以失傳曲譜質疑自身來源。適用於賽博龐克／高幻想／太空歌劇題材的動畫、遊戲配音、電影、舞台劇。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0096",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "泰洛・銀脊",
+    "meta": {
+      "character_name": "泰洛・銀脊",
+      "culture_background": "架空世界／未來",
+      "era": "平行世界／22～24世紀",
+      "genre": "賽博龐克／高幻想／太空歌劇",
+      "performance_types": [
+        "動畫",
+        "遊戲配音",
+        "電影",
+        "舞台劇"
+      ],
+      "background_setting": "地下城的邊境信使，帶回停戰協議原件",
+      "description": "虛構劇中人物「泰洛・銀脊」：地下城的邊境信使，帶回停戰協議原件。適用於賽博龐克／高幻想／太空歌劇題材的動畫、遊戲配音、電影、舞台劇。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0097",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "芙洛菈・苔冠",
+    "meta": {
+      "character_name": "芙洛菈・苔冠",
+      "culture_background": "架空世界／未來",
+      "era": "平行世界／22～24世紀",
+      "genre": "賽博龐克／高幻想／太空歌劇",
+      "performance_types": [
+        "動畫",
+        "遊戲配音",
+        "電影",
+        "舞台劇"
+      ],
+      "background_setting": "魔法森林的地圖學徒，記錄不斷移動的邊界",
+      "description": "虛構劇中人物「芙洛菈・苔冠」：魔法森林的地圖學徒，記錄不斷移動的邊界。適用於賽博龐克／高幻想／太空歌劇題材的動畫、遊戲配音、電影、舞台劇。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0098",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "凜月・赤砂",
+    "meta": {
+      "character_name": "凜月・赤砂",
+      "culture_background": "架空世界／未來",
+      "era": "平行世界／22～24世紀",
+      "genre": "賽博龐克／高幻想／太空歌劇",
+      "performance_types": [
+        "動畫",
+        "遊戲配音",
+        "電影",
+        "舞台劇"
+      ],
+      "background_setting": "火星城市的生態工程師，發現封存的水庫",
+      "description": "虛構劇中人物「凜月・赤砂」：火星城市的生態工程師，發現封存的水庫。適用於賽博龐克／高幻想／太空歌劇題材的動畫、遊戲配音、電影、舞台劇。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0099",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "卡西安・黑曜",
+    "meta": {
+      "character_name": "卡西安・黑曜",
+      "culture_background": "架空世界／未來",
+      "era": "平行世界／22～24世紀",
+      "genre": "賽博龐克／高幻想／太空歌劇",
+      "performance_types": [
+        "動畫",
+        "遊戲配音",
+        "電影",
+        "舞台劇"
+      ],
+      "background_setting": "帝國太空艦隊見習官，拒絕執行錯誤座標命令",
+      "description": "虛構劇中人物「卡西安・黑曜」：帝國太空艦隊見習官，拒絕執行錯誤座標命令。適用於賽博龐克／高幻想／太空歌劇題材的動畫、遊戲配音、電影、舞台劇。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "CN-0100",
+    "pool": "general",
+    "group": "劇中姓名",
+    "title": "米拉・光隙",
+    "meta": {
+      "character_name": "米拉・光隙",
+      "culture_background": "架空世界／未來",
+      "era": "平行世界／22～24世紀",
+      "genre": "賽博龐克／高幻想／太空歌劇",
+      "performance_types": [
+        "動畫",
+        "遊戲配音",
+        "電影",
+        "舞台劇"
+      ],
+      "background_setting": "時空修復局的記錄師，尋找自己的第一段人生",
+      "description": "虛構劇中人物「米拉・光隙」：時空修復局的記錄師，尋找自己的第一段人生。適用於賽博龐克／高幻想／太空歌劇題材的動畫、遊戲配音、電影、舞台劇。",
+      "usage_scope": "fictional_character_name_only",
+      "creates_npc_account": false,
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  }
+]
