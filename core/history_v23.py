@@ -42,6 +42,15 @@ def init(db):
         PRIMARY KEY(guild_id,work_id,character_id),
         UNIQUE(guild_id,work_id,seat)
     )''')
+    db.execute('''CREATE TABLE IF NOT EXISTS rp_history_asset_revisions_v23 (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        guild_id TEXT NOT NULL,pool TEXT NOT NULL,asset_id TEXT NOT NULL,
+        previous_revision INTEGER NOT NULL,previous_title TEXT NOT NULL,
+        previous_tier TEXT NOT NULL,previous_rarity TEXT NOT NULL,
+        previous_metadata_json TEXT NOT NULL,
+        previous_approved INTEGER NOT NULL,previous_enabled INTEGER NOT NULL,
+        changed_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )''')
     db.execute('''CREATE TABLE IF NOT EXISTS rp_history_pending_v23 (
         guild_id TEXT NOT NULL, character_id INTEGER NOT NULL,
         reason TEXT NOT NULL, updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
@@ -49,38 +58,129 @@ def init(db):
     )''')
 
 
-def put(gid,pool,asset_id,title,tier='',rarity='',meta=None,approved=False):
-    pool=pool.strip();asset_id=asset_id.strip().upper();category=asset_id.split('-',1)[0]
-    if pool not in POOLS or category not in CATEGORIES or not re.fullmatch(r'(WN|CN|HB|HE)-\d{4}',asset_id):
-        raise ValueError('素材池或編號無效，請使用 WN/CN/HB/HE-0001 格式。')
-    if not title.strip():raise ValueError('素材名稱不得留白。')
-    if rarity and rarity not in RARITIES:raise ValueError('稀有度必須 R1～R5。')
-    if tier and not re.fullmatch(r'B[1-5]',tier):raise ValueError('品牌等級只接受 B1～B5。')
-    if category=='HE' and 151 <= int(asset_id.split('-')[1]) <= 230:
-        if not isinstance(meta,dict) or not re.fullmatch(r'HB-\d{4}',str(meta.get('hb_id',''))):
-            raise ValueError('歷史代言必須指定已核准 HB 編號。')
+def validate_asset(key,title,tier='',rarity='',meta=None,*,pool='general'):
+    """驗證單筆欄位，不視已核准「規格」等於已恢復「原文」。"""
+    if pool not in POOLS:raise ValueError('素材池必須為 general 或 passerby。')
+    if not isinstance(key,str) or not re.fullmatch(r'(WN|CN|HB|HE)-\d{4}',key):
+        raise ValueError('素材編號需使用 WN/CN/HB/HE-0001 格式。')
+    kind,number=key.split('-');number=int(number)
+    if pool=='general':
+        bounds={'WN':(1,200),'CN':(1,100),'HB':(1,50),'HE':(1,230)}
+        low,high=bounds[kind]
+        if not low<=number<=high:raise ValueError(f'{key} 超出一般角色正式素材編號範圍。')
+    if not isinstance(title,str) or not title.strip() or len(title)>4000:
+        raise ValueError(f'{key} 素材文字必須為 1～4000 字。')
+    if not isinstance(meta,dict):raise ValueError(f'{key} meta 必須是 JSON 物件。')
+    if rarity and rarity not in RARITIES:raise ValueError(f'{key} 稀有度必須 R1～R5。')
+    if tier and not re.fullmatch(r'B[1-5]',tier):raise ValueError(f'{key} 品牌等級只接受 B1～B5。')
+    if kind=='HB' and not tier:raise ValueError(f'{key} 必須具有品牌等級。')
+    if kind=='HE' and number>=151:
+        if not tier or not re.fullmatch(r'HB-\d{4}',str(meta.get('hb_id',''))):
+            raise ValueError(f'{key} 歷史代言必須具有 HB 品牌編號與 B 級。')
+    if meta.get('content_origin')=='newly_rewritten_not_restored_original':
+        raise ValueError(f'{key} 為新編重建候選，不得冒充既有核准原文入庫。')
+    # 嚴格保護候選文案。需取得正式原文再以原始內容匯入。
+    if meta.get('original_text_restored') is False or meta.get('import_ready') is False:
+        raise ValueError(f'{key} 原始核准文字尚未恢復。')
+    return True
+
+
+def _validate_endorsement_ref(db,gid,pool,asset_id,tier,meta,in_batch=None):
+    if not (asset_id.startswith('HE-') and int(asset_id[3:])>=151):return
+    ref=meta['hb_id']
+    if in_batch and ref in in_batch:
+        if in_batch[ref][0]!=tier:raise ValueError(f'{asset_id} 的 {ref} B 級不一致。')
+        # 如果 HB 已存在但被官方停用，不能藉由重複批次匯入繞過停用。
+        existing=db.execute("""SELECT approved,enabled FROM rp_history_assets_v23
+            WHERE guild_id=? AND pool=? AND asset_id=?""",(str(gid),pool,ref)).fetchone()
+        if existing and (not existing['approved'] or not existing['enabled']):
+            raise ValueError(f'{asset_id} 引用的 {ref} 目前停用或未核准。')
+        return
+    brand=db.execute("""SELECT tier,approved,enabled FROM rp_history_assets_v23
+        WHERE guild_id=? AND pool=? AND asset_id=?""",(str(gid),pool,ref)).fetchone()
+    if not brand or not brand['approved'] or not brand['enabled'] or brand['tier']!=tier:
+        raise ValueError(f'{asset_id} 的 HB 品牌不存在、停用或 B 級不符。')
+
+
+def put(gid,pool,asset_id,title,tier='',rarity='',meta=None,approved=False,*,replace_existing=False):
+    """單筆新增或明確修訂；既有不同內容預設拒絕覆寫。"""
+    pool=str(pool).strip();asset_id=str(asset_id).strip().upper()
+    meta=meta if meta is not None else {}
+    validate_asset(asset_id,title,tier,rarity,meta,pool=pool)
+    metadata_json=json.dumps(meta,ensure_ascii=False,sort_keys=True)
     with transaction() as db:
         init(db)
-        if category=='HE' and 151 <= int(asset_id.split('-')[1]) <= 230:
-            linked=db.execute('SELECT tier FROM rp_history_assets_v23 WHERE guild_id=? AND pool=? AND asset_id=? AND approved=1 AND enabled=1',
-                (str(gid),pool,meta['hb_id'])).fetchone()
-            if not linked or linked['tier']!=tier:
-                raise ValueError('代言 HB 品牌未核准、被停用或等級不一致。')
-        old=db.execute('SELECT revision,approved FROM rp_history_assets_v23 WHERE guild_id=? AND pool=? AND asset_id=?', (str(gid),pool,asset_id)).fetchone()
-        if old and old['approved'] and not approved:
-            raise ValueError('已核准素材只能由群主重新核准版本，不可直接覆蓋。')
-        db.execute('''INSERT INTO rp_history_assets_v23(guild_id,pool,asset_id,category,title,tier,rarity,metadata_json,approved,enabled,revision)
-          VALUES (?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(guild_id,pool,asset_id) DO UPDATE SET
-          title=excluded.title,tier=excluded.tier,rarity=excluded.rarity,metadata_json=excluded.metadata_json,
-          approved=excluded.approved,enabled=excluded.enabled,revision=rp_history_assets_v23.revision+1''',
-          (str(gid),pool,asset_id,category,title.strip(),tier,rarity,json.dumps(meta or {},ensure_ascii=False),int(approved),int(approved), (old['revision']+1 if old else 1)))
+        _validate_endorsement_ref(db,gid,pool,asset_id,tier,meta)
+        old=db.execute("""SELECT * FROM rp_history_assets_v23
+             WHERE guild_id=? AND pool=? AND asset_id=?""",(str(gid),pool,asset_id)).fetchone()
+        if old:
+            current=(old['title'],old['tier'],old['rarity'],json.loads(old['metadata_json'] or '{}'))
+            incoming=(title.strip(),tier,rarity,meta)
+            if current==incoming:
+                return False  # 完全相同；不累加修訂版號，也不重新啟用停用項。
+            if not replace_existing:raise ValueError(f'{asset_id} 已存在不同內容，需走明確修訂流程。')
+            if not approved:raise ValueError('修改已核准素材不得直接改成未核准。')
+            if asset_id.startswith('HB-') and old['tier']!=tier:
+                active=db.execute("""SELECT asset_id,metadata_json FROM rp_history_assets_v23
+                    WHERE guild_id=? AND pool=? AND category='HE' AND approved=1""",(str(gid),pool)).fetchall()
+                if any(json.loads(r['metadata_json'] or '{}').get('hb_id')==asset_id for r in active):
+                    raise ValueError(f'{asset_id} 已被歷史代言引用，不可修改品牌等級。')
+            db.execute("""INSERT INTO rp_history_asset_revisions_v23
+                (guild_id,pool,asset_id,previous_revision,previous_title,previous_tier,
+                 previous_rarity,previous_metadata_json,previous_approved,previous_enabled)
+                VALUES (?,?,?,?,?,?,?,?,?,?)""",
+                (str(gid),pool,asset_id,old['revision'],old['title'],old['tier'],old['rarity'],
+                 old['metadata_json'],old['approved'],old['enabled']))
+            db.execute("""UPDATE rp_history_assets_v23
+                SET title=?,tier=?,rarity=?,metadata_json=?,approved=?,revision=revision+1
+                WHERE guild_id=? AND pool=? AND asset_id=?""",
+                (title.strip(),tier,rarity,metadata_json,int(approved),str(gid),pool,asset_id))
+            return True
+        db.execute("""INSERT INTO rp_history_assets_v23
+             (guild_id,pool,asset_id,category,title,tier,rarity,metadata_json,approved,enabled)
+             VALUES (?,?,?,?,?,?,?,?,?,?)""",
+            (str(gid),pool,asset_id,asset_id.split('-')[0],title.strip(),tier,rarity,
+             metadata_json,int(approved),int(approved)))
+        return True
 
+
+def list_assets(gid,pool='general',category='',keyword='',page=0,limit=15):
+    if pool not in POOLS:raise ValueError('無效素材池。')
+    if category and category not in CATEGORIES:raise ValueError('無效素材分類。')
+    page=max(0,int(page));limit=max(1,min(25,int(limit)))
+    sql="""SELECT asset_id,title,tier,rarity,approved,enabled,revision
+        FROM rp_history_assets_v23 WHERE guild_id=? AND pool=?"""
+    args=[str(gid),pool]
+    if category:sql+=' AND category=?';args.append(category)
+    if keyword:
+        sql+=' AND (asset_id LIKE ? OR title LIKE ?)';args.extend(['%'+keyword[:90]+'%']*2)
+    sql+=' ORDER BY asset_id LIMIT ? OFFSET ?';args.extend([limit,page*limit])
+    with get_connection() as db:
+        init(db)
+        return [dict(r) for r in db.execute(sql,args).fetchall()]
 
 def disable(gid,pool,asset_id,enabled):
+    """停用不刪除素材；恢復也不重抽舊角色，並記錄狀態變更。"""
+    if pool not in POOLS:raise ValueError('素材池必須 general／passerby。')
+    asset_id=str(asset_id).strip().upper()
+    new_state=int(bool(enabled))
     with transaction() as db:
         init(db)
-        row=db.execute('UPDATE rp_history_assets_v23 SET enabled=? WHERE guild_id=? AND pool=? AND asset_id=? AND approved=1',(int(enabled),str(gid),pool,asset_id)).rowcount
-        if not row:raise ValueError('沒有已核准的對應素材。')
+        old=db.execute("""SELECT * FROM rp_history_assets_v23
+            WHERE guild_id=? AND pool=? AND asset_id=? AND approved=1""",
+            (str(gid),pool,asset_id)).fetchone()
+        if not old:raise ValueError('找不到已核准的素材。')
+        if old['enabled']==new_state:return False
+        db.execute("""INSERT INTO rp_history_asset_revisions_v23
+            (guild_id,pool,asset_id,previous_revision,previous_title,previous_tier,
+             previous_rarity,previous_metadata_json,previous_approved,previous_enabled)
+            VALUES (?,?,?,?,?,?,?,?,?,?)""",
+            (str(gid),pool,asset_id,old['revision'],old['title'],old['tier'],
+             old['rarity'],old['metadata_json'],old['approved'],old['enabled']))
+        db.execute("""UPDATE rp_history_assets_v23
+            SET enabled=?,revision=revision+1 WHERE guild_id=? AND pool=? AND asset_id=?""",
+            (new_state,str(gid),pool,asset_id))
+        return True
 
 
 def stats(gid,pool):
@@ -259,54 +359,46 @@ def attempt_lock(gid, cid):
         return 'locked'
 
 
-def put_batch(gid, rows, *, pool='general'):
-    """群主核准後批次匯入：所有項目先驗證，整批同交易提交。"""
+def put_batch(gid,rows,*,pool='general'):
+    """批次驗證、跨 HB 檢查、整批原子寫入（最多580筆）；不修改角色資料。"""
     if pool not in POOLS:raise ValueError('未知素材池。')
-    if not isinstance(rows,list) or not 1<=len(rows)<=250:raise ValueError('每批須為1～250筆 JSON 陣列。')
-    prepared=[];keys=set()
+    if not isinstance(rows,list) or not 1<=len(rows)<=580:
+        raise ValueError('每批須為 1～580 筆 JSON 陣列。')
+    prepared=[];ids=set()
     for row in rows:
         if not isinstance(row,dict):raise ValueError('每筆素材必須是 JSON 物件。')
-        if (row.get('import_ready') is False or row.get('approved') is False
-            or row.get('review_status') or row.get('status') in
-            ('source_text_missing','recovered_summary_needs_original_text_review')):
-            raise ValueError('不得將未確認的素材索引／候選資料直接當成核准素材。')
         key=str(row.get('asset_id','')).upper().strip()
-        title=str(row.get('title','')).strip()
-        tier=str(row.get('tier','')).strip()
-        rarity=str(row.get('rarity','')).strip()
-        metadata=row.get('meta',{})
-        if not re.fullmatch(r'(WN|CN|HB|HE)-\d{4}',key) or not title or key in keys:
-            raise ValueError(f'無效或重複素材編號：{key}')
-        if rarity and rarity not in RARITIES:raise ValueError(f'{key} 稀有度錯誤')
-        if tier and not re.fullmatch(r'B[1-5]',tier):raise ValueError(f'{key} 的 B 等級格式無效')
-        if not isinstance(metadata,dict):raise ValueError(f'{key} meta 必須為 JSON 物件')
-        if key.startswith('HE-') and 151<=int(key.split('-')[1])<=230:
-            if not metadata.get('hb_id') or not tier.startswith('B'):
-                raise ValueError(f'{key} 必須指定已核准 HB 編號與 B 級')
-        keys.add(key);prepared.append((key,title,tier,rarity,metadata))
+        title=row.get('title')
+        tier=str(row.get('tier') or '').strip()
+        rarity=str(row.get('rarity') or '').strip()
+        meta=row.get('meta',{})
+        if (row.get('approved') is False or row.get('import_ready') is False
+            or row.get('review_status') or row.get('status') not in (None,'source_verified','previously_approved')):
+            raise ValueError(f'{key}: 只有有原始核准內容的素材能正式入庫。')
+        if row.get('pool',pool)!=pool:raise ValueError(f'{key}: 一般與路人素材不可混池。')
+        if key in ids:raise ValueError(f'批次中有重複編號：{key}')
+        validate_asset(key,title,tier,rarity,meta,pool=pool)
+        ids.add(key);prepared.append((key,title.strip(),tier,rarity,meta))
     with transaction() as db:
         init(db)
-        # 跨素材驗證：必須是同一批次或資料庫內已核准且啟用的 HB，等級不得不符。
-        in_batch={key:(tier,meta) for key,_title,tier,_rarity,meta in prepared}
+        refs={k:(t,m) for k,_title,t,_r,m in prepared if k.startswith('HB-')}
         for key,title,tier,rarity,meta in prepared:
-            if key.startswith('HE-') and 151<=int(key.split('-')[1])<=230:
-                brand=meta['hb_id']
-                if brand in in_batch:
-                    if in_batch[brand][0]!=tier:raise ValueError(f'{key} 對應的 {brand} 等級不一致')
-                else:
-                    linked=db.execute('SELECT tier FROM rp_history_assets_v23 WHERE guild_id=? AND pool=? AND asset_id=? AND approved=1 AND enabled=1',
-                                      (str(gid),pool,brand)).fetchone()
-                    if not linked or linked['tier']!=tier:
-                        raise ValueError(f'{key} 的 HB 品牌不存在、被停用或等級不一致，整批取消。')
+            _validate_endorsement_ref(db,gid,pool,key,tier,meta,in_batch=refs)
+        inserted=0
         for key,title,tier,rarity,meta in prepared:
-            existing=db.execute('SELECT title,tier,rarity,metadata_json FROM rp_history_assets_v23 WHERE guild_id=? AND pool=? AND asset_id=?',
-                (str(gid),pool,key)).fetchone()
-            if existing:
-                if (existing['title']!=title or existing['tier']!=tier or existing['rarity']!=rarity
-                    or json.loads(existing['metadata_json'] or '{}')!=meta):
-                    raise ValueError(f'{key} 已存在不同的已核准內容，整批取消。')
+            old=db.execute("""SELECT title,tier,rarity,metadata_json,approved FROM rp_history_assets_v23
+                WHERE guild_id=? AND pool=? AND asset_id=?""",(str(gid),pool,key)).fetchone()
+            if old:
+                if not old['approved']:
+                    raise ValueError(f'{key} 是尚未核准的既有資料，不可直接用匯入覆蓋。')
+                if (old['title']!=title or old['tier']!=tier or old['rarity']!=rarity
+                    or json.loads(old['metadata_json'] or '{}')!=meta):
+                    raise ValueError(f'{key} 與既有內容不同，整批取消，不能覆寫。')
                 continue
-            db.execute('''INSERT INTO rp_history_assets_v23
+            db.execute("""INSERT INTO rp_history_assets_v23
                 (guild_id,pool,asset_id,category,title,tier,rarity,metadata_json,approved,enabled)
-                VALUES (?,?,?,?,?,?,?,?,1,1)''',(str(gid),pool,key,key.split('-',1)[0],title,tier,rarity,json.dumps(meta,ensure_ascii=False)))
-    return len(prepared)
+                VALUES (?,?,?,?,?,?,?,?,1,1)""",
+                (str(gid),pool,key,key.split('-')[0],title,tier,rarity,
+                 json.dumps(meta,ensure_ascii=False,sort_keys=True)))
+            inserted+=1
+    return inserted
