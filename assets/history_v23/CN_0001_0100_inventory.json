@@ -8,7 +8,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0002",
@@ -19,7 +24,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0003",
@@ -30,7 +40,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0004",
@@ -41,7 +56,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0005",
@@ -52,7 +72,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0006",
@@ -63,7 +88,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0007",
@@ -74,7 +104,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0008",
@@ -85,7 +120,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0009",
@@ -96,7 +136,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0010",
@@ -107,7 +152,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0011",
@@ -118,7 +168,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0012",
@@ -129,7 +184,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0013",
@@ -140,7 +200,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0014",
@@ -151,7 +216,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0015",
@@ -162,7 +232,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0016",
@@ -173,7 +248,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0017",
@@ -184,7 +264,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0018",
@@ -195,7 +280,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0019",
@@ -206,7 +296,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0020",
@@ -217,7 +312,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0021",
@@ -228,7 +328,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0022",
@@ -239,7 +344,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0023",
@@ -250,7 +360,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0024",
@@ -261,7 +376,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0025",
@@ -272,7 +392,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0026",
@@ -283,7 +408,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0027",
@@ -294,7 +424,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0028",
@@ -305,7 +440,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0029",
@@ -316,7 +456,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0030",
@@ -327,7 +472,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0031",
@@ -338,7 +488,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0032",
@@ -349,7 +504,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0033",
@@ -360,7 +520,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0034",
@@ -371,7 +536,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0035",
@@ -382,7 +552,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0036",
@@ -393,7 +568,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0037",
@@ -404,7 +584,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0038",
@@ -415,7 +600,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0039",
@@ -426,7 +616,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0040",
@@ -437,7 +632,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0041",
@@ -448,7 +648,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0042",
@@ -459,7 +664,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0043",
@@ -470,7 +680,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0044",
@@ -481,7 +696,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0045",
@@ -492,7 +712,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0046",
@@ -503,7 +728,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0047",
@@ -514,7 +744,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0048",
@@ -525,7 +760,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0049",
@@ -536,7 +776,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0050",
@@ -547,7 +792,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0051",
@@ -558,7 +808,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0052",
@@ -569,7 +824,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0053",
@@ -580,7 +840,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0054",
@@ -591,7 +856,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0055",
@@ -602,7 +872,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0056",
@@ -613,7 +888,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0057",
@@ -624,7 +904,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0058",
@@ -635,7 +920,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0059",
@@ -646,7 +936,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0060",
@@ -657,7 +952,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0061",
@@ -668,7 +968,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0062",
@@ -679,7 +984,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0063",
@@ -690,7 +1000,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0064",
@@ -701,7 +1016,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0065",
@@ -712,7 +1032,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0066",
@@ -723,7 +1048,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0067",
@@ -734,7 +1064,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0068",
@@ -745,7 +1080,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0069",
@@ -756,7 +1096,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0070",
@@ -767,7 +1112,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0071",
@@ -778,7 +1128,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0072",
@@ -789,7 +1144,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0073",
@@ -800,7 +1160,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0074",
@@ -811,7 +1176,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0075",
@@ -822,7 +1192,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0076",
@@ -833,7 +1208,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0077",
@@ -844,7 +1224,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0078",
@@ -855,7 +1240,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0079",
@@ -866,7 +1256,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0080",
@@ -877,7 +1272,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0081",
@@ -888,7 +1288,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0082",
@@ -899,7 +1304,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0083",
@@ -910,7 +1320,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0084",
@@ -921,7 +1336,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0085",
@@ -932,7 +1352,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0086",
@@ -943,7 +1368,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0087",
@@ -954,7 +1384,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0088",
@@ -965,7 +1400,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0089",
@@ -976,7 +1416,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0090",
@@ -987,7 +1432,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0091",
@@ -998,7 +1448,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0092",
@@ -1009,7 +1464,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0093",
@@ -1020,7 +1480,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0094",
@@ -1031,7 +1496,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0095",
@@ -1042,7 +1512,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0096",
@@ -1053,7 +1528,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0097",
@@ -1064,7 +1544,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0098",
@@ -1075,7 +1560,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0099",
@@ -1086,7 +1576,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   },
   {
     "asset_id": "CN-0100",
@@ -1097,6 +1592,11 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "CN_0001_0100_rebuilt_import.json"
   }
 ]
