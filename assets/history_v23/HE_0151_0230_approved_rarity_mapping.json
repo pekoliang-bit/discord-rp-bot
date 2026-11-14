@@ -1,0 +1,562 @@
+[
+  {
+    "asset_id": "HE-0151",
+    "rarity": "R1",
+    "tier": "B1",
+    "approval": "previously_approved_rarity_and_tier_only",
+    "title_content_attested": true
+  },
+  {
+    "asset_id": "HE-0152",
+    "rarity": "R1",
+    "tier": "B1",
+    "approval": "previously_approved_rarity_and_tier_only",
+    "title_content_attested": false
+  },
+  {
+    "asset_id": "HE-0153",
+    "rarity": "R1",
+    "tier": "B1",
+    "approval": "previously_approved_rarity_and_tier_only",
+    "title_content_attested": false
+  },
+  {
+    "asset_id": "HE-0154",
+    "rarity": "R1",
+    "tier": "B1",
+    "approval": "previously_approved_rarity_and_tier_only",
+    "title_content_attested": false
+  },
+  {
+    "asset_id": "HE-0155",
+    "rarity": "R1",
+    "tier": "B1",
+    "approval": "previously_approved_rarity_and_tier_only",
+    "title_content_attested": false
+  },
+  {
+    "asset_id": "HE-0156",
+    "rarity": "R2",
+    "tier": "B1",
+    "approval": "previously_approved_rarity_and_tier_only",
+    "title_content_attested": false
+  },
+  {
+    "asset_id": "HE-0157",
+    "rarity": "R2",
+    "tier": "B1",
+    "approval": "previously_approved_rarity_and_tier_only",
+    "title_content_attested": false
+  },
+  {
+    "asset_id": "HE-0158",
+    "rarity": "R2",
+    "tier": "B1",
+    "approval": "previously_approved_rarity_and_tier_only",
+    "title_content_attested": false
+  },
+  {
+    "asset_id": "HE-0159",
+    "rarity": "R2",
+    "tier": "B1",
+    "approval": "previously_approved_rarity_and_tier_only",
+    "title_content_attested": false
+  },
+  {
+    "asset_id": "HE-0160",
+    "rarity": "R3",
+    "tier": "B1",
+    "approval": "previously_approved_rarity_and_tier_only",
+    "title_content_attested": false
+  },
+  {
+    "asset_id": "HE-0161",
+    "rarity": "R3",
+    "tier": "B1",
+    "approval": "previously_approved_rarity_and_tier_only",
+    "title_content_attested": false
+  },
+  {
+    "asset_id": "HE-0162",
+    "rarity": "R3",
+    "tier": "B1",
+    "approval": "previously_approved_rarity_and_tier_only",
+    "title_content_attested": false
+  },
+  {
+    "asset_id": "HE-0163",
+    "rarity": "R4",
+    "tier": "B1",
+    "approval": "previously_approved_rarity_and_tier_only",
+    "title_content_attested": false
+  },
+  {
+    "asset_id": "HE-0164",
+    "rarity": "R4",
+    "tier": "B1",
+    "approval": "previously_approved_rarity_and_tier_only",
+    "title_content_attested": false
+  },
+  {
+    "asset_id": "HE-0165",
+    "rarity": "R5",
+    "tier": "B1",
+    "approval": "previously_approved_rarity_and_tier_only",
+    "title_content_attested": false
+  },
+  {
+    "asset_id": "HE-0166",
+    "rarity": "R1",
+    "tier": "B2",
+    "approval": "previously_approved_rarity_and_tier_only",
+    "title_content_attested": true
+  },
+  {
+    "asset_id": "HE-0167",
+    "rarity": "R1",
+    "tier": "B2",
+    "approval": "previously_approved_rarity_and_tier_only",
+    "title_content_attested": false
+  },
+  {
+    "asset_id": "HE-0168",
+    "rarity": "R1",
+    "tier": "B2",
+    "approval": "previously_approved_rarity_and_tier_only",
+    "title_content_attested": false
+  },
+  {
+    "asset_id": "HE-0169",
+    "rarity": "R1",
+    "tier": "B2",
+    "approval": "previously_approved_rarity_and_tier_only",
+    "title_content_attested": false
+  },
+  {
+    "asset_id": "HE-0170",
+    "rarity": "R1",
+    "tier": "B2",
+    "approval": "previously_approved_rarity_and_tier_only",
+    "title_content_attested": false
+  },
+  {
+    "asset_id": "HE-0171",
+    "rarity": "R1",
+    "tier": "B2",
+    "approval": "previously_approved_rarity_and_tier_only",
+    "title_content_attested": false
+  },
+  {
+    "asset_id": "HE-0172",
+    "rarity": "R2",
+    "tier": "B2",
+    "approval": "previously_approved_rarity_and_tier_only",
+    "title_content_attested": false
+  },
+  {
+    "asset_id": "HE-0173",
+    "rarity": "R2",
+    "tier": "B2",
+    "approval": "previously_approved_rarity_and_tier_only",
+    "title_content_attested": false
+  },
+  {
+    "asset_id": "HE-0174",
+    "rarity": "R2",
+    "tier": "B2",
+    "approval": "previously_approved_rarity_and_tier_only",
+    "title_content_attested": false
+  },
+  {
+    "asset_id": "HE-0175",
+    "rarity": "R2",
+    "tier": "B2",
+    "approval": "previously_approved_rarity_and_tier_only",
+    "title_content_attested": false
+  },
+  {
+    "asset_id": "HE-0176",
+    "rarity": "R2",
+    "tier": "B2",
+    "approval": "previously_approved_rarity_and_tier_only",
+    "title_content_attested": false
+  },
+  {
+    "asset_id": "HE-0177",
+    "rarity": "R2",
+    "tier": "B2",
+    "approval": "previously_approved_rarity_and_tier_only",
+    "title_content_attested": false
+  },
+  {
+    "asset_id": "HE-0178",
+    "rarity": "R3",
+    "tier": "B2",
+    "approval": "previously_approved_rarity_and_tier_only",
+    "title_content_attested": false
+  },
+  {
+    "asset_id": "HE-0179",
+    "rarity": "R3",
+    "tier": "B2",
+    "approval": "previously_approved_rarity_and_tier_only",
+    "title_content_attested": false
+  },
+  {
+    "asset_id": "HE-0180",
+    "rarity": "R3",
+    "tier": "B2",
+    "approval": "previously_approved_rarity_and_tier_only",
+    "title_content_attested": false
+  },
+  {
+    "asset_id": "HE-0181",
+    "rarity": "R3",
+    "tier": "B2",
+    "approval": "previously_approved_rarity_and_tier_only",
+    "title_content_attested": false
+  },
+  {
+    "asset_id": "HE-0182",
+    "rarity": "R3",
+    "tier": "B2",
+    "approval": "previously_approved_rarity_and_tier_only",
+    "title_content_attested": false
+  },
+  {
+    "asset_id": "HE-0183",
+    "rarity": "R4",
+    "tier": "B2",
+    "approval": "previously_approved_rarity_and_tier_only",
+    "title_content_attested": false
+  },
+  {
+    "asset_id": "HE-0184",
+    "rarity": "R4",
+    "tier": "B2",
+    "approval": "previously_approved_rarity_and_tier_only",
+    "title_content_attested": false
+  },
+  {
+    "asset_id": "HE-0185",
+    "rarity": "R5",
+    "tier": "B2",
+    "approval": "previously_approved_rarity_and_tier_only",
+    "title_content_attested": false
+  },
+  {
+    "asset_id": "HE-0186",
+    "rarity": "R1",
+    "tier": "B3",
+    "approval": "previously_approved_rarity_and_tier_only",
+    "title_content_attested": true
+  },
+  {
+    "asset_id": "HE-0187",
+    "rarity": "R1",
+    "tier": "B3",
+    "approval": "previously_approved_rarity_and_tier_only",
+    "title_content_attested": false
+  },
+  {
+    "asset_id": "HE-0188",
+    "rarity": "R1",
+    "tier": "B3",
+    "approval": "previously_approved_rarity_and_tier_only",
+    "title_content_attested": false
+  },
+  {
+    "asset_id": "HE-0189",
+    "rarity": "R1",
+    "tier": "B3",
+    "approval": "previously_approved_rarity_and_tier_only",
+    "title_content_attested": false
+  },
+  {
+    "asset_id": "HE-0190",
+    "rarity": "R1",
+    "tier": "B3",
+    "approval": "previously_approved_rarity_and_tier_only",
+    "title_content_attested": false
+  },
+  {
+    "asset_id": "HE-0191",
+    "rarity": "R1",
+    "tier": "B3",
+    "approval": "previously_approved_rarity_and_tier_only",
+    "title_content_attested": false
+  },
+  {
+    "asset_id": "HE-0192",
+    "rarity": "R2",
+    "tier": "B3",
+    "approval": "previously_approved_rarity_and_tier_only",
+    "title_content_attested": false
+  },
+  {
+    "asset_id": "HE-0193",
+    "rarity": "R2",
+    "tier": "B3",
+    "approval": "previously_approved_rarity_and_tier_only",
+    "title_content_attested": false
+  },
+  {
+    "asset_id": "HE-0194",
+    "rarity": "R2",
+    "tier": "B3",
+    "approval": "previously_approved_rarity_and_tier_only",
+    "title_content_attested": false
+  },
+  {
+    "asset_id": "HE-0195",
+    "rarity": "R2",
+    "tier": "B3",
+    "approval": "previously_approved_rarity_and_tier_only",
+    "title_content_attested": false
+  },
+  {
+    "asset_id": "HE-0196",
+    "rarity": "R2",
+    "tier": "B3",
+    "approval": "previously_approved_rarity_and_tier_only",
+    "title_content_attested": false
+  },
+  {
+    "asset_id": "HE-0197",
+    "rarity": "R2",
+    "tier": "B3",
+    "approval": "previously_approved_rarity_and_tier_only",
+    "title_content_attested": false
+  },
+  {
+    "asset_id": "HE-0198",
+    "rarity": "R3",
+    "tier": "B3",
+    "approval": "previously_approved_rarity_and_tier_only",
+    "title_content_attested": false
+  },
+  {
+    "asset_id": "HE-0199",
+    "rarity": "R3",
+    "tier": "B3",
+    "approval": "previously_approved_rarity_and_tier_only",
+    "title_content_attested": false
+  },
+  {
+    "asset_id": "HE-0200",
+    "rarity": "R3",
+    "tier": "B3",
+    "approval": "previously_approved_rarity_and_tier_only",
+    "title_content_attested": false
+  },
+  {
+    "asset_id": "HE-0201",
+    "rarity": "R3",
+    "tier": "B3",
+    "approval": "previously_approved_rarity_and_tier_only",
+    "title_content_attested": false
+  },
+  {
+    "asset_id": "HE-0202",
+    "rarity": "R4",
+    "tier": "B3",
+    "approval": "previously_approved_rarity_and_tier_only",
+    "title_content_attested": false
+  },
+  {
+    "asset_id": "HE-0203",
+    "rarity": "R4",
+    "tier": "B3",
+    "approval": "previously_approved_rarity_and_tier_only",
+    "title_content_attested": false
+  },
+  {
+    "asset_id": "HE-0204",
+    "rarity": "R4",
+    "tier": "B3",
+    "approval": "previously_approved_rarity_and_tier_only",
+    "title_content_attested": false
+  },
+  {
+    "asset_id": "HE-0205",
+    "rarity": "R5",
+    "tier": "B3",
+    "approval": "previously_approved_rarity_and_tier_only",
+    "title_content_attested": false
+  },
+  {
+    "asset_id": "HE-0206",
+    "rarity": "R1",
+    "tier": "B4",
+    "approval": "previously_approved_rarity_and_tier_only",
+    "title_content_attested": true
+  },
+  {
+    "asset_id": "HE-0207",
+    "rarity": "R1",
+    "tier": "B4",
+    "approval": "previously_approved_rarity_and_tier_only",
+    "title_content_attested": false
+  },
+  {
+    "asset_id": "HE-0208",
+    "rarity": "R1",
+    "tier": "B4",
+    "approval": "previously_approved_rarity_and_tier_only",
+    "title_content_attested": false
+  },
+  {
+    "asset_id": "HE-0209",
+    "rarity": "R1",
+    "tier": "B4",
+    "approval": "previously_approved_rarity_and_tier_only",
+    "title_content_attested": false
+  },
+  {
+    "asset_id": "HE-0210",
+    "rarity": "R2",
+    "tier": "B4",
+    "approval": "previously_approved_rarity_and_tier_only",
+    "title_content_attested": false
+  },
+  {
+    "asset_id": "HE-0211",
+    "rarity": "R2",
+    "tier": "B4",
+    "approval": "previously_approved_rarity_and_tier_only",
+    "title_content_attested": false
+  },
+  {
+    "asset_id": "HE-0212",
+    "rarity": "R2",
+    "tier": "B4",
+    "approval": "previously_approved_rarity_and_tier_only",
+    "title_content_attested": false
+  },
+  {
+    "asset_id": "HE-0213",
+    "rarity": "R2",
+    "tier": "B4",
+    "approval": "previously_approved_rarity_and_tier_only",
+    "title_content_attested": false
+  },
+  {
+    "asset_id": "HE-0214",
+    "rarity": "R3",
+    "tier": "B4",
+    "approval": "previously_approved_rarity_and_tier_only",
+    "title_content_attested": false
+  },
+  {
+    "asset_id": "HE-0215",
+    "rarity": "R3",
+    "tier": "B4",
+    "approval": "previously_approved_rarity_and_tier_only",
+    "title_content_attested": false
+  },
+  {
+    "asset_id": "HE-0216",
+    "rarity": "R3",
+    "tier": "B4",
+    "approval": "previously_approved_rarity_and_tier_only",
+    "title_content_attested": false
+  },
+  {
+    "asset_id": "HE-0217",
+    "rarity": "R3",
+    "tier": "B4",
+    "approval": "previously_approved_rarity_and_tier_only",
+    "title_content_attested": false
+  },
+  {
+    "asset_id": "HE-0218",
+    "rarity": "R4",
+    "tier": "B4",
+    "approval": "previously_approved_rarity_and_tier_only",
+    "title_content_attested": false
+  },
+  {
+    "asset_id": "HE-0219",
+    "rarity": "R4",
+    "tier": "B4",
+    "approval": "previously_approved_rarity_and_tier_only",
+    "title_content_attested": false
+  },
+  {
+    "asset_id": "HE-0220",
+    "rarity": "R5",
+    "tier": "B4",
+    "approval": "previously_approved_rarity_and_tier_only",
+    "title_content_attested": false
+  },
+  {
+    "asset_id": "HE-0221",
+    "rarity": "R1",
+    "tier": "B5",
+    "approval": "previously_approved_rarity_and_tier_only",
+    "title_content_attested": true
+  },
+  {
+    "asset_id": "HE-0222",
+    "rarity": "R1",
+    "tier": "B5",
+    "approval": "previously_approved_rarity_and_tier_only",
+    "title_content_attested": false
+  },
+  {
+    "asset_id": "HE-0223",
+    "rarity": "R1",
+    "tier": "B5",
+    "approval": "previously_approved_rarity_and_tier_only",
+    "title_content_attested": false
+  },
+  {
+    "asset_id": "HE-0224",
+    "rarity": "R2",
+    "tier": "B5",
+    "approval": "previously_approved_rarity_and_tier_only",
+    "title_content_attested": false
+  },
+  {
+    "asset_id": "HE-0225",
+    "rarity": "R2",
+    "tier": "B5",
+    "approval": "previously_approved_rarity_and_tier_only",
+    "title_content_attested": false
+  },
+  {
+    "asset_id": "HE-0226",
+    "rarity": "R3",
+    "tier": "B5",
+    "approval": "previously_approved_rarity_and_tier_only",
+    "title_content_attested": false
+  },
+  {
+    "asset_id": "HE-0227",
+    "rarity": "R3",
+    "tier": "B5",
+    "approval": "previously_approved_rarity_and_tier_only",
+    "title_content_attested": false
+  },
+  {
+    "asset_id": "HE-0228",
+    "rarity": "R4",
+    "tier": "B5",
+    "approval": "previously_approved_rarity_and_tier_only",
+    "title_content_attested": false
+  },
+  {
+    "asset_id": "HE-0229",
+    "rarity": "R4",
+    "tier": "B5",
+    "approval": "previously_approved_rarity_and_tier_only",
+    "title_content_attested": false
+  },
+  {
+    "asset_id": "HE-0230",
+    "rarity": "R5",
+    "tier": "B5",
+    "approval": "previously_approved_rarity_and_tier_only",
+    "title_content_attested": false
+  }
+]
