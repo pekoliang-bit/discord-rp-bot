@@ -1,0 +1,50 @@
+{
+  "expected": 580,
+  "source_verified": 10,
+  "missing_original_text": 570,
+  "sections": [
+    {
+      "group": "作品",
+      "range": "WN-0001～WN-0200",
+      "expected": 200,
+      "verified": 0,
+      "missing": 200
+    },
+    {
+      "group": "劇中姓名",
+      "range": "CN-0001～CN-0100",
+      "expected": 100,
+      "verified": 0,
+      "missing": 100
+    },
+    {
+      "group": "歷史品牌",
+      "range": "HB-0001～HB-0050",
+      "expected": 50,
+      "verified": 5,
+      "missing": 45
+    },
+    {
+      "group": "正面經歷",
+      "range": "HE-0001～HE-0075",
+      "expected": 75,
+      "verified": 0,
+      "missing": 75
+    },
+    {
+      "group": "負面經歷",
+      "range": "HE-0076～HE-0150",
+      "expected": 75,
+      "verified": 0,
+      "missing": 75
+    },
+    {
+      "group": "歷史代言",
+      "range": "HE-0151～HE-0230",
+      "expected": 80,
+      "verified": 5,
+      "missing": 75
+    }
+  ],
+  "warning": "未提供原始全文的條目只是索引，絕對不能用空標題核准或啟用，也不能以自行創作內容替代。"
+}
