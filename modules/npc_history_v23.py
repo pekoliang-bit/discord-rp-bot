@@ -498,6 +498,14 @@ class HistoryRebuildButton(discord.ui.Button):
         for row in rows:
             try:
                 state=attempt_lock(i.guild_id,row['id']);results[state]=results.get(state,0)+1
+                if state in ('locked','already'):
+                    try:
+                        from core.history_v23_delivery import queue_history_notice
+                        queue_history_notice(i.guild_id,row['id'])
+                    except Exception:
+                        import logging
+                        logging.getLogger(__name__).exception('歷史補建通知排程失敗：角色 %s',row['id'])
+                        results['notice_error']=results.get('notice_error',0)+1
             except (ValueError,sqlite3.Error):results['error']+=1
         await i.followup.send('📜 歷史補建檢查：'+('、'.join(f'{k} {v}' for k,v in results.items() if v) or '目前沒有待補建角色')+'。\n不重抽已有五筆紀錄、不發數值或新人禮包。',ephemeral=True)
 
