@@ -1,4 +1,3 @@
-
 """角色啟用 V2.3：原創角色與玩家 NPC 共用的交易安全入口。
 
 不發金幣、不改屬性、不代抽新人禮包；權益仍使用既有正式服務。
@@ -102,4 +101,10 @@ def history_notification(guild_id, character_id):
             character_id=cid, dedupe_key=f'v23:activation:{gid}:{cid}')
     except Exception:
         LOG.exception('角色 %s 私人通知排程失敗', cid)
+    if status in ('locked','already'):
+        try:
+            from core.history_v23_delivery import queue_history_notice
+            queue_history_notice(gid,cid)
+        except Exception:
+            LOG.exception('角色 %s 五筆歷史私人通知排程失敗', cid)
     return status
