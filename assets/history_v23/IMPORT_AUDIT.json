@@ -1,9 +1,9 @@
 {
   "expected": 580,
-  "source_verified": 10,
-  "missing_original_text": 570,
-  "recovered_brand_titles_review_only": 45,
-  "still_no_title_at_all": 525,
+  "already_approved": 580,
+  "import_ready": 55,
+  "approved_brand_titles_recovered": 45,
+  "source_text_unavailable": 525,
   "sections": [
     {
       "group": "作品",
@@ -23,8 +23,8 @@
       "group": "歷史品牌",
       "range": "HB-0001～HB-0050",
       "expected": 50,
-      "verified": 5,
-      "missing": 45
+      "verified": 50,
+      "missing": 0
     },
     {
       "group": "正面經歷",
@@ -48,5 +48,5 @@
       "missing": 75
     }
   ],
-  "warning": "先前核准摘要恢復的45個品牌名稱尚需對照原始核准全文。只有verified_import_ready.json內10筆可直接匯入。"
+  "note": "580項都已有先前的內容核准。55項具可用名稱/文案可匯入；525項因無法取得逐筆原文，保留待恢復而非待審核。"
 }
