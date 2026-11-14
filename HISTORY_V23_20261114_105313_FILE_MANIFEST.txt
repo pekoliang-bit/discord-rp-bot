@@ -1,0 +1,23 @@
+
+V2.3 續作｜基礎版：discord-rp-bot-main(20261114-105313).zip
+
+【新增檔案】
+assets/history_v23/HB_0001_0045_recovered_review_only.json
+assets/history_v23/HB_0001_0045_review_list.txt
+tools/recover_hb_review_v23.py
+tests/verify_history_v23_review_safety.py
+HISTORY_V23_20261114_105313_UPDATE.md
+HISTORY_V23_20261114_105313_FILE_MANIFEST.txt
+
+【覆蓋更新】
+assets/history_v23/HB_0001_0050_inventory.json
+assets/history_v23/catalog_580_inventory.json
+assets/history_v23/IMPORT_AUDIT.json
+core/history_v23.py
+modules/npc_history_v23.py
+tools/build_history_v23_catalog.py
+tools/import_history_v23_assets.py
+tests/verify_history_v23_assets.py
+
+【主程式】
+main.py：原檔保持不變。
