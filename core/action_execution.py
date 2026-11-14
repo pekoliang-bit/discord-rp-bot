@@ -56,17 +56,31 @@ def _spend_action_points(db, guild_id, character_id, quantity, now):
     if quantity == 0:
         return {'free': 0, 'paid': 0}
     free = 0
+    # 優先使用 NPC 已核准且永久有效的初始免費行動值。
+    # 只更新已有帳本；一般玩家、未設初始待遇者不會獲得額外資源。
+    from core.npc_initial_grants_v23 import get_balance
+    available = get_balance(db,guild_id,character_id)
+    granted = min(quantity,available)
+    if granted:
+        updated = db.execute("""UPDATE rp_character_free_actions_v23
+          SET balance=balance-? WHERE guild_id=? AND character_id=? AND balance>=?""",
+          (granted,str(guild_id),int(character_id),granted))
+        if updated.rowcount!=1:
+            raise ActionExecutionError('初始免費行動值扣除失敗')
+        free+=granted
+    remaining = quantity-free
     if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='vip_balances'").fetchone():
         row = db.execute("""SELECT bonus_actions FROM vip_balances
             WHERE guild_id=? AND character_id=?""", (guild_id, character_id)).fetchone()
         if row is not None:
-            free = min(quantity, int(row['bonus_actions']))
-            if free:
+            vip_use = min(remaining, int(row['bonus_actions']))
+            if vip_use:
                 cursor = db.execute("""UPDATE vip_balances SET bonus_actions=bonus_actions-?
                     WHERE guild_id=? AND character_id=? AND bonus_actions>=?""",
-                    (free, guild_id, character_id, free))
+                    (vip_use, guild_id, character_id, vip_use))
                 if cursor.rowcount != 1:
-                    raise ActionExecutionError('免費行動值扣除失敗')
+                    raise ActionExecutionError('VIP 免費行動值扣除失敗')
+                free+=vip_use
     paid = quantity - free
     _spend_paid(db, guild_id, character_id, paid, now)
     return {'free': free, 'paid': paid}
