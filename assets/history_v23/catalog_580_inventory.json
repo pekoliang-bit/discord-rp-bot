@@ -3303,495 +3303,585 @@
     "asset_id": "HB-0001",
     "pool": "general",
     "group": "歷史品牌",
-    "title": null,
-    "tier": null,
+    "title": "Mellow Day 柔日",
+    "tier": "B1",
     "rarity": null,
-    "meta": {},
-    "status": "source_text_missing",
+    "meta": {
+      "industry": "美妝護膚"
+    },
+    "status": "recovered_summary_needs_original_text_review",
     "import_ready": false
   },
   {
     "asset_id": "HB-0002",
     "pool": "general",
     "group": "歷史品牌",
-    "title": null,
-    "tier": null,
+    "title": "PUREMINT 薄荷日記",
+    "tier": "B1",
     "rarity": null,
-    "meta": {},
-    "status": "source_text_missing",
+    "meta": {
+      "industry": "美妝護膚"
+    },
+    "status": "recovered_summary_needs_original_text_review",
     "import_ready": false
   },
   {
     "asset_id": "HB-0003",
     "pool": "general",
     "group": "歷史品牌",
-    "title": null,
-    "tier": null,
+    "title": "LUMIYA 露米雅",
+    "tier": "B2",
     "rarity": null,
-    "meta": {},
-    "status": "source_text_missing",
+    "meta": {
+      "industry": "美妝護膚"
+    },
+    "status": "recovered_summary_needs_original_text_review",
     "import_ready": false
   },
   {
     "asset_id": "HB-0004",
     "pool": "general",
     "group": "歷史品牌",
-    "title": null,
-    "tier": null,
+    "title": "Bloom & Dew 花露集",
+    "tier": "B2",
     "rarity": null,
-    "meta": {},
-    "status": "source_text_missing",
+    "meta": {
+      "industry": "美妝護膚"
+    },
+    "status": "recovered_summary_needs_original_text_review",
     "import_ready": false
   },
   {
     "asset_id": "HB-0005",
     "pool": "general",
     "group": "歷史品牌",
-    "title": null,
-    "tier": null,
+    "title": "SOLENNE 索蘭",
+    "tier": "B3",
     "rarity": null,
-    "meta": {},
-    "status": "source_text_missing",
+    "meta": {
+      "industry": "美妝護膚"
+    },
+    "status": "recovered_summary_needs_original_text_review",
     "import_ready": false
   },
   {
     "asset_id": "HB-0006",
     "pool": "general",
     "group": "歷史品牌",
-    "title": null,
-    "tier": null,
+    "title": "AMBER VEIL 琥珀紗",
+    "tier": "B3",
     "rarity": null,
-    "meta": {},
-    "status": "source_text_missing",
+    "meta": {
+      "industry": "美妝護膚"
+    },
+    "status": "recovered_summary_needs_original_text_review",
     "import_ready": false
   },
   {
     "asset_id": "HB-0007",
     "pool": "general",
     "group": "歷史品牌",
-    "title": null,
-    "tier": null,
+    "title": "ÉTOILE SKIN 星緹",
+    "tier": "B3",
     "rarity": null,
-    "meta": {},
-    "status": "source_text_missing",
+    "meta": {
+      "industry": "美妝護膚"
+    },
+    "status": "recovered_summary_needs_original_text_review",
     "import_ready": false
   },
   {
     "asset_id": "HB-0008",
     "pool": "general",
     "group": "歷史品牌",
-    "title": null,
-    "tier": null,
+    "title": "VELORIA 薇洛莉亞",
+    "tier": "B4",
     "rarity": null,
-    "meta": {},
-    "status": "source_text_missing",
+    "meta": {
+      "industry": "美妝護膚"
+    },
+    "status": "recovered_summary_needs_original_text_review",
     "import_ready": false
   },
   {
     "asset_id": "HB-0009",
     "pool": "general",
     "group": "歷史品牌",
-    "title": null,
-    "tier": null,
+    "title": "AURELLE 奧蕾爾",
+    "tier": "B4",
     "rarity": null,
-    "meta": {},
-    "status": "source_text_missing",
+    "meta": {
+      "industry": "美妝護膚"
+    },
+    "status": "recovered_summary_needs_original_text_review",
     "import_ready": false
   },
   {
     "asset_id": "HB-0010",
     "pool": "general",
     "group": "歷史品牌",
-    "title": null,
-    "tier": null,
+    "title": "MAISON CÉLESTE 天穹之庭",
+    "tier": "B5",
     "rarity": null,
-    "meta": {},
-    "status": "source_text_missing",
+    "meta": {
+      "industry": "美妝護膚"
+    },
+    "status": "recovered_summary_needs_original_text_review",
     "import_ready": false
   },
   {
     "asset_id": "HB-0011",
     "pool": "general",
     "group": "歷史品牌",
-    "title": null,
-    "tier": null,
+    "title": "DAYFOLD 日褶",
+    "tier": "B1",
     "rarity": null,
-    "meta": {},
-    "status": "source_text_missing",
+    "meta": {
+      "industry": "服飾時尚"
+    },
+    "status": "recovered_summary_needs_original_text_review",
     "import_ready": false
   },
   {
     "asset_id": "HB-0012",
     "pool": "general",
     "group": "歷史品牌",
-    "title": null,
-    "tier": null,
+    "title": "COTTON MOON 棉月",
+    "tier": "B1",
     "rarity": null,
-    "meta": {},
-    "status": "source_text_missing",
+    "meta": {
+      "industry": "服飾時尚"
+    },
+    "status": "recovered_summary_needs_original_text_review",
     "import_ready": false
   },
   {
     "asset_id": "HB-0013",
     "pool": "general",
     "group": "歷史品牌",
-    "title": null,
-    "tier": null,
+    "title": "LINE & LEAF 線葉",
+    "tier": "B2",
     "rarity": null,
-    "meta": {},
-    "status": "source_text_missing",
+    "meta": {
+      "industry": "服飾時尚"
+    },
+    "status": "recovered_summary_needs_original_text_review",
     "import_ready": false
   },
   {
     "asset_id": "HB-0014",
     "pool": "general",
     "group": "歷史品牌",
-    "title": null,
-    "tier": null,
+    "title": "VIVID FORM 鮮形",
+    "tier": "B2",
     "rarity": null,
-    "meta": {},
-    "status": "source_text_missing",
+    "meta": {
+      "industry": "服飾時尚"
+    },
+    "status": "recovered_summary_needs_original_text_review",
     "import_ready": false
   },
   {
     "asset_id": "HB-0015",
     "pool": "general",
     "group": "歷史品牌",
-    "title": null,
-    "tier": null,
+    "title": "MONAIRE 莫奈爾",
+    "tier": "B3",
     "rarity": null,
-    "meta": {},
-    "status": "source_text_missing",
+    "meta": {
+      "industry": "服飾時尚"
+    },
+    "status": "recovered_summary_needs_original_text_review",
     "import_ready": false
   },
   {
     "asset_id": "HB-0016",
     "pool": "general",
     "group": "歷史品牌",
-    "title": null,
-    "tier": null,
+    "title": "ATELIER NOIR 黑色工坊",
+    "tier": "B3",
     "rarity": null,
-    "meta": {},
-    "status": "source_text_missing",
+    "meta": {
+      "industry": "服飾時尚"
+    },
+    "status": "recovered_summary_needs_original_text_review",
     "import_ready": false
   },
   {
     "asset_id": "HB-0017",
     "pool": "general",
     "group": "歷史品牌",
-    "title": null,
-    "tier": null,
+    "title": "SEVÉRA 賽薇拉",
+    "tier": "B3",
     "rarity": null,
-    "meta": {},
-    "status": "source_text_missing",
+    "meta": {
+      "industry": "服飾時尚"
+    },
+    "status": "recovered_summary_needs_original_text_review",
     "import_ready": false
   },
   {
     "asset_id": "HB-0018",
     "pool": "general",
     "group": "歷史品牌",
-    "title": null,
-    "tier": null,
+    "title": "VELVET HOUR 絲絨時刻",
+    "tier": "B4",
     "rarity": null,
-    "meta": {},
-    "status": "source_text_missing",
+    "meta": {
+      "industry": "服飾時尚"
+    },
+    "status": "recovered_summary_needs_original_text_review",
     "import_ready": false
   },
   {
     "asset_id": "HB-0019",
     "pool": "general",
     "group": "歷史品牌",
-    "title": null,
-    "tier": null,
+    "title": "MAISON ARDENT 熾焰之屋",
+    "tier": "B5",
     "rarity": null,
-    "meta": {},
-    "status": "source_text_missing",
+    "meta": {
+      "industry": "服飾時尚"
+    },
+    "status": "recovered_summary_needs_original_text_review",
     "import_ready": false
   },
   {
     "asset_id": "HB-0020",
     "pool": "general",
     "group": "歷史品牌",
-    "title": null,
-    "tier": null,
+    "title": "LUMEN RING 光環",
+    "tier": "B1",
     "rarity": null,
-    "meta": {},
-    "status": "source_text_missing",
+    "meta": {
+      "industry": "珠寶配飾"
+    },
+    "status": "recovered_summary_needs_original_text_review",
     "import_ready": false
   },
   {
     "asset_id": "HB-0021",
     "pool": "general",
     "group": "歷史品牌",
-    "title": null,
-    "tier": null,
+    "title": "SILVER TALE 銀色寓言",
+    "tier": "B2",
     "rarity": null,
-    "meta": {},
-    "status": "source_text_missing",
+    "meta": {
+      "industry": "珠寶配飾"
+    },
+    "status": "recovered_summary_needs_original_text_review",
     "import_ready": false
   },
   {
     "asset_id": "HB-0022",
     "pool": "general",
     "group": "歷史品牌",
-    "title": null,
-    "tier": null,
+    "title": "ORBIS JEWEL 星軌珠寶",
+    "tier": "B3",
     "rarity": null,
-    "meta": {},
-    "status": "source_text_missing",
+    "meta": {
+      "industry": "珠寶配飾"
+    },
+    "status": "recovered_summary_needs_original_text_review",
     "import_ready": false
   },
   {
     "asset_id": "HB-0023",
     "pool": "general",
     "group": "歷史品牌",
-    "title": null,
-    "tier": null,
+    "title": "VÉRANE 維蘭",
+    "tier": "B3",
     "rarity": null,
-    "meta": {},
-    "status": "source_text_missing",
+    "meta": {
+      "industry": "珠寶配飾"
+    },
+    "status": "recovered_summary_needs_original_text_review",
     "import_ready": false
   },
   {
     "asset_id": "HB-0024",
     "pool": "general",
     "group": "歷史品牌",
-    "title": null,
-    "tier": null,
+    "title": "ÉCLAT NOIR 黑曜之光",
+    "tier": "B4",
     "rarity": null,
-    "meta": {},
-    "status": "source_text_missing",
+    "meta": {
+      "industry": "珠寶配飾"
+    },
+    "status": "recovered_summary_needs_original_text_review",
     "import_ready": false
   },
   {
     "asset_id": "HB-0025",
     "pool": "general",
     "group": "歷史品牌",
-    "title": null,
-    "tier": null,
+    "title": "MAISON D'OR 金曜之庭",
+    "tier": "B5",
     "rarity": null,
-    "meta": {},
-    "status": "source_text_missing",
+    "meta": {
+      "industry": "珠寶配飾"
+    },
+    "status": "recovered_summary_needs_original_text_review",
     "import_ready": false
   },
   {
     "asset_id": "HB-0026",
     "pool": "general",
     "group": "歷史品牌",
-    "title": null,
-    "tier": null,
+    "title": "BYTEPOP 位元泡泡",
+    "tier": "B1",
     "rarity": null,
-    "meta": {},
-    "status": "source_text_missing",
+    "meta": {
+      "industry": "數碼科技"
+    },
+    "status": "recovered_summary_needs_original_text_review",
     "import_ready": false
   },
   {
     "asset_id": "HB-0027",
     "pool": "general",
     "group": "歷史品牌",
-    "title": null,
-    "tier": null,
+    "title": "PIXEL DAY 像素日常",
+    "tier": "B2",
     "rarity": null,
-    "meta": {},
-    "status": "source_text_missing",
+    "meta": {
+      "industry": "數碼科技"
+    },
+    "status": "recovered_summary_needs_original_text_review",
     "import_ready": false
   },
   {
     "asset_id": "HB-0028",
     "pool": "general",
     "group": "歷史品牌",
-    "title": null,
-    "tier": null,
+    "title": "SONOVA 聲諾",
+    "tier": "B2",
     "rarity": null,
-    "meta": {},
-    "status": "source_text_missing",
+    "meta": {
+      "industry": "數碼科技"
+    },
+    "status": "recovered_summary_needs_original_text_review",
     "import_ready": false
   },
   {
     "asset_id": "HB-0029",
     "pool": "general",
     "group": "歷史品牌",
-    "title": null,
-    "tier": null,
+    "title": "NEBULA CORE 星核",
+    "tier": "B3",
     "rarity": null,
-    "meta": {},
-    "status": "source_text_missing",
+    "meta": {
+      "industry": "數碼科技"
+    },
+    "status": "recovered_summary_needs_original_text_review",
     "import_ready": false
   },
   {
     "asset_id": "HB-0030",
     "pool": "general",
     "group": "歷史品牌",
-    "title": null,
-    "tier": null,
+    "title": "VECTRA 維科特",
+    "tier": "B3",
     "rarity": null,
-    "meta": {},
-    "status": "source_text_missing",
+    "meta": {
+      "industry": "數碼科技"
+    },
+    "status": "recovered_summary_needs_original_text_review",
     "import_ready": false
   },
   {
     "asset_id": "HB-0031",
     "pool": "general",
     "group": "歷史品牌",
-    "title": null,
-    "tier": null,
+    "title": "AURIX 奧瑞克斯",
+    "tier": "B4",
     "rarity": null,
-    "meta": {},
-    "status": "source_text_missing",
+    "meta": {
+      "industry": "數碼科技"
+    },
+    "status": "recovered_summary_needs_original_text_review",
     "import_ready": false
   },
   {
     "asset_id": "HB-0032",
     "pool": "general",
     "group": "歷史品牌",
-    "title": null,
-    "tier": null,
+    "title": "NEXION 領界",
+    "tier": "B5",
     "rarity": null,
-    "meta": {},
-    "status": "source_text_missing",
+    "meta": {
+      "industry": "數碼科技"
+    },
+    "status": "recovered_summary_needs_original_text_review",
     "import_ready": false
   },
   {
     "asset_id": "HB-0033",
     "pool": "general",
     "group": "歷史品牌",
-    "title": null,
-    "tier": null,
+    "title": "SUNNY BITE 晴日小食",
+    "tier": "B1",
     "rarity": null,
-    "meta": {},
-    "status": "source_text_missing",
+    "meta": {
+      "industry": "食品飲料"
+    },
+    "status": "recovered_summary_needs_original_text_review",
     "import_ready": false
   },
   {
     "asset_id": "HB-0034",
     "pool": "general",
     "group": "歷史品牌",
-    "title": null,
-    "tier": null,
+    "title": "POPCORN PLANET 爆米星球",
+    "tier": "B1",
     "rarity": null,
-    "meta": {},
-    "status": "source_text_missing",
+    "meta": {
+      "industry": "食品飲料"
+    },
+    "status": "recovered_summary_needs_original_text_review",
     "import_ready": false
   },
   {
     "asset_id": "HB-0035",
     "pool": "general",
     "group": "歷史品牌",
-    "title": null,
-    "tier": null,
+    "title": "FRESH HOUR 鮮時光",
+    "tier": "B2",
     "rarity": null,
-    "meta": {},
-    "status": "source_text_missing",
+    "meta": {
+      "industry": "食品飲料"
+    },
+    "status": "recovered_summary_needs_original_text_review",
     "import_ready": false
   },
   {
     "asset_id": "HB-0036",
     "pool": "general",
     "group": "歷史品牌",
-    "title": null,
-    "tier": null,
+    "title": "MILK CLOUD 奶雲研究所",
+    "tier": "B2",
     "rarity": null,
-    "meta": {},
-    "status": "source_text_missing",
+    "meta": {
+      "industry": "食品飲料"
+    },
+    "status": "recovered_summary_needs_original_text_review",
     "import_ready": false
   },
   {
     "asset_id": "HB-0037",
     "pool": "general",
     "group": "歷史品牌",
-    "title": null,
-    "tier": null,
+    "title": "MIDNIGHT CUP 午夜杯",
+    "tier": "B3",
     "rarity": null,
-    "meta": {},
-    "status": "source_text_missing",
+    "meta": {
+      "industry": "食品飲料"
+    },
+    "status": "recovered_summary_needs_original_text_review",
     "import_ready": false
   },
   {
     "asset_id": "HB-0038",
     "pool": "general",
     "group": "歷史品牌",
-    "title": null,
-    "tier": null,
+    "title": "HONEY GROVE 蜜森",
+    "tier": "B3",
     "rarity": null,
-    "meta": {},
-    "status": "source_text_missing",
+    "meta": {
+      "industry": "食品飲料"
+    },
+    "status": "recovered_summary_needs_original_text_review",
     "import_ready": false
   },
   {
     "asset_id": "HB-0039",
     "pool": "general",
     "group": "歷史品牌",
-    "title": null,
-    "tier": null,
+    "title": "L'ATELIER DU THÉ 茶藝之所",
+    "tier": "B4",
     "rarity": null,
-    "meta": {},
-    "status": "source_text_missing",
+    "meta": {
+      "industry": "食品飲料"
+    },
+    "status": "recovered_summary_needs_original_text_review",
     "import_ready": false
   },
   {
     "asset_id": "HB-0040",
     "pool": "general",
     "group": "歷史品牌",
-    "title": null,
-    "tier": null,
+    "title": "MAISON SUCRÉE 糖霜之庭",
+    "tier": "B5",
     "rarity": null,
-    "meta": {},
-    "status": "source_text_missing",
+    "meta": {
+      "industry": "食品飲料"
+    },
+    "status": "recovered_summary_needs_original_text_review",
     "import_ready": false
   },
   {
     "asset_id": "HB-0041",
     "pool": "general",
     "group": "歷史品牌",
-    "title": null,
-    "tier": null,
+    "title": "CLEANO 潔樂",
+    "tier": "B1",
     "rarity": null,
-    "meta": {},
-    "status": "source_text_missing",
+    "meta": {
+      "industry": "家居生活"
+    },
+    "status": "recovered_summary_needs_original_text_review",
     "import_ready": false
   },
   {
     "asset_id": "HB-0042",
     "pool": "general",
     "group": "歷史品牌",
-    "title": null,
-    "tier": null,
+    "title": "SOFT NEST 柔巢",
+    "tier": "B2",
     "rarity": null,
-    "meta": {},
-    "status": "source_text_missing",
+    "meta": {
+      "industry": "家居生活"
+    },
+    "status": "recovered_summary_needs_original_text_review",
     "import_ready": false
   },
   {
     "asset_id": "HB-0043",
     "pool": "general",
     "group": "歷史品牌",
-    "title": null,
-    "tier": null,
+    "title": "LITTLE HABIT 日常小事",
+    "tier": "B2",
     "rarity": null,
-    "meta": {},
-    "status": "source_text_missing",
+    "meta": {
+      "industry": "家居生活"
+    },
+    "status": "recovered_summary_needs_original_text_review",
     "import_ready": false
   },
   {
     "asset_id": "HB-0044",
     "pool": "general",
     "group": "歷史品牌",
-    "title": null,
-    "tier": null,
+    "title": "HOME & HAZE 霧居",
+    "tier": "B3",
     "rarity": null,
-    "meta": {},
-    "status": "source_text_missing",
+    "meta": {
+      "industry": "家居生活"
+    },
+    "status": "recovered_summary_needs_original_text_review",
     "import_ready": false
   },
   {
     "asset_id": "HB-0045",
     "pool": "general",
     "group": "歷史品牌",
-    "title": null,
-    "tier": null,
+    "title": "LIVING FORM 生活形制",
+    "tier": "B4",
     "rarity": null,
-    "meta": {},
-    "status": "source_text_missing",
+    "meta": {
+      "industry": "家居生活"
+    },
+    "status": "recovered_summary_needs_original_text_review",
     "import_ready": false
   },
   {
