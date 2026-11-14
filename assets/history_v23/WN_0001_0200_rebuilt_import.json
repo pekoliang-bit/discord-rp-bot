@@ -1,0 +1,3888 @@
+[
+  {
+    "asset_id": "WN-0001",
+    "pool": "general",
+    "title": "霧港最後一班船",
+    "meta": {
+      "work_type": "電影／短片",
+      "occupations": [
+        "演員",
+        "導演"
+      ],
+      "roles": [
+        "主演",
+        "第二主演",
+        "主要配角",
+        "配角",
+        "客串"
+      ],
+      "participation_role_example": "主演",
+      "theme": "懸疑／親情",
+      "background_setting": "沿海舊港即將拆遷，失蹤船員的家屬在末班渡輪重逢",
+      "description": "《霧港最後一班船》是一項以「懸疑／親情」為核心的電影／短片作品；沿海舊港即將拆遷，失蹤船員的家屬在末班渡輪重逢。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0002",
+    "pool": "general",
+    "title": "紙月亮失物招領",
+    "meta": {
+      "work_type": "電影／短片",
+      "occupations": [
+        "導演",
+        "編劇"
+      ],
+      "roles": [],
+      "participation_role_example": "配角",
+      "theme": "都市奇幻／成長",
+      "background_setting": "一間只在雨夜營業的失物店歸還人們遺忘的承諾",
+      "description": "《紙月亮失物招領》是一項以「都市奇幻／成長」為核心的電影／短片作品；一間只在雨夜營業的失物店歸還人們遺忘的承諾。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0003",
+    "pool": "general",
+    "title": "午夜第七月台",
+    "meta": {
+      "work_type": "電影／短片",
+      "occupations": [
+        "編劇",
+        "攝影師"
+      ],
+      "roles": [],
+      "participation_role_example": "導演",
+      "theme": "犯罪／群像",
+      "background_setting": "跨城夜車停駛前，七名乘客目擊同一樁交易",
+      "description": "《午夜第七月台》是一項以「犯罪／群像」為核心的電影／短片作品；跨城夜車停駛前，七名乘客目擊同一樁交易。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0004",
+    "pool": "general",
+    "title": "春日不寄信",
+    "meta": {
+      "work_type": "電影／短片",
+      "occupations": [
+        "攝影師",
+        "剪輯師"
+      ],
+      "roles": [],
+      "participation_role_example": "編劇",
+      "theme": "青春／愛情",
+      "background_setting": "山區小鎮郵局關門之際，未寄出的信重新串起兩代人",
+      "description": "《春日不寄信》是一項以「青春／愛情」為核心的電影／短片作品；山區小鎮郵局關門之際，未寄出的信重新串起兩代人。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0005",
+    "pool": "general",
+    "title": "鹽田裡的星星",
+    "meta": {
+      "work_type": "電影／短片",
+      "occupations": [
+        "剪輯師",
+        "製片人"
+      ],
+      "roles": [],
+      "participation_role_example": "攝影指導",
+      "theme": "家庭／寫實",
+      "background_setting": "鹽業沒落的村落中，少女用攝影留存祖母的勞動記憶",
+      "description": "《鹽田裡的星星》是一項以「家庭／寫實」為核心的電影／短片作品；鹽業沒落的村落中，少女用攝影留存祖母的勞動記憶。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0006",
+    "pool": "general",
+    "title": "零號證人",
+    "meta": {
+      "work_type": "電影／短片",
+      "occupations": [
+        "製片人",
+        "配樂師"
+      ],
+      "roles": [],
+      "participation_role_example": "剪輯",
+      "theme": "法庭／推理",
+      "background_setting": "虛構都會的舊案重審，匿名錄音揭露證詞矛盾",
+      "description": "《零號證人》是一項以「法庭／推理」為核心的電影／短片作品；虛構都會的舊案重審，匿名錄音揭露證詞矛盾。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0007",
+    "pool": "general",
+    "title": "玻璃候鳥",
+    "meta": {
+      "work_type": "電影／短片",
+      "occupations": [
+        "配樂師",
+        "美術指導"
+      ],
+      "roles": [],
+      "participation_role_example": "製片",
+      "theme": "移民／成長",
+      "background_setting": "異國寄宿家庭的青年在語言隔閡中尋找歸屬",
+      "description": "《玻璃候鳥》是一項以「移民／成長」為核心的電影／短片作品；異國寄宿家庭的青年在語言隔閡中尋找歸屬。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0008",
+    "pool": "general",
+    "title": "海風把名字吹走",
+    "meta": {
+      "work_type": "電影／短片",
+      "occupations": [
+        "美術指導",
+        "演員"
+      ],
+      "roles": [
+        "主演",
+        "第二主演",
+        "主要配角",
+        "配角",
+        "客串"
+      ],
+      "participation_role_example": "原創配樂",
+      "theme": "文藝／失憶",
+      "background_setting": "離島療養院一場暴風雨引出失落的身世",
+      "description": "《海風把名字吹走》是一項以「文藝／失憶」為核心的電影／短片作品；離島療養院一場暴風雨引出失落的身世。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0009",
+    "pool": "general",
+    "title": "最後一張藍圖",
+    "meta": {
+      "work_type": "電影／短片",
+      "occupations": [
+        "演員",
+        "導演"
+      ],
+      "roles": [
+        "主演",
+        "第二主演",
+        "主要配角",
+        "配角",
+        "客串"
+      ],
+      "participation_role_example": "主演",
+      "theme": "職人／勵志",
+      "background_setting": "老建築師與學徒修復被遺棄的劇院",
+      "description": "《最後一張藍圖》是一項以「職人／勵志」為核心的電影／短片作品；老建築師與學徒修復被遺棄的劇院。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0010",
+    "pool": "general",
+    "title": "黑膠上的指紋",
+    "meta": {
+      "work_type": "電影／短片",
+      "occupations": [
+        "導演",
+        "編劇"
+      ],
+      "roles": [],
+      "participation_role_example": "配角",
+      "theme": "音樂／懸疑",
+      "background_setting": "唱片收藏家循一張未發行黑膠追查舊時失蹤案",
+      "description": "《黑膠上的指紋》是一項以「音樂／懸疑」為核心的電影／短片作品；唱片收藏家循一張未發行黑膠追查舊時失蹤案。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0011",
+    "pool": "general",
+    "title": "夏末單車環島",
+    "meta": {
+      "work_type": "電影／短片",
+      "occupations": [
+        "編劇",
+        "攝影師"
+      ],
+      "roles": [],
+      "participation_role_example": "導演",
+      "theme": "公路／友情",
+      "background_setting": "三名畢業生在未知去向的旅途中重新定義成功",
+      "description": "《夏末單車環島》是一項以「公路／友情」為核心的電影／短片作品；三名畢業生在未知去向的旅途中重新定義成功。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0012",
+    "pool": "general",
+    "title": "長夜守塔人",
+    "meta": {
+      "work_type": "電影／短片",
+      "occupations": [
+        "攝影師",
+        "剪輯師"
+      ],
+      "roles": [],
+      "participation_role_example": "編劇",
+      "theme": "奇幻／冒險",
+      "background_setting": "邊境燈塔每晚必須點亮，否則遠海記憶會消失",
+      "description": "《長夜守塔人》是一項以「奇幻／冒險」為核心的電影／短片作品；邊境燈塔每晚必須點亮，否則遠海記憶會消失。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0013",
+    "pool": "general",
+    "title": "第十三次謝幕",
+    "meta": {
+      "work_type": "電影／短片",
+      "occupations": [
+        "剪輯師",
+        "製片人"
+      ],
+      "roles": [],
+      "participation_role_example": "攝影指導",
+      "theme": "劇場／心理",
+      "background_setting": "退隱演員重返小劇場，面對當年的舞台事故",
+      "description": "《第十三次謝幕》是一項以「劇場／心理」為核心的電影／短片作品；退隱演員重返小劇場，面對當年的舞台事故。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0014",
+    "pool": "general",
+    "title": "瓷白色的謊言",
+    "meta": {
+      "work_type": "電影／短片",
+      "occupations": [
+        "製片人",
+        "配樂師"
+      ],
+      "roles": [],
+      "participation_role_example": "剪輯",
+      "theme": "豪門／劇情",
+      "background_setting": "古董拍賣會上的假品揭開家族繼承爭端",
+      "description": "《瓷白色的謊言》是一項以「豪門／劇情」為核心的電影／短片作品；古董拍賣會上的假品揭開家族繼承爭端。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0015",
+    "pool": "general",
+    "title": "蟬聲以北",
+    "meta": {
+      "work_type": "電影／短片",
+      "occupations": [
+        "配樂師",
+        "美術指導"
+      ],
+      "roles": [],
+      "participation_role_example": "製片",
+      "theme": "戰後／歷史",
+      "background_setting": "架空戰後年代，一家人在復員列車上彼此尋找",
+      "description": "《蟬聲以北》是一項以「戰後／歷史」為核心的電影／短片作品；架空戰後年代，一家人在復員列車上彼此尋找。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0016",
+    "pool": "general",
+    "title": "逆光追影",
+    "meta": {
+      "work_type": "電影／短片",
+      "occupations": [
+        "美術指導",
+        "演員"
+      ],
+      "roles": [
+        "主演",
+        "第二主演",
+        "主要配角",
+        "配角",
+        "客串"
+      ],
+      "participation_role_example": "原創配樂",
+      "theme": "運動／勵志",
+      "background_setting": "低谷中的短跑選手與失明教練互相扶持",
+      "description": "《逆光追影》是一項以「運動／勵志」為核心的電影／短片作品；低谷中的短跑選手與失明教練互相扶持。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0017",
+    "pool": "general",
+    "title": "微光修理鋪",
+    "meta": {
+      "work_type": "電影／短片",
+      "occupations": [
+        "演員",
+        "導演"
+      ],
+      "roles": [
+        "主演",
+        "第二主演",
+        "主要配角",
+        "配角",
+        "客串"
+      ],
+      "participation_role_example": "主演",
+      "theme": "溫情／奇幻",
+      "background_setting": "能修復聲音的工匠為小鎮居民找回告別",
+      "description": "《微光修理鋪》是一項以「溫情／奇幻」為核心的電影／短片作品；能修復聲音的工匠為小鎮居民找回告別。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0018",
+    "pool": "general",
+    "title": "未完成的海圖",
+    "meta": {
+      "work_type": "電影／短片",
+      "occupations": [
+        "導演",
+        "編劇"
+      ],
+      "roles": [],
+      "participation_role_example": "配角",
+      "theme": "探險／懸疑",
+      "background_setting": "海洋考察隊發現百年前記錄的無名島",
+      "description": "《未完成的海圖》是一項以「探險／懸疑」為核心的電影／短片作品；海洋考察隊發現百年前記錄的無名島。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0019",
+    "pool": "general",
+    "title": "塔樓裡的孩子",
+    "meta": {
+      "work_type": "電影／短片",
+      "occupations": [
+        "編劇",
+        "攝影師"
+      ],
+      "roles": [],
+      "participation_role_example": "導演",
+      "theme": "驚悚／社會",
+      "background_setting": "都市更新計畫下的高樓住戶反抗秘密監控",
+      "description": "《塔樓裡的孩子》是一項以「驚悚／社會」為核心的電影／短片作品；都市更新計畫下的高樓住戶反抗秘密監控。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0020",
+    "pool": "general",
+    "title": "落日之前再跳一次",
+    "meta": {
+      "work_type": "電影／短片",
+      "occupations": [
+        "攝影師",
+        "剪輯師"
+      ],
+      "roles": [],
+      "participation_role_example": "編劇",
+      "theme": "舞蹈／家庭",
+      "background_setting": "母女以一場未完成的雙人舞修補關係",
+      "description": "《落日之前再跳一次》是一項以「舞蹈／家庭」為核心的電影／短片作品；母女以一場未完成的雙人舞修補關係。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0021",
+    "pool": "general",
+    "title": "冷雨與白玫瑰",
+    "meta": {
+      "work_type": "電影／短片",
+      "occupations": [
+        "剪輯師",
+        "製片人"
+      ],
+      "roles": [],
+      "participation_role_example": "攝影指導",
+      "theme": "黑色電影／愛情",
+      "background_setting": "霓虹城市的私人偵探陷入一份假結婚契約",
+      "description": "《冷雨與白玫瑰》是一項以「黑色電影／愛情」為核心的電影／短片作品；霓虹城市的私人偵探陷入一份假結婚契約。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0022",
+    "pool": "general",
+    "title": "時間寄存櫃",
+    "meta": {
+      "work_type": "電影／短片",
+      "occupations": [
+        "製片人",
+        "配樂師"
+      ],
+      "roles": [],
+      "participation_role_example": "剪輯",
+      "theme": "科幻／人生",
+      "background_setting": "近未來車站可寄存一小時記憶，卻無法寄存悔意",
+      "description": "《時間寄存櫃》是一項以「科幻／人生」為核心的電影／短片作品；近未來車站可寄存一小時記憶，卻無法寄存悔意。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0023",
+    "pool": "general",
+    "title": "最後的調香師",
+    "meta": {
+      "work_type": "電影／短片",
+      "occupations": [
+        "配樂師",
+        "美術指導"
+      ],
+      "roles": [],
+      "participation_role_example": "製片",
+      "theme": "職人／懸疑",
+      "background_setting": "香氣成為辨識失蹤者最後行蹤的線索",
+      "description": "《最後的調香師》是一項以「職人／懸疑」為核心的電影／短片作品；香氣成為辨識失蹤者最後行蹤的線索。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0024",
+    "pool": "general",
+    "title": "橙色救援線",
+    "meta": {
+      "work_type": "電影／短片",
+      "occupations": [
+        "美術指導",
+        "演員"
+      ],
+      "roles": [
+        "主演",
+        "第二主演",
+        "主要配角",
+        "配角",
+        "客串"
+      ],
+      "participation_role_example": "原創配樂",
+      "theme": "災難／群像",
+      "background_setting": "山區土石流過後，民間救援隊協力撤離居民",
+      "description": "《橙色救援線》是一項以「災難／群像」為核心的電影／短片作品；山區土石流過後，民間救援隊協力撤離居民。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0025",
+    "pool": "general",
+    "title": "窗邊的第四把椅子",
+    "meta": {
+      "work_type": "電影／短片",
+      "occupations": [
+        "演員",
+        "導演"
+      ],
+      "roles": [
+        "主演",
+        "第二主演",
+        "主要配角",
+        "配角",
+        "客串"
+      ],
+      "participation_role_example": "主演",
+      "theme": "家庭／喜劇",
+      "background_setting": "三代同堂家庭因一位不速之客重新分配房間",
+      "description": "《窗邊的第四把椅子》是一項以「家庭／喜劇」為核心的電影／短片作品；三代同堂家庭因一位不速之客重新分配房間。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0026",
+    "pool": "general",
+    "title": "紙飛機越過國境",
+    "meta": {
+      "work_type": "電影／短片",
+      "occupations": [
+        "導演",
+        "編劇"
+      ],
+      "roles": [],
+      "participation_role_example": "配角",
+      "theme": "兒童／和平",
+      "background_setting": "兩個邊境小鎮的孩子以紙飛機交換想像中的地圖",
+      "description": "《紙飛機越過國境》是一項以「兒童／和平」為核心的電影／短片作品；兩個邊境小鎮的孩子以紙飛機交換想像中的地圖。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0027",
+    "pool": "general",
+    "title": "漫長星期二",
+    "meta": {
+      "work_type": "電影／短片",
+      "occupations": [
+        "編劇",
+        "攝影師"
+      ],
+      "roles": [],
+      "participation_role_example": "導演",
+      "theme": "時間循環／喜劇",
+      "background_setting": "菜鳥記者困在同一天，必須找出一則被忽略的新聞",
+      "description": "《漫長星期二》是一項以「時間循環／喜劇」為核心的電影／短片作品；菜鳥記者困在同一天，必須找出一則被忽略的新聞。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0028",
+    "pool": "general",
+    "title": "暗河鐘擺",
+    "meta": {
+      "work_type": "電影／短片",
+      "occupations": [
+        "攝影師",
+        "剪輯師"
+      ],
+      "roles": [],
+      "participation_role_example": "編劇",
+      "theme": "古裝／探案",
+      "background_setting": "架空王朝水道失修，工匠與巡檢追查失蹤銀兩",
+      "description": "《暗河鐘擺》是一項以「古裝／探案」為核心的電影／短片作品；架空王朝水道失修，工匠與巡檢追查失蹤銀兩。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0029",
+    "pool": "general",
+    "title": "白色海嘯",
+    "meta": {
+      "work_type": "電影／短片",
+      "occupations": [
+        "剪輯師",
+        "製片人"
+      ],
+      "roles": [],
+      "participation_role_example": "攝影指導",
+      "theme": "醫療／劇情",
+      "background_setting": "臨海急救站在大型事故後面臨資源與抉擇",
+      "description": "《白色海嘯》是一項以「醫療／劇情」為核心的電影／短片作品；臨海急救站在大型事故後面臨資源與抉擇。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0030",
+    "pool": "general",
+    "title": "流星墜入庭院",
+    "meta": {
+      "work_type": "電影／短片",
+      "occupations": [
+        "製片人",
+        "配樂師"
+      ],
+      "roles": [],
+      "participation_role_example": "剪輯",
+      "theme": "奇幻／愛情",
+      "background_setting": "天文愛好者收留一名自稱失去星座的旅人",
+      "description": "《流星墜入庭院》是一項以「奇幻／愛情」為核心的電影／短片作品；天文愛好者收留一名自稱失去星座的旅人。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0031",
+    "pool": "general",
+    "title": "名為家的邊界",
+    "meta": {
+      "work_type": "電影／短片",
+      "occupations": [
+        "配樂師",
+        "美術指導"
+      ],
+      "roles": [],
+      "participation_role_example": "製片",
+      "theme": "社會／家庭",
+      "background_setting": "跨國家庭面對監護與文化認同的難題",
+      "description": "《名為家的邊界》是一項以「社會／家庭」為核心的電影／短片作品；跨國家庭面對監護與文化認同的難題。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0032",
+    "pool": "general",
+    "title": "冬日最後一道菜",
+    "meta": {
+      "work_type": "電影／短片",
+      "occupations": [
+        "美術指導",
+        "演員"
+      ],
+      "roles": [
+        "主演",
+        "第二主演",
+        "主要配角",
+        "配角",
+        "客串"
+      ],
+      "participation_role_example": "原創配樂",
+      "theme": "美食／親情",
+      "background_setting": "停業前的老餐館邀回昔日員工準備最後晚餐",
+      "description": "《冬日最後一道菜》是一項以「美食／親情」為核心的電影／短片作品；停業前的老餐館邀回昔日員工準備最後晚餐。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0033",
+    "pool": "general",
+    "title": "無聲煙火",
+    "meta": {
+      "work_type": "電影／短片",
+      "occupations": [
+        "演員",
+        "導演"
+      ],
+      "roles": [
+        "主演",
+        "第二主演",
+        "主要配角",
+        "配角",
+        "客串"
+      ],
+      "participation_role_example": "主演",
+      "theme": "青春／聽障文化",
+      "background_setting": "聽障設計師與煙火師合作打造可感知的節慶",
+      "description": "《無聲煙火》是一項以「青春／聽障文化」為核心的電影／短片作品；聽障設計師與煙火師合作打造可感知的節慶。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0034",
+    "pool": "general",
+    "title": "雨林的第二顆心",
+    "meta": {
+      "work_type": "電影／短片",
+      "occupations": [
+        "導演",
+        "編劇"
+      ],
+      "roles": [],
+      "participation_role_example": "配角",
+      "theme": "環境／冒險",
+      "background_setting": "研究團隊尋找能挽救瀕危樹種的種子",
+      "description": "《雨林的第二顆心》是一項以「環境／冒險」為核心的電影／短片作品；研究團隊尋找能挽救瀕危樹種的種子。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0035",
+    "pool": "general",
+    "title": "深夜映畫館",
+    "meta": {
+      "work_type": "電影／短片",
+      "occupations": [
+        "編劇",
+        "攝影師"
+      ],
+      "roles": [],
+      "participation_role_example": "導演",
+      "theme": "懷舊／群像",
+      "background_setting": "即將關閉的老戲院放映一部從未上映的電影",
+      "description": "《深夜映畫館》是一項以「懷舊／群像」為核心的電影／短片作品；即將關閉的老戲院放映一部從未上映的電影。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0036",
+    "pool": "general",
+    "title": "都會第九區",
+    "meta": {
+      "work_type": "電視劇",
+      "occupations": [
+        "演員",
+        "演員"
+      ],
+      "roles": [
+        "主演",
+        "第二主演",
+        "主要配角",
+        "配角",
+        "客串"
+      ],
+      "participation_role_example": "主演",
+      "theme": "職場／警匪",
+      "background_setting": "新設城市調查局串聯跨轄區懸案",
+      "description": "《都會第九區》是一項以「職場／警匪」為核心的電視劇作品；新設城市調查局串聯跨轄區懸案。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0037",
+    "pool": "general",
+    "title": "星河公寓管理員",
+    "meta": {
+      "work_type": "電視劇",
+      "occupations": [
+        "演員",
+        "演員"
+      ],
+      "roles": [
+        "主演",
+        "第二主演",
+        "主要配角",
+        "配角",
+        "客串"
+      ],
+      "participation_role_example": "主要配角",
+      "theme": "喜劇／群像",
+      "background_setting": "老舊公寓管理員每天處理住戶荒唐糾紛",
+      "description": "《星河公寓管理員》是一項以「喜劇／群像」為核心的電視劇作品；老舊公寓管理員每天處理住戶荒唐糾紛。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0038",
+    "pool": "general",
+    "title": "當我們還在學告別",
+    "meta": {
+      "work_type": "電視劇",
+      "occupations": [
+        "演員",
+        "導演"
+      ],
+      "roles": [
+        "主演",
+        "第二主演",
+        "主要配角",
+        "配角",
+        "客串"
+      ],
+      "participation_role_example": "單元客串",
+      "theme": "家庭／成長",
+      "background_setting": "殯葬禮儀師家族三代對生死有不同理解",
+      "description": "《當我們還在學告別》是一項以「家庭／成長」為核心的電視劇作品；殯葬禮儀師家族三代對生死有不同理解。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0039",
+    "pool": "general",
+    "title": "首席之下",
+    "meta": {
+      "work_type": "電視劇",
+      "occupations": [
+        "導演",
+        "編劇"
+      ],
+      "roles": [],
+      "participation_role_example": "分集導演",
+      "theme": "商戰／職場",
+      "background_setting": "大型傳媒集團繼任角力波及實習生與資深製作人",
+      "description": "《首席之下》是一項以「商戰／職場」為核心的電視劇作品；大型傳媒集團繼任角力波及實習生與資深製作人。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0040",
+    "pool": "general",
+    "title": "錦衣夜行錄",
+    "meta": {
+      "work_type": "電視劇",
+      "occupations": [
+        "編劇",
+        "製片人"
+      ],
+      "roles": [],
+      "participation_role_example": "編劇",
+      "theme": "古裝／懸疑",
+      "background_setting": "架空王朝夜巡司追查宮城連環失物",
+      "description": "《錦衣夜行錄》是一項以「古裝／懸疑」為核心的電視劇作品；架空王朝夜巡司追查宮城連環失物。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0041",
+    "pool": "general",
+    "title": "白塔值班日誌",
+    "meta": {
+      "work_type": "電視劇",
+      "occupations": [
+        "製片人",
+        "演員"
+      ],
+      "roles": [
+        "主演",
+        "第二主演",
+        "主要配角",
+        "配角",
+        "客串"
+      ],
+      "participation_role_example": "執行製作",
+      "theme": "醫療／群像",
+      "background_setting": "區域醫院夜班團隊面對緊急醫療與人際衝突",
+      "description": "《白塔值班日誌》是一項以「醫療／群像」為核心的電視劇作品；區域醫院夜班團隊面對緊急醫療與人際衝突。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0042",
+    "pool": "general",
+    "title": "租屋合約第七條",
+    "meta": {
+      "work_type": "電視劇",
+      "occupations": [
+        "演員",
+        "演員"
+      ],
+      "roles": [
+        "主演",
+        "第二主演",
+        "主要配角",
+        "配角",
+        "客串"
+      ],
+      "participation_role_example": "主演",
+      "theme": "都市／愛情",
+      "background_setting": "共同租屋的法律工作者與插畫家誤簽附約",
+      "description": "《租屋合約第七條》是一項以「都市／愛情」為核心的電視劇作品；共同租屋的法律工作者與插畫家誤簽附約。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0043",
+    "pool": "general",
+    "title": "零時播報",
+    "meta": {
+      "work_type": "電視劇",
+      "occupations": [
+        "演員",
+        "演員"
+      ],
+      "roles": [
+        "主演",
+        "第二主演",
+        "主要配角",
+        "配角",
+        "客串"
+      ],
+      "participation_role_example": "主要配角",
+      "theme": "新聞／倫理",
+      "background_setting": "地方電視台記者在獨家與查證之間掙扎",
+      "description": "《零時播報》是一項以「新聞／倫理」為核心的電視劇作品；地方電視台記者在獨家與查證之間掙扎。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0044",
+    "pool": "general",
+    "title": "北境學園紀事",
+    "meta": {
+      "work_type": "電視劇",
+      "occupations": [
+        "演員",
+        "導演"
+      ],
+      "roles": [
+        "主演",
+        "第二主演",
+        "主要配角",
+        "配角",
+        "客串"
+      ],
+      "participation_role_example": "單元客串",
+      "theme": "校園／青春",
+      "background_setting": "雪國寄宿學校中四個社團合作保住校慶",
+      "description": "《北境學園紀事》是一項以「校園／青春」為核心的電視劇作品；雪國寄宿學校中四個社團合作保住校慶。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0045",
+    "pool": "general",
+    "title": "午夜花市",
+    "meta": {
+      "work_type": "電視劇",
+      "occupations": [
+        "導演",
+        "編劇"
+      ],
+      "roles": [],
+      "participation_role_example": "分集導演",
+      "theme": "商業／家庭",
+      "background_setting": "批發花市世家爭奪市場轉型主導權",
+      "description": "《午夜花市》是一項以「商業／家庭」為核心的電視劇作品；批發花市世家爭奪市場轉型主導權。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0046",
+    "pool": "general",
+    "title": "長安異聞司",
+    "meta": {
+      "work_type": "電視劇",
+      "occupations": [
+        "編劇",
+        "製片人"
+      ],
+      "roles": [],
+      "participation_role_example": "編劇",
+      "theme": "古裝／奇幻",
+      "background_setting": "架空古都官署以民俗傳說掩護追查案件",
+      "description": "《長安異聞司》是一項以「古裝／奇幻」為核心的電視劇作品；架空古都官署以民俗傳說掩護追查案件。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0047",
+    "pool": "general",
+    "title": "繼承人候補",
+    "meta": {
+      "work_type": "電視劇",
+      "occupations": [
+        "製片人",
+        "演員"
+      ],
+      "roles": [
+        "主演",
+        "第二主演",
+        "主要配角",
+        "配角",
+        "客串"
+      ],
+      "participation_role_example": "執行製作",
+      "theme": "豪門／喜劇",
+      "background_setting": "被誤認為繼承人的普通員工意外捲入家業管理",
+      "description": "《繼承人候補》是一項以「豪門／喜劇」為核心的電視劇作品；被誤認為繼承人的普通員工意外捲入家業管理。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0048",
+    "pool": "general",
+    "title": "雙城交換日記",
+    "meta": {
+      "work_type": "電視劇",
+      "occupations": [
+        "演員",
+        "演員"
+      ],
+      "roles": [
+        "主演",
+        "第二主演",
+        "主要配角",
+        "配角",
+        "客串"
+      ],
+      "participation_role_example": "主演",
+      "theme": "異地／愛情",
+      "background_setting": "兩名書店員輪流駐店於不同文化的城市",
+      "description": "《雙城交換日記》是一項以「異地／愛情」為核心的電視劇作品；兩名書店員輪流駐店於不同文化的城市。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0049",
+    "pool": "general",
+    "title": "戀愛觀測局",
+    "meta": {
+      "work_type": "電視劇",
+      "occupations": [
+        "演員",
+        "演員"
+      ],
+      "roles": [
+        "主演",
+        "第二主演",
+        "主要配角",
+        "配角",
+        "客串"
+      ],
+      "participation_role_example": "主要配角",
+      "theme": "愛情／科幻",
+      "background_setting": "近未來婚戀公司測試情感預測演算法",
+      "description": "《戀愛觀測局》是一項以「愛情／科幻」為核心的電視劇作品；近未來婚戀公司測試情感預測演算法。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0050",
+    "pool": "general",
+    "title": "一號法庭",
+    "meta": {
+      "work_type": "電視劇",
+      "occupations": [
+        "演員",
+        "導演"
+      ],
+      "roles": [
+        "主演",
+        "第二主演",
+        "主要配角",
+        "配角",
+        "客串"
+      ],
+      "participation_role_example": "單元客串",
+      "theme": "律政／單元",
+      "background_setting": "青年律師團隊處理小人物的民事案件",
+      "description": "《一號法庭》是一項以「律政／單元」為核心的電視劇作品；青年律師團隊處理小人物的民事案件。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0051",
+    "pool": "general",
+    "title": "山城消防線",
+    "meta": {
+      "work_type": "電視劇",
+      "occupations": [
+        "導演",
+        "編劇"
+      ],
+      "roles": [],
+      "participation_role_example": "分集導演",
+      "theme": "災難／職人",
+      "background_setting": "消防分隊在多山城市守護老舊社區",
+      "description": "《山城消防線》是一項以「災難／職人」為核心的電視劇作品；消防分隊在多山城市守護老舊社區。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0052",
+    "pool": "general",
+    "title": "小巷美術館",
+    "meta": {
+      "work_type": "電視劇",
+      "occupations": [
+        "編劇",
+        "製片人"
+      ],
+      "roles": [],
+      "participation_role_example": "編劇",
+      "theme": "藝術／療癒",
+      "background_setting": "失意策展人接手巷弄裡的私人博物館",
+      "description": "《小巷美術館》是一項以「藝術／療癒」為核心的電視劇作品；失意策展人接手巷弄裡的私人博物館。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0053",
+    "pool": "general",
+    "title": "名廚預備班",
+    "meta": {
+      "work_type": "電視劇",
+      "occupations": [
+        "製片人",
+        "演員"
+      ],
+      "roles": [
+        "主演",
+        "第二主演",
+        "主要配角",
+        "配角",
+        "客串"
+      ],
+      "participation_role_example": "執行製作",
+      "theme": "料理／競技",
+      "background_setting": "技職學校廚藝競賽引發師生理念碰撞",
+      "description": "《名廚預備班》是一項以「料理／競技」為核心的電視劇作品；技職學校廚藝競賽引發師生理念碰撞。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0054",
+    "pool": "general",
+    "title": "第三個秋天",
+    "meta": {
+      "work_type": "電視劇",
+      "occupations": [
+        "演員",
+        "演員"
+      ],
+      "roles": [
+        "主演",
+        "第二主演",
+        "主要配角",
+        "配角",
+        "客串"
+      ],
+      "participation_role_example": "主演",
+      "theme": "家庭／懸疑",
+      "background_setting": "兄妹返鄉接管果園卻發現父親留下兩套帳本",
+      "description": "《第三個秋天》是一項以「家庭／懸疑」為核心的電視劇作品；兄妹返鄉接管果園卻發現父親留下兩套帳本。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0055",
+    "pool": "general",
+    "title": "霧島旅社",
+    "meta": {
+      "work_type": "電視劇",
+      "occupations": [
+        "演員",
+        "演員"
+      ],
+      "roles": [
+        "主演",
+        "第二主演",
+        "主要配角",
+        "配角",
+        "客串"
+      ],
+      "participation_role_example": "主要配角",
+      "theme": "奇幻／群像",
+      "background_setting": "山上旅社只能接待忘記自己名字的客人",
+      "description": "《霧島旅社》是一項以「奇幻／群像」為核心的電視劇作品；山上旅社只能接待忘記自己名字的客人。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0056",
+    "pool": "general",
+    "title": "鏡頭之外",
+    "meta": {
+      "work_type": "電視劇",
+      "occupations": [
+        "演員",
+        "導演"
+      ],
+      "roles": [
+        "主演",
+        "第二主演",
+        "主要配角",
+        "配角",
+        "客串"
+      ],
+      "participation_role_example": "單元客串",
+      "theme": "演藝圈／職場",
+      "background_setting": "新人經紀人協助藝人對抗不實剪輯",
+      "description": "《鏡頭之外》是一項以「演藝圈／職場」為核心的電視劇作品；新人經紀人協助藝人對抗不實剪輯。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0057",
+    "pool": "general",
+    "title": "長街說書人",
+    "meta": {
+      "work_type": "電視劇",
+      "occupations": [
+        "導演",
+        "編劇"
+      ],
+      "roles": [],
+      "participation_role_example": "分集導演",
+      "theme": "年代／群像",
+      "background_setting": "虛構港埠城市的廣播說書人見證時代變化",
+      "description": "《長街說書人》是一項以「年代／群像」為核心的電視劇作品；虛構港埠城市的廣播說書人見證時代變化。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0058",
+    "pool": "general",
+    "title": "離婚前的晚餐",
+    "meta": {
+      "work_type": "電視劇",
+      "occupations": [
+        "編劇",
+        "製片人"
+      ],
+      "roles": [],
+      "participation_role_example": "編劇",
+      "theme": "家庭／黑色喜劇",
+      "background_setting": "一對準備分居的夫妻經營深夜食堂",
+      "description": "《離婚前的晚餐》是一項以「家庭／黑色喜劇」為核心的電視劇作品；一對準備分居的夫妻經營深夜食堂。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0059",
+    "pool": "general",
+    "title": "星圖導航員",
+    "meta": {
+      "work_type": "電視劇",
+      "occupations": [
+        "製片人",
+        "演員"
+      ],
+      "roles": [
+        "主演",
+        "第二主演",
+        "主要配角",
+        "配角",
+        "客串"
+      ],
+      "participation_role_example": "執行製作",
+      "theme": "科幻／冒險",
+      "background_setting": "太空測繪小隊在遠地殖民站發現航線異常",
+      "description": "《星圖導航員》是一項以「科幻／冒險」為核心的電視劇作品；太空測繪小隊在遠地殖民站發現航線異常。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0060",
+    "pool": "general",
+    "title": "她的第十封委託書",
+    "meta": {
+      "work_type": "電視劇",
+      "occupations": [
+        "演員",
+        "演員"
+      ],
+      "roles": [
+        "主演",
+        "第二主演",
+        "主要配角",
+        "配角",
+        "客串"
+      ],
+      "participation_role_example": "主演",
+      "theme": "推理／女性群像",
+      "background_setting": "私人調查員專接無法公開的失物委託",
+      "description": "《她的第十封委託書》是一項以「推理／女性群像」為核心的電視劇作品；私人調查員專接無法公開的失物委託。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0061",
+    "pool": "general",
+    "title": "海上電台",
+    "meta": {
+      "work_type": "電視劇",
+      "occupations": [
+        "演員",
+        "演員"
+      ],
+      "roles": [
+        "主演",
+        "第二主演",
+        "主要配角",
+        "配角",
+        "客串"
+      ],
+      "participation_role_example": "主要配角",
+      "theme": "音樂／青春",
+      "background_setting": "離島學生用廢棄無線電台製作節目",
+      "description": "《海上電台》是一項以「音樂／青春」為核心的電視劇作品；離島學生用廢棄無線電台製作節目。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0062",
+    "pool": "general",
+    "title": "公關危機處理室",
+    "meta": {
+      "work_type": "電視劇",
+      "occupations": [
+        "演員",
+        "導演"
+      ],
+      "roles": [
+        "主演",
+        "第二主演",
+        "主要配角",
+        "配角",
+        "客串"
+      ],
+      "participation_role_example": "單元客串",
+      "theme": "職場／諷刺",
+      "background_setting": "危機公關團隊在輿論浪潮中守住職業底線",
+      "description": "《公關危機處理室》是一項以「職場／諷刺」為核心的電視劇作品；危機公關團隊在輿論浪潮中守住職業底線。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0063",
+    "pool": "general",
+    "title": "金線裁縫師",
+    "meta": {
+      "work_type": "電視劇",
+      "occupations": [
+        "導演",
+        "編劇"
+      ],
+      "roles": [],
+      "participation_role_example": "分集導演",
+      "theme": "時尚／年代",
+      "background_setting": "老裁縫店與新銳設計師合作重建品牌",
+      "description": "《金線裁縫師》是一項以「時尚／年代」為核心的電視劇作品；老裁縫店與新銳設計師合作重建品牌。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0064",
+    "pool": "general",
+    "title": "倒數六十秒",
+    "meta": {
+      "work_type": "電視劇",
+      "occupations": [
+        "編劇",
+        "製片人"
+      ],
+      "roles": [],
+      "participation_role_example": "編劇",
+      "theme": "動作／懸疑",
+      "background_setting": "交通調度中心破解跨城連鎖危機",
+      "description": "《倒數六十秒》是一項以「動作／懸疑」為核心的電視劇作品；交通調度中心破解跨城連鎖危機。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0065",
+    "pool": "general",
+    "title": "白夜圖書委員會",
+    "meta": {
+      "work_type": "電視劇",
+      "occupations": [
+        "製片人",
+        "演員"
+      ],
+      "roles": [
+        "主演",
+        "第二主演",
+        "主要配角",
+        "配角",
+        "客串"
+      ],
+      "participation_role_example": "執行製作",
+      "theme": "校園／奇幻",
+      "background_setting": "學生發現圖書館會收錄尚未發生的事件",
+      "description": "《白夜圖書委員會》是一項以「校園／奇幻」為核心的電視劇作品；學生發現圖書館會收錄尚未發生的事件。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0066",
+    "pool": "general",
+    "title": "玫瑰與鐵門",
+    "meta": {
+      "work_type": "舞台劇／音樂劇",
+      "occupations": [
+        "舞台演員",
+        "音樂劇演員"
+      ],
+      "roles": [
+        "主演",
+        "主要配角",
+        "配角",
+        "群舞演出"
+      ],
+      "participation_role_example": "主演",
+      "theme": "家庭／舞台劇",
+      "background_setting": "封閉莊園裡的繼承分配在同一夜攤牌",
+      "description": "《玫瑰與鐵門》是一項以「家庭／舞台劇」為核心的舞台劇／音樂劇作品；封閉莊園裡的繼承分配在同一夜攤牌。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0067",
+    "pool": "general",
+    "title": "月台上的陌生人",
+    "meta": {
+      "work_type": "舞台劇／音樂劇",
+      "occupations": [
+        "音樂劇演員",
+        "劇場導演"
+      ],
+      "roles": [
+        "主演",
+        "主要配角",
+        "配角",
+        "群舞演出"
+      ],
+      "participation_role_example": "聯合主演",
+      "theme": "群像／舞台劇",
+      "background_setting": "一場列車停駛讓六位陌生人共度長夜",
+      "description": "《月台上的陌生人》是一項以「群像／舞台劇」為核心的舞台劇／音樂劇作品；一場列車停駛讓六位陌生人共度長夜。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0068",
+    "pool": "general",
+    "title": "天鵝失去影子",
+    "meta": {
+      "work_type": "舞台劇／音樂劇",
+      "occupations": [
+        "劇場導演",
+        "編劇"
+      ],
+      "roles": [],
+      "participation_role_example": "導演",
+      "theme": "童話／舞蹈劇",
+      "background_setting": "影子被偷走的天鵝追尋自我身分",
+      "description": "《天鵝失去影子》是一項以「童話／舞蹈劇」為核心的舞台劇／音樂劇作品；影子被偷走的天鵝追尋自我身分。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0069",
+    "pool": "general",
+    "title": "鐘樓的第十二封信",
+    "meta": {
+      "work_type": "舞台劇／音樂劇",
+      "occupations": [
+        "編劇",
+        "編舞師"
+      ],
+      "roles": [],
+      "participation_role_example": "劇作",
+      "theme": "奇幻／音樂劇",
+      "background_setting": "小城鐘聲能把信送往過去，但每封必須付出代價",
+      "description": "《鐘樓的第十二封信》是一項以「奇幻／音樂劇」為核心的舞台劇／音樂劇作品；小城鐘聲能把信送往過去，但每封必須付出代價。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0070",
+    "pool": "general",
+    "title": "宴會尚未結束",
+    "meta": {
+      "work_type": "舞台劇／音樂劇",
+      "occupations": [
+        "編舞師",
+        "舞台設計師"
+      ],
+      "roles": [],
+      "participation_role_example": "編舞",
+      "theme": "黑色喜劇／舞台劇",
+      "background_setting": "慈善晚宴上賓客逐一揭開善意背後的交易",
+      "description": "《宴會尚未結束》是一項以「黑色喜劇／舞台劇」為核心的舞台劇／音樂劇作品；慈善晚宴上賓客逐一揭開善意背後的交易。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0071",
+    "pool": "general",
+    "title": "南方船歌",
+    "meta": {
+      "work_type": "舞台劇／音樂劇",
+      "occupations": [
+        "舞台設計師",
+        "舞台演員"
+      ],
+      "roles": [
+        "主演",
+        "主要配角",
+        "配角",
+        "群舞演出"
+      ],
+      "participation_role_example": "舞台設計",
+      "theme": "歷史／音樂劇",
+      "background_setting": "架空航海年代的女船長以歌聲團結船員",
+      "description": "《南方船歌》是一項以「歷史／音樂劇」為核心的舞台劇／音樂劇作品；架空航海年代的女船長以歌聲團結船員。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0072",
+    "pool": "general",
+    "title": "花園裡的審判",
+    "meta": {
+      "work_type": "舞台劇／音樂劇",
+      "occupations": [
+        "舞台演員",
+        "音樂劇演員"
+      ],
+      "roles": [
+        "主演",
+        "主要配角",
+        "配角",
+        "群舞演出"
+      ],
+      "participation_role_example": "主演",
+      "theme": "寓言／舞台劇",
+      "background_setting": "四季精靈在庭院審理一棵老樹的命運",
+      "description": "《花園裡的審判》是一項以「寓言／舞台劇」為核心的舞台劇／音樂劇作品；四季精靈在庭院審理一棵老樹的命運。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0073",
+    "pool": "general",
+    "title": "白紙劇團",
+    "meta": {
+      "work_type": "舞台劇／音樂劇",
+      "occupations": [
+        "音樂劇演員",
+        "劇場導演"
+      ],
+      "roles": [
+        "主演",
+        "主要配角",
+        "配角",
+        "群舞演出"
+      ],
+      "participation_role_example": "聯合主演",
+      "theme": "後設／舞台劇",
+      "background_setting": "演員發現自己的台詞被觀眾當場改寫",
+      "description": "《白紙劇團》是一項以「後設／舞台劇」為核心的舞台劇／音樂劇作品；演員發現自己的台詞被觀眾當場改寫。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0074",
+    "pool": "general",
+    "title": "一千零一個早晨",
+    "meta": {
+      "work_type": "舞台劇／音樂劇",
+      "occupations": [
+        "劇場導演",
+        "編劇"
+      ],
+      "roles": [],
+      "participation_role_example": "導演",
+      "theme": "愛情／音樂劇",
+      "background_setting": "兩名麵包師用每日新歌記錄一段相遇",
+      "description": "《一千零一個早晨》是一項以「愛情／音樂劇」為核心的舞台劇／音樂劇作品；兩名麵包師用每日新歌記錄一段相遇。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0075",
+    "pool": "general",
+    "title": "黑貓旅館",
+    "meta": {
+      "work_type": "舞台劇／音樂劇",
+      "occupations": [
+        "編劇",
+        "編舞師"
+      ],
+      "roles": [],
+      "participation_role_example": "劇作",
+      "theme": "懸疑／舞台劇",
+      "background_setting": "老旅館門鎖失靈，住客無法確認誰先進門",
+      "description": "《黑貓旅館》是一項以「懸疑／舞台劇」為核心的舞台劇／音樂劇作品；老旅館門鎖失靈，住客無法確認誰先進門。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0076",
+    "pool": "general",
+    "title": "遙遠王國的麥穗",
+    "meta": {
+      "work_type": "舞台劇／音樂劇",
+      "occupations": [
+        "編舞師",
+        "舞台設計師"
+      ],
+      "roles": [],
+      "participation_role_example": "編舞",
+      "theme": "奇幻／音樂劇",
+      "background_setting": "乾旱王國的農民以巡迴歌隊交換種子",
+      "description": "《遙遠王國的麥穗》是一項以「奇幻／音樂劇」為核心的舞台劇／音樂劇作品；乾旱王國的農民以巡迴歌隊交換種子。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0077",
+    "pool": "general",
+    "title": "最後一排的觀眾",
+    "meta": {
+      "work_type": "舞台劇／音樂劇",
+      "occupations": [
+        "舞台設計師",
+        "舞台演員"
+      ],
+      "roles": [
+        "主演",
+        "主要配角",
+        "配角",
+        "群舞演出"
+      ],
+      "participation_role_example": "舞台設計",
+      "theme": "劇場／獨角戲",
+      "background_setting": "退休舞台監督對空座位重述半生劇場往事",
+      "description": "《最後一排的觀眾》是一項以「劇場／獨角戲」為核心的舞台劇／音樂劇作品；退休舞台監督對空座位重述半生劇場往事。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0078",
+    "pool": "general",
+    "title": "謊言博物館",
+    "meta": {
+      "work_type": "舞台劇／音樂劇",
+      "occupations": [
+        "舞台演員",
+        "音樂劇演員"
+      ],
+      "roles": [
+        "主演",
+        "主要配角",
+        "配角",
+        "群舞演出"
+      ],
+      "participation_role_example": "主演",
+      "theme": "諷刺／舞台劇",
+      "background_setting": "一座專收集謊言的博物館突然失去展品",
+      "description": "《謊言博物館》是一項以「諷刺／舞台劇」為核心的舞台劇／音樂劇作品；一座專收集謊言的博物館突然失去展品。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0079",
+    "pool": "general",
+    "title": "雨落在鋼琴上",
+    "meta": {
+      "work_type": "舞台劇／音樂劇",
+      "occupations": [
+        "音樂劇演員",
+        "劇場導演"
+      ],
+      "roles": [
+        "主演",
+        "主要配角",
+        "配角",
+        "群舞演出"
+      ],
+      "participation_role_example": "聯合主演",
+      "theme": "音樂／音樂劇",
+      "background_setting": "樂器維修師協助失聲歌手重新創作",
+      "description": "《雨落在鋼琴上》是一項以「音樂／音樂劇」為核心的舞台劇／音樂劇作品；樂器維修師協助失聲歌手重新創作。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0080",
+    "pool": "general",
+    "title": "王冠與麵包",
+    "meta": {
+      "work_type": "舞台劇／音樂劇",
+      "occupations": [
+        "劇場導演",
+        "編劇"
+      ],
+      "roles": [],
+      "participation_role_example": "導演",
+      "theme": "政治寓言／舞台劇",
+      "background_setting": "荒誕王國的廚師被推上代理王位",
+      "description": "《王冠與麵包》是一項以「政治寓言／舞台劇」為核心的舞台劇／音樂劇作品；荒誕王國的廚師被推上代理王位。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0081",
+    "pool": "general",
+    "title": "借我一束燈光",
+    "meta": {
+      "work_type": "舞台劇／音樂劇",
+      "occupations": [
+        "編劇",
+        "編舞師"
+      ],
+      "roles": [],
+      "participation_role_example": "劇作",
+      "theme": "青春／音樂劇",
+      "background_setting": "偏鄉學生自組巡演隊爭取劇場設備",
+      "description": "《借我一束燈光》是一項以「青春／音樂劇」為核心的舞台劇／音樂劇作品；偏鄉學生自組巡演隊爭取劇場設備。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0082",
+    "pool": "general",
+    "title": "島嶼的第三場雪",
+    "meta": {
+      "work_type": "舞台劇／音樂劇",
+      "occupations": [
+        "編舞師",
+        "舞台設計師"
+      ],
+      "roles": [],
+      "participation_role_example": "編舞",
+      "theme": "魔幻寫實／舞台劇",
+      "background_setting": "熱帶島上不可能的降雪改變漁村秩序",
+      "description": "《島嶼的第三場雪》是一項以「魔幻寫實／舞台劇」為核心的舞台劇／音樂劇作品；熱帶島上不可能的降雪改變漁村秩序。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0083",
+    "pool": "general",
+    "title": "一夜玫瑰市場",
+    "meta": {
+      "work_type": "舞台劇／音樂劇",
+      "occupations": [
+        "舞台設計師",
+        "舞台演員"
+      ],
+      "roles": [
+        "主演",
+        "主要配角",
+        "配角",
+        "群舞演出"
+      ],
+      "participation_role_example": "舞台設計",
+      "theme": "愛情／音樂劇",
+      "background_setting": "夜間花市裡六段錯過的告白交會",
+      "description": "《一夜玫瑰市場》是一項以「愛情／音樂劇」為核心的舞台劇／音樂劇作品；夜間花市裡六段錯過的告白交會。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0084",
+    "pool": "general",
+    "title": "影子的契約",
+    "meta": {
+      "work_type": "舞台劇／音樂劇",
+      "occupations": [
+        "舞台演員",
+        "音樂劇演員"
+      ],
+      "roles": [
+        "主演",
+        "主要配角",
+        "配角",
+        "群舞演出"
+      ],
+      "participation_role_example": "主演",
+      "theme": "奇幻／肢體劇",
+      "background_setting": "影子向主人要求一天自由，雙方交換位置",
+      "description": "《影子的契約》是一項以「奇幻／肢體劇」為核心的舞台劇／音樂劇作品；影子向主人要求一天自由，雙方交換位置。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0085",
+    "pool": "general",
+    "title": "大宅失竊案",
+    "meta": {
+      "work_type": "舞台劇／音樂劇",
+      "occupations": [
+        "音樂劇演員",
+        "劇場導演"
+      ],
+      "roles": [
+        "主演",
+        "主要配角",
+        "配角",
+        "群舞演出"
+      ],
+      "participation_role_example": "聯合主演",
+      "theme": "推理／舞台劇",
+      "background_setting": "祖宅的寶石在眾目睽睽下消失",
+      "description": "《大宅失竊案》是一項以「推理／舞台劇」為核心的舞台劇／音樂劇作品；祖宅的寶石在眾目睽睽下消失。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0086",
+    "pool": "general",
+    "title": "群星沒有名字",
+    "meta": {
+      "work_type": "舞台劇／音樂劇",
+      "occupations": [
+        "劇場導演",
+        "編劇"
+      ],
+      "roles": [],
+      "participation_role_example": "導演",
+      "theme": "科幻／音樂劇",
+      "background_setting": "太空船乘客以歌曲維持失落母語",
+      "description": "《群星沒有名字》是一項以「科幻／音樂劇」為核心的舞台劇／音樂劇作品；太空船乘客以歌曲維持失落母語。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0087",
+    "pool": "general",
+    "title": "倒著走的時鐘",
+    "meta": {
+      "work_type": "舞台劇／音樂劇",
+      "occupations": [
+        "編劇",
+        "編舞師"
+      ],
+      "roles": [],
+      "participation_role_example": "劇作",
+      "theme": "實驗／舞台劇",
+      "background_setting": "角色依逆向時間順序追索一場誤解",
+      "description": "《倒著走的時鐘》是一項以「實驗／舞台劇」為核心的舞台劇／音樂劇作品；角色依逆向時間順序追索一場誤解。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0088",
+    "pool": "general",
+    "title": "最後的馬戲團",
+    "meta": {
+      "work_type": "舞台劇／音樂劇",
+      "occupations": [
+        "編舞師",
+        "舞台設計師"
+      ],
+      "roles": [],
+      "participation_role_example": "編舞",
+      "theme": "奇幻／音樂劇",
+      "background_setting": "流動馬戲團在停演前為一名孩子舉行壓軸演出",
+      "description": "《最後的馬戲團》是一項以「奇幻／音樂劇」為核心的舞台劇／音樂劇作品；流動馬戲團在停演前為一名孩子舉行壓軸演出。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0089",
+    "pool": "general",
+    "title": "冬港鐘聲",
+    "meta": {
+      "work_type": "舞台劇／音樂劇",
+      "occupations": [
+        "舞台設計師",
+        "舞台演員"
+      ],
+      "roles": [
+        "主演",
+        "主要配角",
+        "配角",
+        "群舞演出"
+      ],
+      "participation_role_example": "舞台設計",
+      "theme": "年代／舞台劇",
+      "background_setting": "戰後港口一家鐘錶店目送船隻與親人離去",
+      "description": "《冬港鐘聲》是一項以「年代／舞台劇」為核心的舞台劇／音樂劇作品；戰後港口一家鐘錶店目送船隻與親人離去。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0090",
+    "pool": "general",
+    "title": "心跳節拍器",
+    "meta": {
+      "work_type": "舞台劇／音樂劇",
+      "occupations": [
+        "舞台演員",
+        "音樂劇演員"
+      ],
+      "roles": [
+        "主演",
+        "主要配角",
+        "配角",
+        "群舞演出"
+      ],
+      "participation_role_example": "主演",
+      "theme": "青春／音樂劇",
+      "background_setting": "青年樂手透過共同排練克服彼此競爭",
+      "description": "《心跳節拍器》是一項以「青春／音樂劇」為核心的舞台劇／音樂劇作品；青年樂手透過共同排練克服彼此競爭。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0091",
+    "pool": "general",
+    "title": "凌晨四點的藍",
+    "meta": {
+      "work_type": "歌曲／專輯",
+      "occupations": [
+        "歌手",
+        "創作歌手"
+      ],
+      "roles": [],
+      "participation_role_example": "主唱",
+      "theme": "抒情流行／單曲",
+      "background_setting": "以城市清晨的空街與失眠心事為意象",
+      "description": "《凌晨四點的藍》是一項以「抒情流行／單曲」為核心的歌曲／專輯作品；以城市清晨的空街與失眠心事為意象。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0092",
+    "pool": "general",
+    "title": "把夏天裝進口袋",
+    "meta": {
+      "work_type": "歌曲／專輯",
+      "occupations": [
+        "創作歌手",
+        "作詞人"
+      ],
+      "roles": [],
+      "participation_role_example": "詞曲創作",
+      "theme": "青春流行／單曲",
+      "background_setting": "畢業旅行的海風與朋友的口頭禪串成副歌",
+      "description": "《把夏天裝進口袋》是一項以「青春流行／單曲」為核心的歌曲／專輯作品；畢業旅行的海風與朋友的口頭禪串成副歌。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0093",
+    "pool": "general",
+    "title": "潮汐情書",
+    "meta": {
+      "work_type": "歌曲／專輯",
+      "occupations": [
+        "作詞人",
+        "作曲家"
+      ],
+      "roles": [],
+      "participation_role_example": "作詞",
+      "theme": "都會R&B／單曲",
+      "background_setting": "以潮退潮漲比喻一段反覆靠近的關係",
+      "description": "《潮汐情書》是一項以「都會R&B／單曲」為核心的歌曲／專輯作品；以潮退潮漲比喻一段反覆靠近的關係。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0094",
+    "pool": "general",
+    "title": "夜色有形狀",
+    "meta": {
+      "work_type": "歌曲／專輯",
+      "occupations": [
+        "作曲家",
+        "音樂製作人"
+      ],
+      "roles": [],
+      "participation_role_example": "作曲",
+      "theme": "電子流行／EP",
+      "background_setting": "以霓虹、車窗與孤獨為三首曲目的概念",
+      "description": "《夜色有形狀》是一項以「電子流行／EP」為核心的歌曲／專輯作品；以霓虹、車窗與孤獨為三首曲目的概念。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0095",
+    "pool": "general",
+    "title": "沿途都是風",
+    "meta": {
+      "work_type": "歌曲／專輯",
+      "occupations": [
+        "音樂製作人",
+        "樂手"
+      ],
+      "roles": [],
+      "participation_role_example": "編曲／製作",
+      "theme": "民謠／單曲",
+      "background_setting": "描繪離鄉途中逐漸接受變化的心境",
+      "description": "《沿途都是風》是一項以「民謠／單曲」為核心的歌曲／專輯作品；描繪離鄉途中逐漸接受變化的心境。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0096",
+    "pool": "general",
+    "title": "候鳥不回信",
+    "meta": {
+      "work_type": "歌曲／專輯",
+      "occupations": [
+        "樂手",
+        "歌手"
+      ],
+      "roles": [],
+      "participation_role_example": "演奏",
+      "theme": "獨立搖滾／單曲",
+      "background_setting": "用遷徙意象講述無法說出口的分手",
+      "description": "《候鳥不回信》是一項以「獨立搖滾／單曲」為核心的歌曲／專輯作品；用遷徙意象講述無法說出口的分手。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0097",
+    "pool": "general",
+    "title": "銀河慢舞",
+    "meta": {
+      "work_type": "歌曲／專輯",
+      "occupations": [
+        "歌手",
+        "創作歌手"
+      ],
+      "roles": [],
+      "participation_role_example": "主唱",
+      "theme": "復古迪斯可／單曲",
+      "background_setting": "以宇宙舞會傳達自在與浪漫",
+      "description": "《銀河慢舞》是一項以「復古迪斯可／單曲」為核心的歌曲／專輯作品；以宇宙舞會傳達自在與浪漫。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0098",
+    "pool": "general",
+    "title": "不合時宜的溫柔",
+    "meta": {
+      "work_type": "歌曲／專輯",
+      "occupations": [
+        "創作歌手",
+        "作詞人"
+      ],
+      "roles": [],
+      "participation_role_example": "詞曲創作",
+      "theme": "爵士流行／專輯",
+      "background_setting": "圍繞大人世界裡難以啟齒的柔軟",
+      "description": "《不合時宜的溫柔》是一項以「爵士流行／專輯」為核心的歌曲／專輯作品；圍繞大人世界裡難以啟齒的柔軟。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0099",
+    "pool": "general",
+    "title": "紅絲絨凌晨",
+    "meta": {
+      "work_type": "歌曲／專輯",
+      "occupations": [
+        "作詞人",
+        "作曲家"
+      ],
+      "roles": [],
+      "participation_role_example": "作詞",
+      "theme": "節奏藍調／單曲",
+      "background_setting": "飯店走廊裡短暫相遇的曖昧敘事",
+      "description": "《紅絲絨凌晨》是一項以「節奏藍調／單曲」為核心的歌曲／專輯作品；飯店走廊裡短暫相遇的曖昧敘事。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0100",
+    "pool": "general",
+    "title": "雨滴修補術",
+    "meta": {
+      "work_type": "歌曲／專輯",
+      "occupations": [
+        "作曲家",
+        "音樂製作人"
+      ],
+      "roles": [],
+      "participation_role_example": "作曲",
+      "theme": "療癒民謠／單曲",
+      "background_setting": "以雨聲節奏陪伴挫敗後的恢復",
+      "description": "《雨滴修補術》是一項以「療癒民謠／單曲」為核心的歌曲／專輯作品；以雨聲節奏陪伴挫敗後的恢復。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0101",
+    "pool": "general",
+    "title": "風箏線",
+    "meta": {
+      "work_type": "歌曲／專輯",
+      "occupations": [
+        "音樂製作人",
+        "樂手"
+      ],
+      "roles": [],
+      "participation_role_example": "編曲／製作",
+      "theme": "親情抒情／單曲",
+      "background_setting": "用長大後依舊牽引的線描繪親子關係",
+      "description": "《風箏線》是一項以「親情抒情／單曲」為核心的歌曲／專輯作品；用長大後依舊牽引的線描繪親子關係。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0102",
+    "pool": "general",
+    "title": "零重力戀人",
+    "meta": {
+      "work_type": "歌曲／專輯",
+      "occupations": [
+        "樂手",
+        "歌手"
+      ],
+      "roles": [],
+      "participation_role_example": "演奏",
+      "theme": "合成器流行／EP",
+      "background_setting": "三首歌串聯近未來的失重戀情",
+      "description": "《零重力戀人》是一項以「合成器流行／EP」為核心的歌曲／專輯作品；三首歌串聯近未來的失重戀情。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0103",
+    "pool": "general",
+    "title": "今日晴朗機率",
+    "meta": {
+      "work_type": "歌曲／專輯",
+      "occupations": [
+        "歌手",
+        "創作歌手"
+      ],
+      "roles": [],
+      "participation_role_example": "主唱",
+      "theme": "清新流行／單曲",
+      "background_setting": "把天氣預報寫成重新振作的提醒",
+      "description": "《今日晴朗機率》是一項以「清新流行／單曲」為核心的歌曲／專輯作品；把天氣預報寫成重新振作的提醒。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0104",
+    "pool": "general",
+    "title": "夜行植物",
+    "meta": {
+      "work_type": "歌曲／專輯",
+      "occupations": [
+        "創作歌手",
+        "作詞人"
+      ],
+      "roles": [],
+      "participation_role_example": "詞曲創作",
+      "theme": "暗黑電子／單曲",
+      "background_setting": "描述在都市縫隙中悄悄生長的心事",
+      "description": "《夜行植物》是一項以「暗黑電子／單曲」為核心的歌曲／專輯作品；描述在都市縫隙中悄悄生長的心事。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0105",
+    "pool": "general",
+    "title": "站在光背後",
+    "meta": {
+      "work_type": "歌曲／專輯",
+      "occupations": [
+        "作詞人",
+        "作曲家"
+      ],
+      "roles": [],
+      "participation_role_example": "作詞",
+      "theme": "勵志搖滾／單曲",
+      "background_setting": "致敬幕後工作者的無名付出",
+      "description": "《站在光背後》是一項以「勵志搖滾／單曲」為核心的歌曲／專輯作品；致敬幕後工作者的無名付出。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0106",
+    "pool": "general",
+    "title": "七月的未接來電",
+    "meta": {
+      "work_type": "歌曲／專輯",
+      "occupations": [
+        "作曲家",
+        "音樂製作人"
+      ],
+      "roles": [],
+      "participation_role_example": "作曲",
+      "theme": "懷舊流行／單曲",
+      "background_setting": "從舊手機未接記錄展開一段夏日回憶",
+      "description": "《七月的未接來電》是一項以「懷舊流行／單曲」為核心的歌曲／專輯作品；從舊手機未接記錄展開一段夏日回憶。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0107",
+    "pool": "general",
+    "title": "別替我說再見",
+    "meta": {
+      "work_type": "歌曲／專輯",
+      "occupations": [
+        "音樂製作人",
+        "樂手"
+      ],
+      "roles": [],
+      "participation_role_example": "編曲／製作",
+      "theme": "抒情搖滾／單曲",
+      "background_setting": "表達結束關係時仍要保有選擇權",
+      "description": "《別替我說再見》是一項以「抒情搖滾／單曲」為核心的歌曲／專輯作品；表達結束關係時仍要保有選擇權。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0108",
+    "pool": "general",
+    "title": "藍色果醬",
+    "meta": {
+      "work_type": "歌曲／專輯",
+      "occupations": [
+        "樂手",
+        "歌手"
+      ],
+      "roles": [],
+      "participation_role_example": "演奏",
+      "theme": "俏皮放克／單曲",
+      "background_setting": "早餐桌上奇想世界的快節奏音樂",
+      "description": "《藍色果醬》是一項以「俏皮放克／單曲」為核心的歌曲／專輯作品；早餐桌上奇想世界的快節奏音樂。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0109",
+    "pool": "general",
+    "title": "月亮偏航",
+    "meta": {
+      "work_type": "歌曲／專輯",
+      "occupations": [
+        "歌手",
+        "創作歌手"
+      ],
+      "roles": [],
+      "participation_role_example": "主唱",
+      "theme": "另類流行／專輯",
+      "background_setting": "以偏離軌道象徵成長中重新選擇方向",
+      "description": "《月亮偏航》是一項以「另類流行／專輯」為核心的歌曲／專輯作品；以偏離軌道象徵成長中重新選擇方向。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0110",
+    "pool": "general",
+    "title": "四季練習題",
+    "meta": {
+      "work_type": "歌曲／專輯",
+      "occupations": [
+        "創作歌手",
+        "作詞人"
+      ],
+      "roles": [],
+      "participation_role_example": "詞曲創作",
+      "theme": "鋼琴流行／EP",
+      "background_setting": "春夏秋冬四段心境以器樂與人聲串連",
+      "description": "《四季練習題》是一項以「鋼琴流行／EP」為核心的歌曲／專輯作品；春夏秋冬四段心境以器樂與人聲串連。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0111",
+    "pool": "general",
+    "title": "晚安，陌生城市",
+    "meta": {
+      "work_type": "歌曲／專輯",
+      "occupations": [
+        "作詞人",
+        "作曲家"
+      ],
+      "roles": [],
+      "participation_role_example": "作詞",
+      "theme": "城市民謠／單曲",
+      "background_setting": "初到異鄉者對城市留下的深夜問候",
+      "description": "《晚安，陌生城市》是一項以「城市民謠／單曲」為核心的歌曲／專輯作品；初到異鄉者對城市留下的深夜問候。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0112",
+    "pool": "general",
+    "title": "薄荷色謊言",
+    "meta": {
+      "work_type": "歌曲／專輯",
+      "occupations": [
+        "作曲家",
+        "音樂製作人"
+      ],
+      "roles": [],
+      "participation_role_example": "作曲",
+      "theme": "舞曲／單曲",
+      "background_setting": "甜美節拍包裹自我欺騙的反諷歌詞",
+      "description": "《薄荷色謊言》是一項以「舞曲／單曲」為核心的歌曲／專輯作品；甜美節拍包裹自我欺騙的反諷歌詞。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0113",
+    "pool": "general",
+    "title": "想像中的海岸線",
+    "meta": {
+      "work_type": "歌曲／專輯",
+      "occupations": [
+        "音樂製作人",
+        "樂手"
+      ],
+      "roles": [],
+      "participation_role_example": "編曲／製作",
+      "theme": "夢幻流行／單曲",
+      "background_setting": "沒有見過海的人透過想像擁抱自由",
+      "description": "《想像中的海岸線》是一項以「夢幻流行／單曲」為核心的歌曲／專輯作品；沒有見過海的人透過想像擁抱自由。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0114",
+    "pool": "general",
+    "title": "白紙上的花火",
+    "meta": {
+      "work_type": "歌曲／專輯",
+      "occupations": [
+        "樂手",
+        "歌手"
+      ],
+      "roles": [],
+      "participation_role_example": "演奏",
+      "theme": "青春搖滾／單曲",
+      "background_setting": "描繪創作初期的膽怯與熱情",
+      "description": "《白紙上的花火》是一項以「青春搖滾／單曲」為核心的歌曲／專輯作品；描繪創作初期的膽怯與熱情。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0115",
+    "pool": "general",
+    "title": "第九顆流星",
+    "meta": {
+      "work_type": "歌曲／專輯",
+      "occupations": [
+        "歌手",
+        "創作歌手"
+      ],
+      "roles": [],
+      "participation_role_example": "主唱",
+      "theme": "抒情流行／單曲",
+      "background_setting": "每次許願都獻給不同的人",
+      "description": "《第九顆流星》是一項以「抒情流行／單曲」為核心的歌曲／專輯作品；每次許願都獻給不同的人。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0116",
+    "pool": "general",
+    "title": "花窗之下",
+    "meta": {
+      "work_type": "歌曲／專輯",
+      "occupations": [
+        "創作歌手",
+        "作詞人"
+      ],
+      "roles": [],
+      "participation_role_example": "詞曲創作",
+      "theme": "室內樂流行／專輯",
+      "background_setting": "宗教建築彩窗光影帶出八首故事歌曲",
+      "description": "《花窗之下》是一項以「室內樂流行／專輯」為核心的歌曲／專輯作品；宗教建築彩窗光影帶出八首故事歌曲。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0117",
+    "pool": "general",
+    "title": "錯過末班車的人",
+    "meta": {
+      "work_type": "歌曲／專輯",
+      "occupations": [
+        "作詞人",
+        "作曲家"
+      ],
+      "roles": [],
+      "participation_role_example": "作詞",
+      "theme": "都會爵士／單曲",
+      "background_setting": "深夜車站的偶遇與獨行",
+      "description": "《錯過末班車的人》是一項以「都會爵士／單曲」為核心的歌曲／專輯作品；深夜車站的偶遇與獨行。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0118",
+    "pool": "general",
+    "title": "星塵便利店",
+    "meta": {
+      "work_type": "歌曲／專輯",
+      "occupations": [
+        "作曲家",
+        "音樂製作人"
+      ],
+      "roles": [],
+      "participation_role_example": "作曲",
+      "theme": "電子嘻哈／單曲",
+      "background_setting": "虛構深夜商店販售各種奇怪願望",
+      "description": "《星塵便利店》是一項以「電子嘻哈／單曲」為核心的歌曲／專輯作品；虛構深夜商店販售各種奇怪願望。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0119",
+    "pool": "general",
+    "title": "晨霧散場",
+    "meta": {
+      "work_type": "歌曲／專輯",
+      "occupations": [
+        "音樂製作人",
+        "樂手"
+      ],
+      "roles": [],
+      "participation_role_example": "編曲／製作",
+      "theme": "鋼琴抒情／單曲",
+      "background_setting": "演出結束後看著舞台復歸原貌的感慨",
+      "description": "《晨霧散場》是一項以「鋼琴抒情／單曲」為核心的歌曲／專輯作品；演出結束後看著舞台復歸原貌的感慨。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0120",
+    "pool": "general",
+    "title": "橘子汽水宇宙",
+    "meta": {
+      "work_type": "歌曲／專輯",
+      "occupations": [
+        "樂手",
+        "歌手"
+      ],
+      "roles": [],
+      "participation_role_example": "演奏",
+      "theme": "輕快流行／單曲",
+      "background_setting": "以夏日汽水與青春的衝動為主題",
+      "description": "《橘子汽水宇宙》是一項以「輕快流行／單曲」為核心的歌曲／專輯作品；以夏日汽水與青春的衝動為主題。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0121",
+    "pool": "general",
+    "title": "寫給未來的錯字",
+    "meta": {
+      "work_type": "歌曲／專輯",
+      "occupations": [
+        "歌手",
+        "創作歌手"
+      ],
+      "roles": [],
+      "participation_role_example": "主唱",
+      "theme": "獨立民謠／單曲",
+      "background_setting": "接受計畫不完美的自我對話",
+      "description": "《寫給未來的錯字》是一項以「獨立民謠／單曲」為核心的歌曲／專輯作品；接受計畫不完美的自我對話。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0122",
+    "pool": "general",
+    "title": "黑白之間有金色",
+    "meta": {
+      "work_type": "歌曲／專輯",
+      "occupations": [
+        "創作歌手",
+        "作詞人"
+      ],
+      "roles": [],
+      "participation_role_example": "詞曲創作",
+      "theme": "靈魂樂／專輯",
+      "background_setting": "以多重身份與人生灰階為概念",
+      "description": "《黑白之間有金色》是一項以「靈魂樂／專輯」為核心的歌曲／專輯作品；以多重身份與人生灰階為概念。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0123",
+    "pool": "general",
+    "title": "逆光日記",
+    "meta": {
+      "work_type": "歌曲／專輯",
+      "occupations": [
+        "作詞人",
+        "作曲家"
+      ],
+      "roles": [],
+      "participation_role_example": "作詞",
+      "theme": "抒情電子／單曲",
+      "background_setting": "在失敗與挫折中記錄小小進步",
+      "description": "《逆光日記》是一項以「抒情電子／單曲」為核心的歌曲／專輯作品；在失敗與挫折中記錄小小進步。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0124",
+    "pool": "general",
+    "title": "雪落無聲時",
+    "meta": {
+      "work_type": "歌曲／專輯",
+      "occupations": [
+        "作曲家",
+        "音樂製作人"
+      ],
+      "roles": [],
+      "participation_role_example": "作曲",
+      "theme": "冬季抒情／單曲",
+      "background_setting": "白雪覆蓋城市時的靜謐思念",
+      "description": "《雪落無聲時》是一項以「冬季抒情／單曲」為核心的歌曲／專輯作品；白雪覆蓋城市時的靜謐思念。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0125",
+    "pool": "general",
+    "title": "仍然熱愛",
+    "meta": {
+      "work_type": "歌曲／專輯",
+      "occupations": [
+        "音樂製作人",
+        "樂手"
+      ],
+      "roles": [],
+      "participation_role_example": "編曲／製作",
+      "theme": "流行搖滾／單曲",
+      "background_setting": "獻給在漫長努力後仍堅持夢想的人",
+      "description": "《仍然熱愛》是一項以「流行搖滾／單曲」為核心的歌曲／專輯作品；獻給在漫長努力後仍堅持夢想的人。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0126",
+    "pool": "general",
+    "title": "今晚誰來掌鏡",
+    "meta": {
+      "work_type": "綜藝／訪談",
+      "occupations": [
+        "主持人",
+        "藝人"
+      ],
+      "roles": [],
+      "participation_role_example": "固定主持",
+      "theme": "職人／實境綜藝",
+      "background_setting": "來賓輪流體驗影視幕後不同部門",
+      "description": "《今晚誰來掌鏡》是一項以「職人／實境綜藝」為核心的綜藝／訪談作品；來賓輪流體驗影視幕後不同部門。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0127",
+    "pool": "general",
+    "title": "一日交換人生",
+    "meta": {
+      "work_type": "綜藝／訪談",
+      "occupations": [
+        "藝人",
+        "演員"
+      ],
+      "roles": [],
+      "participation_role_example": "常駐嘉賓",
+      "theme": "生活／體驗綜藝",
+      "background_setting": "不同職業的來賓交換一日工作與責任",
+      "description": "《一日交換人生》是一項以「生活／體驗綜藝」為核心的綜藝／訪談作品；不同職業的來賓交換一日工作與責任。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0128",
+    "pool": "general",
+    "title": "星光料理練習生",
+    "meta": {
+      "work_type": "綜藝／訪談",
+      "occupations": [
+        "演員",
+        "歌手"
+      ],
+      "roles": [],
+      "participation_role_example": "特邀來賓",
+      "theme": "美食／競賽綜藝",
+      "background_setting": "藝人接受專業廚師指導完成限定菜單",
+      "description": "《星光料理練習生》是一項以「美食／競賽綜藝」為核心的綜藝／訪談作品；藝人接受專業廚師指導完成限定菜單。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0129",
+    "pool": "general",
+    "title": "未公開的練習室",
+    "meta": {
+      "work_type": "綜藝／訪談",
+      "occupations": [
+        "歌手",
+        "綜藝製作人"
+      ],
+      "roles": [],
+      "participation_role_example": "節目嘉賓",
+      "theme": "音樂／紀錄綜藝",
+      "background_setting": "追蹤團體從練習到首次公開舞台",
+      "description": "《未公開的練習室》是一項以「音樂／紀錄綜藝」為核心的綜藝／訪談作品；追蹤團體從練習到首次公開舞台。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0130",
+    "pool": "general",
+    "title": "城市聲音採集簿",
+    "meta": {
+      "work_type": "綜藝／訪談",
+      "occupations": [
+        "綜藝製作人",
+        "導演"
+      ],
+      "roles": [],
+      "participation_role_example": "企劃製作",
+      "theme": "文化／旅行節目",
+      "background_setting": "主持人到各城收錄獨特聲音地景",
+      "description": "《城市聲音採集簿》是一項以「文化／旅行節目」為核心的綜藝／訪談作品；主持人到各城收錄獨特聲音地景。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0131",
+    "pool": "general",
+    "title": "今天不讀台本",
+    "meta": {
+      "work_type": "綜藝／訪談",
+      "occupations": [
+        "導演",
+        "主持人"
+      ],
+      "roles": [],
+      "participation_role_example": "節目導演",
+      "theme": "即興／談話節目",
+      "background_setting": "主持與嘉賓圍繞抽到的陌生議題聊天",
+      "description": "《今天不讀台本》是一項以「即興／談話節目」為核心的綜藝／訪談作品；主持與嘉賓圍繞抽到的陌生議題聊天。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0132",
+    "pool": "general",
+    "title": "慢速旅行俱樂部",
+    "meta": {
+      "work_type": "綜藝／訪談",
+      "occupations": [
+        "主持人",
+        "藝人"
+      ],
+      "roles": [],
+      "participation_role_example": "固定主持",
+      "theme": "療癒／旅遊綜藝",
+      "background_setting": "來賓以步行與大眾運輸探索小鎮",
+      "description": "《慢速旅行俱樂部》是一項以「療癒／旅遊綜藝」為核心的綜藝／訪談作品；來賓以步行與大眾運輸探索小鎮。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0133",
+    "pool": "general",
+    "title": "舞台後的名字",
+    "meta": {
+      "work_type": "綜藝／訪談",
+      "occupations": [
+        "藝人",
+        "演員"
+      ],
+      "roles": [],
+      "participation_role_example": "常駐嘉賓",
+      "theme": "人物／深度訪談",
+      "background_setting": "專訪燈光、音效、道具等幕後從業者",
+      "description": "《舞台後的名字》是一項以「人物／深度訪談」為核心的綜藝／訪談作品；專訪燈光、音效、道具等幕後從業者。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0134",
+    "pool": "general",
+    "title": "奇怪知識研究所",
+    "meta": {
+      "work_type": "綜藝／訪談",
+      "occupations": [
+        "演員",
+        "歌手"
+      ],
+      "roles": [],
+      "participation_role_example": "特邀來賓",
+      "theme": "知識／益智綜藝",
+      "background_setting": "用實驗驗證生活中的奇趣傳聞",
+      "description": "《奇怪知識研究所》是一項以「知識／益智綜藝」為核心的綜藝／訪談作品；用實驗驗證生活中的奇趣傳聞。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0135",
+    "pool": "general",
+    "title": "雙人默契診療室",
+    "meta": {
+      "work_type": "綜藝／訪談",
+      "occupations": [
+        "歌手",
+        "綜藝製作人"
+      ],
+      "roles": [],
+      "participation_role_example": "節目嘉賓",
+      "theme": "遊戲／互動綜藝",
+      "background_setting": "搭檔合作完成無語言溝通任務",
+      "description": "《雙人默契診療室》是一項以「遊戲／互動綜藝」為核心的綜藝／訪談作品；搭檔合作完成無語言溝通任務。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0136",
+    "pool": "general",
+    "title": "午夜唱片相談室",
+    "meta": {
+      "work_type": "綜藝／訪談",
+      "occupations": [
+        "綜藝製作人",
+        "導演"
+      ],
+      "roles": [],
+      "participation_role_example": "企劃製作",
+      "theme": "音樂／訪談節目",
+      "background_setting": "歌手分享影響自己創作的三張唱片",
+      "description": "《午夜唱片相談室》是一項以「音樂／訪談節目」為核心的綜藝／訪談作品；歌手分享影響自己創作的三張唱片。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0137",
+    "pool": "general",
+    "title": "有話請上車",
+    "meta": {
+      "work_type": "綜藝／訪談",
+      "occupations": [
+        "導演",
+        "主持人"
+      ],
+      "roles": [],
+      "participation_role_example": "節目導演",
+      "theme": "移動／談話節目",
+      "background_setting": "主持人在巡迴巴士上與嘉賓深聊",
+      "description": "《有話請上車》是一項以「移動／談話節目」為核心的綜藝／訪談作品；主持人在巡迴巴士上與嘉賓深聊。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0138",
+    "pool": "general",
+    "title": "青春再開機",
+    "meta": {
+      "work_type": "綜藝／訪談",
+      "occupations": [
+        "主持人",
+        "藝人"
+      ],
+      "roles": [],
+      "participation_role_example": "固定主持",
+      "theme": "校園／實境綜藝",
+      "background_setting": "畢業藝人重返校園學習不同專業",
+      "description": "《青春再開機》是一項以「校園／實境綜藝」為核心的綜藝／訪談作品；畢業藝人重返校園學習不同專業。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0139",
+    "pool": "general",
+    "title": "一百種謝幕方式",
+    "meta": {
+      "work_type": "綜藝／訪談",
+      "occupations": [
+        "藝人",
+        "演員"
+      ],
+      "roles": [],
+      "participation_role_example": "常駐嘉賓",
+      "theme": "表演／紀錄節目",
+      "background_setting": "記錄各地劇團的謝幕傳統與故事",
+      "description": "《一百種謝幕方式》是一項以「表演／紀錄節目」為核心的綜藝／訪談作品；記錄各地劇團的謝幕傳統與故事。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0140",
+    "pool": "general",
+    "title": "我家巷口有高手",
+    "meta": {
+      "work_type": "綜藝／訪談",
+      "occupations": [
+        "演員",
+        "歌手"
+      ],
+      "roles": [],
+      "participation_role_example": "特邀來賓",
+      "theme": "社區／才藝節目",
+      "background_setting": "尋訪民間職人與在地表演者",
+      "description": "《我家巷口有高手》是一項以「社區／才藝節目」為核心的綜藝／訪談作品；尋訪民間職人與在地表演者。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0141",
+    "pool": "general",
+    "title": "料理不設限",
+    "meta": {
+      "work_type": "綜藝／訪談",
+      "occupations": [
+        "歌手",
+        "綜藝製作人"
+      ],
+      "roles": [],
+      "participation_role_example": "節目嘉賓",
+      "theme": "創意／美食競賽",
+      "background_setting": "參賽者以限定食材設計跨文化餐點",
+      "description": "《料理不設限》是一項以「創意／美食競賽」為核心的綜藝／訪談作品；參賽者以限定食材設計跨文化餐點。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0142",
+    "pool": "general",
+    "title": "夜談事務所",
+    "meta": {
+      "work_type": "綜藝／訪談",
+      "occupations": [
+        "綜藝製作人",
+        "導演"
+      ],
+      "roles": [],
+      "participation_role_example": "企劃製作",
+      "theme": "文化／深度訪談",
+      "background_setting": "邀請創作者談創作轉折與失敗經驗",
+      "description": "《夜談事務所》是一項以「文化／深度訪談」為核心的綜藝／訪談作品；邀請創作者談創作轉折與失敗經驗。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0143",
+    "pool": "general",
+    "title": "反轉劇本大會",
+    "meta": {
+      "work_type": "綜藝／訪談",
+      "occupations": [
+        "導演",
+        "主持人"
+      ],
+      "roles": [],
+      "participation_role_example": "節目導演",
+      "theme": "戲劇／遊戲綜藝",
+      "background_setting": "演員現場抽取角色關係即興演出",
+      "description": "《反轉劇本大會》是一項以「戲劇／遊戲綜藝」為核心的綜藝／訪談作品；演員現場抽取角色關係即興演出。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0144",
+    "pool": "general",
+    "title": "地圖之外的週末",
+    "meta": {
+      "work_type": "綜藝／訪談",
+      "occupations": [
+        "主持人",
+        "藝人"
+      ],
+      "roles": [],
+      "participation_role_example": "固定主持",
+      "theme": "探索／旅遊綜藝",
+      "background_setting": "來賓走訪少見觀光路線並記錄居民故事",
+      "description": "《地圖之外的週末》是一項以「探索／旅遊綜藝」為核心的綜藝／訪談作品；來賓走訪少見觀光路線並記錄居民故事。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0145",
+    "pool": "general",
+    "title": "明日製作人",
+    "meta": {
+      "work_type": "綜藝／訪談",
+      "occupations": [
+        "藝人",
+        "演員"
+      ],
+      "roles": [],
+      "participation_role_example": "常駐嘉賓",
+      "theme": "音樂／競賽綜藝",
+      "background_setting": "新人製作人與歌手限時合作原創曲",
+      "description": "《明日製作人》是一項以「音樂／競賽綜藝」為核心的綜藝／訪談作品；新人製作人與歌手限時合作原創曲。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0146",
+    "pool": "general",
+    "title": "破曉前的脈搏",
+    "meta": {
+      "work_type": "舞蹈作品",
+      "occupations": [
+        "舞者",
+        "編舞師"
+      ],
+      "roles": [],
+      "participation_role_example": "領舞",
+      "theme": "當代舞／群舞",
+      "background_setting": "以日出前城市由靜轉動的節奏構成",
+      "description": "《破曉前的脈搏》是一項以「當代舞／群舞」為核心的舞蹈作品作品；以日出前城市由靜轉動的節奏構成。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0147",
+    "pool": "general",
+    "title": "玻璃羽翼",
+    "meta": {
+      "work_type": "舞蹈作品",
+      "occupations": [
+        "編舞師",
+        "舞蹈導演"
+      ],
+      "roles": [],
+      "participation_role_example": "編舞",
+      "theme": "芭蕾融合／雙人舞",
+      "background_setting": "用脆弱與支撐探索彼此信任",
+      "description": "《玻璃羽翼》是一項以「芭蕾融合／雙人舞」為核心的舞蹈作品作品；用脆弱與支撐探索彼此信任。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0148",
+    "pool": "general",
+    "title": "紅線之間",
+    "meta": {
+      "work_type": "舞蹈作品",
+      "occupations": [
+        "舞蹈導演",
+        "舞蹈演員"
+      ],
+      "roles": [],
+      "participation_role_example": "舞蹈指導",
+      "theme": "現代舞／三人舞",
+      "background_setting": "以牽引與拉扯表達難以言說的關係",
+      "description": "《紅線之間》是一項以「現代舞／三人舞」為核心的舞蹈作品作品；以牽引與拉扯表達難以言說的關係。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0149",
+    "pool": "general",
+    "title": "重力遊戲",
+    "meta": {
+      "work_type": "舞蹈作品",
+      "occupations": [
+        "舞蹈演員",
+        "舞者"
+      ],
+      "roles": [],
+      "participation_role_example": "群舞演出",
+      "theme": "街舞／競技編舞",
+      "background_setting": "利用重心轉換呈現互相對抗與合作",
+      "description": "《重力遊戲》是一項以「街舞／競技編舞」為核心的舞蹈作品作品；利用重心轉換呈現互相對抗與合作。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0150",
+    "pool": "general",
+    "title": "影子比我先到",
+    "meta": {
+      "work_type": "舞蹈作品",
+      "occupations": [
+        "舞者",
+        "編舞師"
+      ],
+      "roles": [],
+      "participation_role_example": "領舞",
+      "theme": "實驗舞／獨舞",
+      "background_setting": "舞者與投影同步錯位演出自我分身",
+      "description": "《影子比我先到》是一項以「實驗舞／獨舞」為核心的舞蹈作品作品；舞者與投影同步錯位演出自我分身。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0151",
+    "pool": "general",
+    "title": "雨季返航",
+    "meta": {
+      "work_type": "舞蹈作品",
+      "occupations": [
+        "編舞師",
+        "舞蹈導演"
+      ],
+      "roles": [],
+      "participation_role_example": "編舞",
+      "theme": "抒情現代舞／群舞",
+      "background_setting": "以水波與歸航作為動作動機",
+      "description": "《雨季返航》是一項以「抒情現代舞／群舞」為核心的舞蹈作品作品；以水波與歸航作為動作動機。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0152",
+    "pool": "general",
+    "title": "時差二十四格",
+    "meta": {
+      "work_type": "舞蹈作品",
+      "occupations": [
+        "舞蹈導演",
+        "舞蹈演員"
+      ],
+      "roles": [],
+      "participation_role_example": "舞蹈指導",
+      "theme": "爵士舞／舞台編舞",
+      "background_setting": "以世界城市不同時區串接節拍",
+      "description": "《時差二十四格》是一項以「爵士舞／舞台編舞」為核心的舞蹈作品作品；以世界城市不同時區串接節拍。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0153",
+    "pool": "general",
+    "title": "白噪音花園",
+    "meta": {
+      "work_type": "舞蹈作品",
+      "occupations": [
+        "舞蹈演員",
+        "舞者"
+      ],
+      "roles": [],
+      "participation_role_example": "群舞演出",
+      "theme": "當代舞／裝置演出",
+      "background_setting": "舞者在白噪聲與植物裝置中尋找方向",
+      "description": "《白噪音花園》是一項以「當代舞／裝置演出」為核心的舞蹈作品作品；舞者在白噪聲與植物裝置中尋找方向。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0154",
+    "pool": "general",
+    "title": "霓虹折返跑",
+    "meta": {
+      "work_type": "舞蹈作品",
+      "occupations": [
+        "舞者",
+        "編舞師"
+      ],
+      "roles": [],
+      "participation_role_example": "領舞",
+      "theme": "嘻哈舞／團體舞",
+      "background_setting": "以城市夜間交通與快節奏步伐為主題",
+      "description": "《霓虹折返跑》是一項以「嘻哈舞／團體舞」為核心的舞蹈作品作品；以城市夜間交通與快節奏步伐為主題。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0155",
+    "pool": "general",
+    "title": "風從身後來",
+    "meta": {
+      "work_type": "舞蹈作品",
+      "occupations": [
+        "編舞師",
+        "舞蹈導演"
+      ],
+      "roles": [],
+      "participation_role_example": "編舞",
+      "theme": "民族融合／群舞",
+      "background_setting": "融合民間旋轉與現代舞表現遠行",
+      "description": "《風從身後來》是一項以「民族融合／群舞」為核心的舞蹈作品作品；融合民間旋轉與現代舞表現遠行。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0156",
+    "pool": "general",
+    "title": "倒映的第二人",
+    "meta": {
+      "work_type": "舞蹈作品",
+      "occupations": [
+        "舞蹈導演",
+        "舞蹈演員"
+      ],
+      "roles": [],
+      "participation_role_example": "舞蹈指導",
+      "theme": "雙人現代舞／接觸即興",
+      "background_setting": "兩名舞者模擬鏡像與不對稱關係",
+      "description": "《倒映的第二人》是一項以「雙人現代舞／接觸即興」為核心的舞蹈作品作品；兩名舞者模擬鏡像與不對稱關係。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0157",
+    "pool": "general",
+    "title": "紙鳶墜落之前",
+    "meta": {
+      "work_type": "舞蹈作品",
+      "occupations": [
+        "舞蹈演員",
+        "舞者"
+      ],
+      "roles": [],
+      "participation_role_example": "群舞演出",
+      "theme": "古典融合／獨舞",
+      "background_setting": "以風箏飛升與落地描繪放手",
+      "description": "《紙鳶墜落之前》是一項以「古典融合／獨舞」為核心的舞蹈作品作品；以風箏飛升與落地描繪放手。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0158",
+    "pool": "general",
+    "title": "城市褶皺",
+    "meta": {
+      "work_type": "舞蹈作品",
+      "occupations": [
+        "舞者",
+        "編舞師"
+      ],
+      "roles": [],
+      "participation_role_example": "領舞",
+      "theme": "街舞劇場／群舞",
+      "background_setting": "把通勤人潮的重複動作編成身體敘事",
+      "description": "《城市褶皺》是一項以「街舞劇場／群舞」為核心的舞蹈作品作品；把通勤人潮的重複動作編成身體敘事。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0159",
+    "pool": "general",
+    "title": "潮間帶呼吸",
+    "meta": {
+      "work_type": "舞蹈作品",
+      "occupations": [
+        "編舞師",
+        "舞蹈導演"
+      ],
+      "roles": [],
+      "participation_role_example": "編舞",
+      "theme": "環境舞蹈／群舞",
+      "background_setting": "結合海岸生態影像與呼吸節律",
+      "description": "《潮間帶呼吸》是一項以「環境舞蹈／群舞」為核心的舞蹈作品作品；結合海岸生態影像與呼吸節律。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0160",
+    "pool": "general",
+    "title": "最後一顆節拍",
+    "meta": {
+      "work_type": "舞蹈作品",
+      "occupations": [
+        "舞蹈導演",
+        "舞蹈演員"
+      ],
+      "roles": [],
+      "participation_role_example": "舞蹈指導",
+      "theme": "實驗爵士／舞蹈短片",
+      "background_setting": "以節拍器停擺象徵告別與重新出發",
+      "description": "《最後一顆節拍》是一項以「實驗爵士／舞蹈短片」為核心的舞蹈作品作品；以節拍器停擺象徵告別與重新出發。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0161",
+    "pool": "general",
+    "title": "星砂郵差",
+    "meta": {
+      "work_type": "動畫／遊戲／聲音作品",
+      "occupations": [
+        "配音員",
+        "聲優"
+      ],
+      "roles": [],
+      "participation_role_example": "主要角色配音",
+      "theme": "動畫／奇幻冒險",
+      "background_setting": "年輕郵差替不同星球送達遺失的願望",
+      "description": "《星砂郵差》是一項以「動畫／奇幻冒險」為核心的動畫／遊戲／聲音作品作品；年輕郵差替不同星球送達遺失的願望。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0162",
+    "pool": "general",
+    "title": "機械森林保育員",
+    "meta": {
+      "work_type": "動畫／遊戲／聲音作品",
+      "occupations": [
+        "聲優",
+        "動畫導演"
+      ],
+      "roles": [],
+      "participation_role_example": "角色配音",
+      "theme": "遊戲／科幻探索",
+      "background_setting": "玩家修復被機械化的森林生態系統",
+      "description": "《機械森林保育員》是一項以「遊戲／科幻探索」為核心的動畫／遊戲／聲音作品作品；玩家修復被機械化的森林生態系統。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0163",
+    "pool": "general",
+    "title": "魔女的茶會日誌",
+    "meta": {
+      "work_type": "動畫／遊戲／聲音作品",
+      "occupations": [
+        "動畫導演",
+        "遊戲編劇"
+      ],
+      "roles": [],
+      "participation_role_example": "動畫導演",
+      "theme": "廣播劇／日常奇幻",
+      "background_setting": "見習魔女經營一間會說話的茶屋",
+      "description": "《魔女的茶會日誌》是一項以「廣播劇／日常奇幻」為核心的動畫／遊戲／聲音作品作品；見習魔女經營一間會說話的茶屋。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0164",
+    "pool": "general",
+    "title": "深海圖書館",
+    "meta": {
+      "work_type": "動畫／遊戲／聲音作品",
+      "occupations": [
+        "遊戲編劇",
+        "聲音導演"
+      ],
+      "roles": [],
+      "participation_role_example": "世界觀編劇",
+      "theme": "動畫／神秘成長",
+      "background_setting": "少年在海底圖書館尋找失落的故事",
+      "description": "《深海圖書館》是一項以「動畫／神秘成長」為核心的動畫／遊戲／聲音作品作品；少年在海底圖書館尋找失落的故事。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0165",
+    "pool": "general",
+    "title": "雲端小鎮修理師",
+    "meta": {
+      "work_type": "動畫／遊戲／聲音作品",
+      "occupations": [
+        "聲音導演",
+        "音效設計師"
+      ],
+      "roles": [],
+      "participation_role_example": "聲音演出指導",
+      "theme": "遊戲／休閒經營",
+      "background_setting": "玩家修理飄浮島鎮上的工具與建築",
+      "description": "《雲端小鎮修理師》是一項以「遊戲／休閒經營」為核心的動畫／遊戲／聲音作品作品；玩家修理飄浮島鎮上的工具與建築。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0166",
+    "pool": "general",
+    "title": "黑曜之門",
+    "meta": {
+      "work_type": "動畫／遊戲／聲音作品",
+      "occupations": [
+        "音效設計師",
+        "配音員"
+      ],
+      "roles": [],
+      "participation_role_example": "音效設計",
+      "theme": "遊戲／奇幻角色扮演",
+      "background_setting": "冒險者探索封印古文明的地底王國",
+      "description": "《黑曜之門》是一項以「遊戲／奇幻角色扮演」為核心的動畫／遊戲／聲音作品作品；冒險者探索封印古文明的地底王國。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0167",
+    "pool": "general",
+    "title": "七號太空電台",
+    "meta": {
+      "work_type": "動畫／遊戲／聲音作品",
+      "occupations": [
+        "配音員",
+        "聲優"
+      ],
+      "roles": [],
+      "participation_role_example": "主要角色配音",
+      "theme": "聲音劇／科幻懸疑",
+      "background_setting": "太空通訊員收到來自未來的求救訊號",
+      "description": "《七號太空電台》是一項以「聲音劇／科幻懸疑」為核心的動畫／遊戲／聲音作品作品；太空通訊員收到來自未來的求救訊號。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0168",
+    "pool": "general",
+    "title": "蒲公英探險隊",
+    "meta": {
+      "work_type": "動畫／遊戲／聲音作品",
+      "occupations": [
+        "聲優",
+        "動畫導演"
+      ],
+      "roles": [],
+      "participation_role_example": "角色配音",
+      "theme": "兒童動畫／教育",
+      "background_setting": "小動物搭乘種子飛船學習自然知識",
+      "description": "《蒲公英探險隊》是一項以「兒童動畫／教育」為核心的動畫／遊戲／聲音作品作品；小動物搭乘種子飛船學習自然知識。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0169",
+    "pool": "general",
+    "title": "夜鶯與銀鑰匙",
+    "meta": {
+      "work_type": "動畫／遊戲／聲音作品",
+      "occupations": [
+        "動畫導演",
+        "遊戲編劇"
+      ],
+      "roles": [],
+      "participation_role_example": "動畫導演",
+      "theme": "動畫電影／童話",
+      "background_setting": "夜鶯尋找可開啟四季之門的鑰匙",
+      "description": "《夜鶯與銀鑰匙》是一項以「動畫電影／童話」為核心的動畫／遊戲／聲音作品作品；夜鶯尋找可開啟四季之門的鑰匙。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0170",
+    "pool": "general",
+    "title": "最後一頁攻略",
+    "meta": {
+      "work_type": "動畫／遊戲／聲音作品",
+      "occupations": [
+        "遊戲編劇",
+        "聲音導演"
+      ],
+      "roles": [],
+      "participation_role_example": "世界觀編劇",
+      "theme": "遊戲／懸疑解謎",
+      "background_setting": "玩家在不斷改寫的書頁世界中求生",
+      "description": "《最後一頁攻略》是一項以「遊戲／懸疑解謎」為核心的動畫／遊戲／聲音作品作品；玩家在不斷改寫的書頁世界中求生。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0171",
+    "pool": "general",
+    "title": "回聲航線",
+    "meta": {
+      "work_type": "動畫／遊戲／聲音作品",
+      "occupations": [
+        "聲音導演",
+        "音效設計師"
+      ],
+      "roles": [],
+      "participation_role_example": "聲音演出指導",
+      "theme": "聲音劇／冒險",
+      "background_setting": "遠洋貨輪的聲納員發現神祕聲音來源",
+      "description": "《回聲航線》是一項以「聲音劇／冒險」為核心的動畫／遊戲／聲音作品作品；遠洋貨輪的聲納員發現神祕聲音來源。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0172",
+    "pool": "general",
+    "title": "便利店守護靈",
+    "meta": {
+      "work_type": "動畫／遊戲／聲音作品",
+      "occupations": [
+        "音效設計師",
+        "配音員"
+      ],
+      "roles": [],
+      "participation_role_example": "音效設計",
+      "theme": "動畫／都市喜劇",
+      "background_setting": "守護靈新手被派往二十四小時便利店",
+      "description": "《便利店守護靈》是一項以「動畫／都市喜劇」為核心的動畫／遊戲／聲音作品作品；守護靈新手被派往二十四小時便利店。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0173",
+    "pool": "general",
+    "title": "像素王國假期",
+    "meta": {
+      "work_type": "動畫／遊戲／聲音作品",
+      "occupations": [
+        "配音員",
+        "聲優"
+      ],
+      "roles": [],
+      "participation_role_example": "主要角色配音",
+      "theme": "遊戲／像素冒險",
+      "background_setting": "玩家在充滿支線委託的懷舊世界旅行",
+      "description": "《像素王國假期》是一項以「遊戲／像素冒險」為核心的動畫／遊戲／聲音作品作品；玩家在充滿支線委託的懷舊世界旅行。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0174",
+    "pool": "general",
+    "title": "黃昏信使",
+    "meta": {
+      "work_type": "動畫／遊戲／聲音作品",
+      "occupations": [
+        "聲優",
+        "動畫導演"
+      ],
+      "roles": [],
+      "participation_role_example": "角色配音",
+      "theme": "廣播劇／情感奇幻",
+      "background_setting": "信使可在日落前替陌生人傳達最後一句話",
+      "description": "《黃昏信使》是一項以「廣播劇／情感奇幻」為核心的動畫／遊戲／聲音作品作品；信使可在日落前替陌生人傳達最後一句話。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0175",
+    "pool": "general",
+    "title": "月球玻璃工房",
+    "meta": {
+      "work_type": "動畫／遊戲／聲音作品",
+      "occupations": [
+        "動畫導演",
+        "遊戲編劇"
+      ],
+      "roles": [],
+      "participation_role_example": "動畫導演",
+      "theme": "動畫／溫情科幻",
+      "background_setting": "月球工匠以玻璃保存人們對故鄉的記憶",
+      "description": "《月球玻璃工房》是一項以「動畫／溫情科幻」為核心的動畫／遊戲／聲音作品作品；月球工匠以玻璃保存人們對故鄉的記憶。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0176",
+    "pool": "general",
+    "title": "凌晨聊天室",
+    "meta": {
+      "work_type": "網路／直播作品",
+      "occupations": [
+        "網路創作者",
+        "直播主"
+      ],
+      "roles": [],
+      "participation_role_example": "內容主創",
+      "theme": "網路談話／直播企劃",
+      "background_setting": "以深夜來信討論青春與工作煩惱",
+      "description": "《凌晨聊天室》是一項以「網路談話／直播企劃」為核心的網路／直播作品作品；以深夜來信討論青春與工作煩惱。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0177",
+    "pool": "general",
+    "title": "一週一幅城市",
+    "meta": {
+      "work_type": "網路／直播作品",
+      "occupations": [
+        "直播主",
+        "主持人"
+      ],
+      "roles": [],
+      "participation_role_example": "固定直播主持",
+      "theme": "短影音／藝術系列",
+      "background_setting": "每週以插畫記錄一個城市角落",
+      "description": "《一週一幅城市》是一項以「短影音／藝術系列」為核心的網路／直播作品作品；每週以插畫記錄一個城市角落。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0178",
+    "pool": "general",
+    "title": "開箱異想收藏室",
+    "meta": {
+      "work_type": "網路／直播作品",
+      "occupations": [
+        "主持人",
+        "演員"
+      ],
+      "roles": [],
+      "participation_role_example": "系列主持",
+      "theme": "影音／收藏企劃",
+      "background_setting": "介紹虛構道具與真實收藏的設計故事",
+      "description": "《開箱異想收藏室》是一項以「影音／收藏企劃」為核心的網路／直播作品作品；介紹虛構道具與真實收藏的設計故事。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0179",
+    "pool": "general",
+    "title": "百元料理挑戰簿",
+    "meta": {
+      "work_type": "網路／直播作品",
+      "occupations": [
+        "演員",
+        "剪輯師"
+      ],
+      "roles": [],
+      "participation_role_example": "演出",
+      "theme": "網路美食／挑戰系列",
+      "background_setting": "有限預算製作兼顧營養的家常餐",
+      "description": "《百元料理挑戰簿》是一項以「網路美食／挑戰系列」為核心的網路／直播作品作品；有限預算製作兼顧營養的家常餐。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0180",
+    "pool": "general",
+    "title": "今天也要練習唱歌",
+    "meta": {
+      "work_type": "網路／直播作品",
+      "occupations": [
+        "剪輯師",
+        "網路創作者"
+      ],
+      "roles": [],
+      "participation_role_example": "剪輯／後製",
+      "theme": "音樂／直播系列",
+      "background_setting": "公開練習曲目並分享聲音保養心得",
+      "description": "《今天也要練習唱歌》是一項以「音樂／直播系列」為核心的網路／直播作品作品；公開練習曲目並分享聲音保養心得。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0181",
+    "pool": "general",
+    "title": "一鏡到底小劇場",
+    "meta": {
+      "work_type": "網路／直播作品",
+      "occupations": [
+        "網路創作者",
+        "直播主"
+      ],
+      "roles": [],
+      "participation_role_example": "內容主創",
+      "theme": "網路短劇／戲劇企劃",
+      "background_setting": "每集在單一鏡頭完成獨立短故事",
+      "description": "《一鏡到底小劇場》是一項以「網路短劇／戲劇企劃」為核心的網路／直播作品作品；每集在單一鏡頭完成獨立短故事。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0182",
+    "pool": "general",
+    "title": "五分鐘看懂舞台",
+    "meta": {
+      "work_type": "網路／直播作品",
+      "occupations": [
+        "直播主",
+        "主持人"
+      ],
+      "roles": [],
+      "participation_role_example": "固定直播主持",
+      "theme": "知識／短影音系列",
+      "background_setting": "解析燈光、走位、道具等表演知識",
+      "description": "《五分鐘看懂舞台》是一項以「知識／短影音系列」為核心的網路／直播作品作品；解析燈光、走位、道具等表演知識。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0183",
+    "pool": "general",
+    "title": "週末手作宇宙",
+    "meta": {
+      "work_type": "網路／直播作品",
+      "occupations": [
+        "主持人",
+        "演員"
+      ],
+      "roles": [],
+      "participation_role_example": "系列主持",
+      "theme": "生活／直播教學",
+      "background_setting": "用回收材料製作小型創意物件",
+      "description": "《週末手作宇宙》是一項以「生活／直播教學」為核心的網路／直播作品作品；用回收材料製作小型創意物件。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0184",
+    "pool": "general",
+    "title": "虛擬旅伴日記",
+    "meta": {
+      "work_type": "網路／直播作品",
+      "occupations": [
+        "演員",
+        "剪輯師"
+      ],
+      "roles": [],
+      "participation_role_example": "演出",
+      "theme": "虛擬直播／角色企劃",
+      "background_setting": "虛擬角色帶觀眾探索架空城市",
+      "description": "《虛擬旅伴日記》是一項以「虛擬直播／角色企劃」為核心的網路／直播作品作品；虛擬角色帶觀眾探索架空城市。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0185",
+    "pool": "general",
+    "title": "巷口聲音地圖",
+    "meta": {
+      "work_type": "網路／直播作品",
+      "occupations": [
+        "剪輯師",
+        "網路創作者"
+      ],
+      "roles": [],
+      "participation_role_example": "剪輯／後製",
+      "theme": "紀錄／網路系列",
+      "background_setting": "收集街頭老店與職人的環境聲",
+      "description": "《巷口聲音地圖》是一項以「紀錄／網路系列」為核心的網路／直播作品作品；收集街頭老店與職人的環境聲。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0186",
+    "pool": "general",
+    "title": "不按劇本直播間",
+    "meta": {
+      "work_type": "網路／直播作品",
+      "occupations": [
+        "網路創作者",
+        "直播主"
+      ],
+      "roles": [],
+      "participation_role_example": "內容主創",
+      "theme": "即興／互動直播",
+      "background_setting": "觀眾投票決定即興表演的場景和關係",
+      "description": "《不按劇本直播間》是一項以「即興／互動直播」為核心的網路／直播作品作品；觀眾投票決定即興表演的場景和關係。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0187",
+    "pool": "general",
+    "title": "銀幕冷知識實驗",
+    "meta": {
+      "work_type": "網路／直播作品",
+      "occupations": [
+        "直播主",
+        "主持人"
+      ],
+      "roles": [],
+      "participation_role_example": "固定直播主持",
+      "theme": "影視／科普影片",
+      "background_setting": "以安全示範拆解電影常見視覺效果",
+      "description": "《銀幕冷知識實驗》是一項以「影視／科普影片」為核心的網路／直播作品作品；以安全示範拆解電影常見視覺效果。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0188",
+    "pool": "general",
+    "title": "線上迷你音樂祭",
+    "meta": {
+      "work_type": "網路／直播作品",
+      "occupations": [
+        "主持人",
+        "演員"
+      ],
+      "roles": [],
+      "participation_role_example": "系列主持",
+      "theme": "音樂／網路演出",
+      "background_setting": "多位獨立音樂人遠端接力演唱",
+      "description": "《線上迷你音樂祭》是一項以「音樂／網路演出」為核心的網路／直播作品作品；多位獨立音樂人遠端接力演唱。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0189",
+    "pool": "general",
+    "title": "今日穿搭研究社",
+    "meta": {
+      "work_type": "網路／直播作品",
+      "occupations": [
+        "演員",
+        "剪輯師"
+      ],
+      "roles": [],
+      "participation_role_example": "演出",
+      "theme": "時尚／短影音系列",
+      "background_setting": "比較不同場合的機能與造型需求",
+      "description": "《今日穿搭研究社》是一項以「時尚／短影音系列」為核心的網路／直播作品作品；比較不同場合的機能與造型需求。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0190",
+    "pool": "general",
+    "title": "書架背後的故事",
+    "meta": {
+      "work_type": "網路／直播作品",
+      "occupations": [
+        "剪輯師",
+        "網路創作者"
+      ],
+      "roles": [],
+      "participation_role_example": "剪輯／後製",
+      "theme": "閱讀／網路訪談",
+      "background_setting": "邀請創作者分享影響人生的書籍",
+      "description": "《書架背後的故事》是一項以「閱讀／網路訪談」為核心的網路／直播作品作品；邀請創作者分享影響人生的書籍。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0191",
+    "pool": "general",
+    "title": "午夜藍緞帶",
+    "meta": {
+      "work_type": "時尚／廣告企劃",
+      "occupations": [
+        "模特兒",
+        "演員"
+      ],
+      "roles": [],
+      "participation_role_example": "形象主演",
+      "theme": "精品時尚／形象企劃",
+      "background_setting": "以深藍緞帶與夜色城市塑造秋冬視覺",
+      "description": "《午夜藍緞帶》是一項以「精品時尚／形象企劃」為核心的時尚／廣告企劃作品；以深藍緞帶與夜色城市塑造秋冬視覺。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
+  {
+    "asset_id": "WN-0192",
+    "pool": "general",
+    "title": "日光之下",
+    "meta": {
+      "work_type": "時尚／廣告企劃",
+      "occupations": [
+        "演員",
+        "攝影師"
+      ],
+      "roles": [],
+      "participation_role_example": "廣告演出",
+      "theme": "保養／廣告短片",
+      "background_setting": "以自然光與不同年齡的笑容傳達日常照護",
+      "description": "《日光之下》是一項以「保養／廣告短片」為核心的時尚／廣告企劃作品；以自然光與不同年齡的笑容傳達日常照護。",
+      "content_origin": "newly_rewritten_not_restored_original",
+      "content_origin_label": "新編重建／非原始核准文字復原"
+    }
+  },
