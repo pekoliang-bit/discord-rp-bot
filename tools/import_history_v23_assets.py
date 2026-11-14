@@ -8,7 +8,7 @@ import argparse,json,re,sys
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT))
-DEFAULT=ROOT/'assets/history_v23/verified_import_ready.json'
+DEFAULT=ROOT/'assets/history_v23/current_adopted_580.json'
 PAT=re.compile(r'(WN|CN|HB|HE)-\d{4}\Z')
 
 def validate_data(path,pool='general'):
@@ -33,7 +33,7 @@ def validate_data(path,pool='general'):
     return data
 
 def audit_candidates():
-    loc=ROOT/'assets/history_v23/IMPORT_AUDIT.json'
+    loc=ROOT/'assets/history_v23/CURRENT_580_IMPORT_AUDIT.json'
     audit=json.loads(loc.read_text(encoding='utf-8'))
     print(json.dumps(audit,ensure_ascii=False,indent=2))
 
@@ -42,6 +42,7 @@ def main():
     parser.add_argument('--guild',help='正式 Discord 伺服器 ID')
     parser.add_argument('--file',type=Path,action='append',default=None,help='有原文的已核准素材 JSON；可重複使用以一次提交多個檔案')
     parser.add_argument('--pool',choices=['general','passerby'],default='general')
+    parser.add_argument('--legacy-55',action='store_true',help='只匯入舊版 55 筆，不使用現行 580 筆')
     parser.add_argument('--apply',action='store_true',help='經備份、在測試環境確認後才使用')
     parser.add_argument('--audit',action='store_true',help='只查看原文與候選內容數量')
     args=parser.parse_args()
@@ -49,7 +50,7 @@ def main():
         audit_candidates();return
     if not args.guild or not re.fullmatch(r'\d{10,25}',args.guild):
         parser.error('--guild 必須是 Discord 伺服器數字 ID。')
-    paths=args.file or [DEFAULT]
+    paths=args.file or ([ROOT/'assets/history_v23/verified_import_ready.json'] if args.legacy_55 else [DEFAULT])
     rows=[]
     for path in paths:
         rows.extend(validate_data(path,args.pool))
