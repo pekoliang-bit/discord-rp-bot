@@ -9,8 +9,9 @@
     "meta": {
       "industry": "美妝護膚"
     },
-    "status": "recovered_summary_needs_original_text_review",
-    "import_ready": false
+    "status": "previously_approved",
+    "approved": true,
+    "import_ready": true
   },
   {
     "asset_id": "HB-0002",
@@ -22,8 +23,9 @@
     "meta": {
       "industry": "美妝護膚"
     },
-    "status": "recovered_summary_needs_original_text_review",
-    "import_ready": false
+    "status": "previously_approved",
+    "approved": true,
+    "import_ready": true
   },
   {
     "asset_id": "HB-0003",
@@ -35,8 +37,9 @@
     "meta": {
       "industry": "美妝護膚"
     },
-    "status": "recovered_summary_needs_original_text_review",
-    "import_ready": false
+    "status": "previously_approved",
+    "approved": true,
+    "import_ready": true
   },
   {
     "asset_id": "HB-0004",
@@ -48,8 +51,9 @@
     "meta": {
       "industry": "美妝護膚"
     },
-    "status": "recovered_summary_needs_original_text_review",
-    "import_ready": false
+    "status": "previously_approved",
+    "approved": true,
+    "import_ready": true
   },
   {
     "asset_id": "HB-0005",
@@ -61,8 +65,9 @@
     "meta": {
       "industry": "美妝護膚"
     },
-    "status": "recovered_summary_needs_original_text_review",
-    "import_ready": false
+    "status": "previously_approved",
+    "approved": true,
+    "import_ready": true
   },
   {
     "asset_id": "HB-0006",
@@ -74,8 +79,9 @@
     "meta": {
       "industry": "美妝護膚"
     },
-    "status": "recovered_summary_needs_original_text_review",
-    "import_ready": false
+    "status": "previously_approved",
+    "approved": true,
+    "import_ready": true
   },
   {
     "asset_id": "HB-0007",
@@ -87,8 +93,9 @@
     "meta": {
       "industry": "美妝護膚"
     },
-    "status": "recovered_summary_needs_original_text_review",
-    "import_ready": false
+    "status": "previously_approved",
+    "approved": true,
+    "import_ready": true
   },
   {
     "asset_id": "HB-0008",
@@ -100,8 +107,9 @@
     "meta": {
       "industry": "美妝護膚"
     },
-    "status": "recovered_summary_needs_original_text_review",
-    "import_ready": false
+    "status": "previously_approved",
+    "approved": true,
+    "import_ready": true
   },
   {
     "asset_id": "HB-0009",
@@ -113,8 +121,9 @@
     "meta": {
       "industry": "美妝護膚"
     },
-    "status": "recovered_summary_needs_original_text_review",
-    "import_ready": false
+    "status": "previously_approved",
+    "approved": true,
+    "import_ready": true
   },
   {
     "asset_id": "HB-0010",
@@ -126,8 +135,9 @@
     "meta": {
       "industry": "美妝護膚"
     },
-    "status": "recovered_summary_needs_original_text_review",
-    "import_ready": false
+    "status": "previously_approved",
+    "approved": true,
+    "import_ready": true
   },
   {
     "asset_id": "HB-0011",
@@ -139,8 +149,9 @@
     "meta": {
       "industry": "服飾時尚"
     },
-    "status": "recovered_summary_needs_original_text_review",
-    "import_ready": false
+    "status": "previously_approved",
+    "approved": true,
+    "import_ready": true
   },
   {
     "asset_id": "HB-0012",
@@ -152,8 +163,9 @@
     "meta": {
       "industry": "服飾時尚"
     },
-    "status": "recovered_summary_needs_original_text_review",
-    "import_ready": false
+    "status": "previously_approved",
+    "approved": true,
+    "import_ready": true
   },
   {
     "asset_id": "HB-0013",
@@ -165,8 +177,9 @@
     "meta": {
       "industry": "服飾時尚"
     },
-    "status": "recovered_summary_needs_original_text_review",
-    "import_ready": false
+    "status": "previously_approved",
+    "approved": true,
+    "import_ready": true
   },
   {
     "asset_id": "HB-0014",
@@ -178,8 +191,9 @@
     "meta": {
       "industry": "服飾時尚"
     },
-    "status": "recovered_summary_needs_original_text_review",
-    "import_ready": false
+    "status": "previously_approved",
+    "approved": true,
+    "import_ready": true
   },
   {
     "asset_id": "HB-0015",
@@ -191,8 +205,9 @@
     "meta": {
       "industry": "服飾時尚"
     },
-    "status": "recovered_summary_needs_original_text_review",
-    "import_ready": false
+    "status": "previously_approved",
+    "approved": true,
+    "import_ready": true
   },
   {
     "asset_id": "HB-0016",
@@ -204,8 +219,9 @@
     "meta": {
       "industry": "服飾時尚"
     },
-    "status": "recovered_summary_needs_original_text_review",
-    "import_ready": false
+    "status": "previously_approved",
+    "approved": true,
+    "import_ready": true
   },
   {
     "asset_id": "HB-0017",
@@ -217,8 +233,9 @@
     "meta": {
       "industry": "服飾時尚"
     },
-    "status": "recovered_summary_needs_original_text_review",
-    "import_ready": false
+    "status": "previously_approved",
+    "approved": true,
+    "import_ready": true
   },
   {
     "asset_id": "HB-0018",
@@ -230,8 +247,9 @@
     "meta": {
       "industry": "服飾時尚"
     },
-    "status": "recovered_summary_needs_original_text_review",
-    "import_ready": false
+    "status": "previously_approved",
+    "approved": true,
+    "import_ready": true
   },
   {
     "asset_id": "HB-0019",
@@ -243,8 +261,9 @@
     "meta": {
       "industry": "服飾時尚"
     },
-    "status": "recovered_summary_needs_original_text_review",
-    "import_ready": false
+    "status": "previously_approved",
+    "approved": true,
+    "import_ready": true
   },
   {
     "asset_id": "HB-0020",
@@ -256,8 +275,9 @@
     "meta": {
       "industry": "珠寶配飾"
     },
-    "status": "recovered_summary_needs_original_text_review",
-    "import_ready": false
+    "status": "previously_approved",
+    "approved": true,
+    "import_ready": true
   },
   {
     "asset_id": "HB-0021",
@@ -269,8 +289,9 @@
     "meta": {
       "industry": "珠寶配飾"
     },
-    "status": "recovered_summary_needs_original_text_review",
-    "import_ready": false
+    "status": "previously_approved",
+    "approved": true,
+    "import_ready": true
   },
   {
     "asset_id": "HB-0022",
@@ -282,8 +303,9 @@
     "meta": {
       "industry": "珠寶配飾"
     },
-    "status": "recovered_summary_needs_original_text_review",
-    "import_ready": false
+    "status": "previously_approved",
+    "approved": true,
+    "import_ready": true
   },
   {
     "asset_id": "HB-0023",
@@ -295,8 +317,9 @@
     "meta": {
       "industry": "珠寶配飾"
     },
-    "status": "recovered_summary_needs_original_text_review",
-    "import_ready": false
+    "status": "previously_approved",
+    "approved": true,
+    "import_ready": true
   },
   {
     "asset_id": "HB-0024",
@@ -308,8 +331,9 @@
     "meta": {
       "industry": "珠寶配飾"
     },
-    "status": "recovered_summary_needs_original_text_review",
-    "import_ready": false
+    "status": "previously_approved",
+    "approved": true,
+    "import_ready": true
   },
   {
     "asset_id": "HB-0025",
@@ -321,8 +345,9 @@
     "meta": {
       "industry": "珠寶配飾"
     },
-    "status": "recovered_summary_needs_original_text_review",
-    "import_ready": false
+    "status": "previously_approved",
+    "approved": true,
+    "import_ready": true
   },
   {
     "asset_id": "HB-0026",
@@ -334,8 +359,9 @@
     "meta": {
       "industry": "數碼科技"
     },
-    "status": "recovered_summary_needs_original_text_review",
-    "import_ready": false
+    "status": "previously_approved",
+    "approved": true,
+    "import_ready": true
   },
   {
     "asset_id": "HB-0027",
@@ -347,8 +373,9 @@
     "meta": {
       "industry": "數碼科技"
     },
-    "status": "recovered_summary_needs_original_text_review",
-    "import_ready": false
+    "status": "previously_approved",
+    "approved": true,
+    "import_ready": true
   },
   {
     "asset_id": "HB-0028",
@@ -360,8 +387,9 @@
     "meta": {
       "industry": "數碼科技"
     },
-    "status": "recovered_summary_needs_original_text_review",
-    "import_ready": false
+    "status": "previously_approved",
+    "approved": true,
+    "import_ready": true
   },
   {
     "asset_id": "HB-0029",
@@ -373,8 +401,9 @@
     "meta": {
       "industry": "數碼科技"
     },
-    "status": "recovered_summary_needs_original_text_review",
-    "import_ready": false
+    "status": "previously_approved",
+    "approved": true,
+    "import_ready": true
   },
   {
     "asset_id": "HB-0030",
@@ -386,8 +415,9 @@
     "meta": {
       "industry": "數碼科技"
     },
-    "status": "recovered_summary_needs_original_text_review",
-    "import_ready": false
+    "status": "previously_approved",
+    "approved": true,
+    "import_ready": true
   },
   {
     "asset_id": "HB-0031",
@@ -399,8 +429,9 @@
     "meta": {
       "industry": "數碼科技"
     },
-    "status": "recovered_summary_needs_original_text_review",
-    "import_ready": false
+    "status": "previously_approved",
+    "approved": true,
+    "import_ready": true
   },
   {
     "asset_id": "HB-0032",
@@ -412,8 +443,9 @@
     "meta": {
       "industry": "數碼科技"
     },
-    "status": "recovered_summary_needs_original_text_review",
-    "import_ready": false
+    "status": "previously_approved",
+    "approved": true,
+    "import_ready": true
   },
   {
     "asset_id": "HB-0033",
@@ -425,8 +457,9 @@
     "meta": {
       "industry": "食品飲料"
     },
-    "status": "recovered_summary_needs_original_text_review",
-    "import_ready": false
+    "status": "previously_approved",
+    "approved": true,
+    "import_ready": true
   },
   {
     "asset_id": "HB-0034",
@@ -438,8 +471,9 @@
     "meta": {
       "industry": "食品飲料"
     },
-    "status": "recovered_summary_needs_original_text_review",
-    "import_ready": false
+    "status": "previously_approved",
+    "approved": true,
+    "import_ready": true
   },
   {
     "asset_id": "HB-0035",
@@ -451,8 +485,9 @@
     "meta": {
       "industry": "食品飲料"
     },
-    "status": "recovered_summary_needs_original_text_review",
-    "import_ready": false
+    "status": "previously_approved",
+    "approved": true,
+    "import_ready": true
   },
   {
     "asset_id": "HB-0036",
@@ -464,8 +499,9 @@
     "meta": {
       "industry": "食品飲料"
     },
-    "status": "recovered_summary_needs_original_text_review",
-    "import_ready": false
+    "status": "previously_approved",
+    "approved": true,
+    "import_ready": true
   },
   {
     "asset_id": "HB-0037",
@@ -477,8 +513,9 @@
     "meta": {
       "industry": "食品飲料"
     },
-    "status": "recovered_summary_needs_original_text_review",
-    "import_ready": false
+    "status": "previously_approved",
+    "approved": true,
+    "import_ready": true
   },
   {
     "asset_id": "HB-0038",
@@ -490,8 +527,9 @@
     "meta": {
       "industry": "食品飲料"
     },
-    "status": "recovered_summary_needs_original_text_review",
-    "import_ready": false
+    "status": "previously_approved",
+    "approved": true,
+    "import_ready": true
   },
   {
     "asset_id": "HB-0039",
@@ -503,8 +541,9 @@
     "meta": {
       "industry": "食品飲料"
     },
-    "status": "recovered_summary_needs_original_text_review",
-    "import_ready": false
+    "status": "previously_approved",
+    "approved": true,
+    "import_ready": true
   },
   {
     "asset_id": "HB-0040",
@@ -516,8 +555,9 @@
     "meta": {
       "industry": "食品飲料"
     },
-    "status": "recovered_summary_needs_original_text_review",
-    "import_ready": false
+    "status": "previously_approved",
+    "approved": true,
+    "import_ready": true
   },
   {
     "asset_id": "HB-0041",
@@ -529,8 +569,9 @@
     "meta": {
       "industry": "家居生活"
     },
-    "status": "recovered_summary_needs_original_text_review",
-    "import_ready": false
+    "status": "previously_approved",
+    "approved": true,
+    "import_ready": true
   },
   {
     "asset_id": "HB-0042",
@@ -542,8 +583,9 @@
     "meta": {
       "industry": "家居生活"
     },
-    "status": "recovered_summary_needs_original_text_review",
-    "import_ready": false
+    "status": "previously_approved",
+    "approved": true,
+    "import_ready": true
   },
   {
     "asset_id": "HB-0043",
@@ -555,8 +597,9 @@
     "meta": {
       "industry": "家居生活"
     },
-    "status": "recovered_summary_needs_original_text_review",
-    "import_ready": false
+    "status": "previously_approved",
+    "approved": true,
+    "import_ready": true
   },
   {
     "asset_id": "HB-0044",
@@ -568,8 +611,9 @@
     "meta": {
       "industry": "家居生活"
     },
-    "status": "recovered_summary_needs_original_text_review",
-    "import_ready": false
+    "status": "previously_approved",
+    "approved": true,
+    "import_ready": true
   },
   {
     "asset_id": "HB-0045",
@@ -581,8 +625,9 @@
     "meta": {
       "industry": "家居生活"
     },
-    "status": "recovered_summary_needs_original_text_review",
-    "import_ready": false
+    "status": "previously_approved",
+    "approved": true,
+    "import_ready": true
   },
   {
     "asset_id": "HB-0046",
@@ -593,6 +638,7 @@
     "rarity": null,
     "meta": {},
     "status": "source_verified",
+    "approved": true,
     "import_ready": true
   },
   {
@@ -604,6 +650,7 @@
     "rarity": null,
     "meta": {},
     "status": "source_verified",
+    "approved": true,
     "import_ready": true
   },
   {
@@ -615,6 +662,7 @@
     "rarity": null,
     "meta": {},
     "status": "source_verified",
+    "approved": true,
     "import_ready": true
   },
   {
@@ -626,6 +674,7 @@
     "rarity": null,
     "meta": {},
     "status": "source_verified",
+    "approved": true,
     "import_ready": true
   },
   {
@@ -637,6 +686,7 @@
     "rarity": null,
     "meta": {},
     "status": "source_verified",
+    "approved": true,
     "import_ready": true
   }
 ]
