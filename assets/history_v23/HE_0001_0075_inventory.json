@@ -8,7 +8,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "HE_0001_0075.json"
   },
   {
     "asset_id": "HE-0002",
@@ -19,7 +24,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "HE_0001_0075.json"
   },
   {
     "asset_id": "HE-0003",
@@ -30,7 +40,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "HE_0001_0075.json"
   },
   {
     "asset_id": "HE-0004",
@@ -41,7 +56,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "HE_0001_0075.json"
   },
   {
     "asset_id": "HE-0005",
@@ -52,7 +72,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "HE_0001_0075.json"
   },
   {
     "asset_id": "HE-0006",
@@ -63,7 +88,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "HE_0001_0075.json"
   },
   {
     "asset_id": "HE-0007",
@@ -74,7 +104,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "HE_0001_0075.json"
   },
   {
     "asset_id": "HE-0008",
@@ -85,7 +120,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "HE_0001_0075.json"
   },
   {
     "asset_id": "HE-0009",
@@ -96,7 +136,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "HE_0001_0075.json"
   },
   {
     "asset_id": "HE-0010",
@@ -107,7 +152,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "HE_0001_0075.json"
   },
   {
     "asset_id": "HE-0011",
@@ -118,7 +168,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "HE_0001_0075.json"
   },
   {
     "asset_id": "HE-0012",
@@ -129,7 +184,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "HE_0001_0075.json"
   },
   {
     "asset_id": "HE-0013",
@@ -140,7 +200,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "HE_0001_0075.json"
   },
   {
     "asset_id": "HE-0014",
@@ -151,7 +216,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "HE_0001_0075.json"
   },
   {
     "asset_id": "HE-0015",
@@ -162,7 +232,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "HE_0001_0075.json"
   },
   {
     "asset_id": "HE-0016",
@@ -173,7 +248,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "HE_0001_0075.json"
   },
   {
     "asset_id": "HE-0017",
@@ -184,7 +264,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "HE_0001_0075.json"
   },
   {
     "asset_id": "HE-0018",
@@ -195,7 +280,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "HE_0001_0075.json"
   },
   {
     "asset_id": "HE-0019",
@@ -206,7 +296,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "HE_0001_0075.json"
   },
   {
     "asset_id": "HE-0020",
@@ -217,7 +312,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "HE_0001_0075.json"
   },
   {
     "asset_id": "HE-0021",
@@ -228,7 +328,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "HE_0001_0075.json"
   },
   {
     "asset_id": "HE-0022",
@@ -239,7 +344,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "HE_0001_0075.json"
   },
   {
     "asset_id": "HE-0023",
@@ -250,7 +360,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "HE_0001_0075.json"
   },
   {
     "asset_id": "HE-0024",
@@ -261,7 +376,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "HE_0001_0075.json"
   },
   {
     "asset_id": "HE-0025",
@@ -272,7 +392,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "HE_0001_0075.json"
   },
   {
     "asset_id": "HE-0026",
@@ -283,7 +408,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "HE_0001_0075.json"
   },
   {
     "asset_id": "HE-0027",
@@ -294,7 +424,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "HE_0001_0075.json"
   },
   {
     "asset_id": "HE-0028",
@@ -305,7 +440,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "HE_0001_0075.json"
   },
   {
     "asset_id": "HE-0029",
@@ -316,7 +456,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "HE_0001_0075.json"
   },
   {
     "asset_id": "HE-0030",
@@ -327,7 +472,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "HE_0001_0075.json"
   },
   {
     "asset_id": "HE-0031",
@@ -338,7 +488,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "HE_0001_0075.json"
   },
   {
     "asset_id": "HE-0032",
@@ -349,7 +504,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "HE_0001_0075.json"
   },
   {
     "asset_id": "HE-0033",
@@ -360,7 +520,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "HE_0001_0075.json"
   },
   {
     "asset_id": "HE-0034",
@@ -371,7 +536,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "HE_0001_0075.json"
   },
   {
     "asset_id": "HE-0035",
@@ -382,7 +552,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "HE_0001_0075.json"
   },
   {
     "asset_id": "HE-0036",
@@ -393,7 +568,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "HE_0001_0075.json"
   },
   {
     "asset_id": "HE-0037",
@@ -404,7 +584,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "HE_0001_0075.json"
   },
   {
     "asset_id": "HE-0038",
@@ -415,7 +600,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "HE_0001_0075.json"
   },
   {
     "asset_id": "HE-0039",
@@ -426,7 +616,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "HE_0001_0075.json"
   },
   {
     "asset_id": "HE-0040",
@@ -437,7 +632,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "HE_0001_0075.json"
   },
   {
     "asset_id": "HE-0041",
@@ -448,7 +648,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "HE_0001_0075.json"
   },
   {
     "asset_id": "HE-0042",
@@ -459,7 +664,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "HE_0001_0075.json"
   },
   {
     "asset_id": "HE-0043",
@@ -470,7 +680,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "HE_0001_0075.json"
   },
   {
     "asset_id": "HE-0044",
@@ -481,7 +696,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "HE_0001_0075.json"
   },
   {
     "asset_id": "HE-0045",
@@ -492,7 +712,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "HE_0001_0075.json"
   },
   {
     "asset_id": "HE-0046",
@@ -503,7 +728,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "HE_0001_0075.json"
   },
   {
     "asset_id": "HE-0047",
@@ -514,7 +744,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "HE_0001_0075.json"
   },
   {
     "asset_id": "HE-0048",
@@ -525,7 +760,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "HE_0001_0075.json"
   },
   {
     "asset_id": "HE-0049",
@@ -536,7 +776,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "HE_0001_0075.json"
   },
   {
     "asset_id": "HE-0050",
@@ -547,7 +792,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "HE_0001_0075.json"
   },
   {
     "asset_id": "HE-0051",
@@ -558,7 +808,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "HE_0001_0075.json"
   },
   {
     "asset_id": "HE-0052",
@@ -569,7 +824,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "HE_0001_0075.json"
   },
   {
     "asset_id": "HE-0053",
@@ -580,7 +840,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "HE_0001_0075.json"
   },
   {
     "asset_id": "HE-0054",
@@ -591,7 +856,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "HE_0001_0075.json"
   },
   {
     "asset_id": "HE-0055",
@@ -602,7 +872,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "HE_0001_0075.json"
   },
   {
     "asset_id": "HE-0056",
@@ -613,7 +888,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "HE_0001_0075.json"
   },
   {
     "asset_id": "HE-0057",
@@ -624,7 +904,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "HE_0001_0075.json"
   },
   {
     "asset_id": "HE-0058",
@@ -635,7 +920,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "HE_0001_0075.json"
   },
   {
     "asset_id": "HE-0059",
@@ -646,7 +936,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "HE_0001_0075.json"
   },
   {
     "asset_id": "HE-0060",
@@ -657,7 +952,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "HE_0001_0075.json"
   },
   {
     "asset_id": "HE-0061",
@@ -668,7 +968,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "HE_0001_0075.json"
   },
   {
     "asset_id": "HE-0062",
@@ -679,7 +984,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "HE_0001_0075.json"
   },
   {
     "asset_id": "HE-0063",
@@ -690,7 +1000,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "HE_0001_0075.json"
   },
   {
     "asset_id": "HE-0064",
@@ -701,7 +1016,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "HE_0001_0075.json"
   },
   {
     "asset_id": "HE-0065",
@@ -712,7 +1032,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "HE_0001_0075.json"
   },
   {
     "asset_id": "HE-0066",
@@ -723,7 +1048,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "HE_0001_0075.json"
   },
   {
     "asset_id": "HE-0067",
@@ -734,7 +1064,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "HE_0001_0075.json"
   },
   {
     "asset_id": "HE-0068",
@@ -745,7 +1080,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "HE_0001_0075.json"
   },
   {
     "asset_id": "HE-0069",
@@ -756,7 +1096,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "HE_0001_0075.json"
   },
   {
     "asset_id": "HE-0070",
@@ -767,7 +1112,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "HE_0001_0075.json"
   },
   {
     "asset_id": "HE-0071",
@@ -778,7 +1128,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "HE_0001_0075.json"
   },
   {
     "asset_id": "HE-0072",
@@ -789,7 +1144,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "HE_0001_0075.json"
   },
   {
     "asset_id": "HE-0073",
@@ -800,7 +1160,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "HE_0001_0075.json"
   },
   {
     "asset_id": "HE-0074",
@@ -811,7 +1176,12 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "HE_0001_0075.json"
   },
   {
     "asset_id": "HE-0075",
@@ -822,6 +1192,11 @@
     "rarity": null,
     "meta": {},
     "status": "source_text_missing",
-    "import_ready": false
+    "previously_approved": true,
+    "original_text_restored": false,
+    "approved": false,
+    "import_ready": false,
+    "candidate_available": true,
+    "candidate_source_file": "HE_0001_0075.json"
   }
 ]
