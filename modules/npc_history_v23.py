@@ -446,15 +446,15 @@ class AssetBulkImportModal(discord.ui.Modal,title='批次匯入已核准的歷�
 
 class VerifiedSeedButton(discord.ui.Button):
     def __init__(self):
-        super().__init__(label='📌 匯入已核准55筆（50品牌＋5代言）',style=discord.ButtonStyle.secondary,row=1)
+        super().__init__(label='📌 匯入現行完整580筆',style=discord.ButtonStyle.secondary,row=1)
     async def callback(self,i):
         if not i.guild or i.user.id!=i.guild.owner_id:
             return await i.response.send_message('僅群主能正式匯入素材。',ephemeral=True)
         try:
             from pathlib import Path
-            source=Path(__file__).resolve().parents[1]/'assets/history_v23/verified_import_ready.json'
+            source=Path(__file__).resolve().parents[1]/'assets/history_v23/current_adopted_580.json'
             entries=json.loads(source.read_text(encoding='utf-8'))
-            if len(entries)!=55:raise ValueError('來源不是正式核准的55筆素材，已停止。')
+            if len(entries)!=580:raise ValueError('現行素材庫不是580筆，已停止。')
             added=put_batch(i.guild_id,entries,pool='general')
             await i.response.send_message(f'✅ 已檢查 55 筆；新增 {added} 筆，略過相同 {55-added} 筆。整批交易成功，不會抽取履歷或發獎。',ephemeral=True)
         except (OSError,ValueError,sqlite3.Error) as exc:
@@ -553,6 +553,31 @@ class NPCImportKindView(discord.ui.View):
             return False
         return True
 
+
+class NPCInitialGrantsModal(discord.ui.Modal,title='NPC 核准初始金幣與行動值'):
+    npc_id=discord.ui.TextInput(label='已完成二審的 NPC 角色 ID',max_length=12)
+    coins=discord.ui.TextInput(label='已核准起始金幣（可為0）',max_length=14)
+    actions=discord.ui.TextInput(label='已核准免費行動值（可為0）',max_length=8)
+
+    async def on_submit(self,i):
+        if not i.guild or i.user.id!=i.guild.owner_id:
+            return await i.response.send_message('只有伺服器群主能核准起始待遇。',ephemeral=True)
+        try:
+            from core.npc_initial_grants_v23 import configure
+            result=configure(i.guild_id,int(self.npc_id.value),i.user.id,int(self.coins.value),int(self.actions.value))
+            await i.response.send_message(
+                f'✅ 已設定 NPC #{self.npc_id.value} 的正式初始待遇：金幣 {result["coins"]:,}、免費行動值 {result["free_actions"]:,}。\n'
+                '玩家NPC：正式啟用時入帳；已啟用的官方NPC：核准後立即入帳。均防重複。',ephemeral=True)
+        except (ValueError,sqlite3.Error) as exc:
+            await i.response.send_message(f'⚠️ {exc}',ephemeral=True)
+
+class NPCInitialGrantsButton(discord.ui.Button):
+    def __init__(self):
+        super().__init__(label='💰 核准NPC起始待遇',style=discord.ButtonStyle.secondary,row=3)
+    async def callback(self,i):
+        if not i.guild or i.user.id!=i.guild.owner_id:
+            return await i.response.send_message('僅群主可操作。',ephemeral=True)
+        await i.response.send_modal(NPCInitialGrantsModal())
 
 class NPCRegisterButton(discord.ui.Button):
     def __init__(self):super().__init__(label='📋 匯入 NPC 預設人設',style=discord.ButtonStyle.secondary,row=2)
