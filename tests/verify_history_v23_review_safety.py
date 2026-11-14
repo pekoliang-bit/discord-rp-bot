@@ -11,8 +11,8 @@ assert [r['asset_id'] for r in rows]==[f'HB-{x:04d}' for x in range(1,46)]
 assert all(r['approved'] is True and r['import_ready'] is True and r['title'] for r in rows)
 catalog=json.loads((folder/'catalog_580_inventory.json').read_text(encoding='utf8'))
 assert len(catalog)==580
-assert sum(r['status']=='previously_approved' for r in catalog)==45
-assert sum(r['import_ready'] is True for r in catalog)==55
+assert sum(r['status']=='previously_approved' for r in catalog)==580
+assert sum(r['import_ready'] is True for r in catalog)==580
 with tempfile.TemporaryDirectory() as d:
     env={**os.environ,'DATABASE_PATH':str(Path(d)/'check.sqlite3')}
     base=[sys.executable,str(ROOT/'tools/import_history_v23_assets.py'),'--guild','1544051203493601380','--file',str(source)]
