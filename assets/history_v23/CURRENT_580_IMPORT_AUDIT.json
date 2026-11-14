@@ -1,0 +1,11 @@
+{
+  "total": 580,
+  "owner_adopted_current_project_texts": 517,
+  "previously_ingestable": 55,
+  "newly_filled_missing_wn": 8,
+  "all_current_texts_import_ready": 580,
+  "source_project": "discord-rp-bot-main(20261114-153945).zip",
+  "text_preservation": "517 existing titles and descriptions preserved; 8 newly authored works WN-0193..0200",
+  "he_rarity": "80 endorsements retain approved per-ID mapping; 150 experience rarities assigned by previously approved aggregate quotas",
+  "formal_database_untouched": true
+}
