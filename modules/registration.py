@@ -668,9 +668,10 @@ class DecisionView(Guard):
 class Home(Guard):
     def __init__(self, actor):
         super().__init__(actor)
-        from modules.npc_history_v23 import NPCRegisterButton, NPCActivateButton
+        from modules.npc_history_v23 import NPCRegisterButton, NPCActivateButton, NPCInitialGrantsButton
         self.add_item(NPCRegisterButton())
         self.add_item(NPCActivateButton())
+        self.add_item(NPCInitialGrantsButton())
 
     @discord.ui.button(label="➕ 手動登記",style=discord.ButtonStyle.primary,row=0)
     async def submit(self,interaction,button):
