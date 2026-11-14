@@ -14,8 +14,11 @@ def validate_data(path):
         k=r.get('asset_id','')
         if not PAT.fullmatch(k) or k in seen:raise ValueError(f'Invalid or duplicate ID: {k}')
         seen.add(k)
-        if not isinstance(r.get('title'),str) or not r['title'].strip() or r.get('status')=='source_text_missing':
-            raise ValueError(f'Original verified text is missing: {k}')
+        if (not isinstance(r.get('title'),str) or not r['title'].strip()
+            or r.get('status') not in (None,'source_verified')
+            or r.get('import_ready') is False or r.get('approved') is False
+            or r.get('review_status')):
+            raise ValueError(f'Asset is not source-verified and must not be imported: {k}')
         if r.get('pool','general')!='general':raise ValueError('Separate passerby assets are not imported here')
         if k.startswith('HE-') and int(k[-4:])>=151:
             m=r.get('meta',{})
