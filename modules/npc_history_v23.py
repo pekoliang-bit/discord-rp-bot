@@ -207,8 +207,15 @@ def activate_claim(gid,uid,claim_id):
     return cid,state
 
 class ImportNPCModal(discord.ui.Modal,title='匯入 NPC 人設訊息'):
+    """已在前一頁選定類型；表單只要求貼上人設訊息連結。"""
     link=discord.ui.TextInput(label='Discord 角色單訊息連結',max_length=300)
-    kind=discord.ui.TextInput(label='類型 player_npc 或 official_npc',default='player_npc',max_length=20)
+
+    def __init__(self, kind: str):
+        super().__init__()
+        if kind not in ('player_npc', 'official_npc'):
+            raise ValueError('NPC 類型不正確。')
+        self.npc_kind = kind
+
     async def on_submit(self,i):
         if not i.guild or i.user.id != i.guild.owner_id:
             return await i.response.send_message('僅群主能匯入 NPC 模板。',ephemeral=True)
@@ -217,7 +224,7 @@ class ImportNPCModal(discord.ui.Modal,title='匯入 NPC 人設訊息'):
             channel,message=await fetch_sheet(i,str(self.link.value))
             if message.author.id!=i.guild.owner_id and message.author.id!=i.user.id:
                 raise ValueError('人設單訊息須由群主發表。')
-            kind=str(self.kind.value).strip()
+            kind=self.npc_kind
             template_id,name,count=import_template(i.guild_id,message.id,channel.id,message.content,kind)
             if kind=='official_npc':
                 # 群主提交並確認後視為正式官方授權；採既有角色單登記核心。
@@ -509,12 +516,53 @@ class HistoryRebuildButton(discord.ui.Button):
             except (ValueError,sqlite3.Error):results['error']+=1
         await i.followup.send('📜 歷史補建檢查：'+('、'.join(f'{k} {v}' for k,v in results.items() if v) or '目前沒有待補建角色')+'。\n不重抽已有五筆紀錄、不發數值或新人禮包。',ephemeral=True)
 
+class NPCImportKindSelect(discord.ui.Select):
+    """兩個固定選項，避免輸入 player_npc / official_npc 出錯。"""
+    def __init__(self):
+        super().__init__(
+            placeholder='請選擇 NPC 類型',
+            min_values=1, max_values=1,
+            options=[
+                discord.SelectOption(label='玩家 NPC', value='player_npc',
+                                     description='供玩家認領，依雙階段審核流程'),
+                discord.SelectOption(label='官方 NPC', value='official_npc',
+                                     description='由群主登記，不開放玩家認領'),
+            ], row=0,
+        )
+
+    async def callback(self, interaction):
+        # 選擇選單後直接開啟人設訊息連結表單；不經過額外送出按鈕。
+        if not interaction.guild or interaction.user.id != interaction.guild.owner_id:
+            return await interaction.response.send_message('僅群主可操作。', ephemeral=True)
+        kind = self.values[0]
+        if kind not in ('player_npc', 'official_npc'):
+            return await interaction.response.send_message('NPC 類型不正確。', ephemeral=True)
+        await interaction.response.send_modal(ImportNPCModal(kind))
+
+
+class NPCImportKindView(discord.ui.View):
+    def __init__(self, guild_id: int, owner_id: int):
+        super().__init__(timeout=300)
+        self.guild_id = guild_id
+        self.owner_id = owner_id
+        self.add_item(NPCImportKindSelect())
+
+    async def interaction_check(self, interaction):
+        if interaction.guild_id != self.guild_id or interaction.user.id != self.owner_id:
+            await interaction.response.send_message('這不是你的 NPC 匯入選單。', ephemeral=True)
+            return False
+        return True
+
+
 class NPCRegisterButton(discord.ui.Button):
     def __init__(self):super().__init__(label='📋 匯入 NPC 預設人設',style=discord.ButtonStyle.secondary,row=2)
     async def callback(self,i):
-        if not i.guild or i.user.id!=i.guild.owner_id:
+        if not i.guild or i.user.id != i.guild.owner_id:
             return await i.response.send_message('僅群主可操作。',ephemeral=True)
-        await i.response.send_modal(ImportNPCModal())
+        await i.response.send_message(
+            '📋 先選擇 NPC 類型，再貼上人設訊息連結。',
+            view=NPCImportKindView(i.guild_id, i.user.id), ephemeral=True,
+        )
 
 class NPCActivateButton(discord.ui.Button):
     def __init__(self):super().__init__(label='✅ 啟用已核准 NPC',style=discord.ButtonStyle.secondary,row=2)
