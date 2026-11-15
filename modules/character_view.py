@@ -168,10 +168,10 @@ def get_category(character):
 
 
 def is_owner(actor, character):
-    return (
-        str(character["owner_id"])
-        == str(actor.user_id)
-    )
+    from core.npc_owner_access_v24 import can_operate_npc
+    if character["character_type"] == "official_npc":
+        return can_operate_npc(actor, character)
+    return str(character["owner_id"]) == str(actor.user_id)
 
 
 def can_see_private(actor, character):
@@ -2014,7 +2014,12 @@ class CharacterDetailView(discord.ui.View):
         if not self.is_own_character:self.inventory_button.disabled=True
         # 路人人氣功能移至「關係」子頁，不佔主面板規定的四排按鈕。
         self.edit_request_button.disabled = not (self.is_own_character and get_category(character) in ('original','player_npc'))
-        self.leaderboard_points_button.disabled = not self.is_own_character
+        # 官方 NPC 共同扮演不等於免費取得財務、背包或點數處置權。
+        if get_category(character) == 'official_npc' and str(character['owner_id']) != str(actor.user_id):
+            self.inventory_button.disabled = True
+        self.leaderboard_points_button.disabled = (
+            not self.is_own_character or get_category(character) == 'official_npc'
+        )
         self._sync_paging()
 
     def _sync_paging(self):
@@ -2152,8 +2157,8 @@ class CharacterView(commands.Cog):
                 with get_connection() as conn:
                     if keyword.isdecimal():
                         rows = conn.execute(
-                            "SELECT * FROM characters WHERE guild_id=? AND id=? AND owner_id=?",
-                            (actor.guild_id, int(keyword), str(actor.user_id)),
+                            "SELECT * FROM characters WHERE guild_id=? AND id=?",
+                            (actor.guild_id, int(keyword)),
                         ).fetchall()
                     else:
                         rows = conn.execute(
