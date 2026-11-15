@@ -12,6 +12,8 @@ from discord.ext import commands,tasks
 from core import pets_v1 as pet
 from core import pet_market_v2 as market
 from core import pet_traits_v22 as behaviour
+from core import pet_medical_v23 as medical
+from core import pet_agreement_v23 as agreement
 from core.world_interaction_rules import pet_rules
 from core.database import get_connection
 from core.prelaunch_gate import is_open
@@ -173,15 +175,49 @@ class CheckoutModal(discord.ui.Modal,title='統一結帳・晶片施打與飼主
             '之後請使用 `/查看 → 寵物相關` 餵食、陪玩或修改名字。',ephemeral=True)
 
 
-class Agree(discord.ui.View):
-    def __init__(self,i,cid):super().__init__(timeout=300);self.gid=i.guild_id;self.uid=i.user.id;self.cid=cid
-    @discord.ui.button(label='我已閱讀並同意，簽署飼主須知',style=discord.ButtonStyle.success)
-    async def sign(self,i,b):
-        if i.user.id!=self.uid or i.guild_id!=self.gid:
-            return await i.response.send_message('只能由角色持有者簽署。',ephemeral=True)
-        try:await asyncio.to_thread(pet.accept_terms,i.guild_id,self.cid,i.user.id)
+class SignTermsModal(discord.ui.Modal, title='飼主須知｜正式簽署'):
+    name=discord.ui.TextInput(label='飼主簽名（角色正式姓名）',max_length=100)
+    identity=discord.ui.TextInput(label='身分證字號（角色代碼）',max_length=60)
+    def __init__(self,cid):super().__init__();self.cid=int(cid)
+    async def on_submit(self,i):
+        try:
+            result=await asyncio.to_thread(agreement.sign,i.guild_id,self.cid,i.user.id,
+                self.name.value,self.identity.value,len(agreement.PAGES))
+        except (ValueError,LookupError,PermissionError) as exc:
+            return await i.response.send_message(f'⚠️ {exc}',ephemeral=True)
+        await i.response.send_message(
+            f'✅ 飼主須知 V{result["version"]} 簽署完成！\n'
+            f'簽名：{result["name"]}\n身分證字號：`{result["identity_code"]}`\n'
+            '可返回寵物中心完成購買或領養。',ephemeral=True)
+
+
+class TermsPages(Guard):
+    """順序逐頁閱讀；第十頁才顯示簽署入口。"""
+    def __init__(self,i,cid,index=0):
+        super().__init__(i,cid);self.index=int(index)
+        self.prev.disabled=self.index==0
+        self.next.disabled=self.index==len(agreement.PAGES)-1
+        self.sign.disabled=self.index!=len(agreement.PAGES)-1
+    def text(self):
+        title,body=agreement.PAGES[self.index]
+        return (f'📜 **寵物飼主須知 V{agreement.VERSION}**｜第 {self.index+1}/{len(agreement.PAGES)} 頁\n'
+                f'**{title}**\n{body}\n\n'
+                '請依序閱讀每一頁。只有最後一頁才能以角色正式姓名與身分證字號簽署。')
+    @discord.ui.button(label='◀ 上一頁',style=discord.ButtonStyle.secondary,row=0)
+    async def prev(self,i,b):
+        await i.response.edit_message(content=TermsPages(i,self.cid,max(0,self.index-1)).text(),
+                                      view=TermsPages(i,self.cid,max(0,self.index-1)))
+    @discord.ui.button(label='下一頁 ▶',style=discord.ButtonStyle.primary,row=0)
+    async def next(self,i,b):
+        try:n=await asyncio.to_thread(agreement.advance,i.guild_id,self.cid,i.user.id,self.index)
         except (ValueError,PermissionError) as exc:return await i.response.send_message(f'⚠️ {exc}',ephemeral=True)
-        await i.response.send_message('✅ 飼主須知已簽署，請返回寵物中心選購並結帳。',ephemeral=True)
+        await i.response.edit_message(content=TermsPages(i,self.cid,n).text(),view=TermsPages(i,self.cid,n))
+    @discord.ui.button(label='簽署飼主須知',style=discord.ButtonStyle.success,row=1)
+    async def sign(self,i,b):
+        if self.index!=len(agreement.PAGES)-1:
+            return await i.response.send_message('請先依序閱讀全部條款。',ephemeral=True)
+        await i.response.send_modal(SignTermsModal(self.cid))
+
 
 
 class CartView(Guard):
@@ -206,7 +242,9 @@ class CartView(Guard):
     async def item(self,i,b):
         await i.response.edit_message(content='🛒 請選擇商品，必備用品需全部加入清單。',view=PageView(i,self.cid,'item'))
     @discord.ui.button(label='查看飼主須知／簽署',style=discord.ButtonStyle.secondary,row=1)
-    async def sign(self,i,b):await i.response.send_message(terms(i.guild_id),view=Agree(i,self.cid),ephemeral=True)
+    async def sign(self,i,b):
+        await asyncio.to_thread(agreement.start,i.guild_id,self.cid,i.user.id)
+        await i.response.send_message(TermsPages(i,self.cid).text(),view=TermsPages(i,self.cid),ephemeral=True)
     @discord.ui.button(label='確認清單／付款與晶片登記',style=discord.ButtonStyle.success,row=1)
     async def checkout(self,i,b):
         state=market.preview(i.guild_id,self.cid)
@@ -393,26 +431,115 @@ class EncounterResultView(Guard):
         sel.callback=cb;self.add_item(sel)
 
 
+MEDICAL_GROUPS={
+ 'check':('健康檢查',['first_followup','basic_check','advanced_check','full_check','precision_check','emergency_check','behavior_check','postop_check']),
+ 'lab':('診斷檢驗',['blood_basic','blood_complete','urine_stool','skin_parasite','xray','ultrasound','ct','mri','endoscopy','pathology']),
+ 'illness':('疾病治療',['illness_1','illness_2','illness_3','illness_4']),
+ 'injury':('外傷治療',['injury_1','injury_2','injury_3','injury_4']),
+ 'surgery':('手術',['suture','surgery_general','surgery_complex','fracture_fix','fracture_rebuild','organ_surgery','emergency_surgery']),
+ 'anesthesia':('麻醉與術後',['sedation','anesthesia_general','anesthesia_high','postop_meds','postop_special']),
+ 'medicine':('藥物及支持照護',['medication','medication_long','infection_special','nutrition_support','fluids','specialist','chronic_followup']),
+ 'hospital':('住院',['ward_basic','ward_comfort','ward_icu','ward_isolation']),
+ 'emergency':('緊急急救',['emergency_basic','emergency_severe','emergency_critical','emergency_special']),
+ 'prevention':('預防醫療',['prevention_consult','parasite_basic','prevention_advanced','vaccination','prevention_bundle','annual_health','annual_premium','species_special']),
+ 'hospital_extra':('住院與出院照護',['nutrition_meal','comfort_care','discharge_check']),
+}
+
+
+class MedicalConfirmView(Guard):
+    def __init__(self,i,cid,pid,code,days=0):
+        super().__init__(i,cid);self.pid=pid;self.code=code;self.days=days
+    @discord.ui.button(label='確認付款及醫療服務',style=discord.ButtonStyle.success)
+    async def confirm(self,i,b):
+        code=self.code
+        try:
+            p=next((r for r in pet.list_pets(i.guild_id,self.cid) if r['id']==self.pid),None)
+            if not p:raise PermissionError('未取得寵物操作權限')
+            kind=medical.PRICES[code][2]
+            if kind in ('illness','injury','surgery','emergency'):
+                illness_type='illness' if kind=='illness' or p['illness']=='sick' else 'injury'
+                if code.endswith(('_1','_2','_3','_4')):severity=int(code[-1])
+                else:severity=4 if kind=='emergency' else 3
+                case_id=await asyncio.to_thread(medical.open_case,i.guild_id,self.pid,self.cid,i.user.id,illness_type,severity)
+            else:case_id=None
+            result=await asyncio.to_thread(medical.pay,i.guild_id,self.pid,self.cid,i.user.id,
+                [code],f'discord:pet:medical:{i.id}',case_id=case_id,ward_days=self.days)
+        except (ValueError,PermissionError,LookupError) as exc:
+            return await i.response.send_message(f'⚠️ {exc}',ephemeral=True)
+        self.confirm.disabled=True
+        await i.response.edit_message(content=(
+            f'✅ 醫療服務已完成付款\n服務：{medical.PRICES[code][0]}\n'
+            f'帳單 #{result["invoice_id"]}｜實付 {result["total"]:,} 金幣\n'
+            '帳單已分項保存，可供未來保險系統核對。'),view=self)
+
+
+class MedicalDaysModal(discord.ui.Modal,title='住院確認'):
+    days=discord.ui.TextInput(label='預付天數（1～30天）',default='1',max_length=2)
+    def __init__(self,cid,pid,code):super().__init__();self.cid=cid;self.pid=pid;self.code=code
+    async def on_submit(self,i):
+        try:
+            days=int(self.days.value)
+            if not 1<=days<=30:raise ValueError
+        except ValueError:return await i.response.send_message('請填寫1～30的有效天數。',ephemeral=True)
+        cost=medical.PRICES[self.code][1]*days
+        await i.response.send_message(f'🏥 {medical.PRICES[self.code][0]} ×{days} 天\n'
+            f'預付總價：**{cost:,} 金幣**。確認後才會扣款，後續續住須另行確認。',
+            view=MedicalConfirmView(i,self.cid,self.pid,self.code,days),ephemeral=True)
+
+
+class MedicalItems(Guard):
+    def __init__(self,i,cid,pid,group):
+        super().__init__(i,cid);self.pid=pid;self.group=group
+        title,codes=MEDICAL_GROUPS[group]
+        sel=discord.ui.Select(placeholder='選擇'+title,options=[discord.SelectOption(
+            label=f'{medical.PRICES[c][0]}｜{medical.PRICES[c][1]:,} 金幣'[:100],value=c) for c in codes])
+        async def chosen(x):
+            code=sel.values[0]
+            if group=='hospital':return await x.response.send_modal(MedicalDaysModal(self.cid,pid,code))
+            free=code=='first_followup'
+            if free:
+                info=medical.first_check(x.guild_id,pid)
+                if not info:return await x.response.send_message('此寵物尚無首次複檢紀錄。',ephemeral=True)
+                if info['completed_at']:return await x.response.send_message('首次複檢已完成。',ephemeral=True)
+            q=medical.quote([code],free_first=free)
+            await x.response.send_message(f'🩺 **醫療付款確認**\n{medical.PRICES[code][0]}\n'
+                f'原價：{q["original_total"]:,} 金幣\n'
+                f'預計實付：**{q["total"]:,} 金幣**\n確認後才正式付款。',
+                view=MedicalConfirmView(x,self.cid,pid,code),ephemeral=True)
+        sel.callback=chosen;self.add_item(sel)
+
+
+class MedicalCategories(Guard):
+    def __init__(self,i,cid,pid):
+        super().__init__(i,cid);self.pid=pid
+        sel=discord.ui.Select(placeholder='選擇醫療分類',options=[discord.SelectOption(label=v[0],value=k) for k,v in MEDICAL_GROUPS.items()])
+        async def chosen(x):
+            group=sel.values[0]
+            await x.response.edit_message(content=f'🏥 醫療中心｜{MEDICAL_GROUPS[group][0]}\n選擇項目後會先看到價格，確認後才扣款。',
+                view=MedicalItems(x,self.cid,pid,group))
+        sel.callback=chosen;self.add_item(sel)
+
+
 class ServiceView(Guard):
     def __init__(self,i,cid,kind):
         super().__init__(i,cid)
         rows=pet.list_pets(i.guild_id,cid)
         if rows:
-            sel=discord.ui.Select(placeholder='選擇需要服務的寵物',options=[discord.SelectOption(label=f'{r["name"]} #{r["id"]}'[:100],value=str(r['id'])) for r in rows[:25]])
+            sel=discord.ui.Select(placeholder='選擇需要醫療的寵物',options=[discord.SelectOption(label=f'{r["name"]} #{r["id"]}'[:100],value=str(r['id'])) for r in rows[:25]])
             async def callback(x):
-                try:res=await asyncio.to_thread(pet.buy_service,x.guild_id,int(sel.values[0]),self.cid,x.user.id,'健康檢查' if kind=='check' else '看醫生')
-                except (ValueError,PermissionError,LookupError) as exc:return await x.response.send_message(f'⚠️ {exc}',ephemeral=True)
-                await x.response.send_message(f'✅ 已完成服務：{res}',ephemeral=True)
+                await x.response.edit_message(content='🏥 選擇醫療分類，所有服務先報價後扣款。',
+                                              view=MedicalCategories(x,self.cid,int(sel.values[0])))
             sel.callback=callback;self.add_item(sel)
     @discord.ui.button(label='返回寵物中心',style=discord.ButtonStyle.secondary,row=1)
     async def back(self,i,b):await i.response.edit_message(content='🐾 寵物中心',view=PetHomeView(i,self.cid))
+
 
 
 class PetHomeView(Guard):
     def __init__(self,i,cid):
         super().__init__(i,cid)
         options=[('cart','🐾 寵物與商品挑選'),('checkout','💉 付款結帳與晶片施打'),
-                 ('check','🩺 健康檢查'),('treat','🏥 傷病治療'),('training','🎓 寵物訓練'),('terms','📜 飼主須知')]
+                 ('check','🩺 寵物醫療中心'),('treat','🏥 傷病治療'),('training','🎓 寵物訓練'),('terms','📜 飼主須知')]
         if any(p['state']=='missing' for p in pet.list_pets(i.guild_id,cid)):
             options.append(('missing','🔎 寵物協尋'))
         sel=discord.ui.Select(placeholder='選擇寵物中心服務',options=[discord.SelectOption(label=v,value=k) for k,v in options])
@@ -421,7 +548,9 @@ class PetHomeView(Guard):
             if mode=='cart':return await x.response.edit_message(content=cart_text(market.preview(x.guild_id,self.cid)),view=CartView(x,self.cid))
             if mode=='checkout':return await x.response.edit_message(content=cart_text(market.preview(x.guild_id,self.cid)),view=CartView(x,self.cid))
             if mode=='training':return await x.response.edit_message(content='🎓 選擇寵物開始居家訓練',view=PetSelectView(x,self.cid))
-            if mode=='terms':return await x.response.send_message(terms(x.guild_id),view=Agree(x,self.cid),ephemeral=True)
+            if mode=='terms':
+                await asyncio.to_thread(agreement.start,x.guild_id,self.cid,x.user.id)
+                return await x.response.send_message(TermsPages(x,self.cid).text(),view=TermsPages(x,self.cid),ephemeral=True)
             if mode in ('check','treat'):return await x.response.edit_message(content='選擇寵物進行醫療服務',view=ServiceView(x,self.cid,mode))
             if mode=='missing':return await x.response.send_modal(MissingModal(self.cid))
         sel.callback=callback;self.add_item(sel)
@@ -526,6 +655,20 @@ class PetCenter(commands.Cog):
                 if is_open(gid):
                     await asyncio.to_thread(pet.daily,gid)
                     await asyncio.to_thread(behaviour.daily_equipment,gid)
+                    with get_connection() as db:
+                        ids=[int(r[0]) for r in db.execute("SELECT id FROM rp_pets_v1 WHERE guild_id=? AND state!='deceased'",(str(gid),))]
+                    for pid in ids:
+                        await asyncio.to_thread(medical.settle_recovery,gid,pid)
+                    notices=await asyncio.to_thread(medical.due_notices,gid)
+                    if notices:
+                        from modules.notifications import queue_notification
+                        for notice in notices:
+                            try:
+                                await asyncio.to_thread(queue_notification,gid,'private','role',notice['message'],
+                                    character_id=notice['character_id'],
+                                    dedupe_key=f'pet:v23:followup:{gid}:{notice["pet_id"]}:{notice["stage"]}')
+                            except Exception:
+                                LOG.exception('首次複檢通知入列失敗：%s',notice)
             await asyncio.to_thread(behaviour.dispatch_notices)
         except Exception:LOG.exception('寵物定時結算失敗')
     @worker.before_loop
