@@ -1,3 +1,4 @@
+
 """Verify channel registry with isolated SQLite, without Discord API."""
 import ast
 import os
@@ -19,8 +20,8 @@ assert get_binding(G,'character_notice')=='1569650209951195186'
 assert get_binding(G,'pet_missing')=='1545703079691689994'
 assert get_binding(G,'world_story') is None
 assert get_official_npc_post_channel(G,'MCN')=='1545702859511697489'
-assert get_official_npc_post_channel(G,'çäººæ±å')=='1547179593239105657'
-assert get_official_npc_post_channel(G,'æ±ååæ')=='1547179593239105657'
+assert get_official_npc_post_channel(G,'熟人抱團')=='1547179593239105657'
+assert get_official_npc_post_channel(G,'抱團取暖')=='1547179593239105657'
 assert get_binding(H,'event_category') is None
 save_binding(H,'event_category','123456789123456789','101')
 assert get_binding(H,'event_category')=='123456789123456789'
@@ -31,7 +32,7 @@ save_binding(H,'post_forum','123456789123456791','101')
 from core.network_social_posts import bound_forum
 assert bound_forum(H)==123456789123456791
 save_binding(H,'official_npc_solo','123456789123456792','101')
-assert get_official_npc_post_channel(H,'å®æç¨é¬¥')=='123456789123456792'
+assert get_official_npc_post_channel(H,'單打獨鬥')=='123456789123456792'
 assert len(all_bindings(H))==4
 unbind(H,'event_category','101')
 assert get_binding(H,'event_category') is None
