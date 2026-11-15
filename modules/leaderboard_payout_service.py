@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 import json
-from core.database import transaction, get_or_create_account
+from core.database import transaction, get_connection, get_or_create_account
 from core.economy import _payment
 from modules.leaderboard_payout_storage import get_job, initialize as init_jobs
 from modules.leaderboard_payout_policy import require_payout_permission
@@ -109,6 +109,8 @@ def inspect_payout(payout_key):
     issues = []
     try:
         reward, _ = _approved(job)
+        with get_connection() as db:
+            _require_archived_award(db, job, reward)
         require_payout_permission(reward['board'], job['entity_key'], reward)
         if job['state'] != 'ready':
             raise PayoutNotReadyError('派發工作尚未進入 ready 狀態')
@@ -122,6 +124,51 @@ def inspect_payout(payout_key):
         'issues': issues,
     }
 
+
+
+def _require_archived_award(db, job, reward):
+    """Only sealed 30-day awards with an exact staged payload may pay.
+
+    Legacy jobs without source provenance are intentionally blocked.
+    """
+    if str(job['source_type']) != 'lb_v11_awards':
+        raise PayoutNotReadyError('派發工作未綁定正式期末獎勵來源')
+    try:
+        source = json.loads(job['source_id'])
+        cycle, index, board = source['cycle'], int(source['index']), source['board']
+    except (TypeError, ValueError, KeyError) as exc:
+        raise PayoutNotReadyError('缺少完整榜單期數與來源資訊') from exc
+    if cycle != '30d' or board != reward['board']:
+        raise PayoutNotReadyError('僅能派發對應的30天正式榜單獎勵')
+    gid = str(job['guild_id'])
+    period = db.execute(
+        'SELECT state FROM lb_v11_periods WHERE guild_id=? AND cycle=? AND idx=?',
+        (gid, cycle, index),
+    ).fetchone()
+    if period is None or period['state'] != 'snapshotted':
+        raise PayoutNotReadyError('來源期末快照尚未封存')
+    award = db.execute(
+        """SELECT rank,reward_json,state FROM lb_v11_awards
+           WHERE guild_id=? AND cycle=? AND idx=? AND board=? AND entity_key=?""",
+        (gid, cycle, index, board, job['entity_key']),
+    ).fetchone()
+    if award is None or award['state'] != 'approved':
+        raise PayoutNotReadyError('來源獎勵尚未逐筆核准')
+    if int(award['rank']) != int(reward['rank']):
+        raise PayoutNotReadyError('來源獎勵名次不一致')
+    try:
+        archived_reward = json.loads(award['reward_json'])
+    except (TypeError, ValueError) as exc:
+        raise PayoutNotReadyError('封存獎勵資料毀損') from exc
+    if archived_reward != reward:
+        raise PayoutNotReadyError('工作與封存獎勵內容不一致')
+    snapshots = db.execute(
+        """SELECT rank FROM lb_v11_snapshots
+           WHERE guild_id=? AND cycle=? AND idx=? AND board=? AND entity_key=?""",
+        (gid, cycle, index, board, job['entity_key']),
+    ).fetchall()
+    if len(snapshots) != 1 or int(snapshots[0]['rank']) != int(reward['rank']):
+        raise PayoutNotReadyError('期末名次與快照不一致')
 
 def payout(payout_key):
     """同一 SQLite 交易完成全部獎勵和 paid 狀態。"""
@@ -139,6 +186,7 @@ def payout(payout_key):
         if job['state'] != 'ready':
             raise PermissionError('派發工作必須先核准為 ready')
         reward, cid = _approved(job)
+        _require_archived_award(db, job, reward)
         require_payout_permission(reward['board'], job['entity_key'], reward)
         gid = str(job['guild_id'])
         _eligible_character(db, gid, cid)
