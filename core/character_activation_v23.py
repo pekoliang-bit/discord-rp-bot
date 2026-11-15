@@ -98,8 +98,13 @@ def history_notification(guild_id, character_id):
     }.get(status, str(status))
     try:
         from modules.notifications import queue_notification
+        from core.database import get_connection
+        with get_connection() as db:
+            identity=db.execute('SELECT public_code FROM characters WHERE guild_id=? AND id=?',(gid,cid)).fetchone()
+        identity_text=(f'身分證字號：`{identity[0]}`。' if identity and identity[0]
+                       else '身分證字號：正式開群核發後可於 /查看 查詢。')
         queue_notification(gid, 'private', 'role',
-            f'🎉 角色 #{cid} 已正式啟用。{status_label}。\n'
+            f'🎉 角色 #{cid} 已正式啟用。{status_label}。\n{identity_text}\n'
             '新人禮包請依既有 V5.0 領取入口辦理；本通知不代表已領取或發放金錢。',
             character_id=cid, dedupe_key=f'v23:activation:{gid}:{cid}')
     except Exception:
