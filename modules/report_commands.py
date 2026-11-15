@@ -330,7 +330,10 @@ class ReportMaintenance:
     async def _run(self):
         await self.bot.wait_until_ready()
         while not self.bot.is_closed():
+            from core.prelaunch_gate import is_open
             for guild in list(self.bot.guilds):
+                if not is_open(guild.id):
+                    continue
                 try:
                     if self.options.unban_enabled:
                         await sanctions.process_expired_temporary_bans(guild, limit=25)
