@@ -15353,3 +15353,31 @@
     "import_ready": true,
     "status": "previously_approved"
   },
+  {
+    "asset_id": "WN-0200",
+    "pool": "general",
+    "title": "霓虹與白襯衫",
+    "tier": "",
+    "rarity": "",
+    "meta": {
+      "work_type": "時尚／廣告企劃",
+      "occupations": [
+        "演員",
+        "模特兒",
+        "攝影師",
+        "設計師",
+        "網路創作者"
+      ],
+      "roles": [],
+      "participation_role_example": "平面形象拍攝",
+      "theme": "青年服飾／宣傳企劃",
+      "background_setting": "深夜便利商店旁的小型攝影棚記錄年輕人的多重身份",
+      "description": "《霓虹與白襯衫》以「青年服飾／宣傳企劃」為方向，深夜便利商店旁的小型攝影棚記錄年輕人的多重身份。",
+      "source_version": "new_fill_20261114",
+      "approval_basis": "user_requested_fill_current_580_slots"
+    },
+    "approved": true,
+    "import_ready": true,
+    "status": "previously_approved"
+  }
+]
