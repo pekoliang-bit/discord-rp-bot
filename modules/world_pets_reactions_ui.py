@@ -105,6 +105,7 @@ PET_FIELDS={
  'missing_risk_low':'依賴50至99逃跑機率%','missing_risk_mid':'依賴1至49逃跑機率%',
  'missing_risk_high':'依賴0逃跑機率%',
  'disease_daily_chance':'每日生病機率%','injury_daily_chance':'每日受傷機率%',
+ 'encounter_after_action_chance':'行動完成後遇見動物機率%',
 }
 class PetNumberModal(discord.ui.Modal,title='世界觀｜修改寵物規則'):
     def __init__(self,gid,key):
