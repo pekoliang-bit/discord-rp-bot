@@ -1023,6 +1023,18 @@ class Notifications(commands.Cog):
                         if target else None
                     )
 
+            if not channel_id and row['kind'] == 'private':
+                from modules.character_forums import ensure_activated_forum
+                await ensure_activated_forum(
+                    self.bot, row['guild_id'], row['character_id']
+                )
+                with get_connection() as db:
+                    link = db.execute(
+                        "SELECT notice_id FROM character_forum_links WHERE guild_id=? AND character_id=?",
+                        (row['guild_id'], row['character_id']),
+                    ).fetchone()
+                channel_id = link['notice_id'] if link else None
+
             if not channel_id:
                 continue
 
