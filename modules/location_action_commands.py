@@ -13,6 +13,7 @@
 from __future__ import annotations
 
 import logging
+import asyncio
 from typing import Any
 
 import discord
@@ -364,13 +365,31 @@ class ActionExecuteView(discord.ui.View):
             LOG.exception('正式場所行動交易失敗')
             await interaction.followup.send("交易未完成，請稍後再試。",ephemeral=True)
             return
+        # Animal encounters are a *chance event after a completed action*,
+        # never a manually selectable action. Idempotent by the action request ID.
+        encounter_note=''
+        encounter_view=None
+        if not result.get('duplicated'):
+            try:
+                from core.pet_market_v2 import action_encounter, encounter_detail
+                from modules.pet_center import EncounterResultView
+                eid=await asyncio.to_thread(action_encounter,self.guild_id,self.character_id,
+                    self.user_id,f"discord-action:{interaction.id}")
+                if eid is not None:
+                    encounter=await asyncio.to_thread(encounter_detail,self.guild_id,eid)
+                    if encounter:
+                        encounter_note='\n🐾 **額外隨機事件：遇見動物！** 請選擇如何處理。'
+                        encounter_view=EncounterResultView(interaction,self.character_id,encounter)
+            except Exception:
+                LOG.exception('行動已完成，寵物額外事件判定失敗')
         self.stop()
         for item in self.children:
             item.disabled=True
         await interaction.followup.send(
             f"✅ {result['action_name']} 完成。\n金幣收入：{result['reward_coins']:,}\n"
             f"金幣花費：{result['cost_coins']:,}\n本次數值：{result.get('rolled_stats', [])}\n消耗行動值：{result['action_points_spent']}"
-            f"（免費 {result['free_action_points_spent']}／付費 {result['paid_action_points_spent']}）",ephemeral=True)
+            f"（免費 {result['free_action_points_spent']}／付費 {result['paid_action_points_spent']}）"+encounter_note,
+            view=encounter_view,ephemeral=True)
 
 
 class ActionPreview(discord.ui.View):
