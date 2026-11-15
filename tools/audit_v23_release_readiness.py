@@ -1,143 +1,138 @@
-"""《流光城》版本整合盤點：只讀專案檔案，不連線 Discord、不操作正式資料庫。
+"""《流光城》V2.3 第五區：24 個指令及跨系統的唯讀發行盤點。
 
-Usage: python tools/audit_v23_release_readiness.py [--json PATH] [--strict]
---strict: 如仍有待整合項目，回傳非零退出碼，方便 CI。
+完全不開啟資料庫或 Discord 連線，不修改玩家狀態。
+使用：python tools/audit_v23_release_readiness.py [--json reports/readiness.json] [--strict]
 """
 from __future__ import annotations
+
 import argparse
 import ast
 import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-TOP_LEVEL = (
+OFFICIAL = (
     '查看','抽獎','傳聞','創角','登記','公司','官方','劇情','群主指引',
     '商城','申請','審核','娛樂城','惡意','任務','總覽','排行','系統狀態',
     '銀行','陣營','網路','行動','通知','資產',
 )
 
 
-def _source(relative):
-    path = ROOT / relative
-    return path.read_text(encoding='utf-8') if path.is_file() else ''
+def source(relative):
+    p = ROOT / relative
+    return p.read_text(encoding='utf-8') if p.is_file() else ''
 
 
-def _table(relative):
-    path = ROOT / relative
-    if not path.is_file():
-        return None
+def json_file(relative):
     try:
-        return json.loads(path.read_text(encoding='utf-8'))
-    except (UnicodeError, json.JSONDecodeError):
+        return json.loads((ROOT / relative).read_text(encoding='utf-8'))
+    except (OSError, ValueError, UnicodeError):
         return None
 
 
-def _ast(relative):
+def literal_assignment(relative, name):
     try:
-        return ast.parse(_source(relative))
-    except (SyntaxError, ValueError):
-        return None
-
-
-def _command_catalog():
-    tree = _ast('modules/overview_catalog.py')
-    systems = None
-    if tree:
+        tree = ast.parse(source(relative))
         for node in tree.body:
-            if isinstance(node, ast.Assign) and any(isinstance(t, ast.Name) and t.id == 'SYSTEMS' for t in node.targets):
-                try:
-                    systems = ast.literal_eval(node.value)
-                except (ValueError, TypeError):
-                    pass
-                break
-    actual = [cmd for commands in systems.values() for cmd in commands] if isinstance(systems, dict) else []
-    return {'expected': len(TOP_LEVEL), 'listed': len(actual),
-            'missing': sorted(set(TOP_LEVEL) - set(actual)),
-            'extra': sorted(set(actual) - set(TOP_LEVEL)),
-            'duplicates': sorted({cmd for cmd in actual if actual.count(cmd) > 1})}
+            if isinstance(node, (ast.Assign, ast.AnnAssign)):
+                names = ([t.id for t in node.targets if isinstance(t, ast.Name)]
+                         if isinstance(node, ast.Assign)
+                         else [node.target.id] if isinstance(node.target, ast.Name) else [])
+                if name in names:
+                    return ast.literal_eval(node.value)
+    except (SyntaxError, ValueError, TypeError):
+        pass
+    return None
 
 
-def _check(name, ok, detail, severity='error'):
-    return {'name': name, 'ok': bool(ok), 'detail': detail, 'severity': severity}
+def check(name, ok, detail, *, gate=True):
+    return {'name': name, 'ok': bool(ok), 'detail': detail, 'release_gate': gate}
 
 
 def audit():
     checks = []
-    catalog = _command_catalog()
-    checks.append(_check('總覽24指令', not any(catalog[k] for k in ('missing','extra','duplicates')),
-                         catalog))
-    npc = _source('modules/npc_history_v23.py')
-    checks.append(_check('NPC玩家/官方選單', 'discord.ui.Select' in npc and 'player_npc' in npc and 'official_npc' in npc,
-                         '類型必須以 Discord 選單選擇，不再要求輸入英文'))
-    history = _table('assets/history_v23/catalog_580_inventory.json')
-    if isinstance(history, list):
-        total = len(history)
-        ready = sum(item.get('import_ready') is True for item in history if isinstance(item,dict))
-        candidates = sum(item.get('candidate_available') is True and item.get('import_ready') is not True for item in history if isinstance(item,dict))
-        missing = total-ready-candidates
-    else:
-        total=ready=candidates=missing=0
-    checks.append(_check('歷史素材總表', total == 580 and ready == 55,
-                         {'total':total,'import_ready':ready,'candidate_only':candidates,'no_full_candidate':missing}))
-    tests = (
-        'tests/verify_overview_npc_import_20261114.py',
-        'tests/verify_history_v23_materials_one_pass.py',
-        'tests/verify_history_v23_delivery.py',
-        'tests/verify_npc_birthday_activation_v23.py',
-    )
-    checks.append(_check('既有離線測試檔', all((ROOT/p).is_file() for p in tests),
-                         {'missing':[p for p in tests if not (ROOT/p).is_file()]}))
-    activation = _source('core/character_activation_v23.py')
-    checks.append(_check('角色啟用安全防護',
-                         all(s in activation for s in ('allowed_types','normalize_birthday','_npc_attributes_present','issue_in_transaction')),
-                         '審核狀態、生日、NPC初始屬性、編號檢查'))
-    rewards_integrated = ('grant_initial_npc_resources' in activation and 'grant_initial_npc_resources' in npc)
-    checks.append(_check('NPC初始資源完整接入', rewards_integrated,
-                         '目前缺少已核准NPC資源正式發放接口；不可推測金錢或行動值', 'pending'))
-    # 初始論壇必須由 async Discord 服務建立；僅有通知 queue 不等於論壇已建立。
-    profile = _source('modules/profile.py')
-    forum_service = _source('modules/character_forums.py')
-    forum_hook = 'ensure_forum_after_activation' in profile and 'ensure_forum_after_activation' in npc
-    checks.append(_check('啟用時建立角色專屬論壇', forum_hook and 'create_forum' in forum_service,
-                         '專屬論壇建立需在Discord互動上下文完成，不能在SQLite交易中直接建立', 'pending'))
-    notice = _source('core/history_v23_delivery.py')
-    checks.append(_check('五筆歷史通知服務', 'queue_history_notice' in notice and 'queue_history_notice' in activation,
-                         '已串接詳細五筆通知；實際送達仍需Discord驗證'))
-    payout = _source('modules/leaderboard_payout_policy.py')
-    checks.append(_check('排行榜正式發獎開關', 'PAYOUT_ENABLED = True' in payout,
-                         '目前關閉；必須先完成收款適配與發獎安全驗證', 'pending'))
-    overview_tree = _ast('modules/overview_data.py')
-    seed_called = False
-    if overview_tree is not None:
-        for node in ast.walk(overview_tree):
-            if (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
-                    and node.func.attr == 'seed' and isinstance(node.func.value, ast.Name)
-                    and node.func.value.id == 'tag_library'):
-                seed_called = True
-    checks.append(_check('總覽標籤查詢', overview_tree is not None and not seed_called,
-                         'AST 檢查實際函式呼叫，不會把註解誤認為寫入', 'pending'))
-    return {'project':'流光城', 'source_version':'20261114-153103', 'checks':checks,
+    registered = literal_assignment('core/official_commands.py', 'OFFICIAL_COMMANDS')
+    # 若正式清單是間接建構，保留待確認，絕不憑原始碼字串聲稱已註冊。
+    reg = set(registered) if isinstance(registered, (list,tuple,set,frozenset,dict)) else set()
+    checks.append(check('24個正式指令白名單', reg == set(OFFICIAL),
+                        {'declared': len(reg), 'missing':sorted(set(OFFICIAL)-reg),
+                         'unexpected':sorted(reg-set(OFFICIAL))}))
+    groups = literal_assignment('modules/overview_catalog.py', 'SYSTEMS')
+    listed = [cmd for values in groups.values() for cmd in values] if isinstance(groups,dict) else []
+    checks.append(check('總覽導覽完整且不重複', set(listed)==set(OFFICIAL) and len(listed)==len(set(listed)),
+                        {'listed':len(listed),'missing':sorted(set(OFFICIAL)-set(listed)),
+                         'extra':sorted(set(listed)-set(OFFICIAL))}))
+    manifest = json_file('assets/history_v23/current_adopted_580.json')
+    summary = {'rows': len(manifest) if isinstance(manifest,list) else 0}
+    if isinstance(manifest,list):
+        ids = [row.get('asset_id') for row in manifest if isinstance(row,dict)]
+        prefixes = {k:sum(isinstance(i,str) and i.startswith(k+'-') for i in ids) for k in ('WN','CN','HB','HE')}
+        summary.update({'unique':len(set(ids)),'groups':prefixes,
+                        'approved_ready':sum(row.get('approved') is True and row.get('import_ready') is True for row in manifest if isinstance(row,dict))})
+    checks.append(check('現行580筆素材合法可解析',summary.get('rows')==580 and summary.get('unique')==580
+                        and summary.get('groups')=={'WN':200,'CN':100,'HB':50,'HE':230}
+                        and summary.get('approved_ready')==580,summary))
+    npc = source('modules/npc_history_v23.py')
+    checks.append(check('NPC玩家/官方類型選單',
+                        'discord.ui.Select' in npc and 'player_npc' in npc and 'official_npc' in npc,
+                        '僅驗證選單程式存在；Discord 顯示待實機'))
+    activation = source('core/character_activation_v23.py')
+    grant = source('core/npc_initial_grants_v23.py')
+    checks.append(check('NPC已核准起始待遇及交易防重',
+                        all(x in activation for x in ('activate_in_transaction','_npc_attributes_present'))
+                        and all(x in grant for x in ('configure','award_in_transaction')),
+                        '起始金額仍必須由群主依核准值設定'))
+    profile = source('modules/profile.py')
+    forum = source('modules/character_forums.py')
+    notifications = source('modules/notifications.py')
+    checks.append(check('角色即時論壇及通知修復掛鉤',
+                        all('ensure_activated_forum' in x for x in (profile,npc))
+                        and 'create_forum' in forum
+                        and 'ensure_activated_forum' in notifications,
+                        '程式掛鉤存在，論壇權限與投遞仍須 Discord 實機'))
+    history_notice = source('core/history_v23_delivery.py')
+    checks.append(check('五筆歷史通知',
+                        'queue_history_notice' in history_notice
+                        and 'queue_history_notice' in activation,
+                        '只代表有程式接線'))
+    payout = source('modules/leaderboard_payout_policy.py')
+    payout_open = literal_assignment('modules/leaderboard_payout_policy.py','PAYOUT_ENABLED')
+    checks.append(check('排行榜安全發獎政策',
+                        'require_payout_permission' in payout and payout_open is False,
+                        '自動正式發獎仍關閉；不能當作已入帳', gate=False))
+    checks.append(check('排行榜正式自動發獎可啟用',payout_open is True,
+                        '發獎開關關閉且部分榜單缺少核准獎勵/適配器'))
+    activity = source('modules/event_project_manager.py')
+    checks.append(check('活動企劃模組存在', 'CREATE TABLE' in activity.upper() and 'rp_event_project_audit' in activity,
+                        '靜態檢查；不是 SQLite 實際驗證'))
+    # 不把自動化靜態檢查等同於真實 Discord 或 Railway 服務健康。
+    checks.append(check('Discord論壇/通知/指令實機驗證',False,'需要測試伺服器、權限與 Bot Token'))
+    checks.append(check('Railway資料庫與重啟驗證',False,'需要實際部署、資料庫備份、重啟與日志核對'))
+    gates=[c for c in checks if c['release_gate']]
+    return {'project':'流光城','version':'20261115-063325','checks':checks,
             'passing':sum(c['ok'] for c in checks),
             'remaining_checks':sum(not c['ok'] for c in checks),
-            'materials':{'approved_slots':580,'import_ready':ready,'source_missing':580-ready},
-            'note':'本工具只盤點程式接線與檔案；無法代替完整功能或Discord實機驗證。'}
+            'release_ready':all(c['ok'] for c in gates),
+            'notes':['靜態檢查與隔離測試不能代替 Discord/Railway 實機。',
+                     '正式排行榜發獎維持關閉，不會自行打開。',
+                     '本工具不連線 Discord、不開啟或修改 SQLite。']}
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--json',type=Path,help='另存JSON報告；不寫資料庫')
-    parser.add_argument('--strict',action='store_true',help='有未通過項目即退出碼1')
+    parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--json',type=Path)
+    parser.add_argument('--strict',action='store_true')
     args=parser.parse_args(argv)
     report=audit()
-    for result in report['checks']:
-        print(('PASS' if result['ok'] else 'PENDING')+': '+result['name'])
-    print(f"核對項目：{len(report['checks'])}，已通過：{report['passing']}，尚未通過：{report['remaining_checks']}")
-    print(f"素材原文可入庫：{report['materials']['import_ready']}/580；尚缺：{report['materials']['source_missing']}")
+    for item in report['checks']:
+        print(('PASS' if item['ok'] else 'PENDING')+' '+item['name']+'：'+str(item['detail']))
+    print(f"總共 {len(report['checks'])} 項；通過 {report['passing']} 項；待處理 {report['remaining_checks']} 項。")
+    print('正式上線準備：'+('已達門檻' if report['release_ready'] else '未達門檻'))
     if args.json:
         args.json.parent.mkdir(parents=True,exist_ok=True)
         args.json.write_text(json.dumps(report,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
-    return 1 if args.strict and report['remaining_checks'] else 0
+    return 1 if args.strict and not report['release_ready'] else 0
 
 
-if __name__ == '__main__':
+if __name__=='__main__':
     raise SystemExit(main())
