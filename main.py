@@ -41,13 +41,13 @@ from core.config import (
     get_test_guild_id,
 )
 from core.database import init_db
-from core.prelaunch_gate import is_open, allow_component, LOCKED_TEXT
+from core.prelaunch_gate import is_open, may_use_system, allow_component, LOCKED_TEXT
 
 
 class LaunchAwareTree(app_commands.CommandTree):
     """Global Slash command entry gate, including previously synced commands."""
     async def interaction_check(self, interaction):
-        if is_open(interaction.guild_id):
+        if may_use_system(interaction):
             return True
         if getattr(interaction.command, 'name', None) in ('登記', '官方'):
             return True
