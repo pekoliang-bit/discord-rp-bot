@@ -941,6 +941,10 @@ class Profile(commands.Cog):
 
             from core.character_activation_v23 import history_notification
             history_notification(actor.guild_id, character_id)
+            from modules.character_forums import ensure_activated_forum
+            forum_result = await ensure_activated_forum(
+                self.bot, actor.guild_id, character_id,
+            )
 
             await reply(
                 interaction,
@@ -950,7 +954,10 @@ class Profile(commands.Cog):
                     "初始屬性驗證：通過\n"
                     "雙重審核：通過\n"
                     "🎭 角色專屬代理發言身分已建立，編號沿用角色 ID；"
-                    "機器人使用方式將於角色通知帖子說明。"
+                    "機器人使用方式將於角色通知帖子說明。\n"
+                    + ("📢 角色論壇及四個固定帖子已建立。"
+                       if forum_result["status"] == "ready"
+                       else "📢 角色論壇正在自動補建，通知會等待私人帖子準備妥當。")
                 ),
             )
 
