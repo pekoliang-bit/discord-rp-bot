@@ -53,7 +53,26 @@ class LostPosterModal(discord.ui.Modal,title='發布寵物協尋'):
     async def on_submit(self,i):
         try:
             data=await asyncio.to_thread(pet.publish_poster,i.guild_id,self.pid,self.cid,i.user.id,self.description.value,self.location.value,int(self.reward.value))
-            await i.response.send_message('✅ 寵物協尋已發布。'+f'懸賞 {data["reward"]} 金幣；額外曝光倍率 {data["reach_multiplier"]:.2f}。',ephemeral=True)
+            # Publishing the Discord announcement happens *after* escrow and the
+            # poster transaction succeed. Failure never repeats the withdrawal.
+            announced=False
+            try:
+                from core.channel_bindings_v1 import get_binding
+                channel_id=get_binding(i.guild_id,'pet_missing')
+                ch=i.guild.get_channel(int(channel_id)) if channel_id else None
+                if isinstance(ch,discord.TextChannel):
+                    await ch.send(
+                        f'🐾 **寵物協尋公告**\n走失寵物編號：#{self.pid}\n'
+                        f'最後地點：{discord.utils.escape_mentions(str(self.location.value))[:100]}\n'
+                        f'外觀／線索：{discord.utils.escape_mentions(str(self.description.value))[:1000]}\n'
+                        f'懸賞：{data["reward"]} 金幣\n'
+                        '如發現疑似走失寵物，請使用 `/寵物中心` 的救援／協尋功能。',
+                        allowed_mentions=discord.AllowedMentions.none())
+                    announced=True
+            except (discord.HTTPException,ValueError,TypeError):
+                LOG.exception('協尋已建立但 Discord 頻道公告發送失敗 guild=%s pet=%s',i.guild_id,self.pid)
+            await i.response.send_message('✅ 寵物協尋已建立。'+f'懸賞 {data["reward"]} 金幣；額外曝光倍率 {data["reach_multiplier"]:.2f}。'
+                  +(' 公告已發布。' if announced else ' ⚠️ 公告未送達指定頻道，請通知管理員。'),ephemeral=True)
         except (ValueError,PermissionError) as exc:await i.response.send_message(f'⚠️ {exc}',ephemeral=True)
 
 class LostMarkModal(discord.ui.Modal,title='登記寵物走失'):
