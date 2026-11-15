@@ -254,7 +254,9 @@ class ImportNPCModal(discord.ui.Modal, title='匯入 NPC 人設訊息'):
                     logging.getLogger(__name__).exception('官方 NPC 模板附加失敗：角色 %s',new_id)
                 with transaction() as db:
                     db.execute("UPDATE rp_npc_templates_v23 SET state='claimed',claimed_by=? WHERE guild_id=? AND source_message=?",(str(self.character_owner_id),str(i.guild_id),str(message.id)))
-                try:attempt_lock(i.guild_id,new_id)
+                from core.prelaunch_gate import is_open
+                try:
+                    if is_open(i.guild_id):attempt_lock(i.guild_id,new_id)
                 except Exception:
                     import logging
                     logging.getLogger(__name__).exception('官方 NPC 歷史補建待處理')
