@@ -98,6 +98,11 @@ class PostModal(discord.ui.Modal,title='發布網路論壇文章'):
                 reason=f'網路發文：角色 {account["character_id"]}')
             thread=created.thread
             try:
+                from modules.network_reaction_v11 import WithdrawReactionView
+                await thread.send("😀 可以使用表符互動；若要撤回已結算的表符，請使用下方按鈕。",view=WithdrawReactionView())
+            except discord.HTTPException:
+                LOG.warning("無法張貼撤回按鈕，仍可透過移除表符取消原效果 thread=%s",thread.id)
+            try:
                 await asyncio.to_thread(social.save_post,interaction.guild.id,
                                         interaction.user.id,self.account_id,thread.id,self.tag_ids)
                 categories=classify_forum_tags([tag_map[i].name for i in self.tag_ids])
