@@ -765,6 +765,37 @@ class CharacterForums(commands.Cog):
         )
 
 
+async def ensure_activated_forum(bot, guild_id, character_id):
+    """After database commit, make/recover an active character's private forum.
+
+    Failure is retryable via 90-second scan and private notification dispatcher;
+    never reverse a completed character activation or publish in a public channel.
+    """
+    cog = bot.get_cog("CharacterForums") if bot else None
+    guild = bot.get_guild(int(guild_id)) if bot else None
+    if cog is None or guild is None:
+        return {"status": "deferred", "reason": "forum_cog_or_guild_unavailable"}
+    with get_connection() as db:
+        row = db.execute(
+            """SELECT id,name,owner_id,character_type,settings_json,status
+                 FROM characters WHERE guild_id=? AND id=?""",
+            (str(guild_id), int(character_id)),
+        ).fetchone()
+    if not row or row["status"] != "active":
+        return {"status": "deferred", "reason": "character_not_active"}
+    try:
+        forum = await cog.ensure_forum(guild, dict(row))
+    except (discord.HTTPException, ValueError, PermissionError, sqlite3.Error) as exc:
+        LOG.exception("角色 #%s 即時論壇補建失敗，交由排程重試", character_id)
+        return {"status": "deferred", "reason": type(exc).__name__}
+    link = get_link(guild_id, character_id)
+    if not all(link.get(name) for name in ("forum_id", "notice_id", "question_id", "story_id", "bot_id")):
+        return {"status": "deferred", "reason": "incomplete_thread_links"}
+    if not _private_forum_is_secure(forum, row["owner_id"]):
+        return {"status": "deferred", "reason": "private_permissions_unverified"}
+    return {"status": "ready", "forum_id": str(forum.id), "notice_id": str(link["notice_id"])}
+
+
 async def setup(bot: commands.Bot):
     await bot.add_cog(
         CharacterForums(bot)
