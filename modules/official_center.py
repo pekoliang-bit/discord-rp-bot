@@ -1814,6 +1814,26 @@ class StaffRosterView(PrivateView):
             await send_error(interaction, exc)
 
 
+class LaunchConfirmButton(discord.ui.Button):
+    def __init__(self):
+        super().__init__(label='✅ 確認正式開啟系統',style=discord.ButtonStyle.danger)
+
+    async def callback(self,interaction):
+        require_owner(interaction)
+        from core.prelaunch_gate import set_open
+        set_open(interaction.guild_id,interaction.user.id,interaction.guild.owner_id,True)
+        await interaction.response.edit_message(
+            content='✅ 已記錄本群正式開啟。功能將按各自原有權限開放。\n'
+                    '背景排程與 Discord／Railway 實際送達仍須獨立驗證；排行榜獨立發獎開關不受此操作影響。',
+            view=None)
+
+
+class LaunchConfirmView(discord.ui.View):
+    def __init__(self):
+        super().__init__(timeout=300)
+        self.add_item(LaunchConfirmButton())
+
+
 class LaunchAuditButton(discord.ui.Button):
     """Only the guild owner can launch the read-only go-live inspection."""
 
@@ -1830,7 +1850,13 @@ class LaunchAuditButton(discord.ui.Button):
             names = {c.name for c in tree.get_commands()}
             names.update(c.name for c in tree.get_commands(guild=interaction.guild))
             report = await asyncio.to_thread(scan, interaction.guild_id, names)
-            await interaction.followup.send(render(report), ephemeral=True)
+            from core.prelaunch_gate import is_open
+            if is_open(interaction.guild_id):
+                await interaction.followup.send('✅ 本群已開啟。\n'+render(report),ephemeral=True)
+            else:
+                await interaction.followup.send(
+                    '🔒 尚未開群。這份是啟用前稽核，按確認才會變更狀態。\n'
+                    +render(report)[:1450],view=LaunchConfirmView(),ephemeral=True)
         except Exception:
             LOG.exception('正式開群系統盤點失敗 guild=%s', interaction.guild_id)
             await interaction.followup.send('⚠️ 系統盤點異常；沒有變更開群狀態。請查看 Railway 日誌。', ephemeral=True)
@@ -1911,6 +1937,14 @@ class OfficialCenter(commands.Cog):
     )
     @app_commands.guild_only()
     async def official(self, interaction: discord.Interaction):
+        from core.prelaunch_gate import is_open, LOCKED_TEXT
+        if not is_open(interaction.guild_id):
+            if interaction.guild is None or interaction.user.id != interaction.guild.owner_id:
+                return await interaction.response.send_message(LOCKED_TEXT,ephemeral=True)
+            view=discord.ui.View(timeout=300)
+            view.add_item(LaunchAuditButton())
+            return await interaction.response.send_message(
+                '🔒 尚未正式開群。只有群主可檢查並確認開啟。',view=view,ephemeral=True)
         try:
             await interaction.response.send_message(
                 official_home_text(interaction),
