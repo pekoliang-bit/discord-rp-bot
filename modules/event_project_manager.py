@@ -1451,10 +1451,17 @@ class EventProject(commands.Cog):
                 )
 
             category = None
+            # The guild's bound event category is the default only when the
+            # organizer didn't explicitly choose a category for this event.
+            from core.channel_bindings_v1 import get_binding
+            configured_event_category = (
+                str(event["category_id"] or "").strip()
+                or get_binding(i.guild_id, "event_category")
+            )
 
-            if event["category_id"]:
+            if configured_event_category:
                 category = i.guild.get_channel(
-                    int(event["category_id"])
+                    int(configured_event_category)
                 )
 
                 if not isinstance(
