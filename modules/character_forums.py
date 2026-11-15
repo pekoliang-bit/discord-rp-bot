@@ -191,6 +191,7 @@ def get_characters(guild_id):
             FROM characters
             WHERE guild_id=?
               AND status = 'active'
+              AND character_type != 'official_npc'
             ORDER BY id ASC
             """,
             (str(guild_id),),
