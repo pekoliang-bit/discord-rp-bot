@@ -1,106 +1,111 @@
-
-"""Pet/network/world integration sanity tests using a temp sqlite database only."""
-from __future__ import annotations
+"""Pet/network/world integration sanity tests using a temp sqlite database only\."""
+from \_\_future\_\_ import annotations
 import ast,os,subprocess,sys,tempfile
 from pathlib import Path
-ROOT=Path(__file__).resolve().parents[1]
-for path in ('core/world_interaction_rules.py','core/network_reaction_rewards_v11.py',
- 'core/pets_v1.py','modules/world_pets_reactions_ui.py','modules/pet_center.py',
- 'modules/network_reaction_v11.py','modules/content_builder.py','modules/network_forum_ui.py',
- 'modules/review_center.py','core/official_commands.py','modules/overview_catalog.py'):
-    ast.parse((ROOT/path).read_text(encoding='utf-8'))
+ROOT=Path&#40;\_\_file\_\_&#41;\.resolve&#40;&#41;\.parents&#91;1&#93;
+for path in &#40;'core/world\_interaction\_rules\.py','core/network\_reaction\_rewards\_v11\.py',
+ 'core/pets\_v1\.py','modules/world\_pets\_reactions\_ui\.py','modules/pet\_center\.py',
+ 'modules/network\_reaction\_v11\.py','modules/content\_builder\.py','modules/network\_forum\_ui\.py',
+ 'modules/review\_center\.py','core/official\_commands\.py','modules/overview\_catalog\.py'&#41;:
+    ast\.parse&#40;&#40;ROOT/path&#41;\.read\_text&#40;encoding='utf\-8'&#41;&#41;
 code=r'''
 import json,random
 from datetime import datetime,timedelta,timezone
-from core.database import init_db,transaction,get_connection,get_or_create_account
-from core.world_interaction_rules import reaction_effects,reaction_rules,split_emojis,validate_reactions,pet_rules
-from core import network_reaction_rewards_v11 as rw
-from core import pets_v1 as pet
-from core.economy import _payment
-init_db();gid='123';u='101';v='102'
-with transaction() as db:
- db.execute('INSERT OR IGNORE INTO guilds(guild_id) VALUES (?)',(gid,))
- db.execute("INSERT INTO characters(guild_id,owner_id,name,age,occupation,status) VALUES (?,?,?,?,?,'active')",(gid,u,'飼主',20,'演員'))
- c1=db.execute('SELECT MAX(id) FROM characters').fetchone()[0]
- db.execute("INSERT INTO characters(guild_id,owner_id,name,age,occupation,status) VALUES (?,?,?,?,?,'active')",(gid,v,'互動者',21,'網紅'))
- c2=db.execute('SELECT MAX(id) FROM characters').fetchone()[0]
- db.execute('INSERT INTO attributes(guild_id,character_id,name,value) VALUES (?,?,?,?)',(gid,c1,'流量熱度',100))
- db.execute('INSERT INTO attributes(guild_id,character_id,name,value) VALUES (?,?,?,?)',(gid,c1,'路人緣',100))
- db.execute('INSERT INTO attributes(guild_id,character_id,name,value) VALUES (?,?,?,?)',(gid,c1,'演繹',30))
- sender=get_or_create_account(db,gid,'system','test_bank','wallet')
- receiver=get_or_create_account(db,gid,'character',c1,'wallet')
- _payment(db,gid,'test:fund',sender,receiver,1000000,'test fixture funding')
- db.execute('INSERT INTO rp_network_posts(guild_id,thread_id,account_id,character_id) VALUES (?,?,?,?)',(gid,'456',1,c1)) if False else None
- db.execute("CREATE TABLE rp_network_posts(guild_id TEXT,thread_id TEXT,account_id INTEGER,character_id INTEGER)")
- db.execute('INSERT INTO rp_network_posts VALUES (?,?,?,?)',(gid,'456',1,c1))
-assert reaction_effects(reaction_rules(gid),'🍓')=={'heat':1}
-assert '❤️' in split_emojis('❤️😍')
-assert 'fans' in reaction_effects(reaction_rules(gid),'❤️')
-try:validate_reactions({'fans_down':'❤️'})
+from core\.database import init\_db,transaction,get\_connection,get\_or\_create\_account
+from core\.world\_interaction\_rules import reaction\_effects,reaction\_rules,split\_emojis,validate\_reactions,pet\_rules
+from core import network\_reaction\_rewards\_v11 as rw
+from core import pets\_v1 as pet,pet\_agreement\_v23 as agreement
+from core\.economy import \_payment
+init\_db&#40;&#41;;gid='123';u='101';v='102'
+with transaction&#40;&#41; as db:
+ db\.execute&#40;'INSERT OR IGNORE INTO guilds&#40;guild\_id&#41; VALUES &#40;?&#41;',&#40;gid,&#41;&#41;
+ db\.execute&#40;"INSERT INTO characters&#40;guild\_id,owner\_id,name,age,occupation,status&#41; VALUES &#40;?,?,?,?,?,'active'&#41;",&#40;gid,u,'飼主',20,'演員'&#41;&#41;
+ c1=db\.execute&#40;'SELECT MAX&#40;id&#41; FROM characters'&#41;\.fetchone&#40;&#41;&#91;0&#93;
+ db\.execute&#40;"INSERT INTO characters&#40;guild\_id,owner\_id,name,age,occupation,status&#41; VALUES &#40;?,?,?,?,?,'active'&#41;",&#40;gid,v,'互動者',21,'網紅'&#41;&#41;
+ c2=db\.execute&#40;'SELECT MAX&#40;id&#41; FROM characters'&#41;\.fetchone&#40;&#41;&#91;0&#93;
+ db\.execute&#40;'UPDATE characters SET public\_code=? WHERE id=?',&#40;'P\-01\-0418\-01',c1&#41;&#41;
+ db\.execute&#40;'UPDATE characters SET public\_code=? WHERE id=?',&#40;'P\-01\-0419\-01',c2&#41;&#41;
+ db\.execute&#40;'INSERT INTO attributes&#40;guild\_id,character\_id,name,value&#41; VALUES &#40;?,?,?,?&#41;',&#40;gid,c1,'流量熱度',100&#41;&#41;
+ db\.execute&#40;'INSERT INTO attributes&#40;guild\_id,character\_id,name,value&#41; VALUES &#40;?,?,?,?&#41;',&#40;gid,c1,'路人緣',100&#41;&#41;
+ db\.execute&#40;'INSERT INTO attributes&#40;guild\_id,character\_id,name,value&#41; VALUES &#40;?,?,?,?&#41;',&#40;gid,c1,'演繹',30&#41;&#41;
+ sender=get\_or\_create\_account&#40;db,gid,'system','test\_bank','wallet'&#41;
+ receiver=get\_or\_create\_account&#40;db,gid,'character',c1,'wallet'&#41;
+ \_payment&#40;db,gid,'test:fund',sender,receiver,1000000,'test fixture funding'&#41;
+ db\.execute&#40;'INSERT INTO rp\_network\_posts&#40;guild\_id,thread\_id,account\_id,character\_id&#41; VALUES &#40;?,?,?,?&#41;',&#40;gid,'456',1,c1&#41;&#41; if False else None
+ db\.execute&#40;"CREATE TABLE rp\_network\_posts&#40;guild\_id TEXT,thread\_id TEXT,account\_id INTEGER,character\_id INTEGER&#41;"&#41;
+ db\.execute&#40;'INSERT INTO rp\_network\_posts VALUES &#40;?,?,?,?&#41;',&#40;gid,'456',1,c1&#41;&#41;
+assert reaction\_effects&#40;reaction\_rules&#40;gid&#41;,'🍓'&#41;==\{'heat':1\}
+assert '❤️' in split\_emojis&#40;'❤️😍'&#41;
+assert 'fans' in reaction\_effects&#40;reaction\_rules&#40;gid&#41;,'❤️'&#41;
+try:validate\_reactions&#40;\{'fans\_down':'❤️'\}&#41;
 except ValueError:pass
-else:raise AssertionError('same-metric opposite emoji conflict not blocked')
-assert rw.add(gid,'456',u,'❤️')=='self_reaction'
-roll=rw.add(gid,'456',v,'❤️',rng=random.Random(42))
+else:raise AssertionError&#40;'same\-metric opposite emoji conflict not blocked'&#41;
+assert rw\.add&#40;gid,'456',u,'❤️'&#41;=='self\_reaction'
+roll=rw\.add&#40;gid,'456',v,'❤️',rng=random\.Random&#40;42&#41;&#41;
 assert 'fans' in roll
-assert rw.add(gid,'456',v,'❤️')=='already'
-rev=rw.withdraw(gid,'456',v,'❤️',actor_id=v,penalty=False)
-assert rev['reverted']==roll and not rev['penalty']
-assert rw.withdraw(gid,'456',v,'❤️',actor_id=v,penalty=False) is None
-assert rw.add(gid,'456',v,'❤️')=='already'
-roll=rw.add(gid,'456',v,'🍓',rng=random.Random(1))
-assert roll=={'heat':1},roll
-pet.accept_terms(gid,c1,u)
-info=pet.purchase(gid,c1,u,'麻糬','貓')
-assert info['chip'].startswith('P-')
-assert pet.list_pets(gid,c1)[0]['name']=='麻糬'
-pet.add_coowner(gid,info['id'],c1,u,c2)
-assert pet.care(gid,info['id'],c2,v,'play')['bond']==pet_rules(gid)['bond_max']
-try:pet.purchase(gid,c2,v,'未簽署','貓')
+assert rw\.add&#40;gid,'456',v,'❤️'&#41;=='already'
+rev=rw\.withdraw&#40;gid,'456',v,'❤️',actor\_id=v,penalty=False&#41;
+assert rev&#91;'reverted'&#93;==roll and not rev&#91;'penalty'&#93;
+assert rw\.withdraw&#40;gid,'456',v,'❤️',actor\_id=v,penalty=False&#41; is None
+assert rw\.add&#40;gid,'456',v,'❤️'&#41;=='already'
+roll=rw\.add&#40;gid,'456',v,'🍓',rng=random\.Random&#40;1&#41;&#41;
+assert roll==\{'heat':1\},roll
+agreement\.start&#40;gid,c1,u&#41;
+for page in range&#40;9&#41;:agreement\.advance&#40;gid,c1,u,page&#41;
+agreement\.sign&#40;gid,c1,u,'飼主','P\-01\-0418\-01',10&#41;
+info=pet\.purchase&#40;gid,c1,u,'麻糬','貓'&#41;
+assert info&#91;'chip'&#93;\.startswith&#40;'P\-'&#41;
+assert pet\.list\_pets&#40;gid,c1&#41;&#91;0&#93;&#91;'name'&#93;=='麻糬'
+pet\.add\_coowner&#40;gid,info&#91;'id'&#93;,c1,u,c2&#41;
+assert pet\.care&#40;gid,info&#91;'id'&#93;,c2,v,'play'&#41;&#91;'bond'&#93;==pet\_rules&#40;gid&#41;&#91;'bond\_max'&#93;
+try:pet\.purchase&#40;gid,c2,v,'未簽署','貓'&#41;
 except PermissionError:pass
-else:raise AssertionError('consent missing')
-with transaction() as db:
- db.execute("UPDATE rp_pets_v1 SET last_play=?,last_tick=?,last_inactive_tick=? WHERE id=?",
-   ((datetime.now(timezone.utc)-timedelta(days=2)).isoformat(),)*3+(info['id'],))
-res=pet.daily(gid,rng=random.Random(100))
-assert res['checked']==1
-p=pet.list_pets(gid,c1)[0]
-assert p['health']==pet_rules(gid)['health_max']-4
-assert p['bond']<pet_rules(gid)['bond_max']
-assert pet.daily(gid)['bonuses']==0
-pet.mark_missing(gid,info['id'],c1,u,'中央公園')
-post=pet.publish_poster(gid,info['id'],c1,u,'藍色項圈','中央公園',3000)
-assert post['reward']==3000 and pet.public_posters(gid)
-try:pet.publish_poster(gid,info['id'],c1,u,'重複','中央公園',3000)
+else:raise AssertionError&#40;'consent missing'&#41;
+with transaction&#40;&#41; as db:
+ db\.execute&#40;"UPDATE rp\_pets\_v1 SET last\_play=?,last\_tick=?,last\_inactive\_tick=? WHERE id=?",
+   &#40;&#40;datetime\.now&#40;timezone\.utc&#41;\-timedelta&#40;days=2&#41;&#41;\.isoformat&#40;&#41;,&#41;\*3\+&#40;info&#91;'id'&#93;,&#41;&#41;
+res=pet\.daily&#40;gid,rng=random\.Random&#40;100&#41;&#41;
+assert res&#91;'checked'&#93;==1
+p=pet\.list\_pets&#40;gid,c1&#41;&#91;0&#93;
+assert p&#91;'health'&#93;==pet\_rules&#40;gid&#41;&#91;'health\_max'&#93;\-4
+assert p&#91;'bond'&#93;<pet\_rules&#40;gid&#41;&#91;'bond\_max'&#93;
+assert pet\.daily&#40;gid&#41;&#91;'bonuses'&#93;==0
+pet\.mark\_missing&#40;gid,info&#91;'id'&#93;,c1,u,'中央公園'&#41;
+post=pet\.publish\_poster&#40;gid,info&#91;'id'&#93;,c1,u,'藍色項圈','中央公園',3000&#41;
+assert post&#91;'reward'&#93;==3000 and pet\.public\_posters&#40;gid&#41;
+try:pet\.publish\_poster&#40;gid,info&#91;'id'&#93;,c1,u,'重複','中央公園',3000&#41;
 except ValueError:pass
-else:raise AssertionError('duplicate poster allowed')
-enc=pet.rescue_encounter(gid,c2,v,'report',rng=random.Random(1))
-assert enc['kind'] in ('stray','injured','protected','missing')
-pet.accept_terms(gid,c2,v)
-closed=pet.complete_rescue(gid,info['id'],authorized=True,rescuer_character=c2)
-assert closed['reward']==3000
-assert pet.list_pets(gid,c1)[0]['state']=='home'
-try:pet.complete_rescue(gid,info['id'],authorized=True,rescuer_character=c2)
+else:raise AssertionError&#40;'duplicate poster allowed'&#41;
+enc=pet\.rescue\_encounter&#40;gid,c2,v,'report',rng=random\.Random&#40;1&#41;&#41;
+assert enc&#91;'kind'&#93; in &#40;'stray','injured','protected','missing'&#41;
+agreement\.start&#40;gid,c2,v&#41;
+for page in range&#40;9&#41;:agreement\.advance&#40;gid,c2,v,page&#41;
+agreement\.sign&#40;gid,c2,v,'互動者','P\-01\-0419\-01',10&#41;
+closed=pet\.complete\_rescue&#40;gid,info&#91;'id'&#93;,authorized=True,rescuer\_character=c2&#41;
+assert closed&#91;'reward'&#93;==3000
+assert pet\.list\_pets&#40;gid,c1&#41;&#91;0&#93;&#91;'state'&#93;=='home'
+try:pet\.complete\_rescue&#40;gid,info&#91;'id'&#93;,authorized=True,rescuer\_character=c2&#41;
 except ValueError:pass
-else:raise AssertionError('Repeated rescue must not pay again')
-chip=pet.transfer_pet(gid,info['id'],c1,u,c2)
-assert chip==info['chip']
-assert pet.list_pets(gid,c2)[0]['main_character_id']==c2
-pet.mark_missing(gid,info['id'],c2,v,'機場')
-post=pet.publish_poster(gid,info['id'],c2,v,'新走失','機場',100)
-assert post['reward']==100
-assert pet.complete_rescue(gid,info['id'],authorized=True)['reward']==100
-# Guild-scoped world overrides must not mutate globally shared defaults.
-with transaction() as db:
- db.execute('CREATE TABLE world_configs(guild_id TEXT PRIMARY KEY,config_json TEXT NOT NULL)')
- db.execute('INSERT INTO world_configs VALUES (?,?)',('other',json.dumps({'pets':{'health_max':200},'reactions':{'random_min':3,'random_max':4}})))
-assert pet_rules('other')['health_max']==200
-assert pet_rules(gid)['health_max']==100
-assert reaction_rules('other')['random_max']==4
-assert reaction_rules(gid)['random_max']==10
-print('PASS: emoji classification/one-time roll/rollback, consent, ownership, wallet, decay, poster, rescue')
+else:raise AssertionError&#40;'Repeated rescue must not pay again'&#41;
+chip=pet\.transfer\_pet&#40;gid,info&#91;'id'&#93;,c1,u,c2&#41;
+assert chip==info&#91;'chip'&#93;
+assert pet\.list\_pets&#40;gid,c2&#41;&#91;0&#93;&#91;'main\_character\_id'&#93;==c2
+pet\.mark\_missing&#40;gid,info&#91;'id'&#93;,c2,v,'機場'&#41;
+post=pet\.publish\_poster&#40;gid,info&#91;'id'&#93;,c2,v,'新走失','機場',100&#41;
+assert post&#91;'reward'&#93;==100
+assert pet\.complete\_rescue&#40;gid,info&#91;'id'&#93;,authorized=True&#41;&#91;'reward'&#93;==100
+\# Guild\-scoped world overrides must not mutate globally shared defaults\.
+with transaction&#40;&#41; as db:
+ db\.execute&#40;'CREATE TABLE world\_configs&#40;guild\_id TEXT PRIMARY KEY,config\_json TEXT NOT NULL&#41;'&#41;
+ db\.execute&#40;'INSERT INTO world\_configs VALUES &#40;?,?&#41;',&#40;'other',json\.dumps&#40;\{'pets':\{'health\_max':200\},'reactions':\{'random\_min':3,'random\_max':4\}\}&#41;&#41;&#41;
+assert pet\_rules&#40;'other'&#41;&#91;'health\_max'&#93;==200
+assert pet\_rules&#40;gid&#41;&#91;'health\_max'&#93;==100
+assert reaction\_rules&#40;'other'&#41;&#91;'random\_max'&#93;==4
+assert reaction\_rules&#40;gid&#41;&#91;'random\_max'&#93;==10
+print&#40;'PASS: emoji classification/one\-time roll/rollback, consent, ownership, wallet, decay, poster, rescue'&#41;
 '''
-with tempfile.TemporaryDirectory(prefix='flow-release-') as td:
-    env={**os.environ,'DATABASE_PATH':str(Path(td)/'isolated.sqlite')}
-    r=subprocess.run([sys.executable,'-c',code],cwd=ROOT,env=env,capture_output=True,text=True)
-    print(r.stdout)
-    if r.returncode:print(r.stderr);raise SystemExit(r.returncode)
+with tempfile\.TemporaryDirectory&#40;prefix='flow\-release\-'&#41; as td:
+    env=\{\*\*os\.environ,'DATABASE\_PATH':str&#40;Path&#40;td&#41;/'isolated\.sqlite'&#41;\}
+    r=subprocess\.run&#40;&#91;sys\.executable,'\-c',code&#93;,cwd=ROOT,env=env,capture\_output=True,text=True&#41;
+    print&#40;r\.stdout&#41;
+    if r\.returncode:print&#40;r\.stderr&#41;;raise SystemExit&#40;r\.returncode&#41;
