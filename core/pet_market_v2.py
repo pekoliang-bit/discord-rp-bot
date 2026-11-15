@@ -14,6 +14,7 @@ from core.economy import _payment
 from core.world_interaction_rules import pet_rules
 from core import pets_v1 as pets
 from core import pet_catalog_v21 as v21
+from core import pet_traits_v22 as behaviour
 
 
 def setup(db, guild_id=None):
@@ -100,7 +101,7 @@ def manage(guild_id,kind,code,label,price,*,species='',stock=-1,active=True,basi
     rules=pet_rules(gid)
     if kind=='breed' and (str(species) in rules['protected_species'] or '保育' in str(species)):
         raise PermissionError('保育類物種不可販售')
-    if delete:active=False  # soft unlisting prevents dangling cart references
+    if delete:active=False
     with transaction() as db:
         setup(db,gid)
         db.execute('''INSERT INTO rp_pet_catalog_v2(guild_id,kind,code,species,label,price,stock,active,basic,description)
@@ -230,6 +231,7 @@ def checkout(guild_id,character_id,user_id,pet_name,request_key):
                     DO UPDATE SET quantity=quantity+excluded.quantity''',
                     (gid,cid,item['code'],item['quantity']))
         db.execute('INSERT INTO rp_pet_owners_v1 VALUES (?,?,?,1)',(gid,pid,cid))
+        behaviour.attach_purchased(db,gid,pid,cid,state['items'])
         db.execute('INSERT INTO rp_pet_events_v1(guild_id,pet_id,actor_character_id,event_type,detail_json) VALUES (?,?,?,?,?)',
           (gid,pid,cid,'checkout',json.dumps(state,ensure_ascii=False)))
         result={'pet_id':pid,'name':pet_name,'species':breed['species'],'breed':breed['label'],
