@@ -1,4 +1,3 @@
-
 """Pets V1: guild-isolated ownership, chips, care, missing notices and encounters.
 
 Every write uses a SQLite transaction. Fees use the existing double-entry economy.
@@ -103,8 +102,9 @@ def purchase(guild_id,character_id,user_id,name,species,*,rarity='common'):
     price=int(rules['species'][species])*int(rules['rarity_multipliers'][rarity])//100;timestamp=iso(now())
     with transaction() as db:
         initialize(db);_actor(db,gid,character_id,user_id)
-        if not db.execute('SELECT 1 FROM rp_pet_consent_v1 WHERE guild_id=? AND character_id=?',(gid,int(character_id))).fetchone():
-            raise PermissionError('第一次購買前必須閱讀並簽署寵物注意事項')
+        from core.pet_agreement_v23 import has_signed
+        if not has_signed(db,gid,character_id):
+            raise PermissionError('第一次購買前必須完成十頁飼主須知及身分證字號簽署')
         chip='P-'+secrets.token_hex(12).upper()
         cur=db.execute('''INSERT INTO rp_pets_v1(guild_id,main_character_id,name,species,rarity,chip,health,bond,last_play,last_tick)
         VALUES (?,?,?,?,?,?,?,?,?,?)''',(gid,int(character_id),name,species,rarity,chip,rules['health_max'],rules['bond_max'],timestamp,timestamp))
@@ -113,6 +113,8 @@ def purchase(guild_id,character_id,user_id,name,species,*,rarity='common'):
         db.execute('INSERT INTO rp_pet_owners_v1 VALUES (?,?,?,1)',(gid,pid,int(character_id)))
         from core import pet_traits_v22
         pet_traits_v22.bootstrap(db,gid,pid)
+        from core.pet_medical_v23 import register_first_check
+        register_first_check(db,gid,pid)
         db.execute('INSERT INTO rp_pet_events_v1(guild_id,pet_id,actor_character_id,event_type) VALUES (?,?,?,?)',(gid,pid,int(character_id),'purchase'))
         return {'id':pid,'name':name,'chip':chip,'price':price}
 
@@ -285,11 +287,13 @@ def rescue_encounter(guild_id,character_id,user_id,choice,*,rng=None):
             else:message='發現保育類動物，請勿直接帶回家。'
         elif typ=='missing':message='疑似有晶片的走失寵物，請送醫掃晶片或提供協尋線索。'
         else:message='一般流浪／受傷動物，可協助救治；正式領養仍須另外確認身分。'
-        db.execute('INSERT INTO rp_pet_encounters_v1(guild_id,actor_character_id,kind,pet_id) VALUES (?,?,?,?)',(gid,pet_id,int(character_id),'encounter',json.dumps({'kind':typ,'choice':choice,'positive':positive,'rumor':rumor},ensure_ascii=False)))
+        db.execute('INSERT INTO rp_pet_events_v1(guild_id,pet_id,actor_character_id,event_type,detail_json) VALUES (?,?,?,?,?)',(gid,pet_id,int(character_id),'encounter',json.dumps({'kind':typ,'choice':choice,'positive':positive,'rumor':rumor},ensure_ascii=False)))
         return {'kind':typ,'message':message,'potential_positive':positive,'potential_rumor':rumor,'pet_id':pet_id}
 
 def buy_service(guild_id,pet_id,character_id,user_id,item):
     gid=str(guild_id);rules=pet_rules(gid)
+    if item in ('看醫生','健康檢查'):
+        raise ValueError('醫療項目已移至新版寵物醫療中心，請先查看報價再確認付款')
     if item not in rules['supplies']:raise ValueError('未上架的寵物商品')
     price=int(rules['supplies'][item])
     with transaction() as db:
@@ -402,8 +406,9 @@ def adopt_stray(guild_id,encounter_id,character_id,user_id,name,species):
     if species not in rules['species']:raise ValueError('物種未在世界觀中核准')
     with transaction() as db:
         initialize(db);_actor(db,gid,character_id,user_id)
-        if not db.execute('SELECT 1 FROM rp_pet_consent_v1 WHERE guild_id=? AND character_id=?',(gid,int(character_id))).fetchone():
-            raise PermissionError('領養前須先簽署飼養注意事項')
+        from core.pet_agreement_v23 import has_signed
+        if not has_signed(db,gid,character_id):
+            raise PermissionError('領養前須依序閱讀十頁飼主須知並簽名及核對身分證字號')
         enc=db.execute("SELECT * FROM rp_pet_encounters_v1 WHERE guild_id=? AND id=? AND actor_character_id=? AND kind='stray' AND state='closed'",
           (gid,int(encounter_id),int(character_id))).fetchone()
         if not enc:raise ValueError('此事件沒有經確認可領養的無主動物')
@@ -417,4 +422,6 @@ def adopt_stray(guild_id,encounter_id,character_id,user_id,name,species):
           VALUES (?,?,?,?,?,?,?,?,?)''',(gid,int(character_id),name,species,chip,rules['health_max'],rules['bond_max'],timestamp,timestamp)).lastrowid
         db.execute('INSERT INTO rp_pet_owners_v1 VALUES (?,?,?,1)',(gid,cid,int(character_id)))
         db.execute("UPDATE rp_pet_encounters_v1 SET state='adopted' WHERE guild_id=? AND id=?",(gid,int(encounter_id)))
+        from core.pet_medical_v23 import register_first_check
+        register_first_check(db,gid,cid)
         return {'id':cid,'chip':chip}
