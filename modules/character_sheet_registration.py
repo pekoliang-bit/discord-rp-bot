@@ -757,8 +757,10 @@ async def do_register(
     # 官方 NPC 的群主登記已是正式授權；玩家 NPC 只能申請後啟用。
     if kind == "official_npc":
         try:
+            from core.prelaunch_gate import is_open
             from core.history_v23 import attempt_lock
-            attempt_lock(interaction.guild_id,new_id)
+            if is_open(interaction.guild_id):
+                attempt_lock(interaction.guild_id,new_id)
         except Exception:
             LOG.exception("官方 NPC 歷史履歷等待補建：%s",new_id)
     return (
