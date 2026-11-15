@@ -1900,6 +1900,8 @@ class OfficialHome(PrivateView):
         super().__init__(interaction)
         if is_management_user(interaction):
             self.add_item(OpenAdminToolsButton())
+            from modules.channel_binding_center import ChannelBindingButton
+            self.add_item(ChannelBindingButton())
         # Hidden from everyone except the actual Discord guild owner.
         if is_owner(interaction):
             self.add_item(LaunchAuditButton())
