@@ -11,6 +11,7 @@ from discord import app_commands
 from discord.ext import commands,tasks
 from core import pets_v1 as pet
 from core import pet_market_v2 as market
+from core import pet_traits_v22 as behaviour
 from core.world_interaction_rules import pet_rules
 from core.database import get_connection
 from core.prelaunch_gate import is_open
@@ -241,14 +242,75 @@ class PetActionsView(Guard):
         async def callback(x):
             try:res=await asyncio.to_thread(pet.care,x.guild_id,self.pid,self.cid,x.user.id,sel.values[0])
             except (ValueError,LookupError,PermissionError) as exc:return await x.response.send_message(f'⚠️ {exc}',ephemeral=True)
-            await x.response.send_message(f'✅ 健康 {res["health"]}｜依賴 {res["bond"]}｜狀態 {res["state"]}',ephemeral=True)
+            details=''
+            if sel.values[0] in ('play','walk','feed','wrong_food'):
+                try:
+                    extra=await asyncio.to_thread(behaviour.interaction,x.guild_id,self.pid,self.cid,x.user.id,sel.values[0])
+                    if extra['injury']:details+=f'\n⚠️ 互動意外：主人健康 -{extra["injury"]}'
+                    if extra['messages']:details+='\n'+'\n'.join(extra['messages'])
+                except (ValueError,LookupError,PermissionError) as exc:details+=f'\n⚠️ 行為結算：{exc}'
+            await x.response.send_message(f'✅ 健康 {res["health"]}｜依賴 {res["bond"]}｜狀態 {res["state"]}'+details,ephemeral=True)
         sel.callback=callback;self.add_item(sel)
+    @discord.ui.button(label='居家訓練',style=discord.ButtonStyle.primary,row=2)
+    async def train(self,i,b):
+        await i.response.edit_message(content='🎓 選擇居家訓練（隱藏屬性不公開）',view=TrainingView(i,self.cid,self.pid))
+    @discord.ui.button(label='用品與維修',style=discord.ButtonStyle.secondary,row=2)
+    async def supplies(self,i,b):
+        await i.response.edit_message(content='🧰 寵物用品管理',view=EquipmentView(i,self.cid,self.pid))
     @discord.ui.button(label='修改寵物名字',style=discord.ButtonStyle.primary,row=1)
     async def rename(self,i,b):await i.response.send_modal(RenameModal(self.cid,self.pid))
     @discord.ui.button(label='返回寵物清單',style=discord.ButtonStyle.secondary,row=1)
     async def back(self,i,b):
         await i.response.edit_message(content='🐾 選擇寵物',view=PetSelectView(i,self.cid))
 
+
+class TrainingView(Guard):
+    def __init__(self,i,cid,pid):
+        super().__init__(i,cid);self.pid=int(pid)
+        courses=list(behaviour.SETTINGS['training'])
+        species=next((p['species'] for p in pet.list_pets(i.guild_id,cid) if p['id']==self.pid),'')
+        if species!='狗':courses.remove('服從訓練')
+        sel=discord.ui.Select(placeholder='選擇訓練課程',options=[discord.SelectOption(label=x,value=x) for x in courses],row=0)
+        async def callback(x):
+            try:
+                res=await asyncio.to_thread(behaviour.training,x.guild_id,self.pid,self.cid,x.user.id,sel.values[0])
+            except (ValueError,PermissionError,LookupError) as exc:
+                return await x.response.send_message(f'⚠️ {exc}',ephemeral=True)
+            status='訓練成功' if res['success'] else '暫時沒有掌握'
+            await x.response.send_message(f'🎓 {status}｜屬性成長 {res["growth"]}｜技能熟練 +{res["skill_gain"]}｜疲勞 {res["fatigue"]}/100',ephemeral=True)
+        sel.callback=callback;self.add_item(sel)
+    @discord.ui.button(label='查看訓練狀態',style=discord.ButtonStyle.secondary,row=1)
+    async def status(self,i,b):
+        try:res=await asyncio.to_thread(behaviour.state,i.guild_id,self.pid,self.cid,i.user.id)
+        except (ValueError,LookupError,PermissionError) as exc:return await i.response.send_message(f'⚠️ {exc}',ephemeral=True)
+        await i.response.send_message(f'🐾 {res["name"]}｜疲勞 {res["fatigue"]}/100；情緒狀態：'+('需要安靜休息' if res['anger']>=80 else '較為煩躁' if res['anger']>=60 else '可以繼續互動')+'。性格數值保密。',ephemeral=True)
+    @discord.ui.button(label='返回寵物',style=discord.ButtonStyle.secondary,row=1)
+    async def back(self,i,b):
+        await i.response.edit_message(content='🐾 寵物照顧',view=PetActionsView(i,self.cid,self.pid))
+
+class EquipmentView(Guard):
+    def __init__(self,i,cid,pid):
+        super().__init__(i,cid);self.pid=int(pid)
+        try:equipped=behaviour.state(i.guild_id,pid,cid,i.user.id)['equipment']
+        except (ValueError,PermissionError,LookupError):equipped=[]
+        if equipped:
+            sel=discord.ui.Select(placeholder='選擇維修用品（回復至100）',options=[discord.SelectOption(label=f'#{x["id"]} {x["code"]} 耐久{x["durability"]}/100'[:100],value=str(x['id'])) for x in equipped[:25]],row=0)
+            async def cb(x):
+                try:r=await asyncio.to_thread(behaviour.repair,x.guild_id,self.pid,self.cid,x.user.id,int(sel.values[0]))
+                except (ValueError,LookupError,PermissionError) as exc:return await x.response.send_message(f'⚠️ {exc}',ephemeral=True)
+                await x.response.send_message(f'✅ 維修完成｜耐久 {r["durability"]}/100｜花費 {r["cost"]} 金幣',ephemeral=True)
+            sel.callback=cb;self.add_item(sel)
+        available=[x for x in market.inventory(i.guild_id,cid) if x['code'].startswith('v21:') and x['quantity']>0 and x['code'].split(':')[-2] not in ('feed','treat','supplement')]
+        if available:
+            sel=discord.ui.Select(placeholder='從背包配置用品給寵物',options=[discord.SelectOption(label=f'{x["code"]} ×{x["quantity"]}'[:100],value=x['code']) for x in available[:25]],row=1)
+            async def cb2(x):
+                try:pid2=await asyncio.to_thread(behaviour.equip,x.guild_id,self.pid,self.cid,x.user.id,sel.values[0])
+                except (ValueError,LookupError,PermissionError) as exc:return await x.response.send_message(f'⚠️ {exc}',ephemeral=True)
+                await x.response.send_message(f'✅ 配置成功，用品編號 #{pid2}',ephemeral=True)
+            sel.callback=cb2;self.add_item(sel)
+    @discord.ui.button(label='返回寵物',style=discord.ButtonStyle.secondary,row=2)
+    async def back(self,i,b):
+        await i.response.edit_message(content='🐾 寵物照顧',view=PetActionsView(i,self.cid,self.pid))
 
 class PetSelectView(Guard):
     def __init__(self,i,cid,page=0):
@@ -350,7 +412,7 @@ class PetHomeView(Guard):
     def __init__(self,i,cid):
         super().__init__(i,cid)
         options=[('cart','🐾 寵物與商品挑選'),('checkout','💉 付款結帳與晶片施打'),
-                 ('check','🩺 健康檢查'),('treat','🏥 傷病治療'),('training','🎓 寵物訓練（規則待核准）'),('terms','📜 飼主須知')]
+                 ('check','🩺 健康檢查'),('treat','🏥 傷病治療'),('training','🎓 寵物訓練'),('terms','📜 飼主須知')]
         if any(p['state']=='missing' for p in pet.list_pets(i.guild_id,cid)):
             options.append(('missing','🔎 寵物協尋'))
         sel=discord.ui.Select(placeholder='選擇寵物中心服務',options=[discord.SelectOption(label=v,value=k) for k,v in options])
@@ -358,7 +420,7 @@ class PetHomeView(Guard):
             mode=sel.values[0]
             if mode=='cart':return await x.response.edit_message(content=cart_text(market.preview(x.guild_id,self.cid)),view=CartView(x,self.cid))
             if mode=='checkout':return await x.response.edit_message(content=cart_text(market.preview(x.guild_id,self.cid)),view=CartView(x,self.cid))
-            if mode=='training':return await x.response.send_message('🎓 寵物訓練入口已保留；費用、成功率、效果尚未核准，因此暫不扣款或修改數值。',ephemeral=True)
+            if mode=='training':return await x.response.edit_message(content='🎓 選擇寵物開始居家訓練',view=PetSelectView(x,self.cid))
             if mode=='terms':return await x.response.send_message(terms(x.guild_id),view=Agree(x,self.cid),ephemeral=True)
             if mode in ('check','treat'):return await x.response.edit_message(content='選擇寵物進行醫療服務',view=ServiceView(x,self.cid,mode))
             if mode=='missing':return await x.response.send_modal(MissingModal(self.cid))
@@ -461,7 +523,10 @@ class PetCenter(commands.Cog):
                 has=db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='rp_pets_v1'").fetchone()
                 gids=[r[0] for r in db.execute('SELECT DISTINCT guild_id FROM rp_pets_v1')] if has else []
             for gid in gids:
-                if is_open(gid):await asyncio.to_thread(pet.daily,gid)
+                if is_open(gid):
+                    await asyncio.to_thread(pet.daily,gid)
+                    await asyncio.to_thread(behaviour.daily_equipment,gid)
+            await asyncio.to_thread(behaviour.dispatch_notices)
         except Exception:LOG.exception('寵物定時結算失敗')
     @worker.before_loop
     async def ready(self):await self.bot.wait_until_ready()
