@@ -28,6 +28,7 @@ from discord import app_commands
 from discord.ext import commands
 
 from core.database import get_connection, transaction
+from core.npc_owner_access_v24 import is_server_admin, ensure_npc_owner
 
 
 LOG = logging.getLogger(__name__)
@@ -368,11 +369,7 @@ async def open_tag_selection(
         kind,
     )
 
-    is_owner = (
-        interaction.guild is not None
-        and interaction.user.id
-        == interaction.guild.owner_id
-    )
+    is_owner = is_server_admin(interaction)
 
     await show_tag_picker(
         interaction,
@@ -401,6 +398,7 @@ def register_sheet(
     *,
     character_owner_id: int | None = None,
     birthday: str | None = None,
+    authorized_admin: bool = False,
 ):
     """
     user_id:
@@ -445,7 +443,7 @@ def register_sheet(
     server_owner = str(owner_id)
 
     is_admin = (
-        actor == server_owner
+        actor == server_owner or bool(authorized_admin)
     )
 
     if (
@@ -665,10 +663,7 @@ async def do_register(
             "請在伺服器內操作。"
         )
 
-    is_admin = (
-        interaction.user.id
-        == interaction.guild.owner_id
-    )
+    is_admin = is_server_admin(interaction)
 
     if (
         owner_override is not None
@@ -715,10 +710,13 @@ async def do_register(
             "群主可以代提交。"
         )
 
+    if is_admin and message.author.id != interaction.user.id and owner_override is None:
+        raise ValueError("管理員代登記他人發表的角色單，請先使用「指定擁有者」成員選擇。")
+
     true_owner = (
         owner_override.id
         if owner_override is not None
-        else message.author.id
+        else (interaction.user.id if is_admin else message.author.id)
     )
 
     if (
@@ -734,9 +732,12 @@ async def do_register(
         kind == "official_npc"
         and not is_admin
     ):
-        raise PermissionError(
-            "只有群主可以建立官方 NPC。"
-        )
+        raise PermissionError("只有群主或管理員可以建立官方 NPC。")
+    if kind == "official_npc":
+        member = interaction.guild.get_member(true_owner)
+        if member is None:
+            member = await interaction.guild.fetch_member(true_owner)
+        ensure_npc_owner(interaction.guild, member, kind)
 
     new_id = register_sheet(
         interaction.guild_id,
@@ -750,6 +751,7 @@ async def do_register(
         character_id,
         character_owner_id=true_owner,
         birthday=explicit_sheet_birthday(message.content or ""),
+        authorized_admin=is_admin,
     )
 
     # 官方 NPC 的群主登記已是正式授權；玩家 NPC 只能申請後啟用。
@@ -793,11 +795,6 @@ class RegisterMessageModal(
         max_length=15,
     )
 
-    owner_field = discord.ui.TextInput(
-        label="代發時的玩家 Discord ID（僅群主）",
-        required=False,
-        max_length=25,
-    )
 
     def __init__(
         self,
@@ -839,33 +836,9 @@ class RegisterMessageModal(
                 self.character_id_field.value or ""
             ).strip()
 
-            owner_text = str(
-                self.owner_field.value or ""
-            ).strip()
-
-            character_id = (
-                int(cid_text)
-                if cid_text
-                else None
-            )
-
+            character_id = int(cid_text) if cid_text else None
+            # 右鍵訊息表單只登記本人；代登記使用 /角色單登記 的成員選擇器。
             selected_owner = None
-
-            if owner_text:
-                if (
-                    interaction.guild is None
-                    or interaction.user.id
-                    != interaction.guild.owner_id
-                ):
-                    raise PermissionError(
-                        "只有群主能指定玩家 ID。"
-                    )
-
-                selected_owner = (
-                    await interaction.guild.fetch_member(
-                        int(owner_text)
-                    )
-                )
 
             (
                 new_id,
@@ -1101,8 +1074,7 @@ class CharacterSheetRegistration(
             )
 
         if (
-            interaction.user.id
-            != interaction.guild.owner_id
+            not is_server_admin(interaction)
             and message.author.id
             != interaction.user.id
         ):
@@ -1136,7 +1108,7 @@ class CharacterSheetRegistration(
             "原創角色需填已核准編號"
         ),
         指定擁有者=(
-            "僅群主代發角色單時指定玩家"
+            "管理員代登記時選擇真正持有者"
         ),
     )
     @app_commands.choices(
