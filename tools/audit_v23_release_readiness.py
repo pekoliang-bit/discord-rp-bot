@@ -1,4 +1,4 @@
-"""《流光城》V2.3 第五區：24 個指令及跨系統的唯讀發行盤點。
+"""《流光城》V2.3 第五區：25 個指令及跨系統的唯讀發行盤點。
 
 完全不開啟資料庫或 Discord 連線，不修改玩家狀態。
 使用：python tools/audit_v23_release_readiness.py [--json reports/readiness.json] [--strict]
@@ -14,7 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]
 OFFICIAL = (
     '查看','抽獎','傳聞','創角','登記','公司','官方','劇情','群主指引',
     '商城','申請','審核','娛樂城','惡意','任務','總覽','排行','系統狀態',
-    '銀行','陣營','網路','行動','通知','資產',
+    '銀行','陣營','網路','行動','通知','資產','寵物中心',
 )
 
 
@@ -54,7 +54,7 @@ def audit():
     registered = literal_assignment('core/official_commands.py', 'OFFICIAL_COMMANDS')
     # 若正式清單是間接建構，保留待確認，絕不憑原始碼字串聲稱已註冊。
     reg = set(registered) if isinstance(registered, (list,tuple,set,frozenset,dict)) else set()
-    checks.append(check('24個正式指令白名單', reg == set(OFFICIAL),
+    checks.append(check('25個正式指令白名單', reg == set(OFFICIAL),
                         {'declared': len(reg), 'missing':sorted(set(OFFICIAL)-reg),
                          'unexpected':sorted(reg-set(OFFICIAL))}))
     groups = literal_assignment('modules/overview_catalog.py', 'SYSTEMS')
@@ -105,6 +105,14 @@ def audit():
     activity = source('modules/event_project_manager.py')
     checks.append(check('活動企劃模組存在', 'CREATE TABLE' in activity.upper() and 'rp_event_project_audit' in activity,
                         '靜態檢查；不是 SQLite 實際驗證'))
+    checks.append(check('寵物中心與世界觀選單已接線',
+        '寵物中心' in reg and 'PetCenter' in source('modules/pet_center.py')
+        and 'pets' in source('modules/content_builder.py'),
+        '僅靜態檢查，醫療、死亡、協尋仍須實機測試'))
+    checks.append(check('網路表符隨機結算已接線',
+        'NetworkReactions' in source('modules/network_reaction_v11.py')
+        and 'withdraw' in source('core/network_reaction_rewards_v11.py'),
+        '僅靜態檢查，撤回操作人的角色識別需驗證'))
     # 不把自動化靜態檢查等同於真實 Discord 或 Railway 服務健康。
     checks.append(check('Discord論壇/通知/指令實機驗證',False,'需要測試伺服器、權限與 Bot Token'))
     checks.append(check('Railway資料庫與重啟驗證',False,'需要實際部署、資料庫備份、重啟與日志核對'))
