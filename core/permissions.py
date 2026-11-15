@@ -37,6 +37,7 @@ class Actor:
     guild_id: str
     user_id: str
     is_admin: bool = False
+    is_discord_administrator: bool = False
 
     @classmethod
     def from_interaction(
@@ -62,6 +63,10 @@ class Actor:
             is_admin=bool(
                 permissions.administrator
                 or permissions.manage_guild
+            ),
+            is_discord_administrator=bool(
+                permissions.administrator
+                or (interaction.guild is not None and interaction.user.id == interaction.guild.owner_id)
             ),
         )
 
