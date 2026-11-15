@@ -721,16 +721,11 @@ class Registration(commands.Cog):
     async def registration(self,interaction:discord.Interaction):
         from core.prelaunch_gate import is_open
         if not is_open(interaction.guild_id):
-            from modules.npc_history_v23 import NPCRegisterButton
-            from core.npc_owner_access_v24 import is_server_admin
-            if not is_server_admin(interaction):
-                return await interaction.response.send_message(
-                    '🔒 尚未正式開群，只有管理員可預先登記玩家 NPC／官方 NPC。',ephemeral=True)
-            view = discord.ui.View(timeout=300)
-            view.add_item(NPCRegisterButton())
-            return await interaction.response.send_message(
-                '📋 開服前 NPC 登記：先選擇玩家 NPC 或官方 NPC，然後指定真正的角色持有人。'
-                '其他登記、啟用、抽獎及發獎尚未開放。',view=view,ephemeral=True)
+            from core.prelaunch_gate import is_management_actor, LOCKED_TEXT
+            if not is_management_actor(interaction):
+                return await interaction.response.send_message(LOCKED_TEXT, ephemeral=True)
+            # Authorized administrators see the same full registration center
+            # as after launch. Original NPC registration remains available.
         try:
             actor=Actor.from_interaction(interaction)
             ensure_types(actor.guild_id)
