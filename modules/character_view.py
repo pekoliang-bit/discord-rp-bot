@@ -2075,6 +2075,16 @@ class CharacterDetailView(discord.ui.View):
     async def historical_records(self,interaction,button):
         await PanelSubView(self,'history').show(interaction,'history')
 
+    @discord.ui.button(label='🐾 寵物相關',style=discord.ButtonStyle.secondary,row=1)
+    async def pets_button(self,interaction,button):
+        actor=Actor.from_interaction(interaction)
+        char=get_character(actor,self.character_id)
+        if str(char['owner_id']) != str(actor.user_id) or char['status']!='active':
+            return await interaction.response.send_message('只有角色實際持有人能管理此角色的寵物。',ephemeral=True)
+        from modules.pet_center import PetSelectView
+        v=PetSelectView(interaction,self.character_id)
+        await interaction.response.send_message('🐾 選擇寵物照顧或玩樂' if not v.empty else '目前沒有寵物，可以前往 /寵物中心 購買與簽署注意事項。',view=v,ephemeral=True)
+
     def _edit_controls(self, interaction):
         view = CharacterEditStartView(interaction.user.id, self.character_id, interaction.guild_id)
         view.refresh_buttons()
