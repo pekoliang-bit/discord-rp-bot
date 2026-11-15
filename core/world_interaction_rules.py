@@ -34,7 +34,7 @@ PET_DEFAULT = {
     'walk_escape_chance': 1, 'critical_hours': 72,
     'disease_daily_chance':1, 'injury_daily_chance':1,
     'encounter_after_action_chance':5,
-    'species': {'貓': 2000, '狗': 2500, '兔子': 1200, '鳥': 1500},
+    'species': {'貓': 220000, '狗': 240000, '鸚鵡': 180000},
     'supplies': {'飼料': 50, '零食': 80, '玩具': 150, '健康檢查': 120, '看醫生': 300},
     'rarity_multipliers': {'common':100, 'rare':150, 'epic':300, 'legendary':500},
     'protected_species':['保育類','保護動物'],
