@@ -111,6 +111,8 @@ def purchase(guild_id,character_id,user_id,name,species,*,rarity='common'):
         pid=cur.lastrowid
         _pay(db,gid,character_id,price,f'pet:purchase:{gid}:{pid}',f'購買寵物 {name}')
         db.execute('INSERT INTO rp_pet_owners_v1 VALUES (?,?,?,1)',(gid,pid,int(character_id)))
+        from core import pet_traits_v22
+        pet_traits_v22.bootstrap(db,gid,pid)
         db.execute('INSERT INTO rp_pet_events_v1(guild_id,pet_id,actor_character_id,event_type) VALUES (?,?,?,?)',(gid,pid,int(character_id),'purchase'))
         return {'id':pid,'name':name,'chip':chip,'price':price}
 
@@ -283,8 +285,7 @@ def rescue_encounter(guild_id,character_id,user_id,choice,*,rng=None):
             else:message='發現保育類動物，請勿直接帶回家。'
         elif typ=='missing':message='疑似有晶片的走失寵物，請送醫掃晶片或提供協尋線索。'
         else:message='一般流浪／受傷動物，可協助救治；正式領養仍須另外確認身分。'
-        db.execute('INSERT INTO rp_pet_encounters_v1(guild_id,actor_character_id,kind,pet_id) VALUES (?,?,?,?)',(gid,int(character_id),typ,pet_id))
-        db.execute('INSERT INTO rp_pet_events_v1(guild_id,pet_id,actor_character_id,event_type,detail_json) VALUES (?,?,?,?,?)',(gid,pet_id,int(character_id),'encounter',json.dumps({'kind':typ,'choice':choice,'positive':positive,'rumor':rumor},ensure_ascii=False)))
+        db.execute('INSERT INTO rp_pet_encounters_v1(guild_id,actor_character_id,kind,pet_id) VALUES (?,?,?,?)',(gid,pet_id,int(character_id),'encounter',json.dumps({'kind':typ,'choice':choice,'positive':positive,'rumor':rumor},ensure_ascii=False)))
         return {'kind':typ,'message':message,'potential_positive':positive,'potential_rumor':rumor,'pet_id':pet_id}
 
 def buy_service(guild_id,pet_id,character_id,user_id,item):
@@ -312,7 +313,6 @@ def begin_encounter(guild_id,character_id,user_id,*,rng=None):
     with transaction() as db:
         initialize(db);_actor(db,gid,character_id,user_id)
         posters=db.execute("SELECT pet_id,reward FROM rp_pet_posters_v1 WHERE guild_id=? AND state='open'",(gid,)).fetchall()
-        # Active posters + rewards increase visibility, but cannot guarantee rescue.
         chance=min(45,15+sum(min(5,int(x['reward'])//3000) for x in posters)) if posters else 0
         if posters and rng.randint(1,100)<=chance:
             selected=rng.choice(posters);kind='missing';pid=int(selected['pet_id'])
