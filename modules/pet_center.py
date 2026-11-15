@@ -92,7 +92,7 @@ class PageView(Guard):
                     try:cart=await asyncio.to_thread(market.select,x.guild_id,self.cid,x.user.id,'breed' if kind=='breed' else 'item',code)
                     except (ValueError,LookupError,PermissionError) as exc:
                         return await x.response.send_message(f'⚠️ {exc}',ephemeral=True)
-                    await x.response.edit_message(content=cart_text(cart),view=CartView(x,self.cid))
+                    await x.response.edit_message(content=f'✅ 已選擇 {next((r["label"] for r in market.catalog(x.guild_id,"breed") if r["code"]==code),code)}。\n接下來依序選購用品。',view=WizardView(x,self.cid,code)) if kind=='breed' else await x.response.edit_message(content=cart_text(cart),view=CartView(x,self.cid))
             sel.callback=callback;self.add_item(sel)
     @discord.ui.button(label='◀ 上頁',style=discord.ButtonStyle.secondary,row=1)
     async def prev(self,i,b):
@@ -103,6 +103,59 @@ class PageView(Guard):
     @discord.ui.button(label='返回選購清單',style=discord.ButtonStyle.secondary,row=1)
     async def back(self,i,b):
         await i.response.edit_message(content=cart_text(market.preview(i.guild_id,self.cid)),view=CartView(i,self.cid))
+
+
+
+class WizardView(Guard):
+    """選完品種後逐頁選用品；不同品質會替換同一頁的舊選項。"""
+    def __init__(self,i,cid,breed_code,step=0):
+        super().__init__(i,cid)
+        self.breed_code=breed_code
+        breed=next((r for r in market.catalog(i.guild_id,'breed') if r['code']==breed_code),None)
+        if not breed: raise LookupError('品種已下架')
+        self.species=breed['species'];self.pages=market.wizard_pages(i.guild_id,breed_code)
+        self.step=max(0,min(int(step),len(self.pages)))
+        if self.step<len(self.pages):
+            group,label,required=self.pages[self.step]
+            choices=market.wizard_items(i.guild_id,self.species,group,breed_code)
+            if choices:
+                selected=discord.ui.Select(placeholder=f'第 {self.step+1}/{len(self.pages)} 頁｜{label}'+('（必選）' if required else '（選購）'),
+                    options=[discord.SelectOption(label=f'{x["label"]}｜{x["price"]:,} 金幣'[:100],value=x['code']) for x in choices[:25]],row=0)
+                async def chosen(x):
+                    try:
+                        await asyncio.to_thread(market.select,x.guild_id,self.cid,x.user.id,'item',selected.values[0])
+                    except (ValueError,LookupError,PermissionError) as exc:
+                        return await x.response.send_message(f'⚠️ {exc}',ephemeral=True)
+                    await x.response.edit_message(content=self.page_text(x.guild_id, self.step+1),view=WizardView(x,self.cid,self.breed_code,self.step+1))
+                selected.callback=chosen;self.add_item(selected)
+
+    def page_text(self,gid,index=None):
+        index=self.step if index is None else index
+        state=market.preview(gid,self.cid)
+        if index>=len(self.pages):
+            return cart_text(state)+'\n✅ 已完成用品逐頁挑選，請檢查所有必備頁面。'
+        group,label,required=self.pages[index]
+        return f'🐾 **逐頁選購 {index+1}/{len(self.pages)}**｜{label}'+('（必選）' if required else '（可略過）')+f'\n目前總額：{state["total"]:,} 金幣。選擇用品不會扣款。'
+
+    @discord.ui.button(label='◀ 上一頁',style=discord.ButtonStyle.secondary,row=1)
+    async def prev(self,i,b):
+        step=max(0,self.step-1)
+        await i.response.edit_message(content=self.page_text(i.guild_id,step),view=WizardView(i,self.cid,self.breed_code,step))
+
+    @discord.ui.button(label='下一頁／略過 ▶',style=discord.ButtonStyle.primary,row=1)
+    async def next(self,i,b):
+        state=market.preview(i.guild_id,self.cid)
+        if self.step<len(self.pages):
+            group,label,required=self.pages[self.step]
+            if required and group in state['missing_basics']:
+                return await i.response.send_message(f'⚠️ {label} 是必選項目，請先選擇適用品質。',ephemeral=True)
+        step=min(self.step+1,len(self.pages))
+        await i.response.edit_message(content=self.page_text(i.guild_id,step),view=WizardView(i,self.cid,self.breed_code,step))
+
+    @discord.ui.button(label='檢查購物車／結帳',style=discord.ButtonStyle.success,row=2)
+    async def cart(self,i,b):
+        state=market.preview(i.guild_id,self.cid)
+        await i.response.edit_message(content=cart_text(state),view=CartView(i,self.cid))
 
 
 class CheckoutModal(discord.ui.Modal,title='統一結帳・晶片施打與飼主登記'):
@@ -297,7 +350,7 @@ class PetHomeView(Guard):
     def __init__(self,i,cid):
         super().__init__(i,cid)
         options=[('cart','🐾 寵物與商品挑選'),('checkout','💉 付款結帳與晶片施打'),
-                 ('check','🩺 健康檢查'),('treat','🏥 傷病治療'),('terms','📜 飼主須知')]
+                 ('check','🩺 健康檢查'),('treat','🏥 傷病治療'),('training','🎓 寵物訓練（規則待核准）'),('terms','📜 飼主須知')]
         if any(p['state']=='missing' for p in pet.list_pets(i.guild_id,cid)):
             options.append(('missing','🔎 寵物協尋'))
         sel=discord.ui.Select(placeholder='選擇寵物中心服務',options=[discord.SelectOption(label=v,value=k) for k,v in options])
@@ -305,6 +358,7 @@ class PetHomeView(Guard):
             mode=sel.values[0]
             if mode=='cart':return await x.response.edit_message(content=cart_text(market.preview(x.guild_id,self.cid)),view=CartView(x,self.cid))
             if mode=='checkout':return await x.response.edit_message(content=cart_text(market.preview(x.guild_id,self.cid)),view=CartView(x,self.cid))
+            if mode=='training':return await x.response.send_message('🎓 寵物訓練入口已保留；費用、成功率、效果尚未核准，因此暫不扣款或修改數值。',ephemeral=True)
             if mode=='terms':return await x.response.send_message(terms(x.guild_id),view=Agree(x,self.cid),ephemeral=True)
             if mode in ('check','treat'):return await x.response.edit_message(content='選擇寵物進行醫療服務',view=ServiceView(x,self.cid,mode))
             if mode=='missing':return await x.response.send_modal(MissingModal(self.cid))
