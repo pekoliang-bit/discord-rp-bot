@@ -39,36 +39,37 @@ def set_open(guild_id, actor_id, guild_owner_id, enabled=True):
     return bool(enabled)
 
 
-LOCKED_TEXT = ('🔒 本群尚未正式開啟機器人功能。\n'
-               '目前僅開放管理員透過 /登記 匯入「玩家 NPC／官方 NPC」人設。\n'
-               '群主可使用 /官方 → 🚪 正式開群 進行檢查及確認開啟。')
+LOCKED_TEXT = ('🔒 本群尚未對一般玩家正式開放。\n'
+               '群主及具管理權限的人員可使用完整的管理／設定功能，'
+               '先完成頻道綁定、世界觀與各系統檢查。\n'
+               '一般玩家需等待群主在 /官方 → 🚪 正式開群 確認後才能使用。')
 
-NPC_ITEMS = frozenset({'NPCRegisterButton','NPCImportKindSelect','NPCOwnerMemberSelect'})
-NPC_MODALS = frozenset({'ImportNPCModal'})
-LAUNCH_ITEMS = frozenset({'LaunchAuditButton','LaunchConfirmButton'})
+
+def is_management_actor(interaction):
+    """Only server owner or Discord-level administrative privilege bypasses launch.
+
+    Ordinary members, including users with only moderator/reviewer bot roles,
+    remain subject to the player launch lock.  Guild owner always bypasses.
+    """
+    guild = getattr(interaction, 'guild', None)
+    actor = getattr(interaction, 'user', None)
+    if guild is None or actor is None:
+        return False
+    if str(getattr(actor, 'id', '')) == str(getattr(guild, 'owner_id', '')):
+        return True
+    permissions = getattr(actor, 'guild_permissions', None)
+    return bool(getattr(permissions, 'administrator', False))
+
+
+def may_use_system(interaction):
+    """Launch protects players, not server owners/administrators."""
+    return is_open(getattr(interaction, 'guild_id', None)) or is_management_actor(interaction)
 
 
 def allow_component(interaction, item=None, modal=None):
-    if is_open(getattr(interaction,'guild_id',None)):
-        return True
-    guild = getattr(interaction,'guild',None)
-    actor = getattr(interaction,'user',None)
-    if guild is None or actor is None:
-        return False
-    owner = int(actor.id) == int(guild.owner_id)
-    admin = owner or bool(getattr(getattr(actor,'guild_permissions',None),'administrator',False))
-    if modal is not None:
-        return admin and type(modal).__name__ in NPC_MODALS
-    if item is None:
-        return False
-    # Discord's @ui.button decorator creates a generic Button rather than a
-    # named subclass. Authorize only the two owner-mode buttons in this view.
-    parent=getattr(item,'view',None)
-    if admin and type(parent).__name__=='NPCImportOwnerModeView':
-        return getattr(item,'label',None) in ('🙋 本人登記','👥 管理員代登記')
-    kind = type(item).__name__
-    if kind in LAUNCH_ITEMS:
-        return owner
-    if kind in NPC_ITEMS:
-        return admin
-    return False
+    """Keep old buttons and modals available to administrators before launch.
+
+    Per-feature permission checks within each view/modal remain authoritative;
+    this only controls whether launch status blocks a UI interaction.
+    """
+    return may_use_system(interaction)
