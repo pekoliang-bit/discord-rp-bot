@@ -1937,14 +1937,9 @@ class OfficialCenter(commands.Cog):
     )
     @app_commands.guild_only()
     async def official(self, interaction: discord.Interaction):
-        from core.prelaunch_gate import is_open, LOCKED_TEXT
-        if not is_open(interaction.guild_id):
-            if interaction.guild is None or interaction.user.id != interaction.guild.owner_id:
-                return await interaction.response.send_message(LOCKED_TEXT,ephemeral=True)
-            view=discord.ui.View(timeout=300)
-            view.add_item(LaunchAuditButton())
-            return await interaction.response.send_message(
-                '🔒 尚未正式開群。只有群主可檢查並確認開啟。',view=view,ephemeral=True)
+        from core.prelaunch_gate import may_use_system, LOCKED_TEXT
+        if not may_use_system(interaction):
+            return await interaction.response.send_message(LOCKED_TEXT, ephemeral=True)
         try:
             await interaction.response.send_message(
                 official_home_text(interaction),
