@@ -41,6 +41,77 @@ from core.config import (
     get_test_guild_id,
 )
 from core.database import init_db
+from core.prelaunch_gate import is_open, allow_component, LOCKED_TEXT
+
+
+class LaunchAwareTree(app_commands.CommandTree):
+    """Global Slash command entry gate, including previously synced commands."""
+    async def interaction_check(self, interaction):
+        if is_open(interaction.guild_id):
+            return True
+        if getattr(interaction.command, 'name', None) in ('登記', '官方'):
+            return True
+        if not interaction.response.is_done():
+            await interaction.response.send_message(LOCKED_TEXT,ephemeral=True)
+        return False
+
+
+def install_component_prelaunch_gate():
+    """Block stale Discord View buttons and Modal submissions while closed."""
+    if getattr(discord.ui.View, '_flowcity_launch_gate', False):
+        return
+    original_view = discord.ui.View._scheduled_task
+    original_modal = discord.ui.Modal._scheduled_task
+
+    async def guarded_view(self, item, interaction):
+        if not allow_component(interaction,item=item):
+            if not interaction.response.is_done():
+                await interaction.response.send_message(LOCKED_TEXT,ephemeral=True)
+            return
+        return await original_view(self,item,interaction)
+
+    async def guarded_modal(self, interaction):
+        if not allow_component(interaction,modal=self):
+            if not interaction.response.is_done():
+                await interaction.response.send_message(LOCKED_TEXT,ephemeral=True)
+            return
+        return await original_modal(self,interaction)
+
+    discord.ui.View._scheduled_task = guarded_view
+    discord.ui.Modal._scheduled_task = guarded_modal
+    discord.ui.View._flowcity_launch_gate = True
+
+
+install_component_prelaunch_gate()
+
+
+def install_scheduler_prelaunch_gate():
+    """Fail-closed for periodic jobs while any connected guild has not opened.
+
+    Important: mixed opened/closed guild fleets will pause shared jobs for ALL
+    guilds rather than risk processing a closed guild via global settle_all().
+    """
+    from discord.ext import tasks
+    import functools
+    if getattr(tasks,'_flowcity_scheduler_gate',False):return
+    original=tasks.loop
+
+    def guarded_loop(*args,**kwargs):
+        decorate=original(*args,**kwargs)
+        def outer(callback):
+            @functools.wraps(callback)
+            async def guarded(self,*cb_args,**cb_kwargs):
+                client=getattr(self,'bot',None)
+                if client is None or not getattr(client,'guilds',None):return
+                if any(not is_open(g.id) for g in client.guilds):return
+                return await callback(self,*cb_args,**cb_kwargs)
+            return decorate(guarded)
+        return outer
+    tasks.loop=guarded_loop
+    tasks._flowcity_scheduler_gate=True
+
+
+install_scheduler_prelaunch_gate()
 
 
 logging.basicConfig(
@@ -510,11 +581,23 @@ class RPBot(commands.Bot):
             command_prefix="!",
             intents=intents,
             help_command=None,
+            tree_cls=LaunchAwareTree,
         )
 
         self.loaded_modules = []
         self.hidden_legacy = []
         self.command_report = {}
+
+    def dispatch(self,event,*args,**kwargs):
+        # Prevent message, raw reaction and guild event listeners from affecting
+        # an unopened guild. Command interactions are gated separately above.
+        if event not in ('interaction','ready','connect','disconnect','resumed') and args:
+            origin=args[0]
+            guild=getattr(origin,'guild',None)
+            guild_id=getattr(guild,'id',None) or getattr(origin,'guild_id',None)
+            if guild_id is not None and not is_open(guild_id):
+                return
+        return super().dispatch(event,*args,**kwargs)
 
     async def setup_hook(self):
         LOG.info(
