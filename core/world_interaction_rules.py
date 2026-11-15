@@ -33,6 +33,7 @@ PET_DEFAULT = {
     'missing_risk_low': 1, 'missing_risk_mid': 3, 'missing_risk_high': 6,
     'walk_escape_chance': 1, 'critical_hours': 72,
     'disease_daily_chance':1, 'injury_daily_chance':1,
+    'encounter_after_action_chance':5,
     'species': {'貓': 2000, '狗': 2500, '兔子': 1200, '鳥': 1500},
     'supplies': {'飼料': 50, '零食': 80, '玩具': 150, '健康檢查': 120, '看醫生': 300},
     'rarity_multipliers': {'common':100, 'rare':150, 'epic':300, 'legendary':500},
@@ -106,7 +107,7 @@ def validate_pet(settings):
         elif isinstance(default,int):
             if type(result[key]) is not int or result[key]<0 or result[key]>10000:
                 raise ValueError(key+' 必須為 0～10000 整數')
-    for key in ('daily_bonus_chance','walk_escape_chance','missing_risk_low','missing_risk_mid','missing_risk_high','disease_daily_chance','injury_daily_chance'):
+    for key in ('daily_bonus_chance','walk_escape_chance','missing_risk_low','missing_risk_mid','missing_risk_high','disease_daily_chance','injury_daily_chance','encounter_after_action_chance'):
         if not 0<=result[key]<=100:raise ValueError(key+' 機率只能是 0～100%')
     if result['daily_bonus_min']>result['daily_bonus_max']:raise ValueError('每日加成上下限不正確')
     if result['health_max']<=0 or result['bond_max']<=0:raise ValueError('健康與依賴上限必須大於0')
