@@ -374,7 +374,7 @@ class ActionExecuteView(discord.ui.View):
                 from core.pet_market_v2 import action_encounter, encounter_detail
                 from modules.pet_center import EncounterResultView
                 eid=await asyncio.to_thread(action_encounter,self.guild_id,self.character_id,
-                    self.user_id,f"discord-action:{interaction.id}")
+                    self.user_id,f"discord-action:{interaction.id}",location_key=str(location.get('key') or self.channel_id))
                 if eid is not None:
                     encounter=await asyncio.to_thread(encounter_detail,self.guild_id,eid)
                     if encounter:
