@@ -26,6 +26,7 @@ OFFICIAL_COMMANDS = {
     "行動": "打工、活動、課程與行動",
     "通知": "系統、角色與活動通知",
     "資產": "大型資產及租賃產權",
+    "寵物中心": "寵物購買、晶片、健康、照顧與協尋",
 }
 
 OFFICIAL_COMMAND_NAMES = frozenset(OFFICIAL_COMMANDS)
