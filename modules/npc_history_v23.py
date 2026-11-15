@@ -260,7 +260,37 @@ class ImportNPCModal(discord.ui.Modal, title='匯入 NPC 人設訊息'):
                 except Exception:
                     import logging
                     logging.getLogger(__name__).exception('官方 NPC 歷史補建待處理')
-                return await i.response.send_message(f'✅ 官方 NPC「{name}」登記完成！角色 #{new_id}。\n主要持有人：<@{self.character_owner_id}>；其他管理員可依官方授權共同操作。',ephemeral=True)
+                # Publish the official NPC sheet into its own faction's sheet area.
+                # Player NPC sheets intentionally stay in the gender-based role forums.
+                from core.channel_bindings_v1 import get_official_npc_post_channel
+                group_text=str(fields.get('歸屬') or fields.get('所屬陣營') or fields.get('陣營') or '')
+                faction=next((key for key in ('單打獨鬥','經紀公司','MCN','另闢蹊徑','熟人抱團','抱團取暖')
+                              if key.casefold() in group_text.casefold()),None)
+                notice=''
+                target_id=get_official_npc_post_channel(i.guild_id,faction) if faction else None
+                if target_id:
+                    target=i.guild.get_channel(int(target_id))
+                    if isinstance(target,(discord.TextChannel,discord.ForumChannel)):
+                        try:
+                            content=(f'🎭 **官方 NPC 角色單｜{discord.utils.escape_mentions(name)}**\n'
+                                     f'角色編號：#{new_id}\n原始角色單：{message.jump_url}\n'
+                                     f'登記陣營：{faction}\n\n'
+                                     +discord.utils.escape_mentions(message.content)[:1550])
+                            if isinstance(target,discord.ForumChannel):
+                                await target.create_thread(name=f'{name}｜官方 NPC',content=content,
+                                    allowed_mentions=discord.AllowedMentions.none())
+                            elif channel.id!=target.id:
+                                await target.send(content,allowed_mentions=discord.AllowedMentions.none())
+                            notice='；角色單已同步到官方 NPC 陣營區'
+                        except discord.HTTPException:
+                            import logging
+                            logging.getLogger(__name__).exception('官方 NPC 已登記，但發布角色單失敗 character=%s',new_id)
+                            notice='；⚠️ 角色單發布失敗，請管理員補發'
+                    else:
+                        notice='；⚠️ 角色單發布區不存在或類型錯誤'
+                else:
+                    notice='；⚠️ 尚未辨識所屬陣營，請到頻道綁定中心核對發布區'
+                return await i.response.send_message(f'✅ 官方 NPC「{name}」登記完成！角色 #{new_id}。\n主要持有人：<@{self.character_owner_id}>；其他管理員可依官方授權共同操作。'+notice,ephemeral=True)
             template_id,name,count=import_template(i.guild_id,message.id,channel.id,message.content,kind,preferred_owner=self.character_owner_id,registered_by=i.user.id)
             await i.response.send_message(f'✅ 玩家 NPC 模板 #{template_id}「{name}」已指定給 <@{self.character_owner_id}>。\n請本人到 /創角 → NPC 申請，填寫 {count} 項自定義欄位並完成兩階段審核；管理員代匯入不會直接啟用。',ephemeral=True)
         except (ValueError,PermissionError,sqlite3.Error,discord.HTTPException) as exc:
