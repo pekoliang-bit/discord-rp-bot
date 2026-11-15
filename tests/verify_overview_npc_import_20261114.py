@@ -15,14 +15,14 @@ ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT))
 from modules.overview_catalog import SYSTEMS
 names=[name for group in SYSTEMS.values() for name in group]
-EXPECTED={"查看","抽獎","傳聞","創角","登記","公司","官方","劇情","群主指引","商城","申請","審核","娛樂城","惡意","任務","總覽","排行","系統狀態","銀行","陣營","網路","行動","通知","資產"}
-assert len(names)==len(EXPECTED)==24 and set(names)==EXPECTED
+EXPECTED={"查看","抽獎","傳聞","創角","登記","公司","官方","劇情","群主指引","商城","申請","審核","娛樂城","惡意","任務","總覽","排行","系統狀態","銀行","陣營","網路","行動","通知","資產","寵物中心"}
+assert len(names)==len(EXPECTED)==25 and set(names)==EXPECTED
 assert "角色切換" not in names
 for name in ('modules/npc_history_v23.py','modules/overview_catalog.py','modules/overview_data.py','modules/event_project_manager.py'):
     ast.parse((ROOT/name).read_text(encoding='utf-8'),filename=name)
 npc=(ROOT/'modules/npc_history_v23.py').read_text(encoding='utf-8')
 assert "value='player_npc'" in npc and "value='official_npc'" in npc
-assert "ImportNPCModal(kind)" in npc and "self.kind.value" not in npc
+assert "ImportNPCModal(self.kind,i.user.id)" in npc and "self.kind.value" not in npc
 assert "NPCImportKindView(i.guild_id, i.user.id)" in npc
 assert "send_modal(ImportNPCModal())" not in npc
 src=(ROOT/'modules/overview_data.py').read_text(encoding='utf-8')
@@ -44,4 +44,4 @@ with sqlite3.connect(':memory:') as db:
     cols=[row[1] for row in db.execute('PRAGMA table_info(rp_event_project_audit)')]
     assert cols.count('detail')==1,cols
     assert db.execute("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name LIKE 'rp_event_%'").fetchone()[0]>=6
-print('PASS: 24 system commands, NPC 2-option selector, read-only overview, event schema')
+print('PASS: 25 system commands, NPC 2-option selector, read-only overview, event schema')
