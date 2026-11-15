@@ -5,6 +5,7 @@ import re
 import sqlite3
 import discord
 from core.database import transaction, get_connection
+from core.npc_owner_access_v24 import is_server_admin, ensure_npc_owner
 from core.history_v23 import init as history_init,put as asset_put,disable as asset_disable,stats as asset_stats,attempt_lock,put_batch
 
 CUSTOM = re.compile(r'\(\s*(?:玩家|其他|才藝)?(?:自定義|自訂|自行填寫|待填)(?:[^)]*)\)|（\s*(?:玩家|其他|才藝)?(?:自定義|自訂|自行填寫|待填)(?:[^）]*)）',re.I)
@@ -30,6 +31,11 @@ def init(db):
         UNIQUE(guild_id,template_id,id), CHECK(status IN ('review_1','review_2','approved','rejected'))
     )''')
     db.execute('''CREATE INDEX IF NOT EXISTS idx_npc_claims_status_v23 ON rp_npc_claims_v23(guild_id,status,id)''')
+    cols={r[1] for r in db.execute('PRAGMA table_info(rp_npc_templates_v23)')}
+    if 'preferred_owner' not in cols:
+        db.execute('ALTER TABLE rp_npc_templates_v23 ADD COLUMN preferred_owner TEXT')
+    if 'registered_by' not in cols:
+        db.execute('ALTER TABLE rp_npc_templates_v23 ADD COLUMN registered_by TEXT')
 
 def parse_text(text):
     fields={};custom={}
@@ -109,7 +115,7 @@ def profile_settings_from_sheet(fields):
     result['npc_sheet_fields']={k:v for k,v in fields.items() if k!='持有金錢'}
     return result
 
-def import_template(gid,message,channel,body,kind):
+def import_template(gid,message,channel,body,kind,preferred_owner=None,registered_by=None):
     name,fields,custom=parse_text(body)
     if kind not in ('player_npc','official_npc'):raise ValueError('NPC 類型不正確。')
     with transaction() as db:
@@ -117,15 +123,15 @@ def import_template(gid,message,channel,body,kind):
         prev=db.execute('SELECT id FROM rp_npc_templates_v23 WHERE guild_id=? AND source_message=?',(str(gid),str(message))).fetchone()
         if prev:raise ValueError(f'原訊息已匯入模板 #{prev["id"]}，不可重複匯入。')
         row=db.execute('''INSERT INTO rp_npc_templates_v23
-           (guild_id,source_message,channel_id,name,kind,raw_text,fields_json,custom_json,state)
-           VALUES (?,?,?,?,?,?,?,?,'available')''',(str(gid),str(message),str(channel),name,kind,body,
-           json.dumps(fields,ensure_ascii=False),json.dumps(custom,ensure_ascii=False))).lastrowid
+           (guild_id,source_message,channel_id,name,kind,raw_text,fields_json,custom_json,state,preferred_owner,registered_by)
+           VALUES (?,?,?,?,?,?,?,?,'available',?,?)''',(str(gid),str(message),str(channel),name,kind,body,
+           json.dumps(fields,ensure_ascii=False),json.dumps(custom,ensure_ascii=False),str(preferred_owner) if preferred_owner is not None else None,str(registered_by) if registered_by is not None else None)).lastrowid
         return row,name,len(custom)
 
-def available(gid,page=0):
+def available(gid,page=0,uid=None):
     with get_connection() as db:
         init(db)
-        return [dict(r) for r in db.execute("SELECT id,name,custom_json FROM rp_npc_templates_v23 WHERE guild_id=? AND kind='player_npc' AND state='available' ORDER BY id LIMIT 25 OFFSET ?",(str(gid),max(0,int(page))*25))]
+        return [dict(r) for r in db.execute("SELECT id,name,custom_json FROM rp_npc_templates_v23 WHERE guild_id=? AND kind='player_npc' AND state='available' AND (preferred_owner IS NULL OR preferred_owner=?) ORDER BY id LIMIT 25 OFFSET ?",(str(gid),str(uid) if uid is not None else "",max(0,int(page))*25))]
 
 def claim(gid,uid,tid,answers):
     with transaction() as db:
@@ -135,6 +141,8 @@ def claim(gid,uid,tid,answers):
         if existing or owned:raise ValueError('每位玩家只能認領一名玩家 NPC，且不可同時提交多份申請。')
         template=db.execute("SELECT * FROM rp_npc_templates_v23 WHERE guild_id=? AND id=? AND kind='player_npc' AND state='available'",(str(gid),int(tid))).fetchone()
         if template is None:raise ValueError('該 NPC 已被申請或不存在，請刷新名單。')
+        if template['preferred_owner'] is not None and str(template['preferred_owner'])!=str(uid):
+            raise PermissionError('這名 NPC 已指定其他玩家認領。')
         fields=json.loads(template['custom_json'])
         missing=[f for f in fields if not answers.get(f,'').strip()]
         if missing:raise ValueError('缺少自定義欄位：'+ '、'.join(missing[:10]))
@@ -206,40 +214,53 @@ def activate_claim(gid,uid,claim_id):
     state=history_notification(gid,cid)
     return cid,state
 
-class ImportNPCModal(discord.ui.Modal,title='匯入 NPC 人設訊息'):
-    """已在前一頁選定類型；表單只要求貼上人設訊息連結。"""
+class ImportNPCModal(discord.ui.Modal, title='匯入 NPC 人設訊息'):
     link=discord.ui.TextInput(label='Discord 角色單訊息連結',max_length=300)
 
-    def __init__(self, kind: str):
+    def __init__(self,kind:str,owner_id:int):
         super().__init__()
-        if kind not in ('player_npc', 'official_npc'):
+        if kind not in ('player_npc','official_npc'):
             raise ValueError('NPC 類型不正確。')
-        self.npc_kind = kind
+        self.npc_kind=kind
+        self.character_owner_id=int(owner_id)
 
     async def on_submit(self,i):
-        if not i.guild or i.user.id != i.guild.owner_id:
-            return await i.response.send_message('僅群主能匯入 NPC 模板。',ephemeral=True)
+        if not is_server_admin(i):
+            return await i.response.send_message('僅群主或具有 Administrator 權限的管理員可匯入 NPC。',ephemeral=True)
         try:
-            from modules.character_sheet_registration import fetch_sheet
+            from modules.character_sheet_registration import fetch_sheet, initialize as links_init, register_sheet, explicit_sheet_birthday
             channel,message=await fetch_sheet(i,str(self.link.value))
-            if message.author.id!=i.guild.owner_id and message.author.id!=i.user.id:
-                raise ValueError('人設單訊息須由群主發表。')
+            if message.author.bot:
+                raise ValueError('不能使用機器人發表的角色單。')
+            # 非本人發文可由管理員代為匯入；實際持有人不依原訊息作者推定。
+            member=i.guild.get_member(self.character_owner_id)
+            if member is None:member=await i.guild.fetch_member(self.character_owner_id)
+            ensure_npc_owner(i.guild,member,self.npc_kind)
             kind=self.npc_kind
-            template_id,name,count=import_template(i.guild_id,message.id,channel.id,message.content,kind)
             if kind=='official_npc':
-                # 群主提交並確認後視為正式官方授權；採既有角色單登記核心。
-                from modules.character_sheet_registration import initialize as links_init,register_sheet
+                # 先驗證模板，避免無效名稱被登記；原始角色單的登記者與持有人分開。
+                name,fields,custom=parse_text(message.content)
+                with get_connection() as db:
+                    init(db)
+                    if db.execute('SELECT 1 FROM rp_npc_templates_v23 WHERE guild_id=? AND source_message=?',(str(i.guild_id),str(message.id))).fetchone():
+                        raise ValueError('這張 NPC 角色單已經匯入，請不要重複登記。')
                 links_init()
-                new_id=register_sheet(i.guild_id,i.user.id,i.guild.owner_id,'official_npc',name,channel.id,message.id,str(self.link.value),character_owner_id=i.guild.owner_id)
-                with transaction() as db:
-                    db.execute("UPDATE rp_npc_templates_v23 SET state='claimed',claimed_by=? WHERE id=?",(str(i.guild.owner_id),template_id))
+                new_id=register_sheet(i.guild_id,i.user.id,i.guild.owner_id,'official_npc',name,channel.id,message.id,str(self.link.value),character_owner_id=self.character_owner_id,birthday=explicit_sheet_birthday(message.content),authorized_admin=True)
                 try:
-                    attempt_lock(i.guild_id,new_id)
+                    import_template(i.guild_id,message.id,channel.id,message.content,kind,preferred_owner=self.character_owner_id,registered_by=i.user.id)
+                except ValueError:
+                    # 已經登記成正式角色時，交由管理員核對，不可重新建立第二隻。
+                    import logging
+                    logging.getLogger(__name__).exception('官方 NPC 模板附加失敗：角色 %s',new_id)
+                with transaction() as db:
+                    db.execute("UPDATE rp_npc_templates_v23 SET state='claimed',claimed_by=? WHERE guild_id=? AND source_message=?",(str(self.character_owner_id),str(i.guild_id),str(message.id)))
+                try:attempt_lock(i.guild_id,new_id)
                 except Exception:
                     import logging
                     logging.getLogger(__name__).exception('官方 NPC 歷史補建待處理')
-                return await i.response.send_message(f'✅ 官方 NPC「{name}」已由群主授權登記，角色 #{new_id}。\n歷史履歷只有在已核准素材齊全時才建立；不會提前發放數值。',ephemeral=True)
-            return await i.response.send_message(f'✅ 已匯入待認領 NPC 模板 #{template_id}「{name}」，偵測 {count} 個玩家自定義欄位。\n尚未啟用，也沒有抽取履歷或發放金錢。',ephemeral=True)
+                return await i.response.send_message(f'✅ 官方 NPC「{name}」登記完成！角色 #{new_id}。\n主要持有人：<@{self.character_owner_id}>；其他管理員可依官方授權共同操作。',ephemeral=True)
+            template_id,name,count=import_template(i.guild_id,message.id,channel.id,message.content,kind,preferred_owner=self.character_owner_id,registered_by=i.user.id)
+            await i.response.send_message(f'✅ 玩家 NPC 模板 #{template_id}「{name}」已指定給 <@{self.character_owner_id}>。\n請本人到 /創角 → NPC 申請，填寫 {count} 項自定義欄位並完成兩階段審核；管理員代匯入不會直接啟用。',ephemeral=True)
         except (ValueError,PermissionError,sqlite3.Error,discord.HTTPException) as exc:
             await i.response.send_message(f'⚠️ {exc}',ephemeral=True)
 
@@ -270,7 +291,7 @@ class NPCSelect(discord.ui.Select):
 class NPCApplyView(discord.ui.View):
     def __init__(self,i,page=0):
         super().__init__(timeout=600);self.uid=i.user.id;self.gid=i.guild_id;self.page=max(0,page)
-        rows=available(self.gid,self.page)
+        rows=available(self.gid,self.page,self.uid)
         if rows:self.add_item(NPCSelect(rows))
         self.prev.disabled=self.page==0
         self.next.disabled=len(rows)<25
@@ -521,42 +542,63 @@ class HistoryRebuildButton(discord.ui.Button):
         await i.followup.send('📜 歷史補建檢查：'+('、'.join(f'{k} {v}' for k,v in results.items() if v) or '目前沒有待補建角色')+'。\n不重抽已有五筆紀錄、不發數值或新人禮包。',ephemeral=True)
 
 class NPCImportKindSelect(discord.ui.Select):
-    """兩個固定選項，避免輸入 player_npc / official_npc 出錯。"""
     def __init__(self):
-        super().__init__(
-            placeholder='請選擇 NPC 類型',
-            min_values=1, max_values=1,
-            options=[
-                discord.SelectOption(label='玩家 NPC', value='player_npc',
-                                     description='供玩家認領，依雙階段審核流程'),
-                discord.SelectOption(label='官方 NPC', value='official_npc',
-                                     description='由群主登記，不開放玩家認領'),
-            ], row=0,
-        )
-
-    async def callback(self, interaction):
-        # 選擇選單後直接開啟人設訊息連結表單；不經過額外送出按鈕。
-        if not interaction.guild or interaction.user.id != interaction.guild.owner_id:
-            return await interaction.response.send_message('僅群主可操作。', ephemeral=True)
-        kind = self.values[0]
-        if kind not in ('player_npc', 'official_npc'):
-            return await interaction.response.send_message('NPC 類型不正確。', ephemeral=True)
-        await interaction.response.send_modal(ImportNPCModal(kind))
-
+        super().__init__(placeholder='選擇 NPC 類型',min_values=1,max_values=1,
+            options=[discord.SelectOption(label='玩家 NPC',value='player_npc',description='指定本人認領，仍需雙審'),
+                     discord.SelectOption(label='官方 NPC',value='official_npc',description='限管理員持有、官方共同扮演')])
+    async def callback(self,i):
+        if not is_server_admin(i):
+            return await i.response.send_message('僅伺服器管理員可匯入 NPC。',ephemeral=True)
+        await i.response.edit_message(content='請選擇登記方式：本人登記，或指定實際持有者。',view=NPCImportOwnerModeView(i.guild_id,i.user.id,self.values[0]))
 
 class NPCImportKindView(discord.ui.View):
-    def __init__(self, guild_id: int, owner_id: int):
-        super().__init__(timeout=300)
-        self.guild_id = guild_id
-        self.owner_id = owner_id
+    def __init__(self,guild_id:int,owner_id:int):
+        super().__init__(timeout=300);self.guild_id=guild_id;self.owner_id=owner_id
         self.add_item(NPCImportKindSelect())
-
-    async def interaction_check(self, interaction):
-        if interaction.guild_id != self.guild_id or interaction.user.id != self.owner_id:
-            await interaction.response.send_message('這不是你的 NPC 匯入選單。', ephemeral=True)
+    async def interaction_check(self,i):
+        if i.guild_id!=self.guild_id or i.user.id!=self.owner_id or not is_server_admin(i):
+            await i.response.send_message('不是你的選單，或沒有管理員權限。',ephemeral=True)
             return False
         return True
 
+class NPCOwnerMemberSelect(discord.ui.UserSelect):
+    def __init__(self,kind):
+        super().__init__(placeholder='選擇實際角色持有人',min_values=1,max_values=1)
+        self.kind=kind
+    async def callback(self,i):
+        if not is_server_admin(i):
+            return await i.response.send_message('沒有 NPC 登記權限。',ephemeral=True)
+        user=self.values[0]
+        member=i.guild.get_member(user.id)
+        if member is None:member=await i.guild.fetch_member(user.id)
+        try:
+            owner_id=ensure_npc_owner(i.guild,member,self.kind)
+        except (ValueError,PermissionError) as exc:
+            return await i.response.send_message(f'⚠️ {exc}',ephemeral=True)
+        await i.response.send_modal(ImportNPCModal(self.kind,owner_id))
+
+class NPCOwnerMemberView(discord.ui.View):
+    def __init__(self,i,kind):
+        super().__init__(timeout=300);self.uid=i.user.id;self.gid=i.guild_id
+        self.add_item(NPCOwnerMemberSelect(kind))
+    async def interaction_check(self,i):
+        if i.user.id!=self.uid or i.guild_id!=self.gid or not is_server_admin(i):
+            await i.response.send_message('這不是你的登記選單。',ephemeral=True);return False
+        return True
+
+class NPCImportOwnerModeView(discord.ui.View):
+    def __init__(self,guild_id,uid,kind):
+        super().__init__(timeout=300);self.gid=guild_id;self.uid=uid;self.kind=kind
+    async def interaction_check(self,i):
+        if i.guild_id!=self.gid or i.user.id!=self.uid or not is_server_admin(i):
+            await i.response.send_message('沒有操作權限。',ephemeral=True);return False
+        return True
+    @discord.ui.button(label='🙋 本人登記',style=discord.ButtonStyle.primary)
+    async def own(self,i,b):
+        await i.response.send_modal(ImportNPCModal(self.kind,i.user.id))
+    @discord.ui.button(label='👥 管理員代登記',style=discord.ButtonStyle.secondary)
+    async def delegated(self,i,b):
+        await i.response.edit_message(content='請從 Discord 成員選單指定 NPC 的真正持有人。',view=NPCOwnerMemberView(i,self.kind))
 
 class NPCInitialGrantsModal(discord.ui.Modal,title='NPC 核准初始金幣與行動值'):
     npc_id=discord.ui.TextInput(label='已完成二審的 NPC 角色 ID',max_length=12)
@@ -586,10 +628,10 @@ class NPCInitialGrantsButton(discord.ui.Button):
 class NPCRegisterButton(discord.ui.Button):
     def __init__(self):super().__init__(label='📋 匯入 NPC 預設人設',style=discord.ButtonStyle.secondary,row=2)
     async def callback(self,i):
-        if not i.guild or i.user.id != i.guild.owner_id:
-            return await i.response.send_message('僅群主可操作。',ephemeral=True)
+        if not is_server_admin(i):
+            return await i.response.send_message('僅群主或伺服器管理員可操作。',ephemeral=True)
         await i.response.send_message(
-            '📋 先選擇 NPC 類型，再貼上人設訊息連結。',
+            '📋 先選擇 NPC 類型，再決定本人或代登記，最後提供角色單連結。',
             view=NPCImportKindView(i.guild_id, i.user.id), ephemeral=True,
         )
 
