@@ -283,7 +283,8 @@ def rescue_encounter(guild_id,character_id,user_id,choice,*,rng=None):
             else:message='發現保育類動物，請勿直接帶回家。'
         elif typ=='missing':message='疑似有晶片的走失寵物，請送醫掃晶片或提供協尋線索。'
         else:message='一般流浪／受傷動物，可協助救治；正式領養仍須另外確認身分。'
-        db.execute('INSERT INTO rp_pet_encounters_v1(guild_id,actor_character_id,kind,pet_id) VALUES (?,?,?,?)',(gid,pet_id,int(character_id),'encounter',json.dumps({'kind':typ,'choice':choice,'positive':positive,'rumor':rumor},ensure_ascii=False)))
+        db.execute('INSERT INTO rp_pet_encounters_v1(guild_id,actor_character_id,kind,pet_id) VALUES (?,?,?,?)',(gid,int(character_id),typ,pet_id))
+        db.execute('INSERT INTO rp_pet_events_v1(guild_id,pet_id,actor_character_id,event_type,detail_json) VALUES (?,?,?,?,?)',(gid,pet_id,int(character_id),'encounter',json.dumps({'kind':typ,'choice':choice,'positive':positive,'rumor':rumor},ensure_ascii=False)))
         return {'kind':typ,'message':message,'potential_positive':positive,'potential_rumor':rumor,'pet_id':pet_id}
 
 def buy_service(guild_id,pet_id,character_id,user_id,item):
