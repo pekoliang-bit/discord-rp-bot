@@ -285,11 +285,7 @@ def approve_character(
                     "缺少第一審紀錄。"
                 )
 
-            if (
-                str(progress["first_reviewer"])
-                == actor.user_id and not is_guild_owner
-            ):
-                raise PermissionDenied("兩階段審核必須由不同人執行。")
+            # Same reviewer may complete both stages; self-review is blocked above.
 
             new_status = "approved"
 
