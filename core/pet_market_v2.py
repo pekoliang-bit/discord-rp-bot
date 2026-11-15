@@ -13,6 +13,7 @@ from core.database import transaction, get_connection, get_or_create_account
 from core.economy import _payment
 from core.world_interaction_rules import pet_rules
 from core import pets_v1 as pets
+from core import pet_catalog_v21 as v21
 
 
 def setup(db, guild_id=None):
@@ -38,21 +39,32 @@ def setup(db, guild_id=None):
       order_json TEXT NOT NULL,pet_id INTEGER NOT NULL,
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
       UNIQUE(guild_id,request_key))''')
+    # 既有 V2 資料表原位升級，保留玩家購物車、訂單與庫存。
+    columns={r[1] for r in db.execute('PRAGMA table_info(rp_pet_catalog_v2)')}
+    for field,definition in {
+        'category':"TEXT NOT NULL DEFAULT '日常'",'quality':"TEXT NOT NULL DEFAULT ''",
+        'required_group':"TEXT NOT NULL DEFAULT ''",'hidden_health':'INTEGER NOT NULL DEFAULT 0',
+        'hidden_bond':'INTEGER NOT NULL DEFAULT 0','permanent':'INTEGER NOT NULL DEFAULT 0',
+        'breed_codes':"TEXT NOT NULL DEFAULT '[]'"}.items():
+        if field not in columns: db.execute(f'ALTER TABLE rp_pet_catalog_v2 ADD COLUMN {field} {definition}')
     if guild_id is not None:
         guild_id=str(guild_id)
         rules=pet_rules(guild_id)
-        for species,price in rules['species'].items():
-            # Initial generic breed is a provisional price inherited from world settings.
-            code='default:'+species
-            db.execute('''INSERT OR IGNORE INTO rp_pet_catalog_v2(guild_id,kind,code,species,label,price)
-                        VALUES (?,'breed',?,?,?,?)''',(guild_id,code,species,'一般',int(price)))
-        defaults=(('starter_feed','基礎飼料',int(rules['supplies'].get('飼料',50)),1),
-                  ('starter_kit','基礎飼養用品',150,1),
-                  ('toy','玩具',int(rules['supplies'].get('玩具',150)),0),
-                  ('treat','零食',int(rules['supplies'].get('零食',80)),0))
-        for code,label,price,basic in defaults:
-            db.execute('''INSERT OR IGNORE INTO rp_pet_catalog_v2(guild_id,kind,code,label,price,basic)
-                        VALUES (?,'item',?,?,?,?)''',(guild_id,code,label,price,basic))
+        # 歷史泛用品種保留但停止上架（不動玩家已購買資料）。
+        db.execute("UPDATE rp_pet_catalog_v2 SET active=0 WHERE guild_id=? AND kind='breed' AND code LIKE 'default:%'",(guild_id,))
+        for code,species,label,price,active in v21.BREEDS:
+            db.execute("""INSERT OR IGNORE INTO rp_pet_catalog_v2
+              (guild_id,kind,code,species,label,price,active,description)
+              VALUES (?,'breed',?,?,?,?,?,'V2.1 候選價／未逐品種核准')""",
+              (guild_id,code,species,label,price,active))
+        for item in v21.item_templates():
+            db.execute("""INSERT OR IGNORE INTO rp_pet_catalog_v2
+              (guild_id,kind,code,species,label,price,active,basic,description,category,
+               quality,required_group,hidden_health,hidden_bond,permanent,breed_codes)
+              VALUES (?,'item',?,?,?,?,1,0,'V2.1 暫行用品數值',?,?,?,?,?,?,?)""",
+              (guild_id,item['code'],item['species'],item['label'],item['price'],item['category'],
+               item['quality'],item['group'],item['hidden_health'],item['hidden_bond'],int(item['permanent']),'[]'))
+        # Legacy items are preserved for existing players; no generic required starter kit for V2.1.
 
 
 def _row(db,gid,kind,code):
@@ -111,6 +123,13 @@ def select(guild_id,character_id,user_id,kind,code,quantity=1):
         setup(db,gid);_actor(db,gid,cid,user_id)
         item=_row(db,gid,kind,str(code))
         if not item['active'] or item['stock']==0:raise ValueError('商品已下架或售罄')
+        if kind=='item' and item['required_group']:
+            chosen=db.execute("SELECT a.species FROM rp_pet_cart_v2 c JOIN rp_pet_catalog_v2 a ON a.guild_id=c.guild_id AND a.kind=c.kind AND a.code=c.code WHERE c.guild_id=? AND c.character_id=? AND c.kind='breed'",(gid,cid)).fetchone()
+            if chosen and item['species']!=chosen['species']:
+                raise ValueError('商品不適用所選寵物物種')
+            db.execute("""DELETE FROM rp_pet_cart_v2 WHERE guild_id=? AND character_id=? AND kind='item' AND code IN
+              (SELECT code FROM rp_pet_catalog_v2 WHERE guild_id=? AND kind='item' AND species=? AND required_group=?)""",
+              (gid,cid,gid,item['species'],item['required_group']))
         if kind=='breed':
             quantity=1
             db.execute("DELETE FROM rp_pet_cart_v2 WHERE guild_id=? AND character_id=? AND kind='breed'",(gid,cid))
@@ -138,12 +157,29 @@ def _preview(db,gid,cid):
         valid=False
     else:valid=True
     breed=[x for x in content if x['kind']=='breed']
-    basics=[dict(x) for x in db.execute("SELECT * FROM rp_pet_catalog_v2 WHERE guild_id=? AND kind='item' AND basic=1 AND active=1",(gid,))]
-    missing=[x['code'] for x in basics if not any(y['code']==x['code'] and y['quantity']>=1 for y in content)]
-    for required_code in ('starter_feed','starter_kit'):
-        if required_code not in [r['code'] for r in basics] or required_code not in [r['code'] for r in content if r['kind']=='item']:
-            if required_code not in missing:missing.append(required_code)
-    if not basics:missing.append('尚未上架任何基礎用品')
+    chosen=breed[0] if len(breed)==1 else None
+    if chosen and chosen['code'].startswith('v21:'):
+        selected_breed=db.execute("SELECT label FROM rp_pet_catalog_v2 WHERE guild_id=? AND kind='breed' AND code=?",(gid,chosen['code'])).fetchone()
+        breed_label=selected_breed['label'] if selected_breed else ''
+        required=[g for g,_,req in v21.wizard_pages(chosen['species'],breed_label) if req]
+        selected_groups=[]
+        for x in content:
+            if x['kind']!='item': continue
+            meta=db.execute("SELECT species,required_group,breed_codes FROM rp_pet_catalog_v2 WHERE guild_id=? AND kind='item' AND code=?",(gid,x['code'])).fetchone()
+            if meta and meta['species']==chosen['species'] and meta['required_group']:
+                selected_groups.append(meta['required_group'])
+        missing=[g for g in required if g not in selected_groups]
+        for x in content:
+            if x['kind']=='item':
+                row=db.execute("SELECT species FROM rp_pet_catalog_v2 WHERE guild_id=? AND kind='item' AND code=?",(gid,x['code'])).fetchone()
+                if row and row['species'] and row['species']!=chosen['species']: valid=False
+    else:
+        basics=[dict(x) for x in db.execute("SELECT * FROM rp_pet_catalog_v2 WHERE guild_id=? AND kind='item' AND basic=1 AND active=1",(gid,))]
+        missing=[x['code'] for x in basics if not any(y['code']==x['code'] and y['quantity']>=1 for y in content)]
+        for required_code in ('starter_feed','starter_kit'):
+            if required_code not in [r['code'] for r in basics] or required_code not in [r['code'] for r in content if r['kind']=='item']:
+                if required_code not in missing:missing.append(required_code)
+        if not basics:missing.append('尚未上架任何基礎用品')
     return {'items':content,'total':sum(x['price']*x['quantity'] for x in content),
             'pet_selected':len(breed)==1,'missing_basics':missing,
             'ready':valid and len(breed)==1 and not missing}
@@ -276,14 +312,16 @@ def rename(guild_id,pet_id,character_id,user_id,new_name):
         return name
 
 
-def action_encounter(guild_id,character_id,user_id,action_key,rng=None):
+def action_encounter(guild_id,character_id,user_id,action_key,rng=None,location_key=None):
     """Roll *after successful /行動*. Idempotent per action transaction.
 
     Return None when no encounter. Never callable from a selectable /寵物中心 menu.
     """
     import random
+    from core.pet_location_events_v21 import get_rules as get_location_rules
     gid=str(guild_id);cid=int(character_id)
     rules=pet_rules(gid);rng=rng or random.SystemRandom()
+    local=get_location_rules(gid,location_key) if location_key is not None else None
     with transaction() as db:
         setup(db,gid);_actor(db,gid,cid,user_id)
         db.execute('''CREATE TABLE IF NOT EXISTS rp_pet_action_rolls_v2 (
@@ -291,14 +329,20 @@ def action_encounter(guild_id,character_id,user_id,action_key,rng=None):
           encounter_id INTEGER,PRIMARY KEY(guild_id,request_key))''')
         prev=db.execute('SELECT encounter_id FROM rp_pet_action_rolls_v2 WHERE guild_id=? AND request_key=?',(gid,str(action_key))).fetchone()
         if prev:return int(prev['encounter_id']) if prev['encounter_id'] else None
-        chance=max(0,min(100,int(rules.get('encounter_after_action_chance',5))))
+        chance=max(0,min(100,int(local['chance'] if local else rules.get('encounter_after_action_chance',5))))
         encounter_id=None
         if rng.randint(1,100)<=chance:
             posters=db.execute("SELECT pet_id,reward FROM rp_pet_posters_v1 WHERE guild_id=? AND state='open'",(gid,)).fetchall()
             chance_missing=min(45,15+sum(min(5,int(x['reward'])//3000) for x in posters)) if posters else 0
             if posters and rng.randint(1,100)<=chance_missing:
                 selected=rng.choice(posters);kind='missing';pid=int(selected['pet_id'])
-            else:kind=rng.choice(('stray','stray','injured','protected'));pid=None
+            else:
+                pool=local['pool'] if local else ['stray_cat','stray_dog','missing_pet','nothing']
+                available=[x for x in pool if x not in ('nothing','missing_pet')]
+                if not available: available=['stray_cat']
+                chosen=rng.choice(available)
+                kind='stray' if chosen in ('stray_cat','stray_dog') else 'injured'
+                pid=None
             encounter_id=db.execute('INSERT INTO rp_pet_encounters_v1(guild_id,actor_character_id,kind,pet_id) VALUES (?,?,?,?)',
                 (gid,cid,kind,pid)).lastrowid
         db.execute('INSERT INTO rp_pet_action_rolls_v2 VALUES (?,?,?,?)',(gid,str(action_key),cid,encounter_id))
@@ -309,3 +353,16 @@ def encounter_detail(guild_id,encounter_id):
     with get_connection() as db:
         row=db.execute('SELECT * FROM rp_pet_encounters_v1 WHERE guild_id=? AND id=?',(str(guild_id),int(encounter_id))).fetchone()
         return dict(row) if row else None
+
+
+def wizard_items(guild_id, species, group, breed_code=None):
+    """依頁面、物種列出商品，精確隱藏加成不回傳給 UI。"""
+    if species not in v21.PAGES: return []
+    rows=catalog(guild_id,'item',species)
+    return [r for r in rows if r.get('required_group')==group]
+
+
+def wizard_pages(guild_id,breed_code):
+    row=next((r for r in catalog(guild_id,'breed') if r['code']==breed_code),None)
+    if not row:raise LookupError('請先選擇已上架品種')
+    return v21.wizard_pages(row['species'],row['label'])
