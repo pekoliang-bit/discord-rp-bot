@@ -35,6 +35,36 @@ def initialize(db):
     columns={r['name'] for r in db.execute('PRAGMA table_info(rp_pets_v1)')}
     if 'last_inactive_tick' not in columns:
         db.execute('ALTER TABLE rp_pets_v1 ADD COLUMN last_inactive_tick TEXT')
+    # Additive migration; keep existing pet IDs, owners, chips and care history.
+    lifecols = {
+        'birth_at': 'TEXT',
+        'estimated_birth': 'INTEGER NOT NULL DEFAULT 0',
+        'base_life_years': 'REAL',
+        'life_limit_years': 'REAL',
+        'life_extension_years': 'REAL NOT NULL DEFAULT 0',
+        'miracle': 'INTEGER',
+        'life_last_award_cycle': 'INTEGER NOT NULL DEFAULT 0',
+        'life_review_required': 'INTEGER NOT NULL DEFAULT 1',
+    }
+    for field, definition in lifecols.items():
+        if field not in columns:
+            db.execute(f'ALTER TABLE rp_pets_v1 ADD COLUMN {field} {definition}')
+    db.execute('''CREATE TABLE IF NOT EXISTS rp_pet_life_reviews_v3 (
+      guild_id TEXT NOT NULL, pet_id INTEGER NOT NULL, cycle INTEGER NOT NULL,
+      score INTEGER NOT NULL, extension REAL NOT NULL,
+      created_at TEXT NOT NULL, PRIMARY KEY (guild_id,pet_id,cycle))''')
+    db.execute('''CREATE TABLE IF NOT EXISTS rp_pet_care_uses_v3 (
+      guild_id TEXT NOT NULL, pet_id INTEGER NOT NULL,
+      action TEXT NOT NULL, used_at TEXT NOT NULL,
+      PRIMARY KEY(guild_id,pet_id,action,used_at))''')
+    db.execute('''CREATE TABLE IF NOT EXISTS rp_pet_stray_verification_v3 (
+      guild_id TEXT NOT NULL, encounter_id INTEGER NOT NULL,
+      species TEXT NOT NULL, chip_clear INTEGER NOT NULL,
+      verified_at TEXT NOT NULL, claim_until TEXT NOT NULL,
+      verified_by TEXT NOT NULL, primary_choice TEXT,
+      miracle INTEGER NOT NULL, life_years REAL,
+      estimated_age_years REAL, adopted_pet_id INTEGER,
+      PRIMARY KEY(guild_id,encounter_id))''')
     db.execute('''CREATE TABLE IF NOT EXISTS rp_pet_owners_v1 (
       guild_id TEXT NOT NULL,pet_id INTEGER NOT NULL,character_id INTEGER NOT NULL,
       is_primary INTEGER NOT NULL DEFAULT 0,
@@ -63,7 +93,159 @@ def initialize(db):
     db.execute('''CREATE TABLE IF NOT EXISTS rp_pet_encounters_v1 (
       id INTEGER PRIMARY KEY AUTOINCREMENT,guild_id TEXT NOT NULL,
       actor_character_id INTEGER NOT NULL,kind TEXT NOT NULL,pet_id INTEGER,
-      state TEXT NOT NULL DEFAULT 'open',created_at TEXT DEFAULT CURRENT_TIMESTAMP)''')
+      state TEXT NOT NULL DEFAULT 'open',created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      breed_code TEXT, miracle INTEGER, life_years REAL)''')
+    ec = {r['name'] for r in db.execute('PRAGMA table_info(rp_pet_encounters_v1)')}
+    for field,definition in {'breed_code':'TEXT','miracle':'INTEGER','life_years':'REAL'}.items():
+        if field not in ec:
+            db.execute(f'ALTER TABLE rp_pet_encounters_v1 ADD COLUMN {field} {definition}')
+
+# Normal ranges are the previously approved breed candidates.
+# The second interval represents the separately approved 0.1% miracle range.
+BREED_LIFESPANS = {
+    'v21:cat:01': ((12,18),(24,34)), 'v21:cat:02': ((13,18),(25,35)),
+    'v21:cat:03': ((12,17),(24,34)), 'v21:cat:04': ((10,15),(22,30)),
+    'v21:cat:05': ((12,17),(23,32)), 'v21:cat:06': ((13,20),(27,38)),
+    'v21:cat:07': ((12,16),(23,32)), 'v21:cat:08': ((13,20),(27,38)),
+    'v21:dog:01': ((12,16),(23,31)), 'v21:dog:02': ((12,15),(22,29)),
+    'v21:dog:03': ((12,17),(24,34)), 'v21:dog:04': ((12,16),(23,32)),
+    'v21:dog:05': ((10,13),(19,26)), 'v21:dog:06': ((12,15),(21,28)),
+    'v21:dog:07': ((12,15),(21,28)), 'v21:dog:08': ((12,15),(22,30)),
+    'v21:dog:09': ((9,13),(18,25)), 'v21:dog:10': ((11,15),(20,28)),
+    'v21:parrot:01': ((7,15),(20,28)), 'v21:parrot:02': ((10,20),(27,39)),
+    'v21:parrot:03': ((10,20),(26,38)), 'v21:parrot:04': ((15,30),(38,53)),
+    'v21:parrot:05': ((15,30),(38,52)), 'v21:parrot:06': ((30,50),(58,80)),
+    'stray:cat': ((12,20),(26,38)),
+    'stray:dog:small': ((12,18),(24,34)),
+    'stray:dog:medium': ((11,16),(22,30)),
+    'stray:dog:large': ((9,14),(19,27)),
+}
+GAME_YEAR = timedelta(days=30)
+
+
+def _age_at(pet, timestamp):
+    if not pet['birth_at']:
+        return None
+    return max(0.0, (timestamp - parse(pet['birth_at'])).total_seconds() / GAME_YEAR.total_seconds())
+
+
+def _new_life(db, gid, pid, breed_code, age_stage='young', *, timestamp=None,
+              birth_at=None, estimated=False, miracle=None):
+    # Set hidden lifespan once, never reroll.
+    timestamp = timestamp or now()
+    p = _pet(db, gid, pid)
+    if p['miracle'] is not None:
+        raise ValueError('個體壽命已鎖定，不可重抽')
+    if breed_code not in BREED_LIFESPANS:
+        raise ValueError('尚未設定該品種的壽命資料')
+    if age_stage not in ('young', 'adult'):
+        raise ValueError('初始年齡只能選幼年或成年')
+    is_miracle = bool(secrets.randbelow(1000) == 0) if miracle is None else bool(miracle)
+    bounds = BREED_LIFESPANS[breed_code][int(is_miracle)]
+    base = bounds[0] + secrets.randbelow((bounds[1] - bounds[0]) * 100 + 1) / 100
+    if birth_at is None:
+        # Age is expressed in game years; non-adult birds may require specialised care.
+        months = (3 + secrets.randbelow(9)) if age_stage == 'young' else (12 + secrets.randbelow(49))
+        if breed_code == 'v21:parrot:06':
+            months = (6 + secrets.randbelow(18)) if age_stage == 'young' else (36 + secrets.randbelow(85))
+        birth_at = timestamp - timedelta(days=months * 30 / 12)
+    db.execute('''UPDATE rp_pets_v1 SET birth_at=?,estimated_birth=?,
+      base_life_years=?,life_limit_years=?,life_extension_years=0,
+      miracle=?,life_review_required=0 WHERE guild_id=? AND id=?''',
+      (iso(birth_at), int(bool(estimated)), base, base, int(is_miracle), str(gid), int(pid)))
+
+
+def complete_legacy_age(guild_id, pet_id, birth_at, breed_code, *, authorized=False):
+    # Staff-only migration.
+    if not authorized:
+        raise PermissionError('舊寵物年齡需由管理員核實補登')
+    with transaction() as db:
+        initialize(db)
+        p = _pet(db, str(guild_id), pet_id)
+        if p['miracle'] is not None:
+            raise ValueError('已完成年齡補登')
+        _new_life(db, str(guild_id), pet_id, breed_code,
+                  timestamp=now(), birth_at=parse(birth_at), estimated=True)
+
+
+def annual_life_review(guild_id, pet_id, cycle, score):
+    # Idempotent yearly extension.
+    cycle, score = int(cycle), int(score)
+    if cycle < 1 or not 0 <= score <= 100:
+        raise ValueError('年度或照護評分錯誤')
+    with transaction() as db:
+        initialize(db)
+        p = _pet(db, str(guild_id), pet_id)
+        if p['miracle'] is None or p['state'] == 'deceased':
+            raise ValueError('尚未補建壽命或寵物已死亡')
+        old = db.execute('SELECT extension FROM rp_pet_life_reviews_v3 WHERE guild_id=? AND pet_id=? AND cycle=?',
+                         (str(guild_id),int(pet_id),cycle)).fetchone()
+        if old:
+            return float(old[0])
+        if cycle <= int(p['life_last_award_cycle']):
+            raise ValueError('不可回填已結算過的年份')
+        earned = .3 if score >= 90 else .2 if score >= 75 else .1 if score >= 60 else 0.0
+        # Miracle individuals have a separate fixed life interval; no extra +20%.
+        maximum = 0.0 if p['miracle'] else float(p['base_life_years']) * .2
+        granted = max(0.0, min(earned, maximum - float(p['life_extension_years'])))
+        db.execute('''UPDATE rp_pets_v1 SET life_extension_years=life_extension_years+?,
+          life_limit_years=life_limit_years+?,life_last_award_cycle=? WHERE guild_id=? AND id=?''',
+          (granted,granted,cycle,str(guild_id),int(pet_id)))
+        db.execute('''INSERT INTO rp_pet_life_reviews_v3 VALUES (?,?,?,?,?,?)''',
+          (str(guild_id),int(pet_id),cycle,score,granted,iso(now())))
+        return granted
+
+
+
+
+def _generate_stray_life(db, gid, encounter_id, breed_code):
+    if breed_code not in BREED_LIFESPANS or not breed_code.startswith('stray:'):
+        raise ValueError('未核准的流浪動物類型')
+    r = db.execute('SELECT miracle FROM rp_pet_encounters_v1 WHERE guild_id=? AND id=?',
+                   (str(gid),int(encounter_id))).fetchone()
+    if not r or r['miracle'] is not None:
+        raise ValueError('該動物已生成或事件不存在')
+    miracle=int(secrets.randbelow(1000)==0)
+    low,high=BREED_LIFESPANS[breed_code][miracle]
+    age_limit=low+secrets.randbelow((high-low)*100+1)/100
+    db.execute('''UPDATE rp_pet_encounters_v1 SET breed_code=?,miracle=?,life_years=?
+      WHERE guild_id=? AND id=? AND miracle IS NULL''',
+      (breed_code,miracle,age_limit,str(gid),int(encounter_id)))
+
+def verify_stray(guild_id, encounter_id, *, species, verified_by, chip_clear,
+                 estimated_age_years, breed_code='stray:cat', authorized=False):
+    # Staff or vet proof, followed by 72-hour claim period.
+    if not authorized:
+        raise PermissionError('須由管理員或授權獸醫核對晶片')
+    with transaction() as db:
+        initialize(db)
+        gid = str(guild_id)
+        encounter = db.execute('SELECT * FROM rp_pet_encounters_v1 WHERE guild_id=? AND id=?',
+                               (gid,int(encounter_id))).fetchone()
+        if not encounter or encounter['kind'] not in ('stray','injured'):
+            raise ValueError('不是可救援的流浪動物')
+        if breed_code not in BREED_LIFESPANS or not breed_code.startswith('stray:'):
+            raise ValueError('流浪動物體型分類錯誤')
+        if db.execute('SELECT 1 FROM rp_pet_stray_verification_v3 WHERE guild_id=? AND encounter_id=?',
+                      (gid,int(encounter_id))).fetchone():
+            raise ValueError('已完成晶片查核，不可重抽個體資料')
+        if encounter['miracle'] is None or not encounter['breed_code']:
+            raise ValueError('事件缺少首次生成時鎖定的個體壽命')
+        if encounter['breed_code'] != breed_code:
+            raise ValueError('晶片核實的動物類別須與事件生成資料一致')
+        expected_species='貓' if breed_code=='stray:cat' else '狗'
+        if species != expected_species:
+            raise ValueError('物種與生成時的動物類別不符')
+        timestamp = now()
+        miracle = int(encounter['miracle'])
+        lifespan = float(encounter['life_years'])
+        db.execute('''INSERT INTO rp_pet_stray_verification_v3
+          (guild_id,encounter_id,species,chip_clear,verified_at,claim_until,verified_by,
+           primary_choice,miracle,life_years,estimated_age_years)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?)''',
+          (gid,int(encounter_id),str(species),int(bool(chip_clear)),iso(timestamp),
+           iso(timestamp+timedelta(hours=72)),str(verified_by),breed_code,
+           miracle,lifespan,float(estimated_age_years)))
 
 def _actor(db,gid,cid,uid):
     row=db.execute("SELECT owner_id,status FROM characters WHERE guild_id=? AND id=?",(gid,int(cid))).fetchone()
@@ -92,37 +274,17 @@ def accept_terms(guild_id,character_id,user_id):
         db.execute('INSERT OR IGNORE INTO rp_pet_consent_v1 VALUES (?,?,?,?)',(gid,int(character_id),iso(now()),'1'))
 
 def purchase(guild_id,character_id,user_id,name,species,*,rarity='common'):
-    gid=str(guild_id);name=str(name).strip()[:50];species=str(species).strip()
-    if not name:raise ValueError('寵物名字不能留空')
-    rules=pet_rules(gid)
-    if '保育' in species or species in rules['protected_species']:
-        raise PermissionError('保育類動物不可買賣或私養，只能通報救援')
-    if species not in rules['species']:raise ValueError('世界觀尚未上架此物種')
-    if rarity not in rules['rarity_multipliers']:raise ValueError('該稀有度未上架')
-    price=int(rules['species'][species])*int(rules['rarity_multipliers'][rarity])//100;timestamp=iso(now())
-    with transaction() as db:
-        initialize(db);_actor(db,gid,character_id,user_id)
-        from core.pet_agreement_v23 import has_signed
-        if not has_signed(db,gid,character_id):
-            raise PermissionError('第一次購買前必須完成十頁飼主須知及身分證字號簽署')
-        chip='P-'+secrets.token_hex(12).upper()
-        cur=db.execute('''INSERT INTO rp_pets_v1(guild_id,main_character_id,name,species,rarity,chip,health,bond,last_play,last_tick)
-        VALUES (?,?,?,?,?,?,?,?,?,?)''',(gid,int(character_id),name,species,rarity,chip,rules['health_max'],rules['bond_max'],timestamp,timestamp))
-        pid=cur.lastrowid
-        _pay(db,gid,character_id,price,f'pet:purchase:{gid}:{pid}',f'購買寵物 {name}')
-        db.execute('INSERT INTO rp_pet_owners_v1 VALUES (?,?,?,1)',(gid,pid,int(character_id)))
-        from core import pet_traits_v22
-        pet_traits_v22.bootstrap(db,gid,pid)
-        from core.pet_medical_v23 import register_first_check
-        register_first_check(db,gid,pid)
-        db.execute('INSERT INTO rp_pet_events_v1(guild_id,pet_id,actor_character_id,event_type) VALUES (?,?,?,?)',(gid,pid,int(character_id),'purchase'))
-        return {'id':pid,'name':name,'chip':chip,'price':price}
+    """Legacy direct-purchase entry point is retired; prevent payment bypass."""
+    raise ValueError('請改用 /寵物中心：選品種、挑必備用品、簽署須知後一併結帳')
+
 
 def list_pets(guild_id,character_id):
     gid=str(guild_id)
     with get_connection() as db:
         initialize(db)
-        return [dict(r) for r in db.execute('''SELECT p.* FROM rp_pets_v1 p JOIN rp_pet_owners_v1 o
+        hidden={'miracle','base_life_years','life_limit_years','life_extension_years'}
+        return [{k:v for k,v in dict(r).items() if k not in hidden}
+                for r in db.execute('''SELECT p.* FROM rp_pets_v1 p JOIN rp_pet_owners_v1 o
          ON o.guild_id=p.guild_id AND o.pet_id=p.id WHERE p.guild_id=? AND o.character_id=? ORDER BY p.id''',(gid,int(character_id)))]
 
 def add_coowner(guild_id,pet_id,character_id,user_id,other_character):
@@ -133,6 +295,14 @@ def add_coowner(guild_id,pet_id,character_id,user_id,other_character):
         if not target:raise LookupError('指定共同飼主必須是同群已啟用角色')
         db.execute('INSERT OR IGNORE INTO rp_pet_owners_v1 VALUES (?,?,?,0)',(gid,int(pet_id),int(other_character)))
 
+def _hospital_covered(db,gid,pet_id,timestamp):
+    if not db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='rp_pet_medical_stays_v23'").fetchone():
+        return False
+    row=db.execute('''SELECT covered_until FROM rp_pet_medical_stays_v23
+      WHERE guild_id=? AND pet_id=? AND discharged_at IS NULL ORDER BY id DESC LIMIT 1''',
+      (gid,int(pet_id))).fetchone()
+    return bool(row and parse(row['covered_until'])>=timestamp)
+
 def _tick(db,gid,pet,timestamp,rng):
     rules=pet_rules(gid)
     if pet['state']=='deceased':return
@@ -142,18 +312,28 @@ def _tick(db,gid,pet,timestamp,rng):
     last_inactive=parse(pet['last_inactive_tick']) if pet['last_inactive_tick'] else last_play
     last_inactive=max(last_inactive,last_play)
     missed=max(0,int((timestamp-last_inactive).total_seconds()//43200))
-    if not days and not missed:return
-    health=int(pet['health'])-days*rules['health_daily_loss']
-    bond=int(pet['bond'])-days*rules['bond_daily_loss']-missed*rules['bond_inactive_12h_loss']
-    if pet['illness']:
+    if not days and not missed and not pet['critical_since'] and pet['birth_at'] is None:return
+    covered=_hospital_covered(db,gid,pet['id'],timestamp)
+    health=int(pet['health'])-(0 if covered else days*rules['health_daily_loss'])
+    bond=int(pet['bond'])-(0 if covered else days*rules['bond_daily_loss']+missed*rules['bond_inactive_12h_loss'])
+    if pet['illness'] and not covered:
         health-=days*rules['untreated_24h_health_loss']
         bond-=days*rules['sick_daily_bond_loss']
     health=clamp(health,rules['health_max']);bond=clamp(bond,rules['bond_max'])
     critical=pet['critical_since'];state=pet['state']
-    if health==0 and not critical:critical=iso(timestamp);state='critical' if state=='home' else state
+    if health==0 and not critical:critical=iso(last_daily + timedelta(days=days));state='critical' if state=='home' else state
     if health>0:critical=None;state='home' if state=='critical' else state
-    if health==0 and critical and (timestamp-parse(critical)).total_seconds()>=rules['critical_hours']*3600:
-        if rng.random()<0.25:state='deceased'
+    if health==0 and critical and (timestamp-parse(critical)).total_seconds()>=24*3600:
+        admission = db.execute('''SELECT covered_until FROM rp_pet_medical_stays_v23
+          WHERE guild_id=? AND pet_id=? AND discharged_at IS NULL
+          ORDER BY id DESC LIMIT 1''', (gid,int(pet['id']))).fetchone() if db.execute(
+          "SELECT 1 FROM sqlite_master WHERE type='table' AND name='rp_pet_medical_stays_v23'"
+        ).fetchone() else None
+        if not admission or parse(admission['covered_until']) < timestamp:
+            state='deceased'
+    age=_age_at(pet,timestamp)
+    if age is not None and pet['life_limit_years'] is not None and age >= float(pet['life_limit_years']):
+        state='deceased'
     next_daily=last_daily+timedelta(days=days)
     next_inactive=last_inactive+timedelta(hours=12*missed)
     db.execute('''UPDATE rp_pets_v1 SET health=?,bond=?,state=?,critical_since=?,last_tick=?,last_inactive_tick=?
@@ -186,7 +366,7 @@ def daily(guild_id,*,timestamp=None,rng=None):
                         (gid,int(old['id']),condition,json.dumps({'health_lost':damage})))
             fresh=_pet(db,gid,old['id'])
             if fresh['state']=='home' and not _hospitalized(db,gid,old['id']) and int(fresh['bond'])<100:
-                chance=rules['missing_risk_high'] if int(fresh['bond'])==0 else rules['missing_risk_mid'] if int(fresh['bond'])<50 else rules['missing_risk_low']
+                chance=6 if int(fresh['bond'])<=20 else 3 if int(fresh['bond'])<=50 else 1
                 if rng.randint(1,100)<=chance:
                     db.execute("UPDATE rp_pets_v1 SET state='missing',missing_since=? WHERE guild_id=? AND id=?",(iso(timestamp),gid,int(old['id'])))
                     fresh=_pet(db,gid,old['id'])
@@ -224,8 +404,8 @@ def care(guild_id,pet_id,character_id,user_id,action):
     actions={'play':('bond',rules['play_bond_gain']),'walk':('health',3),'feed':('health',4),
         'wrong_food':('health',-rules['wrong_food_health_loss']),
         'gift':('bond',rules['gift_bond_min']),'check':('health',0)}
-    if action == 'treat':
-        raise ValueError('傷病治療必須經 /寵物中心 → 醫療診斷、報價及付款，不能使用免費照護。')
+    if action in ('treat', 'feed', 'gift'):
+        raise ValueError('食品、禮物或醫療請使用新版寵物中心的庫存／報價流程')
     if action not in actions:raise ValueError('不支援的照顧方式')
     with transaction() as db:
         initialize(db);_actor(db,gid,character_id,user_id);_access(db,gid,pet_id,character_id)
@@ -234,20 +414,39 @@ def care(guild_id,pet_id,character_id,user_id,action):
             raise ValueError('寵物住院中，請從 /寵物中心 → 醫療中心進行探病與照護')
         if pet['state']=='deceased':raise ValueError('已死亡寵物不能再互動')
         if pet['state']=='missing':raise ValueError('寵物走失中，請先協尋')
+        if pet['state']=='critical':raise ValueError('危急狀態只能由醫療中心救治')
+        time_now=now()
+        last=db.execute('''SELECT used_at FROM rp_pet_care_uses_v3
+          WHERE guild_id=? AND pet_id=? AND action=? ORDER BY used_at DESC LIMIT 1''',
+          (gid,int(pet_id),action)).fetchone()
+        rewarded=True
+        if action in ('play','walk') and last:
+            wait=43200 if action=='play' else 14400
+            rewarded=(time_now-parse(last['used_at'])).total_seconds()>=wait
+        if action=='walk':
+            day_start=time_now.replace(hour=0,minute=0,second=0,microsecond=0)
+            count=db.execute('''SELECT COUNT(*) FROM rp_pet_care_uses_v3
+              WHERE guild_id=? AND pet_id=? AND action='walk' AND used_at>=?''',
+              (gid,int(pet_id),iso(day_start))).fetchone()[0]
+            if count>=2:rewarded=False
+        if action in ('play','walk') and rewarded:
+            db.execute('''INSERT INTO rp_pet_care_uses_v3 VALUES (?,?,?,?)''',
+              (gid,int(pet_id),action,iso(time_now)))
         field,delta=actions[action]
+        if action in ('play','walk') and not rewarded:delta=0
         health, bond=int(pet['health']),int(pet['bond'])
         health=clamp(health+(delta if field=='health' else 0),rules['health_max'])
         bond=clamp(bond+(delta if field=='bond' else 0),rules['bond_max'])
         state=pet['state'];critical=pet['critical_since'];illness=pet['illness']
         if health==0 and not critical:state='critical';critical=iso(now())
-        if action=='play':play=iso(now())
+        if action=='play':play=iso(time_now)
         else:play=pet['last_play']
         missing=False
         if action=='walk':
             risk=rules['walk_escape_chance']
-            if bond==0:risk=max(risk,rules['missing_risk_high'])
-            elif bond<50:risk=max(risk,rules['missing_risk_mid'])
-            elif bond<100:risk=max(risk,rules['missing_risk_low'])
+            if bond<=20:risk=max(risk,6)
+            elif bond<=50:risk=max(risk,3)
+            elif bond<=100:risk=max(risk,1)
             if secrets.randbelow(100)<risk:
                 state='missing';missing=True
         db.execute('''UPDATE rp_pets_v1 SET health=?,bond=?,state=?,critical_since=?,illness=?,last_play=?,last_inactive_tick=?,missing_since=?
@@ -314,27 +513,9 @@ def rescue_encounter(guild_id,character_id,user_id,choice,*,rng=None):
         return {'kind':typ,'message':message,'potential_positive':positive,'potential_rumor':rumor,'pet_id':pet_id}
 
 def buy_service(guild_id,pet_id,character_id,user_id,item):
-    gid=str(guild_id);rules=pet_rules(gid)
-    if item in ('看醫生','健康檢查'):
-        raise ValueError('醫療項目已移至新版寵物醫療中心，請先查看報價再確認付款')
-    if item not in rules['supplies']:raise ValueError('未上架的寵物商品')
-    price=int(rules['supplies'][item])
-    with transaction() as db:
-        initialize(db);_actor(db,gid,character_id,user_id);_access(db,gid,pet_id,character_id)
-        pet=_pet(db,gid,pet_id)
-        if _hospitalized(db,gid,pet_id):raise ValueError('寵物住院中，請使用醫療中心照護')
-        if pet['state'] in ('missing','deceased'):raise ValueError('目前無法進行此操作')
-        event=db.execute('INSERT INTO rp_pet_events_v1(guild_id,pet_id,actor_character_id,event_type) VALUES (?,?,?,?)',
-            (gid,int(pet_id),int(character_id),'buy:'+item)).lastrowid
-        _pay(db,gid,character_id,price,f'pet:service:{gid}:{event}',f'寵物{item}')
-        health,bond=int(pet['health']),int(pet['bond'])
-        if item=='飼料':health=clamp(health+5,rules['health_max'])
-        if item in ('零食','玩具'):bond=clamp(bond+(rules['gift_bond_min'] if item=='零食' else rules['gift_bond_max']),rules['bond_max'])
-        if item=='看醫生':health=clamp(health+25,rules['health_max'])
-        state='home' if item=='看醫生' and health>0 else pet['state']
-        db.execute('''UPDATE rp_pets_v1 SET health=?,bond=?,state=?,illness=?,critical_since=? WHERE guild_id=? AND id=?''',
-            (health,bond,state,'' if item=='看醫生' else pet['illness'],None if item=='看醫生' else pet['critical_since'],gid,int(pet_id)))
-        return {'price':price,'health':health,'bond':bond}
+    """Do not use the retired pay-to-instantly-apply item mechanism."""
+    raise ValueError('請使用新版寵物用品購物車、道具庫存及醫療正式報價流程')
+
 
 def begin_encounter(guild_id,character_id,user_id,*,rng=None):
     rng=rng or random.SystemRandom();gid=str(guild_id)
@@ -348,6 +529,9 @@ def begin_encounter(guild_id,character_id,user_id,*,rng=None):
             kind=rng.choice(('stray','stray','injured','protected'));pid=None
         encounter=db.execute('INSERT INTO rp_pet_encounters_v1(guild_id,actor_character_id,kind,pet_id) VALUES (?,?,?,?)',
             (gid,int(character_id),kind,pid)).lastrowid
+        if kind in ('stray','injured'):
+            _generate_stray_life(db,gid,encounter,rng.choice(
+                ('stray:cat','stray:dog:small','stray:dog:medium','stray:dog:large')))
         labels={'stray':'一隻可能無主的流浪動物','injured':'一隻需要幫助的受傷動物',
           'protected':'一隻疑似保育類動物','missing':'一隻疑似失蹤的寵物'}
         return {'id':encounter,'kind':kind,'pet_id':pid,'description':labels[kind]}
@@ -441,9 +625,26 @@ def adopt_stray(guild_id,encounter_id,character_id,user_id,name,species):
         evidence=db.execute("SELECT detail_json FROM rp_pet_events_v1 WHERE guild_id=? AND actor_character_id=? AND event_type='encounter_resolved' ORDER BY id DESC LIMIT 100",(gid,int(character_id))).fetchall()
         if not any(json.loads(e[0]).get('encounter_id')==int(encounter_id) and json.loads(e[0]).get('choice')=='hospital' for e in evidence):
             raise ValueError('先由動物醫院掃描晶片並確認是無主流浪動物，才可領養')
+        verified=db.execute('SELECT * FROM rp_pet_stray_verification_v3 WHERE guild_id=? AND encounter_id=?',
+          (gid,int(encounter_id))).fetchone()
+        if not verified or not verified['chip_clear'] or verified['adopted_pet_id']:
+            raise ValueError('尚未完成晶片無主查核，或動物已被領養')
+        if now()<parse(verified['claim_until']):
+            raise ValueError('無主動物公告滿72小時後才可領養')
+        if verified['species']!=species:
+            raise ValueError('領養物種須與獸醫核定一致')
         chip='P-'+secrets.token_hex(12).upper();timestamp=iso(now())
         cid=db.execute('''INSERT INTO rp_pets_v1(guild_id,main_character_id,name,species,chip,health,bond,last_play,last_tick)
           VALUES (?,?,?,?,?,?,?,?,?)''',(gid,int(character_id),name,species,chip,rules['health_max'],rules['bond_max'],timestamp,timestamp)).lastrowid
+        age=float(verified['estimated_age_years'])
+        birth=now()-timedelta(days=30*age)
+        db.execute('''UPDATE rp_pets_v1 SET birth_at=?,estimated_birth=1,
+          base_life_years=?,life_limit_years=?,miracle=?,life_review_required=0
+          WHERE guild_id=? AND id=?''',
+          (iso(birth),float(verified['life_years']),float(verified['life_years']),
+           int(verified['miracle']),gid,cid))
+        db.execute('UPDATE rp_pet_stray_verification_v3 SET adopted_pet_id=? WHERE guild_id=? AND encounter_id=?',
+          (cid,gid,int(encounter_id)))
         db.execute('INSERT INTO rp_pet_owners_v1 VALUES (?,?,?,1)',(gid,cid,int(character_id)))
         db.execute("UPDATE rp_pet_encounters_v1 SET state='adopted' WHERE guild_id=? AND id=?",(gid,int(encounter_id)))
         from core.pet_medical_v23 import register_first_check
