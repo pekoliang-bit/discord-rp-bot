@@ -179,6 +179,12 @@ def has_staff_permission(interaction, staff_type):
     if is_owner(interaction):
         return True
 
+    # Discord administrators may review ordinary applications.  Discipline and
+    # guild-owner-only actions are guarded separately by their own checks.
+    permissions = getattr(interaction.user, "guild_permissions", None)
+    if staff_type == "reviewer" and bool(getattr(permissions, "administrator", False)):
+        return True
+
     member = interaction.user
 
     if not isinstance(member, discord.Member):
@@ -1539,6 +1545,7 @@ class AdminToolsView(ManagementView):
         super().__init__(interaction)
 
         self.owner = is_owner(interaction)
+        self.admin = bool(getattr(getattr(interaction.user, "guild_permissions", None), "administrator", False))
         self.unavailable = []
 
         tools = [
@@ -1585,7 +1592,7 @@ class AdminToolsView(ManagementView):
         for index, (label, module_name, class_name, owner_only) in enumerate(tools):
             if task_only and label != "內容建立":
                 continue
-            if owner_only and not self.owner:
+            if owner_only and not (self.owner or self.admin):
                 # Task managers only receive the content builder; other owner-only tools stay hidden.
                 from modules.task_permissions import authorized as task_authorized
                 if label != "內容建立" or not task_authorized(interaction):
@@ -1637,7 +1644,7 @@ def management_text(view):
         "💰 金幣管理：查詢與調整",
     ]
 
-    if view.owner:
+    if view.owner or view.admin:
         lines.extend([
             "✍️ 內容建立：劇情、活動、獎項等",
             "🏪 場景商店：餐廳、診所、酒店等",
@@ -1905,6 +1912,8 @@ class OfficialHome(PrivateView):
         # Hidden from everyone except the actual Discord guild owner.
         if is_owner(interaction):
             self.add_item(LaunchAuditButton())
+            from modules.beta_test_buttons import FinishBetaButton
+            self.add_item(FinishBetaButton())
         arrange_official_home(self)
 
     @discord.ui.button(label="📝 管理申請", style=discord.ButtonStyle.primary, row=0)
