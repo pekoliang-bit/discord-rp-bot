@@ -2119,6 +2119,13 @@ class CharacterDetailView(discord.ui.View):
             )
         except (ValueError, sqlite3.Error, PermissionDenied, InvalidState) as exc:
             await interaction.response.send_message(f'⚠️ {exc}', ephemeral=True)
+    @discord.ui.button(label='🎂 生日福利',style=discord.ButtonStyle.secondary,row=2)
+    async def birthday_benefits_button(self,interaction,button):
+        if not self.is_own_character:
+            return await interaction.response.send_message('只能查看自己已啟用角色的系統週年福利。',ephemeral=True)
+        from modules.birthday_anniversary_ui import show_birthday_panel
+        await show_birthday_panel(interaction,self.character_id)
+
     @discord.ui.button(label='🎯 點數分配',style=discord.ButtonStyle.primary,row=2)
     async def leaderboard_points_button(self,interaction,button):
         if not self.is_own_character:
