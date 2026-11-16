@@ -62,7 +62,7 @@ class Actor:
             user_id=str(interaction.user.id),
             is_admin=bool(
                 permissions.administrator
-                or permissions.manage_guild
+                or (interaction.guild is not None and interaction.user.id == interaction.guild.owner_id)
             ),
             is_discord_administrator=bool(
                 permissions.administrator
