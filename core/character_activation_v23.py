@@ -75,6 +75,9 @@ def activate_in_transaction(db, guild_id, character_id, user_id, *, allowed_type
         award_in_transaction(db,gid,cid)
     persist_rumor_consent(db, gid, cid, settings)
     activate_proxy(db, gid, cid)
+    # 生日週年使用首次正式啟用時間，與角色設定的劇情生日分開。
+    from core.birthday_core_v3 import register_activation
+    register_activation(db, gid, cid)
     # 正式開群前不核發公開編號。
     issue_in_transaction(db, gid, cid)
     return validation
