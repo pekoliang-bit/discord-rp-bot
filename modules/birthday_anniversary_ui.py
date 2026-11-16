@@ -134,6 +134,10 @@ class BirthdayAnniversaryNotices(commands.Cog):
             from modules.notifications import queue_notification
             for r in rows:
                 gid,cid=r['guild_id'],r['character_id']
+                from core.beta_sandbox_v1 import is_beta as is_test_character
+                with get_connection() as _db:
+                    if is_test_character(_db,gid,cid):
+                        continue
                 if not is_open(gid):continue
                 with get_connection() as db:
                     birthday.setup(db)
