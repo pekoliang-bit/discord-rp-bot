@@ -258,9 +258,15 @@ def _payment(
         conn, guild_id, sender_id
     )
 
-    _account(
+    receiver = _account(
         conn, guild_id, receiver_id
     )
+
+    # 正式錢包與測試角色完全隔離：任何涉及測試角的雙向交易均拒絕。
+    from core.beta_sandbox_v1 import is_beta as _is_beta_account
+    for acc in (sender, receiver):
+        if acc['owner_type'] == 'character' and str(acc['owner_id']).isdigit() and _is_beta_account(conn, guild_id, int(acc['owner_id'])):
+            raise EconomyError('測試角色不可使用正式財務帳本；請使用內測沙盒流程。')
 
     fingerprint = _fingerprint(
         sender_id,
