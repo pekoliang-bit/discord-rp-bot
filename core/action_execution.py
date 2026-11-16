@@ -147,6 +147,11 @@ def execute_action(guild_id, user_id, character_id, location_key, action, reques
     guild_id=str(guild_id)
     character_id=int(character_id)
     fp=_fingerprint(location_key, action)
+    from core.beta_sandbox_v1 import is_beta as _beta_actor, simulate_location_action
+    from core.database import get_connection
+    with get_connection() as read_db:
+        if _beta_actor(read_db,guild_id,character_id):
+            return simulate_location_action(guild_id,user_id,character_id,location_key,action,request_key)
     with transaction() as db:
         initialize(db)
         char=db.execute("""SELECT owner_id,status FROM characters WHERE guild_id=? AND id=?""",
