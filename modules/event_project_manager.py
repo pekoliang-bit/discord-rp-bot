@@ -202,7 +202,6 @@ def is_event_admin(i):
 
     if (
         permissions.administrator
-        or permissions.manage_guild
     ):
         return True
 
