@@ -24,7 +24,7 @@ class ClaimBetaButton(discord.ui.Button):
             await asyncio.to_thread(beta.setup)
             cid,created=await asyncio.to_thread(beta.claim,i.guild_id,i.user.id)
             await i.followup.send(('✅ 已隨機生成' if created else '你已領過')+f'測試角色 #{cid}。\n'
-                '⚠️ 此版是安全的測試身分與轉正流程；各遊戲模組的金幣、行動值無限豁免仍待逐一接入。',ephemeral=True)
+                '⚠️ 測試角色資源與正式經濟隔離。不是所有遊玩介面都已完成沙盒接入，請勿對正式玩家交易。',ephemeral=True)
         except Exception as exc:
             LOG.exception('領取測試角色失敗')
             await i.followup.send(f'⚠️ {exc}',ephemeral=True)
@@ -69,7 +69,7 @@ class FinishBetaButton(discord.ui.Button):
     async def callback(self,i):
         if i.guild is None or i.user.id!=i.guild.owner_id:
             return await i.response.send_message('⛔ 僅群主可正式結束內測。',ephemeral=True)
-        await i.response.send_message('按確認後全服內測角色將停用，並開放在創角草稿轉正。此動作不能從面板復原。',
+        await i.response.send_message('按確認後將結束公開內測，測試角色仍保留為永久測試專用；可建立正式原創草稿。此動作不可由面板復原。',
             view=ConfirmEndBeta(i.user.id),ephemeral=True)
 
 class ConfirmEndBeta(discord.ui.View):
@@ -82,7 +82,7 @@ class ConfirmEndBeta(discord.ui.View):
         try:
             await asyncio.to_thread(beta.setup)
             count=await asyncio.to_thread(beta.finish,i.guild_id,i.user.id)
-            await i.followup.send(f'✅ 內測已結束；停用 {count} 隻內測角色。玩家現在可從創角草稿申請轉正。',ephemeral=True)
+            await i.followup.send(f'✅ 內測已結束；{count} 隻測試角保留為測試專用。玩家可從創角草稿申請轉正。',ephemeral=True)
         except Exception:
             LOG.exception('結束內測失敗')
             await i.followup.send('⚠️ 結束內測失敗，請查看 Railway Logs。',ephemeral=True)
