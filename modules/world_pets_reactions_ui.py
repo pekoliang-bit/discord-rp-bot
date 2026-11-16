@@ -140,7 +140,16 @@ class PetPriceModal(discord.ui.Modal,title='世界觀｜設定寵物價格'):
         try:
             n=self.name.value.strip();p=int(self.price.value)
             if not n or not 0<=p<=10**10:raise ValueError('名稱或價格不合法')
-            data=pet_rules(i.guild_id);data[self.group][n]=p;save(i.guild_id,'pets',validate_pet(data))
+            from core import pet_market_v2 as market
+            matching=next((r for r in market.catalog(i.guild_id,active_only=False)
+                           if r['code']==n),None)
+            if matching:
+                market.manage(i.guild_id,matching['kind'],matching['code'],matching['label'],p,
+                              species=matching['species'],stock=matching['stock'],
+                              active=bool(matching['active']),basic=bool(matching['basic']),
+                              description=matching['description'])
+            else:
+                data=pet_rules(i.guild_id);data[self.group][n]=p;save(i.guild_id,'pets',validate_pet(data))
         except ValueError as exc:return await i.response.send_message(f'⚠️ {exc}',ephemeral=True)
         await i.response.send_message('✅ 世界觀寵物定價已更新。',ephemeral=True)
 
