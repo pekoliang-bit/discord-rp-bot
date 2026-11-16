@@ -29,7 +29,7 @@ def policies(gid):
 def has_world_permission(interaction, key):
     if interaction.guild is None or key not in POLICIES:
         return False
-    if interaction.user.id == interaction.guild.owner_id:
+    if interaction.user.id == interaction.guild.owner_id or getattr(interaction.user.guild_permissions, "administrator", False):
         return True
     if key in LOCKED:
         return False  # 必須使用原有正式審核/紀律權限服務
