@@ -12,7 +12,7 @@ CATEGORIES = ('大眾印象', '人物形象', '人物氣質', '藝能與舞台',
 
 
 def owner(i):
-    return bool(i.guild and i.guild.owner_id == i.user.id)
+    return bool(i.guild and (i.guild.owner_id == i.user.id or getattr(i.user.guild_permissions,"administrator",False)))
 
 
 def init_custom_effects(db):
