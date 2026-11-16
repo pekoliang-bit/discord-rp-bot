@@ -15,6 +15,7 @@ from core import pet_traits_v22 as behaviour
 from core import pet_medical_v23 as medical
 from core import pet_agreement_v23 as agreement
 from core import pet_clinical_v23 as clinical
+from core import pet_professional_v3 as professional
 from core.world_interaction_rules import pet_rules
 from core.database import get_connection
 from core.prelaunch_gate import is_open
@@ -716,14 +717,11 @@ class PetActionsView(Guard):
         async def chosen(x):
             action = select.values[0]
             try:
-                result = await asyncio.to_thread(
-                    pet.care,
-                    x.guild_id,
-                    self.pid,
-                    self.cid,
-                    x.user.id,
-                    action
-                )
+                handler = market.feed if action == 'feed' else pet.care
+                args = (x.guild_id, self.pid, self.cid, x.user.id)
+                if action != 'feed':
+                    args += (action,)
+                result = await asyncio.to_thread(handler, *args)
             except (
                 ValueError, LookupError, PermissionError
             ) as exc:
@@ -890,6 +888,15 @@ class TrainingView(Guard):
         )
 
     @discord.ui.button(
+        label='付費專業訓練', style=discord.ButtonStyle.success, row=1
+    )
+    async def professional_training(self, i, button):
+        await i.response.edit_message(
+            content='🎓 專業訓練｜課程需先付費、經過指定時數再結算',
+            view=ProfessionalTrainingView(i, self.cid, self.pid)
+        )
+
+    @discord.ui.button(
         label='返回寵物',
         style=discord.ButtonStyle.secondary,
         row=1
@@ -898,6 +905,120 @@ class TrainingView(Guard):
         await i.response.edit_message(
             content='🐾 寵物照顧',
             view=PetActionsView(i, self.cid, self.pid)
+        )
+
+
+class ProfessionalCourseManageView(Guard):
+    """Actions on one paid course. Never auto charge or auto settle on display."""
+
+    def __init__(self, i, cid, pid, course_id):
+        super().__init__(i, cid)
+        self.pid = int(pid)
+        self.course_id = int(course_id)
+
+    async def _apply(self, i, operation):
+        try:
+            result = await asyncio.to_thread(
+                getattr(professional, operation),
+                i.guild_id, self.course_id, self.cid, i.user.id
+            )
+        except (ValueError, LookupError, PermissionError) as exc:
+            return await i.response.send_message(f'⚠️ {exc}', ephemeral=True)
+        await i.response.send_message(
+            f'🎓 {operation}｜{result}', ephemeral=True
+        )
+
+    @discord.ui.button(label='課程結算', style=discord.ButtonStyle.success, row=0)
+    async def settle_course(self, i, button):
+        await self._apply(i, 'settle')
+
+    @discord.ui.button(label='恢復課程', style=discord.ButtonStyle.primary, row=0)
+    async def resume_course(self, i, button):
+        await self._apply(i, 'resume')
+
+    @discord.ui.button(label='取消課程', style=discord.ButtonStyle.danger, row=0)
+    async def cancel_course(self, i, button):
+        await self._apply(i, 'cancel')
+
+    @discord.ui.button(label='返回專業訓練', style=discord.ButtonStyle.secondary, row=1)
+    async def back(self, i, button):
+        await i.response.edit_message(
+            content='🎓 專業訓練', view=ProfessionalTrainingView(i, self.cid, self.pid)
+        )
+
+
+class ProfessionalTrainingView(Guard):
+    """Separate paid professional sessions from instant home training."""
+
+    def __init__(self, i, cid, pid):
+        super().__init__(i, cid)
+        self.pid = int(pid)
+        animal = next((p for p in pet.list_pets(i.guild_id, cid)
+                       if int(p['id']) == self.pid), None)
+        species = animal['species'] if animal else ''
+        courses = professional.available(species)
+        options = [discord.SelectOption(
+            label=f'{name}｜{price:,}金幣｜{hours}小時'[:100],
+            value=name
+        ) for name, price, hours in courses[:25]]
+        if not options:
+            return
+        select = discord.ui.Select(
+            placeholder='選擇並付費報名專業課程', options=options, row=0
+        )
+
+        async def chosen(x):
+            try:
+                record = await asyncio.to_thread(
+                    professional.book,
+                    x.guild_id, self.pid, self.cid, x.user.id,
+                    select.values[0], f'pet:professional:interaction:{x.id}'
+                )
+            except (ValueError, LookupError, PermissionError) as exc:
+                return await x.response.send_message(f'⚠️ {exc}', ephemeral=True)
+            await x.response.send_message(
+                f'✅ 報名 {record["course"]}｜金幣 {record["fee"]:,} '
+                f'｜預定結束：{record["ends_at"]}。'
+                '課程完成後請在管理課程中結算。', ephemeral=True
+            )
+        select.callback = chosen
+        self.add_item(select)
+
+    @discord.ui.button(label='管理已報名課程', style=discord.ButtonStyle.primary, row=1)
+    async def manage_courses(self, i, button):
+        from core.database import get_connection
+        with get_connection() as db:
+            professional.setup(db)
+            records = [dict(r) for r in db.execute(
+                "SELECT id,course,state,ends_at FROM rp_pet_professional_courses_v3 "
+                "WHERE guild_id=? AND pet_id=? AND character_id=? "
+                "AND state IN ('booked','running','paused') "
+                "ORDER BY id DESC LIMIT 25",
+                (str(i.guild_id), self.pid, self.cid)
+            )]
+        if not records:
+            return await i.response.send_message('目前沒有待結算或暫停的課程。', ephemeral=True)
+        menu = discord.ui.Select(
+            placeholder='選擇要管理的課程',
+            options=[discord.SelectOption(
+                label=f'#{r["id"]} {r["course"]}（{r["state"]}）'[:100],
+                value=str(r['id'])
+            ) for r in records]
+        )
+        view = Guard(i, self.cid)
+        async def chosen(x):
+            await x.response.edit_message(
+                content='🎓 課程管理',
+                view=ProfessionalCourseManageView(x, self.cid, self.pid, int(menu.values[0]))
+            )
+        menu.callback = chosen
+        view.add_item(menu)
+        await i.response.edit_message(content='🎓 選擇已報名課程', view=view)
+
+    @discord.ui.button(label='返回居家訓練', style=discord.ButtonStyle.secondary, row=1)
+    async def back(self, i, button):
+        await i.response.edit_message(
+            content='🎓 居家訓練', view=TrainingView(i, self.cid, self.pid)
         )
 
 
