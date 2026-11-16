@@ -84,7 +84,7 @@ def edit(guild_id,owner_id,name,age,occupation,biography):
             ON c.guild_id=b.guild_id AND c.id=b.character_id
             WHERE b.guild_id=? AND b.owner_id=?""",(gid,uid)).fetchone()
         state=db.execute('SELECT ended FROM rp_beta_state WHERE guild_id=?',(gid,)).fetchone()
-        if not row or row['status']!='active' or (state and state['ended']):
+        if not row or row['status'] not in ('active','ended','drafted'):
             raise ValueError('目前沒有可編輯的內測角色。')
         try: settings=json.loads(row['settings_json'] or '{}')
         except (TypeError,ValueError):settings={}
@@ -99,7 +99,7 @@ def is_beta_character(db, guild_id, character_id):
     row=db.execute("""SELECT b.status, COALESCE(s.ended,0) ended
         FROM rp_beta_characters b LEFT JOIN rp_beta_state s ON s.guild_id=b.guild_id
         WHERE b.guild_id=? AND b.character_id=?""",(str(guild_id),int(character_id))).fetchone()
-    return bool(row and row['status']=='active' and not row['ended'])
+    return bool(row and row['status'] in ('active','ended','drafted'))
 
 def finish(guild_id, operator_id):
     """群主核准後執行。測試角色停用；不是直接轉正。"""
@@ -113,8 +113,8 @@ def finish(guild_id, operator_id):
                 ended_at=CURRENT_TIMESTAMP""",(gid,str(operator_id)))
         ids=db.execute("SELECT character_id FROM rp_beta_characters WHERE guild_id=? AND status='active'",(gid,)).fetchall()
         db.execute("UPDATE rp_beta_characters SET status='ended',updated_at=CURRENT_TIMESTAMP WHERE guild_id=? AND status='active'",(gid,))
-        for row in ids:
-            db.execute("UPDATE characters SET status='retired' WHERE guild_id=? AND id=? AND status='active'",(gid,row['character_id']))
+        # 測試角色仍維持 active，後續可在獨立沙盒進行遊玩功能測試。
+        # 不得將其列入正式排行榜、結算或劇情進度。
         return len(ids)
 
 def convert_to_draft(guild_id,owner_id):
@@ -130,7 +130,7 @@ def convert_to_draft(guild_id,owner_id):
             raise ValueError('群主尚未宣布內測結束。')
         if not row:raise ValueError('沒有可轉正的內測角色。')
         if row['draft_id']:return int(row['draft_id']),False
-        if row['status']!='ended':raise ValueError('內測角色狀態不允許轉正。')
+        if row['status'] not in ('ended','drafted'):raise ValueError('內測角色狀態不允許轉正。')
         # 保留人物敘事設定，其餘遊戲財產、活動、徽章、任務、數值完全不沿用。
         try:settings=json.loads(row['settings_json'] or '{}')
         except (TypeError,ValueError):settings={}
@@ -147,3 +147,14 @@ def convert_to_draft(guild_id,owner_id):
         db.execute("""UPDATE rp_beta_characters SET status='drafted',draft_id=?,
             updated_at=CURRENT_TIMESTAMP WHERE guild_id=? AND owner_id=?""",(c.lastrowid,gid,uid))
         return int(c.lastrowid),True
+
+
+def is_test_only(db, guild_id, character_id):
+    """無論內測進行中／結束／已建立轉正草稿，都維持測試隔離。"""
+    return is_beta_character(db, guild_id, character_id)
+
+
+def test_character_ids(db, guild_id):
+    return {int(row['character_id']) for row in db.execute(
+        'SELECT character_id FROM rp_beta_characters WHERE guild_id=?', (str(guild_id),)
+    )}
