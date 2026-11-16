@@ -12,13 +12,16 @@ def query(guild_id, limit=100):
             return [], 'unavailable'
         if not {'id','name','guild_id','status'} <= table_columns(db,'characters'):
             return [], 'unavailable'
-        rows=db.execute("""SELECT p.a,p.b,ca.name AS a_name,cb.name AS b_name,
+        sql="""SELECT p.a,p.b,ca.name AS a_name,cb.name AS b_name,
              COALESCE(s.points,0) AS score
              FROM rp_cp_pairs p
              JOIN characters ca ON ca.guild_id=p.guild_id AND ca.id=p.a AND ca.status='active'
              JOIN characters cb ON cb.guild_id=p.guild_id AND cb.id=p.b AND cb.status='active'
              LEFT JOIN rp_relationship_scores s ON s.guild_id=p.guild_id AND s.a=p.a AND s.b=p.b AND s.kind='cp'
-             WHERE p.guild_id=?""",(str(guild_id),)).fetchall()
+             WHERE p.guild_id=?"""
+        if table_columns(db,'rp_beta_characters'):
+            sql += " AND NOT EXISTS (SELECT 1 FROM rp_beta_characters x WHERE x.guild_id=p.guild_id AND x.character_id IN (p.a,p.b))"
+        rows=db.execute(sql,(str(guild_id),)).fetchall()
     data=[{'id':f"{r['a']}:{r['b']}",'character_name':f"{r['a_name']} × {r['b_name']}",
            'a':r['a'],'b':r['b'],'score':int(r['score'])} for r in rows]
     return (ranked(data,limit),'ready') if data else ([], 'empty')
