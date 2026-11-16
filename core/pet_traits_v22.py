@@ -68,9 +68,8 @@ SETTINGS = {
     'injury_daily_cap': 15,
     'destruction_daily_cap': 2,
     'quality_wear': {
-        'basic': 1.0,
-        'premium': .8,
-        'luxury': .5
+        'basic': 1.0, 'premium': .8, 'luxury': .5,
+        'T1': 1.5, 'T2': 1.0, 'T3': .75, 'T4': .5, 'T5': .3,
     },
     'wear_base': {
         'cage': 2,
@@ -162,6 +161,9 @@ def initialize(db):
       durability INTEGER NOT NULL DEFAULT 100,
       warning_sent INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL)''')
+    existing = {r[1] for r in db.execute('PRAGMA table_info(rp_pet_items_v22)')}
+    if 'use_count' not in existing:
+        db.execute('ALTER TABLE rp_pet_items_v22 ADD COLUMN use_count INTEGER NOT NULL DEFAULT 0')
 
     db.execute('''CREATE TABLE IF NOT EXISTS rp_pet_incidents_v22 (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -386,47 +388,29 @@ def _notice(db, gid, pid, cid, message):
 
 
 def attach_purchased(db, gid, pid, cid, items):
-    """Called inside atomic checkout: new pet receives its purchased permanent gear."""
+    # Initial pet gets one of each function; spares remain in inventory.
+
+    # No copying or five-fold buff stacking.
     initialize(db)
-    _create(db, str(gid), int(pid))
-
+    _create(db,str(gid),int(pid))
+    allocated=set()
     for item in items:
-        code = item['code']
-
-        if item['kind'] != 'item':
-            continue
-
-        found = db.execute(
-            '''SELECT permanent FROM rp_pet_catalog_v2
-            WHERE guild_id=? AND kind=? AND code=?''',
-            (str(gid), 'item', code)
-        ).fetchone()
-
-        if not found or not found['permanent']:
-            continue
-
-        for _ in range(int(item['quantity'])):
-            db.execute(
-                '''INSERT INTO rp_pet_items_v22
-                (guild_id,pet_id,owner_character_id,code,created_at)
-                VALUES (?,?,?,?,?)''',
-                (
-                    str(gid), int(pid), int(cid),
-                    code, _stamp(_utc())
-                )
-            )
-
-        db.execute(
-            '''UPDATE rp_pet_inventory_v2
-            SET quantity=MAX(0,quantity-?)
-            WHERE guild_id=? AND character_id=? AND code=?''',
-            (
-                int(item['quantity']),
-                str(gid),
-                int(cid),
-                code
-            )
-        )
+        if item['kind']!='item': continue
+        info=db.execute('''SELECT permanent,required_group,subcategory
+          FROM rp_pet_catalog_v2 WHERE guild_id=? AND kind='item' AND code=?''',
+          (str(gid),item['code'])).fetchone()
+        if not info or not info['permanent']:continue
+        group=(info['required_group'],info['subcategory'] or info['required_group'])
+        if group in allocated:continue
+        available=db.execute('''UPDATE rp_pet_inventory_v2 SET quantity=quantity-1
+          WHERE guild_id=? AND character_id=? AND code=? AND quantity>0''',
+          (str(gid),int(cid),item['code']))
+        if available.rowcount!=1:continue
+        db.execute('''INSERT INTO rp_pet_items_v22
+          (guild_id,pet_id,owner_character_id,code,created_at)
+          VALUES (?,?,?,?,?)''',
+          (str(gid),int(pid),int(cid),item['code'],_stamp(_utc())))
+        allocated.add(group)
 
 
 def equip(guild_id, pid, cid, uid, code):
@@ -473,6 +457,31 @@ def equip(guild_id, pid, cid, uid, code):
         return cur.lastrowid
 
 
+def _assign_from_inventory(db, gid, pid, cid, group):
+    # Automatically allocate ONE owner-held spare when the pet has no usable gear.
+
+    # Quantity is never duplicated or assigned to multiple pets.
+    pet=pets._pet(db,gid,pid)
+    existing=db.execute('''SELECT 1 FROM rp_pet_items_v22 i
+       JOIN rp_pet_catalog_v2 c ON c.guild_id=i.guild_id AND c.kind='item' AND c.code=i.code
+       WHERE i.guild_id=? AND i.pet_id=? AND i.durability>0 AND c.required_group=?
+       LIMIT 1''',(gid,pid,group)).fetchone()
+    if existing: return
+    stock=db.execute('''SELECT i.code FROM rp_pet_inventory_v2 i
+       JOIN rp_pet_catalog_v2 c ON c.guild_id=i.guild_id AND c.kind='item' AND c.code=i.code
+       WHERE i.guild_id=? AND i.character_id=? AND i.quantity>0
+         AND c.permanent=1 AND c.required_group=? AND c.species=?
+       ORDER BY i.code LIMIT 1''',(gid,cid,group,pet['species'])).fetchone()
+    if not stock:return
+    code=stock['code']
+    moved=db.execute('''UPDATE rp_pet_inventory_v2 SET quantity=quantity-1
+      WHERE guild_id=? AND character_id=? AND code=? AND quantity>0''',(gid,cid,code))
+    if moved.rowcount!=1:return
+    db.execute('''INSERT INTO rp_pet_items_v22
+      (guild_id,pet_id,owner_character_id,code,created_at) VALUES (?,?,?,?,?)''',
+      (gid,pid,cid,code,_stamp(_utc())))
+
+
 def _wear(db, gid, pid, cid, action, traits, row, rng):
     mapping = {
         'play': 'toy',
@@ -487,19 +496,24 @@ def _wear(db, gid, pid, cid, action, traits, row, rng):
     if not group:
         return []
 
+    _assign_from_inventory(db,gid,pid,cid,group)
     gear = db.execute(
-        '''SELECT id,code,durability,warning_sent
-        FROM rp_pet_items_v22
-        WHERE guild_id=? AND pet_id=?
-        AND durability>0 AND code LIKE ?
-        ORDER BY id LIMIT 1''',
-        (gid, pid, f'v21:%:{group}:%')
+        '''SELECT i.id,i.code,i.durability,i.warning_sent,i.use_count,
+                  COALESCE(c.quality,'T2') AS quality
+        FROM rp_pet_items_v22 i
+        LEFT JOIN rp_pet_catalog_v2 c
+          ON c.guild_id=i.guild_id AND c.kind='item' AND c.code=i.code
+        WHERE i.guild_id=? AND i.pet_id=? AND i.durability>0
+          AND (c.required_group=? OR (c.code IS NULL AND i.code LIKE ?))
+        ORDER BY i.use_count DESC, i.durability ASC, i.created_at ASC, i.id ASC
+        LIMIT 1''',
+        (gid, pid, group, f'v21:%:{group}:%')
     ).fetchone()
 
     if not gear:
         return []
 
-    quality = gear['code'].split(':')[-1]
+    quality = gear['quality']
     q = SETTINGS['quality_wear'].get(quality, 1)
 
     factor = max(
@@ -556,11 +570,11 @@ def _wear(db, gid, pid, cid, action, traits, row, rng):
 
     db.execute(
         '''UPDATE rp_pet_items_v22
-        SET durability=?,warning_sent=?
+        SET durability=?,warning_sent=?,use_count=use_count+1
         WHERE id=?''',
         (
             remaining,
-            1 if remaining <= 30 else gear['warning_sent'],
+            1 if remaining < 30 else gear['warning_sent'],
             gear['id']
         )
     )
@@ -569,7 +583,7 @@ def _wear(db, gid, pid, cid, action, traits, row, rng):
 
     if (
         not gear['warning_sent']
-        and remaining <= 30
+        and remaining < 30
         and remaining > 0
     ):
         message = (
@@ -745,242 +759,239 @@ def interaction(guild_id, pid, cid, uid, action, rng=None):
         }
 
 
-def training(
-    guild_id, pid, cid, uid,
-    course, professional=False, rng=None
-):
-    gid = str(guild_id)
-    pid = int(pid)
-    cid = int(cid)
-    rng = _rng(rng)
+def training(guild_id,pid,cid,uid,course,professional=False,rng=None):
+    if professional:
+        raise ValueError('專業訓練請先到專業課程中心報名，完成時間後統一結算')
+    with transaction() as db:
+        return _training_in_transaction(db,str(guild_id),int(pid),int(cid),uid,course,False,_rng(rng))
 
+
+def _training_in_transaction(db,gid,pid,cid,uid,course,professional,rng):
+    # Only the paid-course service may invoke professional=True inside a transaction.
     if course not in SETTINGS['training']:
         raise ValueError('未知的訓練項目')
+    initialize(db)
+    pets._actor(db, gid, cid, uid)
+    pets._access(db, gid, pid, cid)
 
-    with transaction() as db:
-        initialize(db)
-        pets._actor(db, gid, cid, uid)
-        pets._access(db, gid, pid, cid)
+    pet = pets._pet(db, gid, pid)
+    if pets._hospitalized(db, gid, pid):
+        raise ValueError('寵物住院中，不能參加一般訓練')
 
-        pet = pets._pet(db, gid, pid)
-        if pets._hospitalized(db, gid, pid):
-            raise ValueError('寵物住院中，不能參加一般訓練')
-
-        if (
-            pet['state'] != 'home'
-            or pet['health'] == 0
-            or pet['illness']
-        ):
-            raise ValueError(
-                '寵物需要先恢復健康並待在家中才能接受訓練'
-            )
-
-        row = _recover(
-            db, gid, pid, _create(db, gid, pid)
-        )
-        traits = json.loads(row['traits_json'])
-
-        target, fatigue, base, difficulty = (
-            SETTINGS['training'][course]
+    if (
+        pet['state'] != 'home'
+        or pet['health'] == 0
+        or pet['illness']
+    ):
+        raise ValueError(
+            '寵物需要先恢復健康並待在家中才能接受訓練'
         )
 
-        if target == '服從性' and pet['species'] != '狗':
-            raise ValueError('這門課程只適用於狗狗')
+    row = _recover(
+        db, gid, pid, _create(db, gid, pid)
+    )
+    traits = json.loads(row['traits_json'])
 
-        if row['anger'] >= 80:
-            raise ValueError(
-                '寵物情緒緊繃，先休息或安撫'
-            )
+    target, fatigue, base, difficulty = (
+        SETTINGS['training'][course]
+    )
 
-        cost = fatigue + (5 if professional else 0)
+    if target == '服從性' and pet['species'] != '狗':
+        raise ValueError('這門課程只適用於狗狗')
 
-        if row['fatigue'] + cost >= 90:
-            raise ValueError(
-                '寵物疲勞過高，需要休息'
-            )
-
-        if professional:
-            raise ValueError(
-                '專業課程費用和時間尚未核准，暫不提供付費結算'
-            )
-
-        chance = max(
-            5,
-            min(
-                95,
-                base
-                + .25 * traits['學習力']
-                + .15 * traits['耐心']
-                - (5 if row['fatigue'] >= 30 else 0)
-                - (15 if row['fatigue'] >= 50 else 0)
-                - (30 if row['fatigue'] >= 70 else 0)
-                - (10 if row['anger'] >= 60 else 0)
-                - difficulty
-            )
+    if row['anger'] >= 80:
+        raise ValueError(
+            '寵物情緒緊繃，先休息或安撫'
         )
 
-        success = rng.random() * 100 < chance
-        gained = 0
-        skill_gain = 0
-        today = _utc().date().isoformat()
+    cost = fatigue + (5 if professional else 0)
 
-        if success:
-            if target.startswith('技能:'):
-                old = db.execute(
-                    '''SELECT mastery
-                    FROM rp_pet_training_v22
-                    WHERE guild_id=? AND pet_id=? AND skill=?''',
-                    (gid, pid, target)
-                ).fetchone()
+    if row['fatigue'] + cost >= 90:
+        raise ValueError(
+            '寵物疲勞過高，需要休息'
+        )
 
-                used = db.execute(
-                    """SELECT COALESCE(SUM(amount),0)
-                    FROM rp_pet_growth_v22
-                    WHERE guild_id=? AND pet_id=? AND day=?
-                    AND stat LIKE '技能:%'""",
-                    (gid, pid, today)
-                ).fetchone()[0]
 
-                skill_gain = min(
-                    5 if rng.random() < .1 else 3,
-                    SETTINGS['daily_skill_growth'] - used,
-                    100 - (old['mastery'] if old else 0)
-                )
+    chance = max(
+        5,
+        min(
+            95,
+            base
+            + .25 * traits['學習力']
+            + .15 * traits['耐心']
+            - (5 if row['fatigue'] >= 30 else 0)
+            - (15 if row['fatigue'] >= 50 else 0)
+            - (30 if row['fatigue'] >= 70 else 0)
+            - (10 if row['anger'] >= 60 else 0)
+            - difficulty
+        )
+    )
 
-                if skill_gain > 0:
-                    db.execute(
-                        '''INSERT INTO rp_pet_training_v22
-                        VALUES (?,?,?,?,?)
-                        ON CONFLICT(guild_id,pet_id,skill)
-                        DO UPDATE SET
-                            experience=experience+excluded.experience,
-                            mastery=MIN(100,mastery+excluded.mastery)''',
-                        (
-                            gid, pid, target,
-                            skill_gain, skill_gain
-                        )
-                    )
+    if professional:
+        chance = min(95, chance + (20 if course=='進階技能' else 15 if course=='益智訓練' else 10))
+    success = rng.random() * 100 < chance
+    gained = 0
+    skill_gain = 0
+    today = _utc().date().isoformat()
 
-            else:
-                single = db.execute(
-                    '''SELECT amount FROM rp_pet_growth_v22
-                    WHERE guild_id=? AND pet_id=?
-                    AND day=? AND stat=?''',
-                    (gid, pid, today, target)
-                ).fetchone()
+    if success:
+        if target.startswith('技能:'):
+            old = db.execute(
+                '''SELECT mastery
+                FROM rp_pet_training_v22
+                WHERE guild_id=? AND pet_id=? AND skill=?''',
+                (gid, pid, target)
+            ).fetchone()
 
-                total = db.execute(
-                    """SELECT COALESCE(SUM(amount),0)
-                    FROM rp_pet_growth_v22
-                    WHERE guild_id=? AND pet_id=? AND day=?
-                    AND stat NOT LIKE '技能:%'""",
-                    (gid, pid, today)
-                ).fetchone()[0]
+            used = db.execute(
+                """SELECT COALESCE(SUM(amount),0)
+                FROM rp_pet_growth_v22
+                WHERE guild_id=? AND pet_id=? AND day=?
+                AND stat LIKE '技能:%'""",
+                (gid, pid, today)
+            ).fetchone()[0]
 
-                additional = {
-                    '自制能力': row['self_control'],
-                    '情緒調節': row['emotion_control'],
-                    '環境適應': row['adaptability']
-                }
+            skill_gain = min(
+                min(10, math.ceil((5 if rng.random()<.1 else 3)*(2 if professional and course=='進階技能' else 1.75 if professional and course=='益智訓練' else 1.5 if professional else 1))),
+                SETTINGS['daily_skill_growth'] - used,
+                100 - (old['mastery'] if old else 0)
+            )
 
-                current = traits.get(
-                    target, additional.get(target, 0)
-                )
-
-                gained = max(
-                    0,
-                    min(
-                        rng.randint(1, 3),
-                        SETTINGS['daily_single_growth']
-                        - (single['amount'] if single else 0),
-                        SETTINGS['daily_total_growth'] - total,
-                        100 - current
-                    )
-                )
-
-                if gained:
-                    if target in traits:
-                        traits[target] += gained
-
-                        db.execute(
-                            '''UPDATE rp_pet_traits_v22
-                            SET traits_json=?
-                            WHERE guild_id=? AND pet_id=?''',
-                            (
-                                json.dumps(
-                                    traits, ensure_ascii=False
-                                ),
-                                gid, pid
-                            )
-                        )
-
-                    else:
-                        col = {
-                            '自制能力': 'self_control',
-                            '情緒調節': 'emotion_control',
-                            '環境適應': 'adaptability'
-                        }[target]
-
-                        db.execute(
-                            f'''UPDATE rp_pet_traits_v22
-                            SET {col}={col}+?
-                            WHERE guild_id=? AND pet_id=?''',
-                            (gained, gid, pid)
-                        )
-
-            growth = gained or skill_gain
-
-            if growth:
+            if skill_gain > 0:
                 db.execute(
-                    '''INSERT INTO rp_pet_growth_v22
+                    '''INSERT INTO rp_pet_training_v22
                     VALUES (?,?,?,?,?)
-                    ON CONFLICT(guild_id,pet_id,day,stat)
+                    ON CONFLICT(guild_id,pet_id,skill)
                     DO UPDATE SET
-                        amount=amount+excluded.amount''',
+                        experience=experience+excluded.experience,
+                        mastery=MIN(100,mastery+excluded.mastery)''',
                     (
-                        gid, pid, today,
-                        target, growth
+                        gid, pid, target,
+                        skill_gain, skill_gain
                     )
                 )
 
-        anger = _clamp(
-            row['anger']
-            + (
-                rng.randint(4, 8)
-                if not success and row['fatigue'] >= 50
-                else 0
-            )
-        )
+        else:
+            single = db.execute(
+                '''SELECT amount FROM rp_pet_growth_v22
+                WHERE guild_id=? AND pet_id=?
+                AND day=? AND stat=?''',
+                (gid, pid, today, target)
+            ).fetchone()
 
-        db.execute(
-            '''UPDATE rp_pet_traits_v22
-            SET fatigue=?,anger=?
-            WHERE guild_id=? AND pet_id=?''',
-            (
-                _clamp(row['fatigue'] + cost),
-                anger,
-                gid,
-                pid
-            )
-        )
+            total = db.execute(
+                """SELECT COALESCE(SUM(amount),0)
+                FROM rp_pet_growth_v22
+                WHERE guild_id=? AND pet_id=? AND day=?
+                AND stat NOT LIKE '技能:%'""",
+                (gid, pid, today)
+            ).fetchone()[0]
 
-        _log(
-            db, gid, pid, cid, 'training',
-            detail={
-                'course': course,
-                'success': success,
-                'growth': gained,
-                'skill': skill_gain
+            additional = {
+                '自制能力': row['self_control'],
+                '情緒調節': row['emotion_control'],
+                '環境適應': row['adaptability']
             }
-        )
 
-        return {
+            current = traits.get(
+                target, additional.get(target, 0)
+            )
+
+            gained = max(
+                0,
+                min(
+                    min(5, math.ceil(rng.randint(1,3)*(2 if professional and course=='進階技能' else 1.75 if professional and course=='益智訓練' else 1.5 if professional else 1))),
+                    SETTINGS['daily_single_growth']
+                    - (single['amount'] if single else 0),
+                    SETTINGS['daily_total_growth'] - total,
+                    100 - current
+                )
+            )
+
+            if gained:
+                if target in traits:
+                    traits[target] += gained
+
+                    db.execute(
+                        '''UPDATE rp_pet_traits_v22
+                        SET traits_json=?
+                        WHERE guild_id=? AND pet_id=?''',
+                        (
+                            json.dumps(
+                                traits, ensure_ascii=False
+                            ),
+                            gid, pid
+                        )
+                    )
+
+                else:
+                    col = {
+                        '自制能力': 'self_control',
+                        '情緒調節': 'emotion_control',
+                        '環境適應': 'adaptability'
+                    }[target]
+
+                    db.execute(
+                        f'''UPDATE rp_pet_traits_v22
+                        SET {col}={col}+?
+                        WHERE guild_id=? AND pet_id=?''',
+                        (gained, gid, pid)
+                    )
+
+        growth = gained or skill_gain
+
+        if growth:
+            db.execute(
+                '''INSERT INTO rp_pet_growth_v22
+                VALUES (?,?,?,?,?)
+                ON CONFLICT(guild_id,pet_id,day,stat)
+                DO UPDATE SET
+                    amount=amount+excluded.amount''',
+                (
+                    gid, pid, today,
+                    target, growth
+                )
+            )
+
+    anger = _clamp(
+        row['anger']
+        + (
+            rng.randint(4, 8)
+            if not success and row['fatigue'] >= 50
+            else 0
+        )
+    )
+
+    db.execute(
+        '''UPDATE rp_pet_traits_v22
+        SET fatigue=?,anger=?
+        WHERE guild_id=? AND pet_id=?''',
+        (
+            _clamp(row['fatigue'] + cost),
+            anger,
+            gid,
+            pid
+        )
+    )
+
+    _log(
+        db, gid, pid, cid, 'training',
+        detail={
+            'course': course,
             'success': success,
             'growth': gained,
-            'skill_gain': skill_gain,
-            'fatigue': row['fatigue'] + cost,
-            'chance': round(chance, 1)
+            'skill': skill_gain
         }
+    )
+
+    return {
+        'success': success,
+        'growth': gained,
+        'skill_gain': skill_gain,
+        'fatigue': row['fatigue'] + cost,
+        'chance': round(chance, 1)
+    }
+
 
 
 def repair(
@@ -1010,13 +1021,15 @@ def repair(
 
         target = _clamp(restore_to)
 
+        if int(item['durability']) <= 0:
+            raise ValueError('用品耐久歸零即永久損壞，不能維修')
         if target <= item['durability']:
             raise ValueError(
                 '維修目標必須高於目前耐久'
             )
 
         row = db.execute(
-            '''SELECT price FROM rp_pet_catalog_v2
+            '''SELECT price,quality FROM rp_pet_catalog_v2
             WHERE guild_id=? AND kind=? AND code=?''',
             (gid, 'item', item['code'])
         ).fetchone()
@@ -1024,10 +1037,11 @@ def repair(
         if not row:
             raise LookupError('找不到原商品售價')
 
+        repair_rates = {'T1':.40,'T2':.35,'T3':.30,'T4':.25,'T5':.20,
+                        'basic':.35,'premium':.30,'luxury':.25}
         cost = math.ceil(
-            row['price']
-            * (target - item['durability'])
-            / 100 * .6
+            row['price'] * (target - item['durability']) / 100
+            * repair_rates.get(row['quality'], .35)
         )
 
         sender = get_or_create_account(
@@ -1053,7 +1067,7 @@ def repair(
             WHERE id=?''',
             (
                 target,
-                0 if target > 30 else item['warning_sent'],
+                0 if target >= 30 else item['warning_sent'],
                 item_id
             )
         )
@@ -1094,15 +1108,30 @@ def daily_equipment(guild_id, timestamp=None):
         ).fetchall()
 
         for item in gear:
+            if pets._hospitalized(db, gid, item['pet_id']):
+                continue
             parts = item['code'].split(':')
 
-            if (
-                len(parts) < 4
-                or parts[-2] not in (
-                    'cage', 'bed', 'toilet',
-                    'bowl', 'daily'
-                )
-            ):
+            meta=db.execute('SELECT required_group,quality FROM rp_pet_catalog_v2 WHERE guild_id=? AND kind=? AND code=?',
+                            (gid,'item',item['code'])).fetchone()
+            group=meta['required_group'] if meta else (parts[-2] if len(parts)>=4 else '')
+            quality=meta['quality'] if meta else (parts[-1] if len(parts)>=4 else 'T2')
+            if group not in ('cage','bed','toilet','bowl','daily'):
+                continue
+            # Only one piece of each function/subcategory takes daily wear;
+            # spares do not degrade while waiting in the closet.
+            key=db.execute('''SELECT subcategory FROM rp_pet_catalog_v2
+               WHERE guild_id=? AND kind='item' AND code=?''',
+               (gid,item['code'])).fetchone()
+            sub=key['subcategory'] if key else group
+            alternatives=db.execute('''SELECT i.id,i.use_count,i.durability,i.created_at
+              FROM rp_pet_items_v22 i LEFT JOIN rp_pet_catalog_v2 c
+                ON c.guild_id=i.guild_id AND c.kind='item' AND c.code=i.code
+              WHERE i.guild_id=? AND i.pet_id=? AND i.durability>0
+                AND (c.subcategory=? OR (c.code IS NULL AND i.code LIKE ?))
+              ORDER BY i.use_count DESC,i.durability ASC,i.created_at ASC,i.id ASC
+              LIMIT 1''',(gid,item['pet_id'],sub,f'v21:%:{group}:%')).fetchone()
+            if alternatives and int(alternatives['id'])!=int(item['id']):
                 continue
 
             if db.execute(
@@ -1133,9 +1162,9 @@ def daily_equipment(guild_id, timestamp=None):
             amount = max(
                 1,
                 math.ceil(
-                    SETTINGS['wear_base'].get(parts[-2], 2)
+                    SETTINGS['wear_base'].get(group, 2)
                     * factor
-                    * SETTINGS['quality_wear'].get(parts[-1], 1)
+                    * SETTINGS['quality_wear'].get(quality, 1)
                 )
             )
 
@@ -1151,7 +1180,7 @@ def daily_equipment(guild_id, timestamp=None):
                     remaining,
                     int(
                         item['warning_sent']
-                        or remaining <= 30
+                        or remaining < 30
                     ),
                     item['id']
                 )
@@ -1164,7 +1193,7 @@ def daily_equipment(guild_id, timestamp=None):
             )
 
             if (
-                remaining <= 30
+                remaining < 30
                 and not item['warning_sent']
                 and remaining > 0
             ):
