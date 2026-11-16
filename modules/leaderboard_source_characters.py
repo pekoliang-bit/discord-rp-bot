@@ -1,4 +1,3 @@
-
 """角色類排行榜資料來源。
 
 支援：
@@ -48,15 +47,10 @@ def _ranking_enabled(db, gid):
 
 
 def _characters(db, gid):
-    rows = db.execute(
-        """
-        SELECT id, name, settings_json
-        FROM characters
-        WHERE guild_id = ?
-          AND status = 'active'
-        """,
-        (str(gid),),
-    ).fetchall()
+    sql = "SELECT id,name,settings_json FROM characters WHERE guild_id=? AND status='active'"
+    if table_columns(db,'rp_beta_characters'):
+        sql += " AND NOT EXISTS (SELECT 1 FROM rp_beta_characters b WHERE b.guild_id=characters.guild_id AND b.character_id=characters.id)"
+    rows = db.execute(sql,(str(gid),)).fetchall()
 
     allow = _ranking_enabled(db, gid)
     result = []
