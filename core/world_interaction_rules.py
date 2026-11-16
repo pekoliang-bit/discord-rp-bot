@@ -31,7 +31,7 @@ PET_DEFAULT = {
     'daily_bonus_chance': 5, 'daily_bonus_min': 1, 'daily_bonus_max': 3,
     'pet_levels_enabled': False, 'pet_level_max': 20,
     'missing_risk_low': 1, 'missing_risk_mid': 3, 'missing_risk_high': 6,
-    'walk_escape_chance': 1, 'critical_hours': 72,
+    'walk_escape_chance': 1, 'critical_hours': 24,
     'disease_daily_chance':1, 'injury_daily_chance':1,
     'encounter_after_action_chance':5,
     'species': {'貓': 220000, '狗': 240000, '鸚鵡': 180000},
