@@ -9,7 +9,7 @@ import time
 import discord
 from discord import app_commands
 from discord.ext import commands, tasks
-from core.permissions import Actor
+from core.permissions import Actor, InvalidState, PermissionDenied
 from core import large_assets as assets
 from core import asset_completions as extras
 from modules.character_switch import require_current_character
@@ -21,7 +21,7 @@ def context(interaction):
     return actor,int(current['id'])
 
 def clean_error(exc):
-    if isinstance(exc,(ValueError,PermissionError,assets.AssetError)):
+    if isinstance(exc,(ValueError,PermissionError,InvalidState,PermissionDenied,assets.AssetError)):
         return '⚠️ '+str(exc)[:1700]
     LOG.exception('資產操作失敗',exc_info=exc)
     return '⚠️ 操作未完成。請將此錯誤提供管理員查核；不應重複扣款。'
