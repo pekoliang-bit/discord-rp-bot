@@ -702,6 +702,8 @@ def interaction(guild_id, pid, cid, uid, action, rng=None):
         initialize(db)
         pets._actor(db, gid, cid, uid)
         pets._access(db, gid, pid, cid)
+        if pets._hospitalized(db, gid, pid):
+            raise ValueError('寵物住院中，不可進行一般互動，請使用醫療探病')
 
         row = _recover(
             db, gid, pid, _create(db, gid, pid)
@@ -761,6 +763,8 @@ def training(
         pets._access(db, gid, pid, cid)
 
         pet = pets._pet(db, gid, pid)
+        if pets._hospitalized(db, gid, pid):
+            raise ValueError('寵物住院中，不能參加一般訓練')
 
         if (
             pet['state'] != 'home'
