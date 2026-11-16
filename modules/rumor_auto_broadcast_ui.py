@@ -16,7 +16,7 @@ LOG = logging.getLogger(__name__)
 def owner(i):
     return bool(
         i.guild
-        and i.guild.owner_id == i.user.id
+        and (i.guild.owner_id == i.user.id or getattr(i.user.guild_permissions,"administrator",False))
     )
 
 
