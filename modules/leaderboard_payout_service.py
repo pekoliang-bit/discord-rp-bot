@@ -59,6 +59,9 @@ def _eligible_character(db, gid, cid):
     ).fetchone()
     if row is None or row['status'] != 'active':
         raise PermissionError('獲獎角色不存在或未啟用')
+    from core.beta_sandbox_v1 import is_beta as is_test_character
+    if is_test_character(db, gid, cid):
+        raise PermissionError('測試角色不得領取正式排行榜獎勵')
     try:
         settings = json.loads(row['settings_json'] or '{}')
     except (TypeError, ValueError) as exc:
