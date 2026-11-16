@@ -724,29 +724,38 @@ def make_character_embed(actor, character_id, *, private=False, detail_page=0):
                    f"年齡：{display_value(character['age'])}\n"
                    f"職業：{display_value(character['occupation'])}"), inline=False,
         )
+        # 14-day checkpoint and 30-day official settlement share ONE 30-day
+        # anchor.  The 14-day label is replaced after its deadline.
+        countdown = '尚未啟用正式排行榜結算'
         try:
-            from core.work_schedule import display_lines
-            schedule = str(display_lines(actor.guild_id, character_id))
+            from datetime import datetime, timezone, timedelta
+            from modules.leaderboard_config import get_config
+            from modules.leaderboard_cycle import parse, remaining_text
+            config = get_config(actor.guild_id)
+            if config and config.get('enabled'):
+                anchor = parse(config['anchor_utc'])
+                now_utc = datetime.now(timezone.utc)
+                elapsed = max(0, (now_utc-anchor).total_seconds())
+                index = int(elapsed // (30*86400))
+                current_start = anchor + timedelta(days=30*index)
+                halfway = current_start + timedelta(days=14)
+                finish = current_start + timedelta(days=30)
+                if now_utc < halfway:
+                    countdown = '小結算倒數：' + remaining_text(halfway,now_utc)
+                else:
+                    countdown = '總結算倒數：' + remaining_text(finish,now_utc)
         except Exception:
-            LOG.exception('讀取角色工作檔期失敗：%s', character_id)
-            schedule = '檔期資料暫時無法讀取。'
+            LOG.exception('讀取排行榜結算週期失敗')
+            countdown = '結算倒數：暫時無法查詢'
         try:
-            from core.work_schedule import missing_registration
-            pending = missing_registration(actor.guild_id,character_id)
-            if pending:
-                schedule += '\n⚠️ 工作檔期待確認：' + '、'.join(
-                    str(item.get('title') or item.get('task_id')) for item in pending[:4])
+            from core.work_duration import budget_preview
+            available = int(budget_preview(actor.guild_id, character_id))
+            days_left = str(available)
         except Exception:
-            LOG.exception('讀取已接取但未登記的工作檔期失敗：%s', character_id)
-        # The task system has not provided an independent settlement timestamp.
-        try:
-            from core.work_duration import character_status_lines
-            duration_lines=character_status_lines(actor.guild_id,character_id)
-            if duration_lines:
-                schedule=duration_lines+'\n'+schedule
-        except Exception:
-            LOG.exception('讀取天數制通告進度失敗')
-        embed.add_field(name="📅 工作檔期／倒數", value=shorten('剩餘檔期：\n' + shorten(schedule, 780) + '\n結算倒數：待正式通告提供結算時間（不以工作結束時刻冒充結算）', 1024), inline=False)
+            LOG.exception('讀取工作剩餘檔期失敗')
+            days_left = '待確認'
+        embed.add_field(name='📅 工作檔期／倒數',
+                        value=f'{countdown}\n剩餘檔期：{days_left}', inline=False)
         embed.add_field(name="💕 CP", value=_panel_cp(actor, character_id), inline=True)
         try:
             from modules.tag_library import representative
@@ -2046,7 +2055,7 @@ class CharacterDetailView(discord.ui.View):
         self.detail_page = 2
         self._sync_paging()
         await interaction.response.edit_message(content=None,embed=make_character_embed(self.actor,self.character_id,private=self.display_private,detail_page=2),view=self)
-    @discord.ui.button(label='🎒 背包',style=discord.ButtonStyle.primary,row=0)
+    @discord.ui.button(label='🎒 背包',style=discord.ButtonStyle.primary,row=1)
     async def inventory_button(self,interaction,button):
         require_inventory_owner(self.actor,self.character_id)
         await PanelSubView(self,'bag').show(interaction,'bag')
@@ -2062,10 +2071,10 @@ class CharacterDetailView(discord.ui.View):
         self._sync_paging()
         await interaction.response.edit_message(content=None,embed=make_character_embed(self.actor,self.character_id,private=self.display_private,detail_page=self.detail_page),view=self)
 
-    @discord.ui.button(label='📖 攻略',style=discord.ButtonStyle.secondary,row=1)
+    @discord.ui.button(label='📖 攻略',style=discord.ButtonStyle.secondary,row=0)
     async def guides_button(self,interaction,button):
         await PanelSubView(self,'routes').show(interaction,'routes')
-    @discord.ui.button(label='💕 關係',style=discord.ButtonStyle.secondary,row=1)
+    @discord.ui.button(label='💕 關係',style=discord.ButtonStyle.secondary,row=0)
     async def relationship_button(self,interaction,button):
         await PanelSubView(self,'relations').show(interaction,'relations')
     @discord.ui.button(label='🏆 成就榮譽',style=discord.ButtonStyle.secondary,row=1)
@@ -2090,7 +2099,7 @@ class CharacterDetailView(discord.ui.View):
         view.refresh_buttons()
         return view
 
-    @discord.ui.button(label='📝 修改角色資料',style=discord.ButtonStyle.primary,row=2)
+    @discord.ui.button(label='📝 修改角色資料',style=discord.ButtonStyle.primary,row=1)
     async def edit_request_button(self,interaction,button):
         try:
             character = get_character(Actor.from_interaction(interaction), self.character_id)
@@ -2119,13 +2128,6 @@ class CharacterDetailView(discord.ui.View):
             )
         except (ValueError, sqlite3.Error, PermissionDenied, InvalidState) as exc:
             await interaction.response.send_message(f'⚠️ {exc}', ephemeral=True)
-    @discord.ui.button(label='🎂 生日福利',style=discord.ButtonStyle.secondary,row=2)
-    async def birthday_benefits_button(self,interaction,button):
-        if not self.is_own_character:
-            return await interaction.response.send_message('只能查看自己已啟用角色的系統週年福利。',ephemeral=True)
-        from modules.birthday_anniversary_ui import show_birthday_panel
-        await show_birthday_panel(interaction,self.character_id)
-
     @discord.ui.button(label='🎯 點數分配',style=discord.ButtonStyle.primary,row=2)
     async def leaderboard_points_button(self,interaction,button):
         if not self.is_own_character:
