@@ -145,9 +145,18 @@ def _new_life(db, gid, pid, breed_code, age_stage='young', *, timestamp=None,
     base = bounds[0] + secrets.randbelow((bounds[1] - bounds[0]) * 100 + 1) / 100
     if birth_at is None:
         # Age is expressed in game years; non-adult birds may require specialised care.
-        months = (3 + secrets.randbelow(9)) if age_stage == 'young' else (12 + secrets.randbelow(49))
         if breed_code == 'v21:parrot:06':
-            months = (6 + secrets.randbelow(18)) if age_stage == 'young' else (36 + secrets.randbelow(85))
+            low, high = (6, 23) if age_stage == 'young' else (36, 120)
+        elif breed_code.startswith('v21:parrot:'):
+            low, high = ((3, 11) if breed_code in ('v21:parrot:01', 'v21:parrot:03')
+                         else (6, 17)) if age_stage == 'young' else (
+                         (12, 48) if breed_code in ('v21:parrot:01', 'v21:parrot:03')
+                         else (24, 72))
+        elif breed_code in ('v21:dog:05', 'v21:dog:07', 'v21:dog:09', 'v21:dog:10'):
+            low, high = (3, 11) if age_stage == 'young' else (24, 60)
+        else:
+            low, high = (3, 11) if age_stage == 'young' else (12, 60)
+        months = low + secrets.randbelow(high - low + 1)
         birth_at = timestamp - timedelta(days=months * 30 / 12)
     db.execute('''UPDATE rp_pets_v1 SET birth_at=?,estimated_birth=?,
       base_life_years=?,life_limit_years=?,life_extension_years=0,
@@ -239,6 +248,10 @@ def verify_stray(guild_id, encounter_id, *, species, verified_by, chip_clear,
         timestamp = now()
         miracle = int(encounter['miracle'])
         lifespan = float(encounter['life_years'])
+        if not 0 <= float(estimated_age_years) < lifespan:
+            raise ValueError('獸醫推估年齡不可為負數，亦不可超過已鎖定的個體自然壽命')
+        if not bool(chip_clear):
+            raise ValueError('晶片仍顯示原飼主，不可建立無主領養資格')
         db.execute('''INSERT INTO rp_pet_stray_verification_v3
           (guild_id,encounter_id,species,chip_clear,verified_at,claim_until,verified_by,
            primary_choice,miracle,life_years,estimated_age_years)
