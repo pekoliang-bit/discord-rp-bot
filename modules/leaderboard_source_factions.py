@@ -28,8 +28,11 @@ def internal_rank(guild_id,faction_id,limit=100):
             'characters':{'guild_id','id','name'}}.items()):return [],'unavailable'
         period=db.execute('SELECT sequence FROM faction_periods WHERE guild_id=?',(str(guild_id),)).fetchone()
         if not period:return [],'unavailable'
-        rows=db.execute("""SELECT c.id AS character_id,c.name AS character_name,SUM(l.points) AS score
+        sql="""SELECT c.id AS character_id,c.name AS character_name,SUM(l.points) AS score
             FROM faction_ledger l JOIN characters c ON c.guild_id=l.guild_id AND c.id=l.character_id
-            WHERE l.guild_id=? AND l.faction_id=? AND l.period=? AND l.points>0
-            GROUP BY c.id,c.name""",(str(guild_id),int(faction_id),period['sequence'])).fetchall()
+            WHERE l.guild_id=? AND l.faction_id=? AND l.period=? AND l.points>0"""
+        if table_columns(db,'rp_beta_characters'):
+            sql+=" AND NOT EXISTS (SELECT 1 FROM rp_beta_characters b WHERE b.guild_id=c.guild_id AND b.character_id=c.id)"
+        sql+=" GROUP BY c.id,c.name"
+        rows=db.execute(sql,(str(guild_id),int(faction_id),period['sequence'])).fetchall()
     return (ranked([dict(r) for r in rows],limit),'ready') if rows else ([], 'empty')
