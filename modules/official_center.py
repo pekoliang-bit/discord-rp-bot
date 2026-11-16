@@ -1586,6 +1586,11 @@ class AdminToolsView(ManagementView):
             rumor_button.row = 2
             self.add_item(rumor_button)
 
+        # 開群前角色清理：群主及 Administrator，可多選並二次確認。
+        if self.owner or self.admin:
+            from modules.prelaunch_character_cleanup import PrelaunchCleanupButton
+            self.add_item(PrelaunchCleanupButton())
+
         # A task-only delegate must not see unrelated commerce/admin panels.
         from modules.task_permissions import authorized as task_authorized
         task_only = False  # 非 Administrator 的任務委任不構成官方管理員
@@ -1650,6 +1655,7 @@ def management_text(view):
             "🏪 場景商店：餐廳、診所、酒店等",
             "📣 公關策略：設定分數、啟停與修改版本",
             "📰 定時傳聞：100則模板、每8小時發布、頻道綁定",
+            "🧹 開群前角色清理：勾選多名角色並二次確認標記刪除",
         ])
 
     if view.unavailable:
