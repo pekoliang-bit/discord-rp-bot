@@ -22,4 +22,7 @@ def ranked(rows, limit=100):
 
 
 def active_characters(db, guild_id):
-    return db.execute("SELECT id,name FROM characters WHERE guild_id=? AND status='active'", (str(guild_id),)).fetchall()
+    sql="SELECT id,name FROM characters WHERE guild_id=? AND status='active'"
+    if table_columns(db,'rp_beta_characters'):
+        sql+=" AND NOT EXISTS (SELECT 1 FROM rp_beta_characters b WHERE b.guild_id=characters.guild_id AND b.character_id=characters.id)"
+    return db.execute(sql,(str(guild_id),)).fetchall()
