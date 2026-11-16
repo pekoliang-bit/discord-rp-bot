@@ -22,6 +22,7 @@ from core.prelaunch_gate import is_open
 
 LOG = logging.getLogger(__name__)
 PAGE_SIZE = 20
+PRODUCTS_PER_PAGE = 8
 
 
 def mine(gid, uid):
@@ -84,6 +85,13 @@ def cart_text(data):
         )
     lines.append('選購不立即扣款；最後統一結帳。')
     return '\n'.join(lines)
+
+
+async def update_flow(interaction, content, view):
+    """Modal 送出後直接換成下一步頁面，無來源訊息才另開私人頁。"""
+    if interaction.message is not None:
+        return await interaction.response.edit_message(content=content,view=view)
+    return await interaction.response.send_message(content,view=view,ephemeral=True)
 
 
 class Guard(discord.ui.View):
@@ -226,8 +234,52 @@ class PageView(Guard):
         )
 
 
+class QuantityModal(discord.ui.Modal, title='勾選商品｜填寫各商品數量'):
+    """最多5件一組，避免超出 Discord Modal 的欄位數限制。"""
+    def __init__(self, cid, codes, next_step=None, breed_code=None, product_context=None, labels=None):
+        super().__init__()
+        self.cid=int(cid)
+        self.codes=list(codes)
+        self.next_step=next_step
+        self.breed_code=breed_code
+        self.product_context=product_context
+        self.fields=[]
+        labels=labels or {}
+        for code in self.codes:
+            field=discord.ui.TextInput(label=f'{labels.get(code,code)[:34]} 數量'[:45],default='1',max_length=3,required=True)
+            self.add_item(field)
+            self.fields.append(field)
+
+    async def on_submit(self, i):
+        try:
+            amounts=[int(field.value) for field in self.fields]
+            await asyncio.to_thread(market.select_many,i.guild_id,self.cid,i.user.id, list(zip(self.codes,amounts)))
+        except (ValueError, LookupError, PermissionError) as exc:
+            return await i.response.send_message(f'⚠️ {exc}', ephemeral=True)
+        if self.next_step is not None:
+            state=market.preview(i.guild_id,self.cid)
+            current=WizardView(i,self.cid,self.breed_code,max(0,self.next_step-1))
+            group,group_label,mandatory=current.pages[current.step]
+            if mandatory and group in state['missing_basics']:
+                return await update_flow(i,
+                    current.page_text(i.guild_id)+'\n⚠️ 此頁用品尚未選齊。食盆與水盆必須各有一款。',current)
+            view=WizardView(i,self.cid,self.breed_code,self.next_step)
+            if self.next_step>=len(view.pages):
+                state=market.preview(i.guild_id,self.cid)
+                if not state['ready']:
+                    view=WizardView(i,self.cid,self.breed_code,0)
+                    return await update_flow(i,cart_text(state)+'\n請回到缺少的必選用品頁面補齊。',view)
+                await asyncio.to_thread(agreement.start,i.guild_id,self.cid,i.user.id)
+                terms_view=TermsPages(i,self.cid)
+                return await update_flow(i,terms_view.text(),terms_view)
+            return await update_flow(i,view.page_text(i.guild_id),view)
+        context=self.product_context or {}
+        view=SupplyProductsView(i,self.cid,context.get('species','貓'),context.get('category','飲食用品'),context.get('subcategory','飼料'),context.get('page',0))
+        return await update_flow(i,cart_text(market.preview(i.guild_id,self.cid))+'\n繼續選購或前往結帳。',view)
+
+
 class WizardView(Guard):
-    def __init__(self, i, cid, breed_code, step=0):
+    def __init__(self, i, cid, breed_code, step=0, item_page=0):
         super().__init__(i, cid)
         self.breed_code = breed_code
 
@@ -244,6 +296,7 @@ class WizardView(Guard):
         self.species = breed['species']
         self.pages = market.wizard_pages(i.guild_id, breed_code)
         self.step = max(0, min(int(step), len(self.pages)))
+        self.item_page=max(0,int(item_page))
 
         if self.step < len(self.pages):
             group, label, required = self.pages[self.step]
@@ -252,68 +305,46 @@ class WizardView(Guard):
             )
 
             if choices:
-                select = discord.ui.Select(
-                    placeholder=(
-                        f'第 {self.step + 1}/{len(self.pages)} 頁｜{label}'
-                    )[:150],
-                    options=[
-                        discord.SelectOption(
-                            label=(
-                                f'{x["label"]}｜{x["price"]:,} 金幣'
-                            )[:100],
-                            value=x['code']
-                        )
-                        for x in choices[:25]
-                    ],
-                    row=0
-                )
-
+                self.item_page=min(self.item_page,(len(choices)-1)//PRODUCTS_PER_PAGE)
+                shown=choices[self.item_page*PRODUCTS_PER_PAGE:(self.item_page+1)*PRODUCTS_PER_PAGE]
+                select=discord.ui.Select(
+                    placeholder=f'勾選商品（可複選）｜{label}'[:150],
+                    options=[discord.SelectOption(label=f'{x["label"]}｜{x["price"]:,}金幣'[:100],value=x['code']) for x in shown],
+                    min_values=1,max_values=min(5,len(shown)),row=0)
                 async def chosen(x):
-                    try:
-                        await asyncio.to_thread(
-                            market.select,
-                            x.guild_id,
-                            self.cid,
-                            x.user.id,
-                            'item',
-                            select.values[0]
-                        )
-                    except (
-                        ValueError, LookupError, PermissionError
-                    ) as exc:
-                        return await x.response.send_message(
-                            f'⚠️ {exc}', ephemeral=True
-                        )
-
-                    next_view = WizardView(
-                        x, self.cid, self.breed_code,
-                        self.step + 1
-                    )
-                    await x.response.edit_message(
-                        content=next_view.page_text(x.guild_id),
-                        view=next_view
-                    )
-
-                select.callback = chosen
+                    await x.response.send_modal(QuantityModal(
+                        self.cid,select.values,self.step+1,self.breed_code,
+                        labels={item['code']:item['label'] for item in shown}))
+                select.callback=chosen
                 self.add_item(select)
+                if len(choices)>PRODUCTS_PER_PAGE:
+                    back=discord.ui.Button(label='◀ 商品前頁',style=discord.ButtonStyle.secondary,row=3,disabled=self.item_page==0)
+                    forward=discord.ui.Button(label='商品後頁 ▶',style=discord.ButtonStyle.secondary,row=3,disabled=(self.item_page+1)*PRODUCTS_PER_PAGE>=len(choices))
+                    async def prev_products(x):
+                        view=WizardView(x,self.cid,self.breed_code,self.step,self.item_page-1)
+                        await x.response.edit_message(content=view.page_text(x.guild_id),view=view)
+                    async def next_products(x):
+                        view=WizardView(x,self.cid,self.breed_code,self.step,self.item_page+1)
+                        await x.response.edit_message(content=view.page_text(x.guild_id),view=view)
+                    back.callback=prev_products;forward.callback=next_products
+                    self.add_item(back);self.add_item(forward)
 
     def page_text(self, gid, index=None):
         index = self.step if index is None else index
         state = market.preview(gid, self.cid)
 
         if index >= len(self.pages):
-            return (
-                cart_text(state)
-                + '\n✅ 用品逐頁挑選完成，請確認購物車。'
-            )
+            return cart_text(state) + '\n✅ 已完成用品選購，將進入飼主須知。' 
 
         group, label, required = self.pages[index]
         requirement = '必選' if required else '可略過'
-        return (
-            f'🐾 **逐頁選購 {index + 1}/{len(self.pages)}**'
-            f'｜{label}（{requirement}）\n'
-            f'目前總額：{state["total"]:,} 金幣。'
-        )
+        choices=market.wizard_items(gid,self.species,group,self.breed_code)
+        displayed=choices[self.item_page*PRODUCTS_PER_PAGE:(self.item_page+1)*PRODUCTS_PER_PAGE]
+        parts=[f'🐾 **逐頁選購 {index + 1}/{len(self.pages)}**｜{label}（{requirement}）',
+               f'商品頁 {self.item_page+1}/{max(1,(len(choices)+PRODUCTS_PER_PAGE-1)//PRODUCTS_PER_PAGE)}｜目前總額：{state["total"]:,} 金幣',
+               '☑ 可複選商品，再分別填寫購買數量。']
+        parts.extend(f'• {x["label"]}：{x["price"]:,} 金幣' for x in displayed)
+        return '\n'.join(parts)[:1950]
 
     @discord.ui.button(
         label='◀ 上一頁',
@@ -345,24 +376,15 @@ class WizardView(Guard):
                 )
 
         step = min(self.step + 1, len(self.pages))
+        if step >= len(self.pages):
+            state=market.preview(i.guild_id,self.cid)
+            if not state['ready']:
+                return await i.response.send_message(cart_text(state),ephemeral=True)
+            await asyncio.to_thread(agreement.start,i.guild_id,self.cid,i.user.id)
+            view=TermsPages(i,self.cid)
+            return await i.response.edit_message(content=view.text(),view=view)
         view = WizardView(i, self.cid, self.breed_code, step)
-        await i.response.edit_message(
-            content=view.page_text(i.guild_id),
-            view=view
-        )
-
-    @discord.ui.button(
-        label='檢查購物車／結帳',
-        style=discord.ButtonStyle.success,
-        row=2
-    )
-    async def cart(self, i, button):
-        state = market.preview(i.guild_id, self.cid)
-        await i.response.edit_message(
-            content=cart_text(state),
-            view=CartView(i, self.cid)
-        )
-
+        await i.response.edit_message(content=view.page_text(i.guild_id),view=view)
 
 class CheckoutModal(
     discord.ui.Modal,
@@ -433,11 +455,14 @@ class SignTermsModal(
                 f'⚠️ {exc}', ephemeral=True
             )
 
-        await i.response.send_message(
+        state=market.preview(i.guild_id,self.cid)
+        await update_flow(
+            i,
             f'✅ 飼主須知 V{result["version"]} 簽署完成！\n'
             f'簽名：{result["name"]}\n'
-            f'身分證字號：`{result["identity_code"]}`',
-            ephemeral=True
+            f'身分證字號：`{result["identity_code"]}`\n\n'
+            + cart_text(state) + '\n最後一步：請確認付款與晶片登記。',
+            FinalPaymentView(i,self.cid)
         )
 
 
@@ -514,6 +539,23 @@ class TermsPages(Guard):
         )
 
 
+class FinalPaymentView(Guard):
+    @discord.ui.button(label='✅ 正式付款與晶片登記',style=discord.ButtonStyle.success)
+    async def pay(self,i,button):
+        state=market.preview(i.guild_id,self.cid)
+        if not state['ready']:
+            return await i.response.send_message(cart_text(state),ephemeral=True)
+        await i.response.send_modal(CheckoutModal(self.cid))
+
+    @discord.ui.button(label='返回用品頁調整',style=discord.ButtonStyle.secondary)
+    async def back(self,i,button):
+        state=market.preview(i.guild_id,self.cid)
+        breed=next((x for x in state['items'] if x['kind']=='breed'),None)
+        if not breed:return await i.response.send_message('請先選擇寵物。',ephemeral=True)
+        view=WizardView(i,self.cid,breed['code'],0)
+        await i.response.edit_message(content=view.page_text(i.guild_id),view=view)
+
+
 class CartView(Guard):
     def __init__(self, i, cid):
         super().__init__(i, cid)
@@ -573,36 +615,6 @@ class CartView(Guard):
         )
 
     @discord.ui.button(
-        label='挑選用品',
-        style=discord.ButtonStyle.primary,
-        row=0
-    )
-    async def item(self, i, button):
-        await i.response.edit_message(
-            content='🛒 選擇用品。',
-            view=PageView(i, self.cid, 'item')
-        )
-
-    @discord.ui.button(
-        label='閱讀／簽署飼主須知',
-        style=discord.ButtonStyle.secondary,
-        row=1
-    )
-    async def sign(self, i, button):
-        await asyncio.to_thread(
-            agreement.start,
-            i.guild_id,
-            self.cid,
-            i.user.id
-        )
-        view = TermsPages(i, self.cid)
-        await i.response.send_message(
-            view.text(),
-            view=view,
-            ephemeral=True
-        )
-
-    @discord.ui.button(
         label='確認付款與晶片登記',
         style=discord.ButtonStyle.success,
         row=1
@@ -653,7 +665,7 @@ class CartView(Guard):
     )
     async def back(self, i, button):
         await i.response.edit_message(
-            content='🐾 寵物中心',
+            content='🐾 **寵物中心**\n購買寵物會依序自動顯示品種、用品、須知與付款。\n用品商城可按類別選擇、勾選多款並分別填數量。',
             view=PetHomeView(i, self.cid)
         )
 
@@ -2248,9 +2260,89 @@ class ServiceView(Guard):
     )
     async def back(self, i, button):
         await i.response.edit_message(
-            content='🐾 寵物中心',
+            content='🐾 **寵物中心**\n購買寵物會依序自動顯示品種、用品、須知與付款。\n用品商城可按類別選擇、勾選多款並分別填數量。',
             view=PetHomeView(i, self.cid)
         )
+
+
+class SupplySpeciesView(Guard):
+    def __init__(self,i,cid):
+        super().__init__(i,cid)
+        options=[discord.SelectOption(label=sp,value=sp) for sp in ('貓','狗','鸚鵡')]
+        sel=discord.ui.Select(placeholder='選擇用品適用的寵物物種',options=options)
+        async def chosen(x):
+            view=SupplyCategoryView(x,self.cid,sel.values[0]);await x.response.edit_message(content='🛒 請選擇商城分類。',view=view)
+        sel.callback=chosen;self.add_item(sel)
+
+class SupplyCategoryView(Guard):
+    def __init__(self,i,cid,species):
+        super().__init__(i,cid);self.species=species
+        for index,category in enumerate(market.shop_categories(i.guild_id,species)):
+            button=discord.ui.Button(label=category[:75],style=discord.ButtonStyle.primary,row=index//5)
+            async def chosen(x,c=category):
+                view=SupplySubcategoryView(x,self.cid,species,c)
+                await x.response.edit_message(content=f'🛒 {species}｜{c}：選擇商品細項。',view=view)
+            button.callback=chosen;self.add_item(button)
+        cart=discord.ui.Button(label='🧺 查看購物車',style=discord.ButtonStyle.success,row=2)
+        async def show_cart(x):
+            await x.response.edit_message(content=cart_text(market.preview(x.guild_id,self.cid)),view=CartView(x,self.cid))
+        cart.callback=show_cart;self.add_item(cart)
+
+class SupplySubcategoryView(Guard):
+    def __init__(self,i,cid,species,category,page=0):
+        super().__init__(i,cid);self.species=species;self.category=category;self.page=max(0,int(page))
+        subs=market.shop_subcategories(i.guild_id,species,category)
+        self.page=min(self.page,max(0,(len(subs)-1)//PAGE_SIZE))
+        curr=subs[self.page*PAGE_SIZE:(self.page+1)*PAGE_SIZE]
+        if curr:
+            sel=discord.ui.Select(placeholder='選擇用品細項',options=[discord.SelectOption(label=c[:100],value=c) for c in curr])
+            async def chosen(x):
+                view=SupplyProductsView(x,self.cid,species,category,sel.values[0]);await x.response.edit_message(content=view.page_text(x.guild_id),view=view)
+            sel.callback=chosen;self.add_item(sel)
+        back=discord.ui.Button(label='◀ 前頁',style=discord.ButtonStyle.secondary,disabled=self.page==0,row=1)
+        forward=discord.ui.Button(label='後頁 ▶',style=discord.ButtonStyle.secondary,disabled=(self.page+1)*PAGE_SIZE>=len(subs),row=1)
+        async def prev(x):
+            await x.response.edit_message(view=SupplySubcategoryView(x,self.cid,species,category,self.page-1))
+        async def next_(x):
+            await x.response.edit_message(view=SupplySubcategoryView(x,self.cid,species,category,self.page+1))
+        back.callback=prev;forward.callback=next_;self.add_item(back);self.add_item(forward)
+
+class SupplyProductsView(Guard):
+    def __init__(self,i,cid,species,category,subcategory,page=0):
+        super().__init__(i,cid);self.species=species;self.category=category;self.subcategory=subcategory
+        self.rows=market.shop_products(i.guild_id,species,category,subcategory)
+        self.page=min(max(0,int(page)),max(0,(len(self.rows)-1)//PRODUCTS_PER_PAGE))
+        rows=self.rows[self.page*PRODUCTS_PER_PAGE:(self.page+1)*PRODUCTS_PER_PAGE]
+        if rows:
+            sel=discord.ui.Select(placeholder='☑ 勾選要買的商品（最多5項）',
+                options=[discord.SelectOption(label=f'{r["label"]}｜{r["price"]:,}金幣'[:100],value=r['code']) for r in rows],
+                min_values=1,max_values=min(5,len(rows)),row=0)
+            async def chosen(x):
+                await x.response.send_modal(QuantityModal(self.cid,sel.values,product_context={
+                    'species':species,'category':category,'subcategory':subcategory,'page':self.page},
+                    labels={r['code']:r['label'] for r in rows}))
+            sel.callback=chosen;self.add_item(sel)
+        for title,delta in [('◀ 前頁',-1),('後頁 ▶',1)]:
+            b=discord.ui.Button(label=title,style=discord.ButtonStyle.secondary,row=1,
+                disabled=not 0 <= self.page+delta <= (len(self.rows)-1)//PRODUCTS_PER_PAGE)
+            async def change(x,d=delta):
+                view=SupplyProductsView(x,self.cid,species,category,subcategory,self.page+d)
+                await x.response.edit_message(content=view.page_text(x.guild_id),view=view)
+            b.callback=change;self.add_item(b)
+        back=discord.ui.Button(label='換商品分類',style=discord.ButtonStyle.secondary,row=2)
+        async def change_category(x):
+            await x.response.edit_message(content='🛒 選擇商品分類。',view=SupplyCategoryView(x,self.cid,species))
+        back.callback=change_category;self.add_item(back)
+        cart=discord.ui.Button(label='🧺 購物車／用品結帳',style=discord.ButtonStyle.success,row=2)
+        async def checkout_supplies(x):
+            await x.response.edit_message(content=cart_text(market.preview(x.guild_id,self.cid)),view=CartView(x,self.cid))
+        cart.callback=checkout_supplies;self.add_item(cart)
+    def page_text(self,gid):
+        rows=self.rows[self.page*PRODUCTS_PER_PAGE:(self.page+1)*PRODUCTS_PER_PAGE]
+        lines=[f'🛒 **{self.species}｜{self.category}｜{self.subcategory}**  第{self.page+1}/{max(1,(len(self.rows)+PRODUCTS_PER_PAGE-1)//PRODUCTS_PER_PAGE)}頁',
+               '勾選不同款式後，逐件填寫數量；加入購物車不立即付款。']
+        lines += [f'• {r["label"]}：{r["price"]:,}金幣' for r in rows]
+        return '\n'.join(lines)[:1900]
 
 
 class PetHomeView(Guard):
@@ -2258,8 +2350,9 @@ class PetHomeView(Guard):
         super().__init__(i, cid)
 
         options = [
-            ('cart', '🐾 寵物與商品挑選'),
-            ('checkout', '💉 付款與晶片登記'),
+            ('pet_purchase', '🐾 購買寵物（自動逐頁選用品）'),
+            ('supply_shop', '🛒 寵物用品商城'),
+            ('cart', '🧺 查看購物車／單獨用品結帳'),
             ('check', '🩺 寵物醫療中心'),
             ('treat', '🏥 傷病治療'),
             ('training', '🎓 寵物訓練'),
@@ -2287,7 +2380,11 @@ class PetHomeView(Guard):
         async def chosen(x):
             mode = select.values[0]
 
-            if mode in ('cart', 'checkout'):
+            if mode == 'pet_purchase':
+                return await x.response.edit_message(content='🐾 請選擇寵物物種。',view=PageView(x,self.cid,'species'))
+            if mode == 'supply_shop':
+                return await x.response.edit_message(content='🛒 請選擇用品物種。',view=SupplySpeciesView(x,self.cid))
+            if mode == 'cart':
                 state = market.preview(
                     x.guild_id, self.cid
                 )
@@ -2596,7 +2693,7 @@ class CharacterSelect(discord.ui.View):
                 )
 
             await x.response.edit_message(
-                content='🐾 寵物中心',
+                content='🐾 **寵物中心**\n購買寵物會依序自動顯示品種、用品、須知與付款。\n用品商城可按類別選擇、勾選多款並分別填數量。',
                 view=PetHomeView(
                     x, int(select.values[0])
                 )
@@ -2604,6 +2701,12 @@ class CharacterSelect(discord.ui.View):
 
         select.callback = chosen
         self.add_item(select)
+        if staff(i):
+            button=discord.ui.Button(label='🔧 管理員｜寵物及商品管理',style=discord.ButtonStyle.secondary,row=1)
+            async def admin(x):
+                if not staff(x):return await x.response.send_message('沒有管理權限。',ephemeral=True)
+                return await x.response.send_message('🔧 寵物商品管理',view=AdminView(),ephemeral=True)
+            button.callback=admin;self.add_item(button)
 
 
 class PetCenter(commands.Cog):
