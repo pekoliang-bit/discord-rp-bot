@@ -388,8 +388,90 @@ class ActionExecuteView(discord.ui.View):
         await interaction.followup.send(
             f"✅ {result['action_name']} 完成。\n金幣收入：{result['reward_coins']:,}\n"
             f"金幣花費：{result['cost_coins']:,}\n本次數值：{result.get('rolled_stats', [])}\n消耗行動值：{result['action_points_spent']}"
-            f"（免費 {result['free_action_points_spent']}／付費 {result['paid_action_points_spent']}）"+encounter_note,
+            f"（免費 {result['free_action_points_spent']}／付費 {result['paid_action_points_spent']}）"
+            +( '\n🎂 這次已扣除生日地點預付次數，金幣免重複付款。' if result.get('birthday_credit_used') else '' )
+            +encounter_note,
             view=encounter_view,ephemeral=True)
+
+
+class BirthdayLocationOfferView(discord.ui.View):
+    """生日地點優惠：本人角色＋已核准的固定價格服務，確認後才扣金幣。"""
+    def __init__(self,interaction,location,actions,characters):
+        super().__init__(timeout=180)
+        from core.birthday_location_v3 import offer_for
+        self.guild_id=int(interaction.guild_id)
+        self.user_id=int(interaction.user.id)
+        self.location=dict(location)
+        self.actions=[a for a in actions if offer_for(interaction.guild_id,location,a)]
+        self.characters=[dict(c) for c in characters]
+        self.selected_action=None
+        self.selected_character=None
+        if self.actions:
+            options=[]
+            for idx,a in enumerate(self.actions[:25]):
+                offer=offer_for(self.guild_id,location,a)
+                options.append(discord.SelectOption(
+                    label=f'{a["name"]}｜{offer["title"]}'[:100],
+                    description=f'一次預付 {offer["total_price"]:,} 金幣／共 {offer["pay_count"]+offer["bonus_count"]} 次'[:100],
+                    value=str(idx)))
+            pick=discord.ui.Select(placeholder='挑選生日組合／課程',options=options,row=0)
+            async def choose_action(i):
+                self.selected_action=int(pick.values[0])
+                await i.response.edit_message(content=self.description(),view=self)
+            pick.callback=choose_action;self.add_item(pick)
+        if self.characters:
+            pick_char=discord.ui.Select(placeholder='選擇本人角色',
+                options=[discord.SelectOption(label=str(c['name'])[:100],value=str(c['id'])) for c in self.characters[:25]],row=1)
+            async def choose_character(i):
+                self.selected_character=int(pick_char.values[0])
+                await i.response.edit_message(content=self.description(),view=self)
+            pick_char.callback=choose_character;self.add_item(pick_char)
+
+    def description(self):
+        from core.birthday_location_v3 import offer_for
+        lines=[f'🎂 **{self.location.get("name","場所")}｜週年生日優惠**',
+               '每個地點每個系統週年限一次，生日起72小時內購買組合。',
+               '一次預付固定堂數／份數，贈送的免費次數可之後分次使用。']
+        if self.selected_action is not None:
+            offer=offer_for(self.guild_id,self.location,self.actions[self.selected_action])
+            if offer:lines.append(f'已選：{offer["action_name"]}，預付 {offer["total_price"]:,} 金幣，可使用 {offer["pay_count"]+offer["bonus_count"]} 次。')
+        if self.selected_character is not None:
+            lines.append(f'角色 #{self.selected_character}')
+        lines.append('選擇完後，按「確認購買生日組合」才正式扣金幣。')
+        return '\n'.join(lines)
+
+    async def interaction_check(self,i):
+        if int(i.user.id)!=self.user_id or int(i.guild_id)!=self.guild_id:
+            await i.response.send_message('只能操作自己的生日優惠。',ephemeral=True)
+            return False
+        return True
+
+    @discord.ui.button(label='🎂 確認購買生日組合',style=discord.ButtonStyle.success,row=2)
+    async def confirm(self,i,button):
+        if self.selected_action is None or self.selected_character is None:
+            return await i.response.send_message('請先選擇組合商品及角色。',ephemeral=True)
+        current,_=resolve_location(self.guild_id,self.location.get('channel_id') or i.channel_id)
+        if not current or str(current.get('key'))!=str(self.location.get('key')):
+            return await i.response.send_message('地點資料已變更，請重新使用 /行動。',ephemeral=True)
+        matched=[a for c in VALID_CATEGORIES for a in get_category_actions(current,c,owner_preview=False)
+                 if _fingerprint(str(current.get('key')),a)==_fingerprint(str(self.location.get('key')),self.actions[self.selected_action])]
+        if len(matched)!=1:
+            return await i.response.send_message('課程內容已變更，請重新確認。',ephemeral=True)
+        await i.response.defer(ephemeral=True)
+        try:
+            from core.birthday_location_v3 import buy_bundle
+            result=await asyncio.to_thread(buy_bundle,self.guild_id,self.selected_character,
+                self.user_id,current,matched[0],f'discord:birthday-location:{i.id}')
+        except (ValueError,LookupError,PermissionError) as exc:
+            return await i.followup.send(f'⚠️ {exc}',ephemeral=True)
+        except Exception:
+            LOG.exception('生日地點組合扣款失敗')
+            return await i.followup.send('交易失敗，未完成購買。',ephemeral=True)
+        self.stop()
+        for child in self.children:child.disabled=True
+        await i.followup.send(
+            f'✅ 生日優惠購買完成！\n預付：{result["paid"]:,} 金幣\n可使用：{result["sessions"]} 次。'
+            '\n之後在同一地點使用相同已核准行動，系統會自動優先扣除預付次數。',ephemeral=True)
 
 
 class ActionPreview(discord.ui.View):
@@ -444,6 +526,14 @@ class ActionPreview(discord.ui.View):
             )
         )
 
+        try:
+            from core.birthday_location_v3 import offer_for
+            if any(offer_for(str(self.location.get('guild_id') or ''),self.location,a) for a in self.actions):
+                offer_button=discord.ui.Button(label='🎂 地點生日優惠',style=discord.ButtonStyle.success,row=2)
+                offer_button.callback=self.open_birthday
+                self.add_item(offer_button)
+        except Exception:
+            LOG.exception('生日地點優惠預覽初始化失敗')
         if self.total_pages <= 1:
             return
 
@@ -515,6 +605,20 @@ class ActionPreview(discord.ui.View):
             content=self.build_message(),
             view=self,
         )
+
+    async def open_birthday(self,interaction:discord.Interaction):
+        from core.birthday_location_v3 import offer_for,eligible
+        with get_connection() as db:
+            rows=db.execute('''SELECT id,name FROM characters WHERE guild_id=? AND owner_id=? AND status='active'
+                ORDER BY id LIMIT 25''',(str(interaction.guild_id),str(interaction.user.id))).fetchall()
+            eligible_rows=[dict(r) for r in rows if eligible(db,interaction.guild_id,r['id'],self.location.get('key'))]
+        if not eligible_rows:
+            return await interaction.response.send_message('目前沒有符合此地點生日優惠資格的角色，或本週年已領過。',ephemeral=True)
+        actions=[a for a in self.actions if offer_for(interaction.guild_id,self.location,a)]
+        if not actions:
+            return await interaction.response.send_message('目前此地點沒有符合優惠的已核准固定價服務。',ephemeral=True)
+        view=BirthdayLocationOfferView(interaction,self.location,actions,eligible_rows)
+        await interaction.response.send_message(view.description(),view=view,ephemeral=True)
 
     async def on_timeout(self):
         for item in self.children:
@@ -623,7 +727,7 @@ class LocationActionCommands(commands.Cog):
             return
 
         view = ActionPreview(
-            location=location,
+            location=dict(location,guild_id=str(interaction.guild_id)),
             provider=provider,
             category="全部",
             actions=actions,
