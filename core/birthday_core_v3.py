@@ -160,6 +160,9 @@ def claim(guild_id,character_id,user_id):
     gid,cid=str(guild_id),int(character_id)
     with transaction() as db:
         setup(db)
+        from core.beta_sandbox_v1 import is_beta as is_test_character
+        if is_test_character(db,gid,cid):
+            raise PermissionError('測試角色生日獎勵僅可使用獨立沙盒模擬，不進正式帳本')
         c=db.execute('SELECT owner_id,status FROM characters WHERE guild_id=? AND id=?', (gid,cid)).fetchone()
         if not c or c['status']!='active' or str(c['owner_id'])!=str(user_id):
             raise PermissionError('只有已啟用角色的本人能領取生日禮包')
@@ -191,6 +194,9 @@ def draw(guild_id,character_id,user_id,draw_key):
     if not str(draw_key).strip():raise ValueError('抽獎識別碼不能為空')
     with transaction() as db:
         setup(db)
+        from core.beta_sandbox_v1 import is_beta as is_test_character
+        if is_test_character(db,gid,cid):
+            raise PermissionError('內測角色的生日抽獎／優惠只能在獨立沙盒模擬')
         c=db.execute('SELECT owner_id,status FROM characters WHERE guild_id=? AND id=?',(gid,cid)).fetchone()
         if not c or c['status']!='active' or str(c['owner_id'])!=str(user_id):
             raise PermissionError('角色所有權不符')
@@ -223,6 +229,9 @@ def claim_location(guild_id,character_id,user_id,location_key):
     gid,cid=str(guild_id),int(character_id)
     with transaction() as db:
         setup(db)
+        from core.beta_sandbox_v1 import is_beta as is_test_character
+        if is_test_character(db,gid,cid):
+            raise PermissionError('內測角色的生日抽獎／優惠只能在獨立沙盒模擬')
         c=db.execute('SELECT owner_id,status FROM characters WHERE guild_id=? AND id=?',(gid,cid)).fetchone()
         if not c or c['status']!='active' or str(c['owner_id'])!=str(user_id):
             raise PermissionError('無權限')
@@ -239,6 +248,9 @@ def arm_coupon(guild_id,character_id,user_id):
     gid,cid=str(guild_id),int(character_id)
     with transaction() as db:
         setup(db)
+        from core.beta_sandbox_v1 import is_beta as is_test_character
+        if is_test_character(db,gid,cid):
+            raise PermissionError('內測角色的生日抽獎／優惠只能在獨立沙盒模擬')
         owner=db.execute('SELECT owner_id,status FROM characters WHERE guild_id=? AND id=?',(gid,cid)).fetchone()
         if not owner or owner['status']!='active' or str(owner['owner_id'])!=str(user_id):
             raise PermissionError('只有角色本人可以啟用生日折價券')
