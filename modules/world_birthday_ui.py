@@ -26,6 +26,11 @@ def summary(gid):
            '可針對具體地點設定「餐廳／咖啡廳／一般課程／高級課程／停用」。']
     items=values.get('venue_rules',{})
     lines.extend(f'• `{key}`：{val}' for key,val in sorted(items.items())[:25])
+    from core.official_birthday_gifts_v1 import load as load_gifts
+    gifts=load_gifts()
+    ready=sum(bool(x.get('enabled') and (x.get('gift') or {}).get('action_key')) for x in gifts.values())
+    lines.append(f'🎁 官方生日資料：{len(gifts)}個地點；已具備核准行動綁定且啟用：{ready}個。')
+    lines.append('官方福利讀取 assets/birthday_locations 的獨立 JSON；未綁定 action_key 的場所不會扣款或發獎。玩家店鋪不使用官方預設。')
     return '\n'.join(lines)[:1900]
 
 
