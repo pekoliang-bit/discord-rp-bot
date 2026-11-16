@@ -2737,6 +2737,43 @@ class CharacterSelect(discord.ui.View):
             button.callback=admin;self.add_item(button)
 
 
+class StaffPetPreviewView(discord.ui.View):
+    """管理員未啟用角色時，仍可查看所有寵物服務分類。"""
+    def __init__(self, interaction):
+        super().__init__(timeout=600)
+        self.uid=interaction.user.id
+        options=[
+            ('購買寵物', '物種、品種、逐頁用品、須知、付款'),
+            ('寵物用品商城', '用品六分類、細項、勾選與數量'),
+            ('寵物醫療中心', '寵物健康檢查、診斷'),
+            ('傷病治療', '治療、住院、複檢'),
+            ('寵物訓練', '居家及專業訓練'),
+            ('寵物協尋', '遺失寵物登記與尋回'),
+        ]
+        select=discord.ui.Select(placeholder='預覽寵物中心的服務', options=[
+            discord.SelectOption(label=a,description=b[:100],value=a) for a,b in options
+        ])
+        async def choose(i):
+            if i.user.id!=self.uid:
+                return await i.response.send_message('這不是你的管理面板。',ephemeral=True)
+            name=select.values[0]
+            details=dict(options)[name]
+            await i.response.send_message(
+                f'🐾 **{name}**\n{details}\n'
+                '目前尚無自己名下的啟用角色；實際操作需先建立角色。',
+                ephemeral=True,
+            )
+        select.callback=choose
+        self.add_item(select)
+        button=discord.ui.Button(label='🔧 寵物及商品管理',style=discord.ButtonStyle.primary,row=1)
+        async def admin(i):
+            if not staff(i):
+                return await i.response.send_message('沒有管理權限。',ephemeral=True)
+            await i.response.send_message('🔧 寵物商品管理',view=AdminView(),ephemeral=True)
+        button.callback=admin
+        self.add_item(button)
+
+
 class PetCenter(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -2762,9 +2799,15 @@ class PetCenter(commands.Cog):
 
         if not rows:
             if staff(i):
+                # 管理員尚未啟用角色也能瀏覽服務與商品管理；
+                # 玩家交易仍需自己的角色，絕不能使用虛構的角色 ID。
                 return await i.response.send_message(
-                    '🔧 寵物商品管理',
-                    view=AdminView(),
+                    '🐾 **寵物中心｜管理員預覽**\n'
+                    '服務：購買寵物、寵物用品商城、寵物醫療中心、'
+                    '傷病治療、寵物訓練、寵物協尋。\n'
+                    '🔧 可先進入商品管理。要實際測試購買與醫療，'
+                    '請先啟用自己名下的角色。',
+                    view=StaffPetPreviewView(i),
                     ephemeral=True
                 )
             return await i.response.send_message(
