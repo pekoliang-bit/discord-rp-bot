@@ -342,6 +342,30 @@ def select(guild_id, character_id, user_id, kind, code, quantity=1):
     return preview(gid, cid)
 
 
+def select_many(guild_id, character_id, user_id, selections):
+    """多選商品分別指定數量；整批原子加入購物車。"""
+    gid,cid=str(guild_id),int(character_id)
+    if not selections or len(selections)>5:raise ValueError('一次只能勾選1～5款商品')
+    pairs=[(str(code),int(qty)) for code,qty in selections]
+    if len({x[0] for x in pairs})!=len(pairs):raise ValueError('不能重複選擇相同商品')
+    if any(qty<1 or qty>99 for _,qty in pairs):raise ValueError('每項商品數量必須是1～99')
+    with transaction() as db:
+        setup(db,gid);_actor(db,gid,cid,user_id)
+        breed=db.execute("""SELECT b.species FROM rp_pet_cart_v2 c
+            JOIN rp_pet_catalog_v2 b ON b.guild_id=c.guild_id AND b.kind=c.kind AND b.code=c.code
+            WHERE c.guild_id=? AND c.character_id=? AND c.kind='breed' LIMIT 1""",(gid,cid)).fetchone()
+        for code,qty in pairs:
+            item=_row(db,gid,'item',code)
+            if not item['active'] or item['stock']==0 or (item['stock']>=0 and qty>item['stock']):
+                raise ValueError('商品下架或庫存不足')
+            if breed and item['species'] and item['species']!=breed['species']:
+                raise ValueError('商品不符合已選寵物物種')
+            db.execute("""INSERT INTO rp_pet_cart_v2(guild_id,character_id,kind,code,quantity)
+                VALUES (?,?,'item',?,?) ON CONFLICT(guild_id,character_id,kind,code)
+                DO UPDATE SET quantity=excluded.quantity""",(gid,cid,code,qty))
+        return _preview(db,gid,cid)
+
+
 def remove(guild_id, character_id, user_id, kind, code):
     gid = str(guild_id)
     cid = int(character_id)
@@ -357,6 +381,20 @@ def remove(guild_id, character_id, user_id, kind, code):
         )
 
     return preview(gid, cid)
+
+
+def _wizard_item_compatible(species,group,subcategory):
+    """只判定首購引導是否能滿足必需品，不禁止玩家另購其他商品。"""
+    sub=str(subcategory or '')
+    if species=='鸚鵡':
+        if group=='bed':return '棲木' in sub or '鳥架' in sub
+        if group=='toilet':return '籠底紙' in sub
+        if group=='carrier':return '航空箱' in sub or '外出籠' in sub
+    elif group=='bed':
+        return '睡床' in sub or '寵物窩' in sub
+    if species=='貓' and group=='toilet':return '廁所' in sub or '貓砂盆' in sub
+    if species=='狗' and group=='leash':return '牽繩' in sub or '背帶' in sub
+    return True
 
 
 def _preview(db, gid, cid):
@@ -423,7 +461,7 @@ def _preview(db, gid, cid):
                 continue
 
             meta = db.execute(
-                """SELECT species,required_group,breed_codes
+                """SELECT species,required_group,breed_codes,subcategory
                 FROM rp_pet_catalog_v2
                 WHERE guild_id=? AND kind='item' AND code=?""",
                 (gid, item['code'])
@@ -433,14 +471,20 @@ def _preview(db, gid, cid):
                 meta
                 and meta['species'] == chosen['species']
                 and meta['required_group']
+                and _wizard_item_compatible(chosen['species'],meta['required_group'],meta['subcategory'])
             ):
                 selected_groups.append(meta['required_group'])
 
-        missing = [
-            group
-            for group in required
-            if group not in selected_groups
-        ]
+        missing = [group for group in required if group not in selected_groups]
+        # 食盆及水碗必須各選一款；同一組商品不能以單個食盆充作兩件。
+        bowl_types=set()
+        for item in content:
+            if item['kind']=='item':
+                row=db.execute("SELECT subcategory,required_group FROM rp_pet_catalog_v2 WHERE guild_id=? AND kind='item' AND code=?",(gid,item['code'])).fetchone()
+                if row and row['required_group']=='bowl':
+                    bowl_types.add(str(row['subcategory']))
+        if 'bowl' in required and not ('食盆' in bowl_types and '水盆' in bowl_types):
+            if 'bowl' not in missing:missing.append('bowl')
 
         for item in content:
             if item['kind'] != 'item':
@@ -480,21 +524,21 @@ def _preview(db, gid, cid):
             )
         ]
 
-        for required_code in ('starter_feed', 'starter_kit'):
-            if (
-                required_code not in [
-                    r['code'] for r in basics
-                ]
-                or required_code not in [
-                    r['code']
-                    for r in content
-                    if r['kind'] == 'item'
-                ]
-            ):
-                if required_code not in missing:
-                    missing.append(required_code)
-
-        if not basics:
+        if chosen:
+            for required_code in ('starter_feed', 'starter_kit'):
+                if (
+                    required_code not in [
+                        r['code'] for r in basics
+                    ]
+                    or required_code not in [
+                        r['code']
+                        for r in content
+                        if r['kind'] == 'item'
+                    ]
+                ):
+                    if required_code not in missing:
+                        missing.append(required_code)
+        if chosen and not basics:
             missing.append('尚未上架任何基礎用品')
 
     return {
@@ -582,6 +626,14 @@ def checkout(guild_id, character_id, user_id, pet_name, request_key, *, age_stag
             )
 
         discount=_birthday_discount(db,gid,cid,state['items'])
+        # 寵物用品商城與一般商城一樣：9折及生日折價券擇優、不可疊加。
+        # 寵物本體不是用品，不能拿寵物售價抵扣優惠券。
+        eligible_items=sum(int(row['price'])*int(row['quantity'])
+                           for row in state['items'] if row['kind']=='item')
+        from core.birthday_core_v3 import apply_armed_coupon
+        coupon_saved=apply_armed_coupon(db,gid,cid,
+            f'pet-center:{gid}:{request_key}',eligible_items,discount)
+        discount=max(discount,coupon_saved)
         payable=state['total']-discount
 
         breed = next(
@@ -844,6 +896,14 @@ def checkout_supplies(
                     raise ValueError('庫存不足')
 
         discount=_birthday_discount(db,gid,cid,state['items'])
+        # 寵物用品商城與一般商城一樣：9折及生日折價券擇優、不可疊加。
+        # 寵物本體不是用品，不能拿寵物售價抵扣優惠券。
+        eligible_items=sum(int(row['price'])*int(row['quantity'])
+                           for row in state['items'] if row['kind']=='item')
+        from core.birthday_core_v3 import apply_armed_coupon
+        coupon_saved=apply_armed_coupon(db,gid,cid,
+            f'pet-center:{gid}:{request_key}',eligible_items,discount)
+        discount=max(discount,coupon_saved)
         payable=state['total']-discount
         if payable:
             sender = get_or_create_account(
@@ -1275,10 +1335,8 @@ def wizard_items(
         species
     )
 
-    return [
-        row for row in rows
-        if row.get('required_group') == group
-    ]
+    return [row for row in rows if row.get('required_group')==group
+            and _wizard_item_compatible(species,group,row.get('subcategory'))]
 
 
 def wizard_pages(
