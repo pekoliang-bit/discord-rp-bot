@@ -1,37 +1,98 @@
-"""寵物中心 V2.1 候選資料。售價/商品等級/隱藏效果均是可調測試值，未最終核准。"""
+"""核准的寵物品種及五級用品目錄。預設價格、品質、物種與商品代碼穩定。"""
 from __future__ import annotations
 
 BREEDS = [('v21:cat:01', '貓', '英國短毛貓', 220000, 1), ('v21:cat:02', '貓', '美國短毛貓', 180000, 1), ('v21:cat:03', '貓', '布偶貓', 380000, 1), ('v21:cat:04', '貓', '緬因貓', 480000, 1), ('v21:cat:05', '貓', '波斯貓', 260000, 1), ('v21:cat:06', '貓', '暹羅貓', 200000, 1), ('v21:cat:07', '貓', '曼赤肯貓', 350000, 1), ('v21:cat:08', '貓', '俄羅斯藍貓', 300000, 1), ('v21:dog:01', '狗', '柴犬', 240000, 1), ('v21:dog:02', '狗', '柯基', 300000, 1), ('v21:dog:03', '狗', '貴賓犬', 220000, 1), ('v21:dog:04', '狗', '博美犬', 280000, 1), ('v21:dog:05', '狗', '黃金獵犬', 350000, 1), ('v21:dog:06', '狗', '哈士奇', 320000, 1), ('v21:dog:07', '狗', '薩摩耶', 480000, 1), ('v21:dog:08', '狗', '邊境牧羊犬', 380000, 1), ('v21:dog:09', '狗', '德國牧羊犬', 400000, 1), ('v21:dog:10', '狗', '秋田犬', 420000, 1), ('v21:parrot:01', '鸚鵡', '虎皮鸚鵡', 120000, 1), ('v21:parrot:02', '鸚鵡', '玄鳳鸚鵡', 180000, 1), ('v21:parrot:03', '鸚鵡', '牡丹鸚鵡', 220000, 1), ('v21:parrot:04', '鸚鵡', '和尚鸚鵡', 300000, 0), ('v21:parrot:05', '鸚鵡', '綠頰錐尾鸚鵡', 380000, 0), ('v21:parrot:06', '鸚鵡', '非洲灰鸚鵡', 680000, 0)]
-PAGES = {'貓': [('cage', '籠子', False), ('bed', '窩', True), ('toilet', '廁所', True), ('carrier', '航空箱／外出籠', True), ('bowl', '食盆水碗', True), ('leash', '牽繩', False), ('toy', '玩具', False), ('feed', '飼料', True), ('treat', '零食', False), ('supplement', '健康食品', False), ('daily', '其他日常用品', False)], '狗': [('cage', '籠子／圍欄', False), ('bed', '窩', True), ('toilet', '廁所', True), ('carrier', '航空箱／外出籠', True), ('bowl', '食盆水碗', True), ('leash', '牽繩', True), ('toy', '玩具', False), ('feed', '飼料', True), ('treat', '零食', False), ('supplement', '健康食品', False), ('daily', '其他日常用品', False)], '鸚鵡': [('cage', '鳥籠', True), ('bed', '窩／棲木', True), ('toilet', '籠底清潔用品', True), ('carrier', '航空箱／外出鳥籠', False), ('bowl', '食盆水碗', True), ('leash', '飛行背帶', False), ('toy', '玩具', False), ('feed', '飼料', True), ('treat', '零食', False), ('supplement', '健康食品', False), ('daily', '其他日常用品', False)]}
-LONG_HAIR = {'布偶貓', '緬因貓', '波斯貓', '博美犬', '黃金獵犬', '薩摩耶'}
-QUALITY = (('basic', '基礎款', 1), ('premium', '高級款', 2), ('luxury', '頂級款', 4))
-BASE_PRICE = {'cage': 1500, 'bed': 1200, 'toilet': 900, 'carrier': 2500, 'bowl': 600,
-              'leash': 1000, 'toy': 650, 'feed': 700, 'treat': 450,
-              'supplement': 1200, 'daily': 500, 'groom': 950}
-CATEGORY = {'feed':'飼料','treat':'零食','supplement':'健康食品','toy':'玩具'}
 
+# 同細項的兩個已核准售價，分別對應兩種不同款式。
+TIERS = (('T1','替代品'),('T2','基礎用品'),('T3','優質用品'),
+         ('T4','精品用品'),('T5','高級訂製品'))
+# 類別、細項、對應選購頁、每級兩款的正式價格。
+ITEMS = [
+ ('飲食用品','食盆','bowl',[(350,450),(650,800),(1300,1500),(2800,3200),(6000,6800)]),
+ ('飲食用品','水盆','bowl',[(350,500),(700,850),(1400,1700),(3000,3500),(6500,7500)]),
+ ('飲食用品','自動飲水器','daily',[(1200,1500),(2500,3000),(5000,6000),(10000,12000),(22000,26000)]),
+ ('飲食用品','飼料','feed',[(500,600),(900,1100),(1700,2000),(3500,4000),(7000,8000)]),
+ ('飲食用品','零食','treat',[(250,350),(500,650),(1000,1200),(2200,2600),(4800,5500)]),
+ ('飲食用品','健康食品','supplement',[(850,1000),(1500,1800),(2800,3200),(5500,6500),(11000,13000)]),
+ ('飲食用品','自動餵食器','daily',[(1800,2200),(3500,4200),(7000,8000),(14000,16000),(28000,32000)]),
+ ('居家用品','寵物窩／睡床','bed',[(900,1200),(2000,2400),(4000,4800),(9000,10000),(20000,24000)]),
+ ('居家用品','籠子','cage',[(1200,1500),(2800,3200),(5500,6500),(12000,14000),(26000,30000)]),
+ ('居家用品','圍欄','cage',[(900,1100),(2000,2500),(4000,5000),(9000,11000),(20000,24000)]),
+ ('居家用品','墊子／毯子','bed',[(350,500),(800,1000),(1800,2200),(4000,4800),(9000,11000)]),
+ ('居家用品','貓跳台／攀爬架','daily',[(1800,2200),(4000,5000),(9000,11000),(20000,24000),(45000,52000)]),
+ ('居家用品','棲木／鳥架','bed',[(500,700),(1200,1500),(2800,3200),(6000,7500),(14000,17000)]),
+ ('居家用品','保暖／降溫設備','daily',[(1200,1500),(2500,3000),(5500,6500),(12000,14000),(25000,30000)]),
+ ('外出用品','項圈','leash',[(400,550),(900,1100),(2000,2400),(4500,5500),(10000,12000)]),
+ ('外出用品','牽繩','leash',[(500,650),(1200,1500),(2600,3200),(6000,7000),(13000,16000)]),
+ ('外出用品','背帶','leash',[(700,850),(1500,1800),(3200,3800),(6500,7500),(13000,15000)]),
+ ('外出用品','航空箱／外出籠','carrier',[(1800,2200),(4000,4800),(8000,10000),(18000,21000),(40000,46000)]),
+ ('外出用品','寵物外出包','carrier',[(1000,1300),(2500,3000),(5500,6500),(12000,15000),(28000,33000)]),
+ ('外出用品','寵物推車','carrier',[(3000,3500),(7000,8000),(15000,18000),(32000,38000),(70000,80000)]),
+ ('外出用品','外出飲水設備','daily',[(400,550),(900,1200),(2000,2500),(4500,5500),(10000,12000)]),
+ ('清潔用品','貓砂盆／寵物廁所','toilet',[(700,900),(1500,1800),(3500,4000),(8000,9500),(18000,22000)]),
+ ('清潔用品','貓砂／尿布墊／籠底紙','toilet',[(300,400),(650,800),(1300,1600),(2800,3300),(6000,7000)]),
+ ('清潔用品','清潔劑／除臭用品','daily',[(300,450),(700,900),(1500,1800),(3500,4200),(8000,9500)]),
+ ('清潔用品','梳子／刷具','groom',[(450,600),(1000,1250),(2200,2700),(5000,6000),(11000,13000)]),
+ ('清潔用品','洗毛精／清潔用品','groom',[(400,550),(900,1100),(2000,2400),(4500,5500),(10000,12000)]),
+ ('清潔用品','指甲護理用品','groom',[(400,550),(950,1200),(2200,2600),(5000,6000),(11000,13000)]),
+ ('玩樂用品','一般玩具','toy',[(300,400),(650,800),(1400,1700),(3200,3800),(7000,8500)]),
+ ('玩樂用品','益智玩具','toy',[(600,800),(1500,1800),(3500,4200),(8000,9500),(18000,22000)]),
+ ('玩樂用品','啃咬／磨牙玩具','toy',[(300,450),(750,900),(1600,2000),(3800,4500),(8500,10000)]),
+ ('玩樂用品','訓練工具','toy',[(500,650),(1100,1400),(2500,3000),(5500,7000),(12000,15000)]),
+ ('玩樂用品','大型遊樂設備','toy',[(1500,2000),(3500,4500),(8000,10000),(18000,22000),(40000,48000)]),
+ ('服飾配件','寵物服裝','daily',[(500,650),(1200,1500),(2800,3500),(6500,8000),(15000,18000)]),
+ ('服飾配件','領結／裝飾配件','daily',[(250,350),(600,750),(1500,1800),(3500,4200),(8000,10000)]),
+ ('服飾配件','身分吊牌','daily',[(300,400),(700,850),(1600,2000),(3800,4500),(9000,11000)]),
+ ('服飾配件','客製化裝飾','daily',[(700,900),(1600,2000),(3800,4500),(9000,11000),(20000,25000)])
+]
+assert len(ITEMS)==36
+SPECIES_CODES={'貓':'cat','狗':'dog','鸚鵡':'parrot'}
+LONG_HAIR={'布偶貓','緬因貓','波斯貓','博美犬','黃金獵犬','薩摩耶'}
+PAGES={
+ '貓':[('cage','籠子／安全活動區',True),('bed','睡床',True),('toilet','廁所',True),('carrier','航空箱',True),('bowl','食盆及水盆',True),('leash','外出配件',False),('toy','玩具',True),('feed','飼料',True),('treat','零食',False),('supplement','健康食品',False),('daily','其他用品',False)],
+ '狗':[('cage','籠子／圍欄',True),('bed','睡床',True),('toilet','廁所',True),('carrier','航空箱',True),('bowl','食盆及水盆',True),('leash','牽繩／背帶',True),('toy','玩具',True),('feed','飼料',True),('treat','零食',False),('supplement','健康食品',False),('daily','其他用品',False)],
+ '鸚鵡':[('cage','鳥籠',True),('bed','棲木',True),('toilet','籠底清潔用品',True),('carrier','外出鳥籠',True),('bowl','食盆及水盆',True),('leash','飛行背帶',False),('toy','玩具',True),('feed','飼料',True),('treat','零食',False),('supplement','健康食品',False),('daily','其他用品',False)]
+}
+QUALITY=tuple((key,name,1) for key,name in TIERS)
 
-def wizard_pages(species, breed_name=''):
-    if species not in PAGES: return []
-    rows = list(PAGES[species])
+def wizard_pages(species,breed_name=''):
+    pages=list(PAGES.get(species,()))
     if breed_name in LONG_HAIR:
-        rows.insert(next(i for i, p in enumerate(rows) if p[0] == 'feed'), ('groom', '梳理用品', True))
-    return rows
+        pages.insert(next(i for i,p in enumerate(pages) if p[0]=='feed'),('groom','梳理用品',True))
+    return pages
 
+def _applicable(species,subcategory):
+    if subcategory=='貓跳台／攀爬架': return species=='貓'
+    if subcategory=='棲木／鳥架': return species=='鸚鵡'
+    if subcategory in ('項圈','牽繩','寵物推車','寵物服裝'): return species!='鸚鵡'
+    if subcategory=='背帶': return species in ('狗','貓','鸚鵡')
+    if subcategory=='貓砂盆／寵物廁所': return species!='鸚鵡'
+    if subcategory=='圍欄': return species!='鸚鵡'
+    if subcategory=='洗毛精／清潔用品': return species!='鸚鵡'
+    return True
 
 def item_templates():
-    """回傳有物種適配與品質分層的用品預設值。"""
-    for species, pages in PAGES.items():
-        for group, label, required in pages:
-            for quality, quality_label, mult in QUALITY:
-                code = f'v21:{ {"貓":"cat", "狗":"dog", "鸚鵡":"parrot"}[species]}:{group}:{quality}'
-                yield {'code':code,'species':species,'group':group,'label':f'{label}・{quality_label}',
-                       'quality':quality,'price':BASE_PRICE[group]*mult,'required':required,
-                       'category':CATEGORY.get(group,'日常'),'permanent':group not in ('feed','treat','supplement'),
-                       'hidden_health':int(mult-1) if group in ('feed','supplement','bed') else 0,
-                       'hidden_bond':int(mult-1) if group in ('toy','treat','bed') else 0}
-        for quality, quality_label, mult in QUALITY:
-            group='groom';code=f'v21:{ {"貓":"cat", "狗":"dog", "鸚鵡":"parrot"}[species]}:{group}:{quality}'
-            yield {'code':code,'species':species,'group':group,'label':f'梳理用品・{quality_label}',
-                   'quality':quality,'price':BASE_PRICE[group]*mult,'required':False,
-                   'category':'日常','permanent':True,'hidden_health':mult-1,'hidden_bond':0}
+    for species,prefix in SPECIES_CODES.items():
+        for index,(category,subcategory,group,prices) in enumerate(ITEMS,1):
+            if not _applicable(species,subcategory): continue
+            for tier,(quality,quality_label) in enumerate(TIERS):
+                for variant,price in enumerate(prices[tier],1):
+                    code=f'v3:{prefix}:{index:02d}:{quality}:{variant}'
+                    servings={'feed':10,'treat':10,'supplement':5}.get(group,0)
+                    if subcategory=='貓砂／尿布墊／籠底紙':servings=10
+                    if subcategory=='清潔劑／除臭用品':servings=15
+                    if subcategory=='洗毛精／清潔用品':servings=10
+                    permanent=not bool(servings)
+                    # 飲食用品的共同資料；不公開隱藏加成欄位於玩家畫面。
+                    bonus=(0,1,2,3,5)[tier]
+                    if group=='feed': bonus_health=(4,5,6,7,9)[tier]-4
+                    elif group=='supplement': bonus_health=(1,2,3,4,6)[tier]
+                    else: bonus_health=bonus if group in ('bed','groom') else 0
+                    bonus_bond=(1,2,3,4,6)[tier] if group=='treat' else bonus if group in ('toy','bed') else 0
+                    style='款式甲' if variant==1 else '款式乙'
+                    yield dict(code=code,species=species,group=group,
+                               label=f'{species}用{subcategory}・{quality_label}・{style}',
+                               quality=quality,price=price,required=False,
+                               category=category,subcategory=subcategory,
+                               permanent=permanent,servings=servings,
+                               hidden_health=bonus_health,hidden_bond=bonus_bond)
