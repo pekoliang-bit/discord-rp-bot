@@ -392,6 +392,21 @@ class ActionExecuteView(discord.ui.View):
             +( '\n🎂 這次已扣除生日地點預付次數，金幣免重複付款。' if result.get('birthday_credit_used') else '' )
             +encounter_note,
             view=encounter_view,ephemeral=True)
+        if not result.get('duplicated'):
+            try:
+                from core.official_location_events_v1 import roll_after_action
+                from modules.official_location_events_ui import OfficialEventChoiceView, describe
+                event=await asyncio.to_thread(
+                    roll_after_action,self.guild_id,self.character_id,
+                    str(location.get('key') or self.channel_id),
+                    f"discord-action:{interaction.id}",channel_id=self.channel_id)
+                if event:
+                    await interaction.followup.send(
+                        describe(event),
+                        view=OfficialEventChoiceView(self.guild_id,self.user_id,self.character_id,event),
+                        ephemeral=True)
+            except Exception:
+                LOG.exception('行動完成後，官方地點隨機事件處理失敗；原行動不回滾')
 
 
 class BirthdayLocationOfferView(discord.ui.View):
