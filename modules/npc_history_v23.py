@@ -217,12 +217,15 @@ def activate_claim(gid,uid,claim_id):
 class ImportNPCModal(discord.ui.Modal, title='匯入 NPC 人設訊息'):
     link=discord.ui.TextInput(label='Discord 角色單訊息連結',max_length=300)
 
-    def __init__(self,kind:str,owner_id:int):
+    def __init__(self,kind:str,owner_id:int|None=None):
         super().__init__()
         if kind not in ('player_npc','official_npc'):
             raise ValueError('NPC 類型不正確。')
+        if kind=='official_npc' and owner_id is None:
+            raise ValueError('官方 NPC 登記需要指定實際持有人。')
         self.npc_kind=kind
-        self.character_owner_id=int(owner_id)
+        # 玩家 NPC 是公開待認領的人設模板，匯入時不指定角色持有人。
+        self.character_owner_id=int(owner_id) if kind=='official_npc' else None
 
     async def on_submit(self,i):
         if not is_server_admin(i):
@@ -232,12 +235,12 @@ class ImportNPCModal(discord.ui.Modal, title='匯入 NPC 人設訊息'):
             channel,message=await fetch_sheet(i,str(self.link.value))
             if message.author.bot:
                 raise ValueError('不能使用機器人發表的角色單。')
-            # 非本人發文可由管理員代為匯入；實際持有人不依原訊息作者推定。
-            member=i.guild.get_member(self.character_owner_id)
-            if member is None:member=await i.guild.fetch_member(self.character_owner_id)
-            ensure_npc_owner(i.guild,member,self.npc_kind)
             kind=self.npc_kind
+            # 只有官方 NPC 需要檢查實際持有人；玩家 NPC 在認領時才建立持有人關聯。
             if kind=='official_npc':
+                member=i.guild.get_member(self.character_owner_id)
+                if member is None:member=await i.guild.fetch_member(self.character_owner_id)
+                ensure_npc_owner(i.guild,member,kind)
                 # 先驗證模板，避免無效名稱被登記；原始角色單的登記者與持有人分開。
                 name,fields,custom=parse_text(message.content)
                 with get_connection() as db:
@@ -291,8 +294,16 @@ class ImportNPCModal(discord.ui.Modal, title='匯入 NPC 人設訊息'):
                 else:
                     notice='；⚠️ 尚未辨識所屬陣營，請到頻道綁定中心核對發布區'
                 return await i.response.send_message(f'✅ 官方 NPC「{name}」登記完成！角色 #{new_id}。\n主要持有人：<@{self.character_owner_id}>；其他管理員可依官方授權共同操作。'+notice,ephemeral=True)
-            template_id,name,count=import_template(i.guild_id,message.id,channel.id,message.content,kind,preferred_owner=self.character_owner_id,registered_by=i.user.id)
-            await i.response.send_message(f'✅ 玩家 NPC 模板 #{template_id}「{name}」已指定給 <@{self.character_owner_id}>。\n請本人到 /創角 → NPC 申請，填寫 {count} 項自定義欄位並完成兩階段審核；管理員代匯入不會直接啟用。',ephemeral=True)
+            template_id,name,count=import_template(
+                i.guild_id,message.id,channel.id,message.content,kind,
+                preferred_owner=None,registered_by=i.user.id,
+            )
+            await i.response.send_message(
+                f'✅ 玩家 NPC 預設人設 #{template_id}「{name}」已匯入公開待認領名單。\n'
+                f'尚未指定持有人，也未建立或啟用角色。玩家可到 /創角 → NPC 申請，'
+                f'選擇人設、填寫 {count} 項自定義欄位並送交兩階段審核。',
+                ephemeral=True,
+            )
         except (ValueError,PermissionError,sqlite3.Error,discord.HTTPException) as exc:
             await i.response.send_message(f'⚠️ {exc}',ephemeral=True)
 
@@ -576,12 +587,17 @@ class HistoryRebuildButton(discord.ui.Button):
 class NPCImportKindSelect(discord.ui.Select):
     def __init__(self):
         super().__init__(placeholder='選擇 NPC 類型',min_values=1,max_values=1,
-            options=[discord.SelectOption(label='玩家 NPC',value='player_npc',description='指定本人認領，仍需雙審'),
-                     discord.SelectOption(label='官方 NPC',value='official_npc',description='限管理員持有、官方共同扮演')])
+            options=[discord.SelectOption(label='玩家 NPC',value='player_npc',description='匯入公開人設，由玩家在創角時認領'),
+                     discord.SelectOption(label='官方 NPC',value='official_npc',description='官方角色，沿用持有人登記流程')])
     async def callback(self,i):
         if not is_server_admin(i):
             return await i.response.send_message('僅伺服器管理員可匯入 NPC。',ephemeral=True)
-        await i.response.edit_message(content='請選擇登記方式：本人登記，或指定實際持有者。',view=NPCImportOwnerModeView(i.guild_id,i.user.id,self.values[0]))
+        if self.values[0]=='player_npc':
+            return await i.response.send_modal(ImportNPCModal('player_npc'))
+        await i.response.edit_message(
+            content='官方 NPC：請選擇本人登記或指定實際持有人。',
+            view=NPCImportOwnerModeView(i.guild_id,i.user.id,'official_npc'),
+        )
 
 class NPCImportKindView(discord.ui.View):
     def __init__(self,guild_id:int,owner_id:int):
@@ -663,7 +679,7 @@ class NPCRegisterButton(discord.ui.Button):
         if not is_server_admin(i):
             return await i.response.send_message('僅群主或伺服器管理員可操作。',ephemeral=True)
         await i.response.send_message(
-            '📋 先選擇 NPC 類型，再決定本人或代登記，最後提供角色單連結。',
+            '📋 玩家 NPC：只需提供角色單連結，匯入後公開供玩家在 /創角 認領；官方 NPC 仍依現有登記流程。',
             view=NPCImportKindView(i.guild_id, i.user.id), ephemeral=True,
         )
 
