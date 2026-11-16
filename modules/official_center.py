@@ -149,7 +149,7 @@ def is_management_user(interaction):
     if interaction.guild_id is None:
         return False
     from modules.task_permissions import authorized as task_authorized
-    return bool(Actor.from_interaction(interaction).is_admin or task_authorized(interaction))
+    return bool(Actor.from_interaction(interaction).is_admin)
 
 
 def require_management_user(interaction):
@@ -182,7 +182,7 @@ def has_staff_permission(interaction, staff_type):
     # Discord administrators may review ordinary applications.  Discipline and
     # guild-owner-only actions are guarded separately by their own checks.
     permissions = getattr(interaction.user, "guild_permissions", None)
-    if staff_type == "reviewer" and bool(getattr(permissions, "administrator", False)):
+    if bool(getattr(permissions, "administrator", False)):
         return True
 
     member = interaction.user
@@ -257,7 +257,7 @@ def get_config(guild_id):
 
 
 def validate_role(interaction, role):
-    require_owner(interaction)
+    require_management_user(interaction)
 
     if role.is_default() or role.managed:
         raise ValueError(
@@ -287,7 +287,7 @@ def validate_role(interaction, role):
 
 
 def set_binding(interaction, kind, role):
-    require_owner(interaction)
+    require_management_user(interaction)
 
     if kind not in STAFF_TYPES:
         raise ValueError("職位不存在。")
@@ -562,7 +562,7 @@ async def decide_application(
     approve,
     reason="",
 ):
-    require_owner(interaction)
+    require_management_user(interaction)
 
     guild = interaction.guild
     guild_id = str(guild.id)
@@ -681,7 +681,7 @@ async def decide_application(
 
 
 async def revoke_grant(interaction, user_id, kind):
-    require_owner(interaction)
+    require_management_user(interaction)
 
     guild = interaction.guild
     guild_id = str(guild.id)
@@ -788,7 +788,7 @@ class OwnerView(PrivateView):
             return False
 
         try:
-            require_owner(interaction)
+            require_management_user(interaction)
             return True
         except PermissionError as exc:
             await send_error(interaction, exc)
@@ -1575,8 +1575,8 @@ class AdminToolsView(ManagementView):
             ),
         ]
 
-        # 公關設定只供群主使用；不新增 Discord 頂層指令。
-        if self.owner:
+        # 公關管理：群主或 Administrator；正式開群與內測結束仍限群主。
+        if self.owner or self.admin:
             from modules.rumor_pr_admin_ui import PRStrategyManageButton
             from modules.rumor_auto_broadcast_ui import RumorAutoManageButton
             pr_button = PRStrategyManageButton()
@@ -1588,7 +1588,7 @@ class AdminToolsView(ManagementView):
 
         # A task-only delegate must not see unrelated commerce/admin panels.
         from modules.task_permissions import authorized as task_authorized
-        task_only = task_authorized(interaction) and not self.owner and not Actor.from_interaction(interaction).is_admin
+        task_only = False  # 非 Administrator 的任務委任不構成官方管理員
         for index, (label, module_name, class_name, owner_only) in enumerate(tools):
             if task_only and label != "內容建立":
                 continue
@@ -1805,7 +1805,7 @@ class StaffRosterView(PrivateView):
     @discord.ui.button(label="🛡️ 群主審核", style=discord.ButtonStyle.success, row=1)
     async def review(self, interaction, button):
         try:
-            require_owner(interaction)
+            require_management_user(interaction)
             result = get_pending(interaction.guild_id)
             await interaction.response.send_message(pending_text(result), view=PendingView(interaction), ephemeral=True)
         except (PermissionError, sqlite3.Error) as exc:
@@ -1814,7 +1814,7 @@ class StaffRosterView(PrivateView):
     @discord.ui.button(label="⚙️ 正式人員管理", style=discord.ButtonStyle.secondary, row=1)
     async def manage(self, interaction, button):
         try:
-            require_owner(interaction)
+            require_management_user(interaction)
             result = get_grants(interaction.guild_id)
             await interaction.response.send_message(grants_text(result), view=GrantsView(interaction), ephemeral=True)
         except (PermissionError, sqlite3.Error) as exc:
