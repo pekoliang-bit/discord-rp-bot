@@ -13,12 +13,15 @@ def query(guild_id, limit=100):
         publication_columns = table_columns(db, 'productions')
         if 'published_at' not in publication_columns:
             return [], 'unavailable'
-        rows = db.execute('''SELECT c.id AS character_id,c.name AS character_name,
+        sql = '''SELECT c.id AS character_id,c.name AS character_name,
                     COUNT(DISTINCT p.id) AS score FROM characters c
                     JOIN contracts k ON k.guild_id=c.guild_id AND k.character_id=c.id
                     JOIN productions p ON p.guild_id=k.guild_id AND p.id=k.production_id
                     JOIN production_completion pc ON pc.guild_id=p.guild_id AND pc.production_id=p.id
                     WHERE c.guild_id=? AND c.status='active' AND pc.status='approved'
                     AND p.published_at IS NOT NULL AND k.status IN ('active','completed')
-                    GROUP BY c.id,c.name''', (str(guild_id),)).fetchall()
+                    GROUP BY c.id,c.name'''
+        if table_columns(db,'rp_beta_characters'):
+            sql=sql.replace('GROUP BY c.id,c.name',"AND NOT EXISTS (SELECT 1 FROM rp_beta_characters b WHERE b.guild_id=c.guild_id AND b.character_id=c.id) GROUP BY c.id,c.name")
+        rows = db.execute(sql,(str(guild_id),)).fetchall()
     return (ranked([dict(r) for r in rows],limit), 'ready') if rows else ([], 'empty')
