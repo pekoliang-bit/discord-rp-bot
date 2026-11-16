@@ -1,4 +1,3 @@
-
 """Pet market V2: selectable stock, required starter kit, atomic checkout and chip.
 
 Pre-launch admin configuration is allowed; player operations remain launch gated
@@ -945,7 +944,7 @@ def feed(guild_id, pet_id, character_id, user_id):
             raise ValueError('這隻寵物今天已正常餵食兩餐')
         if used and used['last_at'] and (current-datetime.fromisoformat(used['last_at'])).total_seconds()<21600:
             raise ValueError('兩餐之間至少需間隔6小時')
-        # Only a valid species-specific feed or legacy feed can be selected.        # Only a valid species-specific feed or legacy feed can be selected.
+        # Only a valid species-specific feed or legacy feed can be selected.
         possible = db.execute('''SELECT i.code, i.quantity, c.quality, c.hidden_health
           FROM rp_pet_inventory_v2 i LEFT JOIN rp_pet_catalog_v2 c
           ON c.guild_id=i.guild_id AND c.kind='item' AND c.code=i.code
@@ -1236,7 +1235,11 @@ def encounter_detail(
             )
         ).fetchone()
 
-        return dict(row) if row else None
+        if not row:
+            return None
+        # Miracle identity and locked lifespan remain server-only secrets.
+        return {k: v for k, v in dict(row).items()
+                if k not in ('miracle', 'life_years')}
 
 
 def shop_categories(guild_id, species):
