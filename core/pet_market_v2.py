@@ -43,6 +43,16 @@ def setup(db, guild_id=None):
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
       UNIQUE(guild_id,request_key))''')
 
+    db.execute('''CREATE TABLE IF NOT EXISTS rp_pet_food_daily_v3 (
+      guild_id TEXT NOT NULL,pet_id INTEGER NOT NULL,day TEXT NOT NULL,
+      meals INTEGER NOT NULL DEFAULT 0,last_at TEXT,
+      PRIMARY KEY(guild_id,pet_id,day))''')
+    db.execute('''CREATE TABLE IF NOT EXISTS rp_pet_open_consumables_v3 (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, guild_id TEXT NOT NULL,
+      character_id INTEGER NOT NULL, code TEXT NOT NULL,
+      remaining INTEGER NOT NULL, opened_at TEXT NOT NULL,
+      CHECK(remaining>=0))''')
+
     # 既有 V2 資料表原位升級，保留玩家購物車、訂單與庫存。
     columns = {
         r[1] for r in db.execute(
@@ -52,6 +62,8 @@ def setup(db, guild_id=None):
 
     definitions = {
         'category': "TEXT NOT NULL DEFAULT '日常'",
+        'subcategory': "TEXT NOT NULL DEFAULT ''",
+        'servings': 'INTEGER NOT NULL DEFAULT 0',
         'quality': "TEXT NOT NULL DEFAULT ''",
         'required_group': "TEXT NOT NULL DEFAULT ''",
         'hidden_health': 'INTEGER NOT NULL DEFAULT 0',
@@ -82,7 +94,7 @@ def setup(db, guild_id=None):
             db.execute(
                 """INSERT OR IGNORE INTO rp_pet_catalog_v2
                 (guild_id,kind,code,species,label,price,active,description)
-                VALUES (?,'breed',?,?,?,?,?,'V2.1 候選價／未逐品種核准')""",
+                VALUES (?,'breed',?,?,?,?,?,'正式核准品種基礎售價')""",
                 (
                     guild_id, code, species,
                     label, price, active
@@ -96,11 +108,11 @@ def setup(db, guild_id=None):
                     guild_id,kind,code,species,label,price,
                     active,basic,description,category,quality,
                     required_group,hidden_health,hidden_bond,
-                    permanent,breed_codes
+                    permanent,breed_codes,subcategory,servings
                 )
                 VALUES (
-                    ?,'item',?,?,?,?,1,0,'V2.1 暫行用品數值',
-                    ?,?,?,?,?,?,?
+                    ?,'item',?,?,?,?,1,0,'五級用品正式預設數值',
+                    ?,?,?,?,?,?,?,?,?
                 )""",
                 (
                     guild_id,
@@ -114,7 +126,7 @@ def setup(db, guild_id=None):
                     item['hidden_health'],
                     item['hidden_bond'],
                     int(item['permanent']),
-                    '[]'
+                    '[]',item.get('subcategory',item['label']),item.get('servings',0)
                 )
             )
 
@@ -506,13 +518,33 @@ def preview(guild_id, character_id):
         return _preview(db, gid, int(character_id))
 
 
-def checkout(guild_id, character_id, user_id, pet_name, request_key):
+def _birthday_discount(db, gid, cid, rows):
+    """Apply exactly one externally configured 72h birthday offer.
+
+    The birthday module is optional during staged deployment; when installed,
+    it must expose eligible_discount(db,guild_id,character_id) returning 0..1.
+    Pet breed prices are never eligible; only item lines are discounted.
+    """
+    try:
+        from core.birthday_core_v3 import eligible_discount
+    except ImportError:
+        return 0
+    rate=float(eligible_discount(db,gid,cid))
+    if not 0<=rate<=1:
+        raise ValueError('生日商城折扣設定無效')
+    discounted=sum(int(x['price'])*int(x['quantity']) for x in rows if x['kind']=='item')
+    return int(discounted*rate)
+
+
+def checkout(guild_id, character_id, user_id, pet_name, request_key, *, age_stage='young'):
     gid = str(guild_id)
     cid = int(character_id)
     pet_name = str(pet_name).strip()[:50]
 
     if not pet_name:
         raise ValueError('請先填寫寵物名字')
+    if age_stage not in ('young', 'adult'):
+        raise ValueError('寵物年齡請選擇幼年或成年')
 
     if not str(request_key).strip():
         raise ValueError('缺少交易識別碼')
@@ -528,7 +560,12 @@ def checkout(guild_id, character_id, user_id, pet_name, request_key):
         ).fetchone()
 
         if old:
-            return json.loads(old['order_json'])
+            recorded=json.loads(old['order_json'])
+            owner=db.execute('SELECT character_id FROM rp_pet_orders_v2 WHERE guild_id=? AND request_key=?',
+                (gid,str(request_key))).fetchone()
+            if not owner or int(owner['character_id'])!=cid:
+                raise PermissionError('交易識別碼屬於其他角色')
+            return recorded
 
         from core.pet_agreement_v23 import has_signed
 
@@ -544,6 +581,9 @@ def checkout(guild_id, character_id, user_id, pet_name, request_key):
                 '請先選擇寵物，並加入全部必備用品；'
                 '確認商品未下架且庫存足夠'
             )
+
+        discount=_birthday_discount(db,gid,cid,state['items'])
+        payable=state['total']-discount
 
         breed = next(
             x for x in state['items']
@@ -604,8 +644,9 @@ def checkout(guild_id, character_id, user_id, pet_name, request_key):
         )
 
         pid = int(inserted.lastrowid)
+        pets._new_life(db, gid, pid, breed['code'], age_stage)
 
-        if state['total']:
+        if payable:
             sender = get_or_create_account(
                 db, gid, 'character', cid, 'wallet'
             )
@@ -619,7 +660,7 @@ def checkout(guild_id, character_id, user_id, pet_name, request_key):
                 'pet:checkout:' + gid + ':' + str(request_key),
                 sender,
                 receiver,
-                state['total'],
+                payable,
                 '寵物＋必備飼養用品一次結帳與晶片登記'
             )
 
@@ -679,7 +720,10 @@ def checkout(guild_id, character_id, user_id, pet_name, request_key):
             'species': breed['species'],
             'breed': breed['label'],
             'chip': chip,
-            'total': state['total'],
+            'age_stage': age_stage,
+            'total': payable,
+            'original_total': state['total'],
+            'birthday_discount': discount,
             'items': state['items']
         }
 
@@ -749,7 +793,12 @@ def checkout_supplies(
         ).fetchone()
 
         if old:
-            return json.loads(old['order_json'])
+            recorded=json.loads(old['order_json'])
+            owner=db.execute('SELECT character_id FROM rp_pet_orders_v2 WHERE guild_id=? AND request_key=?',
+                (gid,str(request_key))).fetchone()
+            if not owner or int(owner['character_id'])!=cid:
+                raise PermissionError('交易識別碼屬於其他角色')
+            return recorded
 
         state = _preview(db, gid, cid)
 
@@ -795,7 +844,9 @@ def checkout_supplies(
                 if changed.rowcount != 1:
                     raise ValueError('庫存不足')
 
-        if state['total']:
+        discount=_birthday_discount(db,gid,cid,state['items'])
+        payable=state['total']-discount
+        if payable:
             sender = get_or_create_account(
                 db, gid, 'character', cid, 'wallet'
             )
@@ -809,7 +860,7 @@ def checkout_supplies(
                 'pet:supplies:' + gid + ':' + str(request_key),
                 sender,
                 receiver,
-                state['total'],
+                payable,
                 '寵物飼料／用品統一結帳'
             )
 
@@ -833,7 +884,9 @@ def checkout_supplies(
         result = {
             'pet_id': None,
             'chip': None,
-            'total': state['total'],
+            'total': payable,
+            'original_total': state['total'],
+            'birthday_discount': discount,
             'items': state['items']
         }
 
@@ -865,69 +918,78 @@ def checkout_supplies(
 
 
 def feed(guild_id, pet_id, character_id, user_id):
-    # Consume one previously purchased food unit, then restore pet health.
-    gid = str(guild_id)
-    cid = int(character_id)
-    rules = pet_rules(gid)
+    """Use one serving from an opened eligible feed package, not the entire item.
 
+    All packaging and serving updates occur in the same economy transaction.
+    Existing legacy starter_feed is still recognised for player inventory safety.
+    """
+    gid, cid, pid = str(guild_id), int(character_id), int(pet_id)
+    rules = pet_rules(gid)
     with transaction() as db:
         setup(db, gid)
         _actor(db, gid, cid, user_id)
-        pets._access(db, gid, pet_id, cid)
-
-        target = pets._pet(db, gid, pet_id)
-
-        if pets._hospitalized(db, gid, pet_id):
+        pets._access(db, gid, pid, cid)
+        pet = pets._pet(db, gid, pid)
+        if pets._hospitalized(db, gid, pid):
             raise ValueError('寵物住院中，請從醫療中心進行照護與探病')
-
-        if target['state'] in ('missing', 'deceased'):
-            raise ValueError('目前無法餵食這隻寵物')
-
-        used = db.execute(
-            '''UPDATE rp_pet_inventory_v2
-            SET quantity=quantity-1
-            WHERE guild_id=? AND character_id=?
-              AND code='starter_feed'
-              AND quantity>=1''',
-            (gid, cid)
-        )
-
-        if used.rowcount != 1:
-            raise ValueError(
-                '飼料不足，請先到 /寵物中心 選購並結帳'
-            )
-
-        new_health = pets.clamp(
-            int(target['health']) + 4,
-            rules['health_max']
-        )
-
-        db.execute(
-            '''UPDATE rp_pets_v1
-            SET health=?
-            WHERE guild_id=? AND id=?''',
-            (new_health, gid, int(pet_id))
-        )
-
-        db.execute(
-            '''INSERT INTO rp_pet_events_v1
-            (
-                guild_id,pet_id,actor_character_id,event_type
-            )
-            VALUES (?,?,?,?)''',
-            (
-                gid,
-                int(pet_id),
-                cid,
-                'feed'
-            )
-        )
-
-        return {
-            'health': new_health,
-            'bond': int(target['bond']),
-            'state': target['state']
-        }
+        if pet['state'] in ('missing', 'deceased', 'critical'):
+            raise ValueError('目前無法一般餵食；危急狀態必須接受醫療')
+        if pet['illness']:
+            # Normal food is still permitted with illness; it does not cure it.
+            pass
+        current=datetime.now(timezone.utc)
+        day=current.date().isoformat()
+        used=db.execute('SELECT meals,last_at FROM rp_pet_food_daily_v3 WHERE guild_id=? AND pet_id=? AND day=?',
+                        (gid,pid,day)).fetchone()
+        if used and int(used['meals'])>=2:
+            raise ValueError('這隻寵物今天已正常餵食兩餐')
+        if used and used['last_at'] and (current-datetime.fromisoformat(used['last_at'])).total_seconds()<21600:
+            raise ValueError('兩餐之間至少需間隔6小時')
+        # Only a valid species-specific feed or legacy feed can be selected.        # Only a valid species-specific feed or legacy feed can be selected.
+        possible = db.execute('''SELECT i.code, i.quantity, c.quality, c.hidden_health
+          FROM rp_pet_inventory_v2 i LEFT JOIN rp_pet_catalog_v2 c
+          ON c.guild_id=i.guild_id AND c.kind='item' AND c.code=i.code
+          WHERE i.guild_id=? AND i.character_id=? AND i.quantity>0
+            AND (i.code='starter_feed' OR
+                 (c.required_group='feed' AND c.species=?))
+          ORDER BY i.code''', (gid,cid,pet['species'])).fetchall()
+        open_row = db.execute('''SELECT o.id,o.code,o.remaining,c.hidden_health
+          FROM rp_pet_open_consumables_v3 o LEFT JOIN rp_pet_catalog_v2 c
+            ON c.guild_id=o.guild_id AND c.kind='item' AND c.code=o.code
+          WHERE o.guild_id=? AND o.character_id=? AND o.remaining>0
+            AND (o.code='starter_feed' OR
+                 (c.required_group='feed' AND c.species=?))
+          ORDER BY o.opened_at,o.id LIMIT 1''', (gid,cid,pet['species'])).fetchone()
+        if open_row:
+            code = open_row['code']
+            db.execute('UPDATE rp_pet_open_consumables_v3 SET remaining=remaining-1 WHERE id=? AND remaining>0',
+                       (int(open_row['id']),))
+            extra = int(open_row['hidden_health'] or 0)
+        elif possible:
+            pkg=possible[0]
+            code=pkg['code']
+            reduced=db.execute('''UPDATE rp_pet_inventory_v2 SET quantity=quantity-1
+              WHERE guild_id=? AND character_id=? AND code=? AND quantity>=1''', (gid,cid,code))
+            if reduced.rowcount != 1:
+                raise ValueError('飼料庫存不足')
+            db.execute('''INSERT INTO rp_pet_open_consumables_v3
+              (guild_id,character_id,code,remaining,opened_at) VALUES (?,?,?,?,?)''',
+                       (gid,cid,code,9,datetime.now(timezone.utc).isoformat()))
+            extra=int(pkg['hidden_health'] or 0)
+        else:
+            raise ValueError('沒有適用的飼料，請先到寵物用品商城購買')
+        db.execute('''INSERT INTO rp_pet_food_daily_v3(guild_id,pet_id,day,meals,last_at)
+          VALUES (?,?,?,?,?) ON CONFLICT(guild_id,pet_id,day)
+          DO UPDATE SET meals=meals+1,last_at=excluded.last_at''',
+          (gid,pid,day,1,current.isoformat()))
+        # T1..T5 is determined by catalogue quality; never multiply per owned package.
+        health=pets.clamp(int(pet['health'])+4+max(0,min(5,extra)),rules['health_max'])
+        db.execute('UPDATE rp_pets_v1 SET health=? WHERE guild_id=? AND id=?', (health,gid,pid))
+        db.execute('''INSERT INTO rp_pet_events_v1
+          (guild_id,pet_id,actor_character_id,event_type,detail_json)
+          VALUES (?,?,?,?,?)''',
+          (gid,pid,cid,'feed',json.dumps({'code':code,'servings':1},ensure_ascii=False)))
+        return {'health':health,'bond':int(pet['bond']),'state':pet['state'],'code':code}
 
 
 def rename(
@@ -1141,6 +1203,9 @@ def action_encounter(
                 VALUES (?,?,?,?)''',
                 (gid, cid, kind, pid)
             ).lastrowid
+            if kind in ('stray','injured'):
+                breed_code = 'stray:cat' if chosen == 'stray_cat' else 'stray:dog:medium'
+                pets._generate_stray_life(db,gid,encounter_id,breed_code)
 
         db.execute(
             '''INSERT INTO rp_pet_action_rolls_v2
@@ -1172,6 +1237,23 @@ def encounter_detail(
         ).fetchone()
 
         return dict(row) if row else None
+
+
+def shop_categories(guild_id, species):
+    rows=catalog(guild_id,'item',species)
+    return sorted({str(r['category']) for r in rows})
+
+
+def shop_subcategories(guild_id, species, category):
+    rows=catalog(guild_id,'item',species)
+    return sorted({str(r.get('subcategory') or r['label'].split('・')[0])
+                   for r in rows if r['category']==category})
+
+
+def shop_products(guild_id,species,category,subcategory):
+    return [r for r in catalog(guild_id,'item',species)
+            if r['category']==category and
+            (r.get('subcategory') or r['label'].split('・')[0])==subcategory]
 
 
 def wizard_items(
