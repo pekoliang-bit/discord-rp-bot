@@ -2115,7 +2115,11 @@ class HomeView(OwnedView):
     def __init__(self, actor):
         super().__init__(actor)
         from modules.npc_history_v23 import NPCCreateButton
+        from modules.beta_test_buttons import ClaimBetaButton, ConvertBetaButton, EditBetaButton
         self.add_item(NPCCreateButton())
+        self.add_item(ClaimBetaButton())
+        self.add_item(ConvertBetaButton())
+        self.add_item(EditBetaButton())
 
     @discord.ui.button(
         label="➕ 建立新角色",
