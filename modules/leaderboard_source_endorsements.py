@@ -1,4 +1,3 @@
-
 """代言數量排行榜：只計算已接受且目前仍生效的正式代言。唯讀。"""
 from __future__ import annotations
 
@@ -14,7 +13,7 @@ def query(guild_id, limit=100):
     with get_connection() as db:
         if any(not cols <= table_columns(db, table) for table, cols in required.items()):
             return [], "unavailable"
-        rows = db.execute("""
+        sql = """
             SELECT c.id AS character_id, c.name AS character_name,
                    COUNT(DISTINCT e.id) AS score
             FROM characters AS c
@@ -22,6 +21,10 @@ def query(guild_id, limit=100):
               ON e.guild_id = c.guild_id AND e.character_id = c.id
             WHERE c.guild_id = ? AND c.status = 'active' AND e.status = 'active'
             GROUP BY c.id, c.name
-        """, (str(guild_id),)).fetchall()
+        """
+        if table_columns(db,'rp_beta_characters'):
+            sql=sql.replace('GROUP BY c.id, c.name',
+                'AND NOT EXISTS (SELECT 1 FROM rp_beta_characters b WHERE b.guild_id=c.guild_id AND b.character_id=c.id) GROUP BY c.id, c.name')
+        rows = db.execute(sql,(str(guild_id),)).fetchall()
     data = [dict(row) for row in rows]
     return (ranked(data, limit), "ready") if data else ([], "empty")
