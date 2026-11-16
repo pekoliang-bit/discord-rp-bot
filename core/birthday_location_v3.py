@@ -67,21 +67,22 @@ def _kind(location, action, guild_id):
 
 def offer_for(guild_id, location, action):
     """回傳可真正履約的單一課程/餐點組合；不自動發放無商品依據的禮品。"""
-    kind=_kind(location,action,guild_id)
-    if kind not in OFFERS or action.get('approved') is not True:
+    # 官方生日福利以獨立 JSON 為唯一權威資料，避免地點名稱自動套用。
+    # 玩家商店不繼承官方預設，須由店主另行設定。
+    from core.official_birthday_gifts_v1 import eligible_bundle
+    gift=eligible_bundle(guild_id,location,action)
+    if gift is None:
+        return None
+    if action.get('approved') is not True:
         return None
     if action.get('formal_notice') is True or int(action.get('reward_coins',0)):
         return None
     if any(s.get('mode')=='random' for s in (action.get('stat_rewards') or [])):
         return None
-    if kind in ('餐廳','咖啡廳'):
-        if action.get('category') not in ('活動',):
-            return None
-        if kind=='咖啡廳' and not any(t in str(action.get('name','')) for t in ('飲品','咖啡','茶','奶')):
-            return None
-    else:
-        if action.get('category')!='課程':
-            return None
+    # 商品代碼與服務對應由官方生日 JSON 的 action_key 精確指定。
+    # 只接受有固定價格的活動或課程，不使用文字名稱推測。
+    if action.get('category') not in ('活動','課程'):
+        return None
     from modules.action_reward_rules import validate_action
     valid,_=validate_action(action)
     if not valid:
@@ -95,9 +96,9 @@ def offer_for(guild_id, location, action):
         price=max(price,points*(500 if action.get('category')=='課程' else 300))
     if price<=0:
         return None
-    buy,bonus,title=OFFERS[kind]
+    buy,bonus,title=gift['pay_count'],gift['bonus_count'],gift['title']
     from core.action_execution import _fingerprint
-    return {'offer_key':kind,'title':title,'pay_count':buy,'bonus_count':bonus,
+    return {'offer_key':str(location.get('key')),'title':title,'pay_count':buy,'bonus_count':bonus,
             'unit_price':price,'total_price':buy*price,
             'action_name':str(action.get('name','')),
             'action_fingerprint':_fingerprint(str(location.get('key') or location.get('channel_id')),action)}
