@@ -1,7 +1,4 @@
-"""角色生日福利面板及每4小時私人通知；不新增頂層 Slash 指令。
-
-玩家入口：/查看 -> 🎂 生日福利。私人通知投遞至角色專屬通知帖子。
-"""
+"""角色週年自動發禮及私人通知；保留獨立抽獎功能。"""
 from __future__ import annotations
 
 import asyncio
@@ -130,7 +127,7 @@ class BirthdayAnniversaryNotices(commands.Cog):
         try:
             with get_connection() as db:
                 birthday.setup(db)
-                rows=[dict(r) for r in db.execute('''SELECT a.guild_id,a.character_id
+                rows=[dict(r) for r in db.execute('''SELECT a.guild_id,a.character_id,c.owner_id
                     FROM rp_character_anniversaries_v3 a JOIN characters c
                     ON c.guild_id=a.guild_id AND c.id=a.character_id
                     WHERE c.status='active' ''')]
@@ -142,14 +139,26 @@ class BirthdayAnniversaryNotices(commands.Cog):
                     birthday.setup(db)
                     info=birthday.status(db,gid,cid)
                 if not info or info['cycle']<1:continue
-                since=datetime.now(timezone.utc)-info['current_at']
-                if not timedelta(0)<=since<timedelta(hours=72):continue
                 try:
-                    await asyncio.to_thread(queue_notification,gid,'private','role',
-                        '🎂 角色系統週年生日快樂！固定禮包可從 `/查看 → 🎂 生日福利` 手動領取；'
-                        '雙商城9折72小時、購買行動值每點350金幣24小時，以及各地點72小時生日優惠已依週年時間開始。',
-                        character_id=cid,priority='high',
-                        dedupe_key=f'birthday:v3:{gid}:{cid}:{info["cycle"]}')
+                    # Claim is unique per (guild, character, anniversary).  It is
+                    # safe on worker retries, and does not back-pay every prior year.
+                    result = await asyncio.to_thread(
+                        birthday.claim, gid, cid, r['owner_id']
+                    )
+                    # Always retry the idempotent notice after a successful
+                    # (or previously completed) claim.  Queue failure must not
+                    # permanently lose the notice after funds have been granted.
+                    cfg=settings(gid)
+                    await asyncio.to_thread(
+                        queue_notification, gid, 'private', 'role',
+                        f'🎂 生日禮包已自動發放：{cfg["coins"]:,}金幣、'
+                        f'{cfg["free_actions"]}行動值、{cfg["free_points"]}自由點數、'
+                        f'{cfg["birthday_tickets"]}張生日抽獎券。'
+                        '雙商城9折72小時與行動值每點350金幣24小時，'
+                        '均自週年到期時刻起算；各地點優惠72小時。',
+                        character_id=cid, priority='high',
+                        dedupe_key=f'birthday:v3:{gid}:{cid}:{info["cycle"]}'
+                    )
                 except Exception:
                     LOG.exception('角色生日週年通知失敗：%s/%s',gid,cid)
         except Exception:
