@@ -174,6 +174,14 @@ def execute_action(guild_id, user_id, character_id, location_key, action, reques
             total_points += int(action.get('attribute_increase', 0))
             total_points += sum(int(v) for v in (action.get('point_rewards') or {}).values())
             cost = max(cost, total_points * minimum)
+        # 生日地點組合的預付課程／餐點只抵扣本次金幣，正常消耗行動值。
+        # 抵扣紀錄和行動獎勵由同一筆交易提交，失敗時全部回滾。
+        birthday_credit_used=False
+        if cost>0:
+            from core.birthday_location_v3 import use_prepaid
+            birthday_credit_used=use_prepaid(db,guild_id,character_id,location_key,action,request_key,cost)
+            if birthday_credit_used:
+                cost=0
         ap=int(action.get('action_points_cost',0))
         spent=_spend_action_points(db,guild_id,character_id,ap,datetime.now(timezone.utc).isoformat())
         earn=int(action.get('reward_coins',0))
@@ -230,6 +238,7 @@ def execute_action(guild_id, user_id, character_id, location_key, action, reques
         result={'character_id':character_id,'action_name':str(action.get('name','未命名行動')),
                 'cost_coins':cost,'reward_coins':earn,'action_points_spent':ap,
                 'free_action_points_spent':spent['free'], 'paid_action_points_spent':spent['paid'],
+                'birthday_credit_used':birthday_credit_used,
                 'attribute_increase':increase,'rolled_stats':rolled,'point_rewards':action.get('point_rewards') or {},
                 'duplicated':False}
         db.execute("""INSERT INTO rp_location_action_events(
