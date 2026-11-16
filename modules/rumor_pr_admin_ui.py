@@ -6,7 +6,7 @@ from core.rumor_pr_strategy_admin import list_strategies, update_strategy
 
 
 def _owner(interaction: discord.Interaction) -> bool:
-    return bool(interaction.guild and interaction.guild.owner_id == interaction.user.id)
+    return bool(interaction.guild and (interaction.guild.owner_id == interaction.user.id or getattr(interaction.user.guild_permissions,"administrator",False)))
 
 
 async def _deny(interaction: discord.Interaction):
