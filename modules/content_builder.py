@@ -128,10 +128,14 @@ def init_db():
 # ==========================================
 
 def owner(i: discord.Interaction) -> bool:
-    return bool(
-        i.guild is not None
-        and i.user.id == i.guild.owner_id
-    )
+    # Here `owner` means an authorized *content manager*, not the Discord guild
+    # owner. Guild-owner-only launch and staff actions live in official_center.
+    if i.guild is None or i.user is None:
+        return False
+    if i.user.id == i.guild.owner_id:
+        return True
+    permissions = getattr(i.user, "guild_permissions", None)
+    return bool(getattr(permissions, "administrator", False))
 
 
 async def tell(i, message):
