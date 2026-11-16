@@ -1,0 +1,562 @@
+{
+  "schema_version": 1,
+  "scope": "official_locations_only",
+  "player_owned_shops": "owner_configured_only",
+  "initial_status": "disabled_until_official_actions_or_items_approved",
+  "notes": [
+    "本檔只包含生日禮物；隨機事件另存獨立檔案。",
+    "本檔是資料設定，尚須由既有生日地點核心讀取及驗證，單獨新增不會啟用福利。",
+    "未綁定實際 action_key 或 reward_item_code 的福利不得扣款或發獎。",
+    "原始官方地點資料多數仍待審核，本檔全部預設停用。"
+  ],
+  "locations": [
+    {
+      "location_key": "theater",
+      "name": "劇院",
+      "zone": "藝文特區",
+      "channel_id": "1548945111457603604",
+      "official_only": true,
+      "enabled": false,
+      "per_anniversary": 1,
+      "claim_window_hours": 72,
+      "gift": {
+        "kind": "buy_x_get_y",
+        "description": "生日劇場票買一送一（觀賞舞台劇）",
+        "paid_count": 1,
+        "bonus_count": 1,
+        "requires_approved_action": true,
+        "action_key": null
+      }
+    },
+    {
+      "location_key": "music_center",
+      "name": "音樂中心",
+      "zone": "藝文特區",
+      "channel_id": "1548945156999356567",
+      "official_only": true,
+      "enabled": false,
+      "per_anniversary": 1,
+      "claim_window_hours": 72,
+      "gift": {
+        "kind": "buy_x_get_y",
+        "description": "音樂鑑賞活動買一送一",
+        "paid_count": 1,
+        "bonus_count": 1,
+        "requires_approved_action": true,
+        "action_key": null
+      }
+    },
+    {
+      "location_key": "art_museum",
+      "name": "美術館",
+      "zone": "藝文特區",
+      "channel_id": "1567469876925435964",
+      "official_only": true,
+      "enabled": false,
+      "per_anniversary": 1,
+      "claim_window_hours": 72,
+      "gift": {
+        "kind": "buy_x_get_y",
+        "description": "藝術作品鑑賞買一送一",
+        "paid_count": 1,
+        "bonus_count": 1,
+        "requires_approved_action": true,
+        "action_key": null
+      }
+    },
+    {
+      "location_key": "exhibition_center",
+      "name": "展覽中心",
+      "zone": "藝文特區",
+      "channel_id": "1567469927299022908",
+      "official_only": true,
+      "enabled": false,
+      "per_anniversary": 1,
+      "claim_window_hours": 72,
+      "gift": {
+        "kind": "buy_x_get_y",
+        "description": "參觀主題展覽買一送一",
+        "paid_count": 1,
+        "bonus_count": 1,
+        "requires_approved_action": true,
+        "action_key": null
+      }
+    },
+    {
+      "location_key": "fashion_design_company",
+      "name": "時裝設計公司",
+      "zone": "商業經貿區",
+      "channel_id": "1548941921492279306",
+      "official_only": true,
+      "enabled": false,
+      "per_anniversary": 1,
+      "claim_window_hours": 72,
+      "gift": {
+        "kind": "buy_x_get_y",
+        "description": "基礎服裝設計課買二送一",
+        "paid_count": 2,
+        "bonus_count": 1,
+        "requires_approved_action": true,
+        "action_key": null
+      }
+    },
+    {
+      "location_key": "talent_agency",
+      "name": "經紀公司",
+      "zone": "商業經貿區",
+      "channel_id": "1548941960604156024",
+      "official_only": true,
+      "enabled": false,
+      "per_anniversary": 1,
+      "claim_window_hours": 72,
+      "gift": {
+        "kind": "buy_x_get_y",
+        "description": "經紀管理基礎課買二送一",
+        "paid_count": 2,
+        "bonus_count": 1,
+        "requires_approved_action": true,
+        "action_key": null
+      }
+    },
+    {
+      "location_key": "celebrity_studio",
+      "name": "明星工作室",
+      "zone": "商業經貿區",
+      "channel_id": "1548942065105244180",
+      "official_only": true,
+      "enabled": false,
+      "per_anniversary": 1,
+      "claim_window_hours": 72,
+      "gift": {
+        "kind": "buy_x_get_y",
+        "description": "個人品牌基礎課買二送一",
+        "paid_count": 2,
+        "bonus_count": 1,
+        "requires_approved_action": true,
+        "action_key": null
+      }
+    },
+    {
+      "location_key": "bank",
+      "name": "銀行",
+      "zone": "商業經貿區",
+      "channel_id": "1545747674731515976",
+      "official_only": true,
+      "enabled": false,
+      "per_anniversary": 1,
+      "claim_window_hours": 72,
+      "gift": {
+        "kind": "commemorative",
+        "description": "生日專屬紀念存款證明（無金錢加成）",
+        "requires_catalog_item": true,
+        "reward_item_code": null
+      }
+    },
+    {
+      "location_key": "department_store",
+      "name": "百貨公司",
+      "zone": "商業經貿區",
+      "channel_id": "1567792904703840277",
+      "official_only": true,
+      "enabled": false,
+      "per_anniversary": 1,
+      "claim_window_hours": 72,
+      "gift": {
+        "kind": "buy_x_get_y",
+        "description": "時尚購物體驗買一送一",
+        "paid_count": 1,
+        "bonus_count": 1,
+        "requires_approved_action": true,
+        "action_key": null
+      }
+    },
+    {
+      "location_key": "mall",
+      "name": "商城",
+      "zone": "商業經貿區",
+      "channel_id": "1567789004026286110",
+      "official_only": true,
+      "enabled": false,
+      "per_anniversary": 1,
+      "claim_window_hours": 72,
+      "gift": {
+        "kind": "commemorative",
+        "description": "官方商城生日紀念包裝資格（無物品加成）",
+        "requires_catalog_item": true,
+        "reward_item_code": null
+      }
+    },
+    {
+      "location_key": "television_station",
+      "name": "電視台",
+      "zone": "影視娛樂區",
+      "channel_id": "1548942181723545620",
+      "official_only": true,
+      "enabled": false,
+      "per_anniversary": 1,
+      "claim_window_hours": 72,
+      "gift": {
+        "kind": "buy_x_get_y",
+        "description": "節目錄製觀摩買一送一",
+        "paid_count": 1,
+        "bonus_count": 1,
+        "requires_approved_action": true,
+        "action_key": null
+      }
+    },
+    {
+      "location_key": "film_city",
+      "name": "影視城",
+      "zone": "影視娛樂區",
+      "channel_id": "1567769960246284338",
+      "official_only": true,
+      "enabled": false,
+      "per_anniversary": 1,
+      "claim_window_hours": 72,
+      "gift": {
+        "kind": "buy_x_get_y",
+        "description": "影視場景參觀買一送一",
+        "paid_count": 1,
+        "bonus_count": 1,
+        "requires_approved_action": true,
+        "action_key": null
+      }
+    },
+    {
+      "location_key": "photo_studio",
+      "name": "攝影棚",
+      "zone": "影視娛樂區",
+      "channel_id": "1548944788030623744",
+      "official_only": true,
+      "enabled": false,
+      "per_anniversary": 1,
+      "claim_window_hours": 72,
+      "gift": {
+        "kind": "buy_x_get_y",
+        "description": "基礎攝影技術課買二送一",
+        "paid_count": 2,
+        "bonus_count": 1,
+        "requires_approved_action": true,
+        "action_key": null
+      }
+    },
+    {
+      "location_key": "film_production_studio",
+      "name": "電影製片廠",
+      "zone": "影視娛樂區",
+      "channel_id": "1567469558477099058",
+      "official_only": true,
+      "enabled": false,
+      "per_anniversary": 1,
+      "claim_window_hours": 72,
+      "gift": {
+        "kind": "buy_x_get_y",
+        "description": "電影製作基礎課買二送一",
+        "paid_count": 2,
+        "bonus_count": 1,
+        "requires_approved_action": true,
+        "action_key": null
+      }
+    },
+    {
+      "location_key": "radio_station",
+      "name": "廣播電台",
+      "zone": "影視娛樂區",
+      "channel_id": "1567469635060633740",
+      "official_only": true,
+      "enabled": false,
+      "per_anniversary": 1,
+      "claim_window_hours": 72,
+      "gift": {
+        "kind": "buy_x_get_y",
+        "description": "基礎發音訓練買二送一",
+        "paid_count": 2,
+        "bonus_count": 1,
+        "requires_approved_action": true,
+        "action_key": null
+      }
+    },
+    {
+      "location_key": "beauty_center",
+      "name": "美容中心",
+      "zone": "生活休閒區",
+      "channel_id": "1546798240295297094",
+      "official_only": true,
+      "enabled": false,
+      "per_anniversary": 1,
+      "claim_window_hours": 72,
+      "gift": {
+        "kind": "buy_x_get_y",
+        "description": "護膚保養體驗買一送一",
+        "paid_count": 1,
+        "bonus_count": 1,
+        "requires_approved_action": true,
+        "action_key": null
+      }
+    },
+    {
+      "location_key": "park",
+      "name": "公園",
+      "zone": "生活休閒區",
+      "channel_id": "1546797716699619429",
+      "official_only": true,
+      "enabled": false,
+      "per_anniversary": 1,
+      "claim_window_hours": 72,
+      "gift": {
+        "kind": "free_once",
+        "description": "生日戶外社交活動免收一次活動費",
+        "requires_approved_action": true,
+        "action_key": null
+      }
+    },
+    {
+      "location_key": "internet_cafe",
+      "name": "網紅咖啡廳",
+      "zone": "生活休閒區",
+      "channel_id": "1548940842700505228",
+      "official_only": true,
+      "enabled": false,
+      "per_anniversary": 1,
+      "claim_window_hours": 72,
+      "gift": {
+        "kind": "buy_x_get_y",
+        "description": "咖啡品鑑買一送一",
+        "paid_count": 1,
+        "bonus_count": 1,
+        "requires_approved_action": true,
+        "action_key": null
+      }
+    },
+    {
+      "location_key": "fitness_center",
+      "name": "連鎖健身房",
+      "zone": "生活休閒區",
+      "channel_id": "1548941378397020211",
+      "official_only": true,
+      "enabled": false,
+      "per_anniversary": 1,
+      "claim_window_hours": 72,
+      "gift": {
+        "kind": "buy_x_get_y",
+        "description": "自主健身活動買一送一",
+        "paid_count": 1,
+        "bonus_count": 1,
+        "requires_approved_action": true,
+        "action_key": null
+      }
+    },
+    {
+      "location_key": "restaurant",
+      "name": "餐廳",
+      "zone": "生活休閒區",
+      "channel_id": "1567471301470326875",
+      "official_only": true,
+      "enabled": false,
+      "per_anniversary": 1,
+      "claim_window_hours": 72,
+      "gift": {
+        "kind": "buy_x_get_y",
+        "description": "餐廳聚餐買一送一",
+        "paid_count": 1,
+        "bonus_count": 1,
+        "requires_approved_action": true,
+        "action_key": null
+      }
+    },
+    {
+      "location_key": "shopping_street",
+      "name": "購物街",
+      "zone": "生活休閒區",
+      "channel_id": "1567471346466955264",
+      "official_only": true,
+      "enabled": false,
+      "per_anniversary": 1,
+      "claim_window_hours": 72,
+      "gift": {
+        "kind": "buy_x_get_y",
+        "description": "服裝搭配體驗買一送一",
+        "paid_count": 1,
+        "bonus_count": 1,
+        "requires_approved_action": true,
+        "action_key": null
+      }
+    },
+    {
+      "location_key": "charity_center",
+      "name": "公益中心",
+      "zone": "生活休閒區",
+      "channel_id": "1567471583679750174",
+      "official_only": true,
+      "enabled": false,
+      "per_anniversary": 1,
+      "claim_window_hours": 72,
+      "gift": {
+        "kind": "commemorative",
+        "description": "生日公益感謝卡及活動紀念徽章（不加屬性）",
+        "requires_catalog_item": true,
+        "reward_item_code": null
+      }
+    },
+    {
+      "location_key": "hospital",
+      "name": "醫院",
+      "zone": "生活休閒區",
+      "channel_id": "1567998859362304100",
+      "official_only": true,
+      "enabled": false,
+      "per_anniversary": 1,
+      "claim_window_hours": 72,
+      "gift": {
+        "kind": "commemorative",
+        "description": "生日關懷卡及一般健康資訊服務（不視為醫療診斷）",
+        "requires_catalog_item": true,
+        "reward_item_code": null
+      }
+    },
+    {
+      "location_key": "deep_night_bar",
+      "name": "深夜酒吧",
+      "zone": "夜生活娛樂區",
+      "channel_id": "1548941075547295805",
+      "official_only": true,
+      "enabled": false,
+      "per_anniversary": 1,
+      "claim_window_hours": 72,
+      "gift": {
+        "kind": "buy_x_get_y",
+        "description": "合法入場者之無酒精飲品體驗買一送一",
+        "paid_count": 1,
+        "bonus_count": 1,
+        "requires_approved_action": true,
+        "action_key": null
+      }
+    },
+    {
+      "location_key": "nightclub",
+      "name": "夜總會",
+      "zone": "夜生活娛樂區",
+      "channel_id": "1567471174064144444",
+      "official_only": true,
+      "enabled": false,
+      "per_anniversary": 1,
+      "claim_window_hours": 72,
+      "gift": {
+        "kind": "buy_x_get_y",
+        "description": "符合入場資格者之舞台表演體驗買一送一",
+        "paid_count": 1,
+        "bonus_count": 1,
+        "requires_approved_action": true,
+        "action_key": null
+      }
+    },
+    {
+      "location_key": "ktv",
+      "name": "KTV",
+      "zone": "夜生活娛樂區",
+      "channel_id": "1567471225033461873",
+      "official_only": true,
+      "enabled": false,
+      "per_anniversary": 1,
+      "claim_window_hours": 72,
+      "gift": {
+        "kind": "buy_x_get_y",
+        "description": "個人歡唱買一送一",
+        "paid_count": 1,
+        "bonus_count": 1,
+        "requires_approved_action": true,
+        "action_key": null
+      }
+    },
+    {
+      "location_key": "dance_practice_room",
+      "name": "歌舞練習室",
+      "zone": "培訓學習區",
+      "channel_id": "1545747802133499955",
+      "official_only": true,
+      "enabled": false,
+      "per_anniversary": 1,
+      "claim_window_hours": 72,
+      "gift": {
+        "kind": "buy_x_get_y",
+        "description": "自學練習課買二送一",
+        "paid_count": 2,
+        "bonus_count": 1,
+        "requires_approved_action": true,
+        "action_key": null
+      }
+    },
+    {
+      "location_key": "city_library",
+      "name": "市立圖書館",
+      "zone": "培訓學習區",
+      "channel_id": "1546801896541519872",
+      "official_only": true,
+      "enabled": false,
+      "per_anniversary": 1,
+      "claim_window_hours": 72,
+      "gift": {
+        "kind": "buy_x_get_y",
+        "description": "閱讀研究活動買一送一",
+        "paid_count": 1,
+        "bonus_count": 1,
+        "requires_approved_action": true,
+        "action_key": null
+      }
+    },
+    {
+      "location_key": "recording_studio",
+      "name": "錄音工作室",
+      "zone": "培訓學習區",
+      "channel_id": "1548942125352357888",
+      "official_only": true,
+      "enabled": false,
+      "per_anniversary": 1,
+      "claim_window_hours": 72,
+      "gift": {
+        "kind": "buy_x_get_y",
+        "description": "基礎發聲課買二送一",
+        "paid_count": 2,
+        "bonus_count": 1,
+        "requires_approved_action": true,
+        "action_key": null
+      }
+    },
+    {
+      "location_key": "acting_classroom",
+      "name": "演技教室",
+      "zone": "培訓學習區",
+      "channel_id": "1567471457909350400",
+      "official_only": true,
+      "enabled": false,
+      "per_anniversary": 1,
+      "claim_window_hours": 72,
+      "gift": {
+        "kind": "buy_x_get_y",
+        "description": "表演基礎課買二送一",
+        "paid_count": 2,
+        "bonus_count": 1,
+        "requires_approved_action": true,
+        "action_key": null
+      }
+    },
+    {
+      "location_key": "professional_training_center",
+      "name": "專業培訓中心",
+      "zone": "培訓學習區",
+      "channel_id": "1567471503140986923",
+      "official_only": true,
+      "enabled": false,
+      "per_anniversary": 1,
+      "claim_window_hours": 72,
+      "gift": {
+        "kind": "buy_x_get_y",
+        "description": "基礎技能訓練買二送一",
+        "paid_count": 2,
+        "bonus_count": 1,
+        "requires_approved_action": true,
+        "action_key": null
+      }
+    }
+  ]
+}
