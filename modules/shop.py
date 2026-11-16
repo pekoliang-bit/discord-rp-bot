@@ -1021,6 +1021,33 @@ def buy(
         )
 
 
+        # 一般商城：稱號／生日9折／已選用生日5000券不可疊加。
+        # 每筆訂單只採最有利的一種折扣，與後續商城禮金分開計算。
+        from core.birthday_core_v3 import (
+            eligible_discount, apply_armed_coupon,
+        )
+        from decimal import Decimal, ROUND_FLOOR
+
+        original_total = int(item['price']) * int(quantity)
+        birthday_rate = eligible_discount(conn, actor.guild_id, character_id)
+        birthday_total = int((Decimal(original_total) * (
+            Decimal('1') - Decimal(str(birthday_rate))
+        )).to_integral_value(rounding=ROUND_FLOOR))
+        birthday_saving = original_total - birthday_total
+        if birthday_saving > saved_money:
+            total = birthday_total
+            saved_money = birthday_saving
+            discount_title = '生日商城9折'
+
+        coupon_saved = apply_armed_coupon(
+            conn, actor.guild_id, character_id, f'shop:{key}',
+            original_total, saved_money,
+        )
+        if coupon_saved:
+            total = original_total - coupon_saved
+            saved_money = coupon_saved
+            discount_title = '生日5,000金幣折價券'
+
         wallet = get_or_create_account(
             conn,
             actor.guild_id,
@@ -1096,7 +1123,7 @@ def buy(
             return (
                 f"🛍️ 購買成功："
                 f"{item['name']} ×{quantity}\n"
-                f"🎖️ 使用稱號：{discount_title}\n"
+                f"🎁 本次優惠：{discount_title}\n"
                 f"💰 現金支付：{due:,} 金幣\n"
                 f"🎁 商城禮金折抵：{credit_used:,} 金幣\n"
                 f"✨ 本次優惠：{saved_money:,} 金幣"
