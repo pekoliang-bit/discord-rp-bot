@@ -877,6 +877,9 @@ def feed(guild_id, pet_id, character_id, user_id):
 
         target = pets._pet(db, gid, pet_id)
 
+        if pets._hospitalized(db, gid, pet_id):
+            raise ValueError('寵物住院中，請從醫療中心進行照護與探病')
+
         if target['state'] in ('missing', 'deceased'):
             raise ValueError('目前無法餵食這隻寵物')
 
