@@ -171,7 +171,7 @@ def daily(guild_id,*,timestamp=None,rng=None):
             summary['checked']+=1
             if db.execute('SELECT 1 FROM rp_pet_reward_days_v1 WHERE guild_id=? AND pet_id=? AND day=?',(gid,old['id'],day)).fetchone():continue
             fresh=_pet(db,gid,old['id']);triggered=0;stat=None;value=0
-            if fresh['state']=='home' and not fresh['illness']:
+            if fresh['state']=='home' and not _hospitalized(db,gid,old['id']) and not fresh['illness']:
                 condition=None;damage=0
                 if rng.randint(1,100)<=rules['disease_daily_chance']:
                     condition='sick';damage=rng.randint(rules['sick_health_loss_min'],rules['sick_health_loss_max'])
@@ -185,12 +185,12 @@ def daily(guild_id,*,timestamp=None,rng=None):
                     db.execute('INSERT INTO rp_pet_events_v1(guild_id,pet_id,event_type,detail_json) VALUES (?,?,?,?)',
                         (gid,int(old['id']),condition,json.dumps({'health_lost':damage})))
             fresh=_pet(db,gid,old['id'])
-            if fresh['state']=='home' and int(fresh['bond'])<100:
+            if fresh['state']=='home' and not _hospitalized(db,gid,old['id']) and int(fresh['bond'])<100:
                 chance=rules['missing_risk_high'] if int(fresh['bond'])==0 else rules['missing_risk_mid'] if int(fresh['bond'])<50 else rules['missing_risk_low']
                 if rng.randint(1,100)<=chance:
                     db.execute("UPDATE rp_pets_v1 SET state='missing',missing_since=? WHERE guild_id=? AND id=?",(iso(timestamp),gid,int(old['id'])))
                     fresh=_pet(db,gid,old['id'])
-            if fresh['state']=='home' and rng.randint(1,100)<=rules['daily_bonus_chance']:
+            if fresh['state']=='home' and not _hospitalized(db,gid,old['id']) and rng.randint(1,100)<=rules['daily_bonus_chance']:
                 available=[r['name'] for r in db.execute("SELECT name FROM attributes WHERE guild_id=? AND character_id=? AND name IN ('流量熱度','商業價值','路人緣','公關','容貌','才智','歌唱','舞蹈','演繹','主持','綜藝','個人才藝')",(gid,int(old['main_character_id'])))]
                 if available:
                     stat=rng.choice(available);value=rng.randint(rules['daily_bonus_min'],rules['daily_bonus_max'])
@@ -200,15 +200,38 @@ def daily(guild_id,*,timestamp=None,rng=None):
                 (gid,int(old['id']),day,triggered,int(old['main_character_id']),stat,value))
     return summary
 
+def _hospitalized(db, guild_id, pet_id):
+    """An active admission blocks non-clinical pet interactions.
+
+    Check for the table for backwards compatibility with pre-medical databases.
+    An expired prepaid period is still an admission until formally discharged.
+    """
+    table = db.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' "
+        "AND name='rp_pet_medical_stays_v23'"
+    ).fetchone()
+    if not table:
+        return False
+    return db.execute(
+        "SELECT 1 FROM rp_pet_medical_stays_v23 "
+        "WHERE guild_id=? AND pet_id=? AND discharged_at IS NULL LIMIT 1",
+        (str(guild_id), int(pet_id)),
+    ).fetchone() is not None
+
+
 def care(guild_id,pet_id,character_id,user_id,action):
     gid=str(guild_id);rules=pet_rules(gid)
     actions={'play':('bond',rules['play_bond_gain']),'walk':('health',3),'feed':('health',4),
         'wrong_food':('health',-rules['wrong_food_health_loss']),
-        'gift':('bond',rules['gift_bond_min']),'check':('health',0), 'treat':('health',25)}
+        'gift':('bond',rules['gift_bond_min']),'check':('health',0)}
+    if action == 'treat':
+        raise ValueError('傷病治療必須經 /寵物中心 → 醫療診斷、報價及付款，不能使用免費照護。')
     if action not in actions:raise ValueError('不支援的照顧方式')
     with transaction() as db:
         initialize(db);_actor(db,gid,character_id,user_id);_access(db,gid,pet_id,character_id)
         pet=_pet(db,gid,pet_id)
+        if _hospitalized(db,gid,pet_id):
+            raise ValueError('寵物住院中，請從 /寵物中心 → 醫療中心進行探病與照護')
         if pet['state']=='deceased':raise ValueError('已死亡寵物不能再互動')
         if pet['state']=='missing':raise ValueError('寵物走失中，請先協尋')
         field,delta=actions[action]
@@ -216,7 +239,6 @@ def care(guild_id,pet_id,character_id,user_id,action):
         health=clamp(health+(delta if field=='health' else 0),rules['health_max'])
         bond=clamp(bond+(delta if field=='bond' else 0),rules['bond_max'])
         state=pet['state'];critical=pet['critical_since'];illness=pet['illness']
-        if action=='treat':state='home';critical=None;illness=''
         if health==0 and not critical:state='critical';critical=iso(now())
         if action=='play':play=iso(now())
         else:play=pet['last_play']
@@ -238,6 +260,7 @@ def mark_missing(guild_id,pet_id,character_id,user_id,location):
     with transaction() as db:
         initialize(db);_actor(db,gid,character_id,user_id);_access(db,gid,pet_id,character_id)
         pet=_pet(db,gid,pet_id)
+        if _hospitalized(db,gid,pet_id):raise ValueError('寵物住院中，不可登記走失')
         if pet['state'] not in ('home','critical'):raise ValueError('此寵物狀態無法登記走失')
         db.execute("UPDATE rp_pets_v1 SET state='missing',missing_since=?,last_location=? WHERE guild_id=? AND id=?",(iso(now()),str(location)[:100],gid,int(pet_id)))
 
@@ -299,6 +322,7 @@ def buy_service(guild_id,pet_id,character_id,user_id,item):
     with transaction() as db:
         initialize(db);_actor(db,gid,character_id,user_id);_access(db,gid,pet_id,character_id)
         pet=_pet(db,gid,pet_id)
+        if _hospitalized(db,gid,pet_id):raise ValueError('寵物住院中，請使用醫療中心照護')
         if pet['state'] in ('missing','deceased'):raise ValueError('目前無法進行此操作')
         event=db.execute('INSERT INTO rp_pet_events_v1(guild_id,pet_id,actor_character_id,event_type) VALUES (?,?,?,?)',
             (gid,int(pet_id),int(character_id),'buy:'+item)).lastrowid
