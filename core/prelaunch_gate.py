@@ -61,9 +61,18 @@ def is_management_actor(interaction):
     return bool(getattr(permissions, 'administrator', False))
 
 
+def is_beta_player(interaction):
+    """內測玩家僅能在封群期間進入遊玩指令；官方操作另須管理權限。"""
+    member = getattr(interaction, 'user', None)
+    if getattr(interaction, 'guild', None) is None or member is None:
+        return False
+    return any(getattr(role, 'name', '') == '內測玩家'
+               for role in getattr(member, 'roles', ()))
+
+
 def may_use_system(interaction):
     """Launch protects players, not server owners/administrators."""
-    return is_open(getattr(interaction, 'guild_id', None)) or is_management_actor(interaction)
+    return is_open(getattr(interaction, 'guild_id', None)) or is_management_actor(interaction) or is_beta_player(interaction)
 
 
 def allow_component(interaction, item=None, modal=None):
