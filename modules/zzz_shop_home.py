@@ -208,7 +208,11 @@ def buy_actions(
                 "不會再次扣款。"
             )
 
-        cost = quantity * ACTION_PRICE
+        # 生日首24小時，每點350金幣；一般售價不變。
+        # 結帳時在相同交易內確認，避免只改畫面價格而多扣款。
+        from core.birthday_core_v3 import action_price
+        unit_price = action_price(conn, actor.guild_id, character_id)
+        cost = quantity * unit_price
 
         wallet = get_or_create_account(
             conn,
@@ -267,6 +271,7 @@ def buy_actions(
         return (
             "⚡ **行動值購買成功！**\n\n"
             f"購買數量：{quantity:,} 點\n"
+            f"每點售價：{unit_price:,} 金幣\n"
             f"支付金額：{cost:,} 金幣\n"
             f"有效期限："
             f"{expires:%Y-%m-%d %H:%M} UTC\n\n"
