@@ -9,7 +9,7 @@ from core.database import get_connection, transaction
 
 
 def owner(i):
-    return bool(i.guild and i.guild.owner_id == i.user.id)
+    return bool(i.guild and (i.guild.owner_id == i.user.id or getattr(i.user.guild_permissions,"administrator",False)))
 
 
 def init_db():
