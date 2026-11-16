@@ -1,5 +1,5 @@
 
-"""寵物中心：購買、照顧、醫療、住院及晶片管理。"""
+"""寵物"""寵物中心：購買、照顧、醫療、住院及晶片管理。"""
 
 from __future__ import annotations
 
@@ -2580,7 +2580,7 @@ class PetCenter(commands.Cog):
 
                     for notice in notices:
                         try:
-                            await asyncio.to_thread(
+                            queued = await asyncio.to_thread(
                                 queue_notification,
                                 gid,
                                 'private',
@@ -2593,6 +2593,13 @@ class PetCenter(commands.Cog):
                                     f'{notice["stage"]}'
                                 )
                             )
+                            if queued:
+                                await asyncio.to_thread(
+                                    medical.mark_followup_notice,
+                                    gid,
+                                    notice['pet_id'],
+                                    notice['stage']
+                                )
                         except Exception:
                             LOG.exception('首次複檢通知失敗')
 
