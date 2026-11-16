@@ -1,4 +1,3 @@
-
 """寵物醫療 V2.3 臨床擴充：診斷、病房管理、探病、延期、病歷。
 
 沿用 pet_medical_v23 的價目表、付款及康復規則；不修改保單或角色資料。
@@ -110,8 +109,20 @@ def diagnose(guild_id, pet_id, character_id, user_id, *, rng=None):
                 'diagnosis': diagnosis['diagnosis'] if diagnosis else '已建檔傷病',
                 'symptoms': diagnosis['symptoms'] if diagnosis else '需持續觀察'
             }
-        roll = rng.randint(1, 100)
-        level = 1 if roll <= 55 else 2 if roll <= 85 else 3 if roll <= 97 else 4
+        # 嚴重度依健康及實際事件傷害為主，僅保留小幅隨機變動。
+        evidence = db.execute('''SELECT detail_json FROM rp_pet_events_v1
+          WHERE guild_id=? AND pet_id=? AND event_type IN ('sick','injured')
+          ORDER BY id DESC LIMIT 1''',(gid,pid)).fetchone()
+        try:
+            damage = max(0,int(json.loads(evidence['detail_json']).get('health_lost',0))) if evidence else 0
+        except (ValueError,TypeError,KeyError):
+            damage = 0
+        health = int(p['health'])
+        level = (4 if health <= 15 or damage >= 35 else
+                 3 if health <= 35 or damage >= 25 else
+                 2 if health <= 70 or damage >= 15 else 1)
+        if rng.randint(1,100) <= 10:
+            level = max(1,min(4,level + rng.choice((-1,1))))
         name = DISEASES.get(p['species'], DISEASES['狗'])[kind][level - 1]
         symptoms = [
             '精神略差',
