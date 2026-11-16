@@ -1,4 +1,3 @@
-
 """Discord RP｜場景商店登記與頻道管理。
 
 供 /官方 管理功能中心載入 SceneShopButton。
@@ -30,11 +29,14 @@ KINDS = (
 # ==========================================
 
 def is_owner(interaction):
-    return (
-        interaction.guild is not None
-        and interaction.guild.owner_id
-        == interaction.user.id
-    )
+    # For scene-shop management, allow owner or Discord Administrator.  This
+    # does not grant the permissions of the actual guild owner elsewhere.
+    if interaction.guild is None or interaction.user is None:
+        return False
+    if interaction.guild.owner_id == interaction.user.id:
+        return True
+    permissions = getattr(interaction.user, "guild_permissions", None)
+    return bool(getattr(permissions, "administrator", False))
 
 
 def require_owner(interaction):
