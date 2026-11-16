@@ -251,31 +251,61 @@ class QuantityModal(discord.ui.Modal, title='勾選商品｜填寫各商品數�
             self.fields.append(field)
 
     async def on_submit(self, i):
+        # Discord requires an acknowledgement within three seconds.  Catalogue
+        # seeding and SQLite writes may take longer; defer before any I/O.
+        await i.response.defer(ephemeral=True, thinking=True)
         try:
-            amounts=[int(field.value) for field in self.fields]
-            await asyncio.to_thread(market.select_many,i.guild_id,self.cid,i.user.id, list(zip(self.codes,amounts)))
+            amounts = []
+            for field in self.fields:
+                raw = str(field.value or '').strip()
+                if not raw.isdecimal():
+                    raise ValueError('數量只能填寫1～99的整數')
+                amount = int(raw)
+                if not 1 <= amount <= 99:
+                    raise ValueError('每款商品只能購買1～99件')
+                amounts.append(amount)
+            await asyncio.to_thread(
+                market.select_many, i.guild_id, self.cid, i.user.id,
+                list(zip(self.codes, amounts))
+            )
+            if self.next_step is not None:
+                state = await asyncio.to_thread(market.preview, i.guild_id, self.cid)
+                current = WizardView(i, self.cid, self.breed_code, max(0, self.next_step-1))
+                group, label, mandatory = current.pages[current.step]
+                if mandatory and group in state['missing_basics']:
+                    return await i.followup.send(
+                        current.page_text(i.guild_id) +
+                        '\n⚠️ 此頁用品尚未選齊，請補充必選用品。',
+                        view=current, ephemeral=True
+                    )
+                view = WizardView(i, self.cid, self.breed_code, self.next_step)
+                if self.next_step >= len(view.pages):
+                    if not state['ready']:
+                        view = WizardView(i, self.cid, self.breed_code, 0)
+                        return await i.followup.send(
+                            cart_text(state)+'\n請補齊所有必選用品。',
+                            view=view, ephemeral=True
+                        )
+                    await asyncio.to_thread(agreement.start, i.guild_id, self.cid, i.user.id)
+                    terms_view = TermsPages(i, self.cid)
+                    return await i.followup.send(terms_view.text(), view=terms_view, ephemeral=True)
+                return await i.followup.send(view.page_text(i.guild_id), view=view, ephemeral=True)
+            context = self.product_context or {}
+            view = SupplyProductsView(
+                i, self.cid, context.get('species','貓'),
+                context.get('category','飲食用品'),
+                context.get('subcategory','飼料'), context.get('page',0)
+            )
+            return await i.followup.send(
+                cart_text(await asyncio.to_thread(market.preview,i.guild_id,self.cid)) +
+                '\n已加入購物車，可繼續選購或進入結帳。',
+                view=view, ephemeral=True
+            )
         except (ValueError, LookupError, PermissionError) as exc:
-            return await i.response.send_message(f'⚠️ {exc}', ephemeral=True)
-        if self.next_step is not None:
-            state=market.preview(i.guild_id,self.cid)
-            current=WizardView(i,self.cid,self.breed_code,max(0,self.next_step-1))
-            group,group_label,mandatory=current.pages[current.step]
-            if mandatory and group in state['missing_basics']:
-                return await update_flow(i,
-                    current.page_text(i.guild_id)+'\n⚠️ 此頁用品尚未選齊。食盆與水盆必須各有一款。',current)
-            view=WizardView(i,self.cid,self.breed_code,self.next_step)
-            if self.next_step>=len(view.pages):
-                state=market.preview(i.guild_id,self.cid)
-                if not state['ready']:
-                    view=WizardView(i,self.cid,self.breed_code,0)
-                    return await update_flow(i,cart_text(state)+'\n請回到缺少的必選用品頁面補齊。',view)
-                await asyncio.to_thread(agreement.start,i.guild_id,self.cid,i.user.id)
-                terms_view=TermsPages(i,self.cid)
-                return await update_flow(i,terms_view.text(),terms_view)
-            return await update_flow(i,view.page_text(i.guild_id),view)
-        context=self.product_context or {}
-        view=SupplyProductsView(i,self.cid,context.get('species','貓'),context.get('category','飲食用品'),context.get('subcategory','飼料'),context.get('page',0))
-        return await update_flow(i,cart_text(market.preview(i.guild_id,self.cid))+'\n繼續選購或前往結帳。',view)
+            await i.followup.send(f'⚠️ {exc}', ephemeral=True)
+        except Exception:
+            LOG.exception('寵物商品數量表單提交失敗 guild=%s character=%s',i.guild_id,self.cid)
+            await i.followup.send('⚠️ 商品數量提交失敗，請聯絡管理員檢查 Railway 詳細錯誤記錄。',ephemeral=True)
 
 
 class WizardView(Guard):
@@ -2278,7 +2308,7 @@ class SupplyCategoryView(Guard):
     def __init__(self,i,cid,species):
         super().__init__(i,cid);self.species=species
         for index,category in enumerate(market.shop_categories(i.guild_id,species)):
-            button=discord.ui.Button(label=category[:75],style=discord.ButtonStyle.primary,row=index//5)
+            button=discord.ui.Button(label=category[:75],style=discord.ButtonStyle.primary,row=index//3)
             async def chosen(x,c=category):
                 view=SupplySubcategoryView(x,self.cid,species,c)
                 await x.response.edit_message(content=f'🛒 {species}｜{c}：選擇商品細項。',view=view)
@@ -2350,13 +2380,11 @@ class PetHomeView(Guard):
         super().__init__(i, cid)
 
         options = [
-            ('pet_purchase', '🐾 購買寵物（自動逐頁選用品）'),
+            ('pet_purchase', '🐾 購買寵物'),
             ('supply_shop', '🛒 寵物用品商城'),
-            ('cart', '🧺 查看購物車／單獨用品結帳'),
             ('check', '🩺 寵物醫療中心'),
             ('treat', '🏥 傷病治療'),
-            ('training', '🎓 寵物訓練'),
-            ('terms', '📜 飼主須知')
+            ('training', '🎓 寵物訓練')
         ]
 
         if any(
