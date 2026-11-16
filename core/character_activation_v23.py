@@ -87,6 +87,15 @@ def history_notification(guild_id, character_id):
     """交易提交後執行；抽選失敗仍保留角色啟用狀態，並標記待補建。"""
     gid, cid = str(guild_id), int(character_id)
     try:
+        from core.database import get_connection
+        from core.bug_report_core_v2 import settle_pending_for_owner
+        with get_connection() as _db:
+            _owner=_db.execute('SELECT owner_id FROM characters WHERE guild_id=? AND id=?',(gid,cid)).fetchone()
+        if _owner:
+            settle_pending_for_owner(gid,str(_owner['owner_id']))
+    except Exception:
+        LOG.exception('角色 %s 的問題通報待領金幣補發失敗，將由補償排程重試',cid)
+    try:
         from core.history_v23 import attempt_lock
         status = attempt_lock(gid, cid)
     except Exception:
