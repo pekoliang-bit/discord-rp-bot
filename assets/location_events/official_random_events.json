@@ -1,0 +1,2075 @@
+{
+  "schema_version": 1,
+  "scope": "official_locations_only",
+  "player_owned_shops": "excluded_owner_decides",
+  "status": "pending_review",
+  "default_enabled": false,
+  "trigger_policy": {
+    "location_action": "only_after_completed_approved_action",
+    "special_locations": [
+      "bank",
+      "mall",
+      "hospital"
+    ],
+    "special_trigger": "only_after_completed_approved_service",
+    "chance_percent": null,
+    "cooldown": "pending_approval",
+    "once_per_action_id": true,
+    "must_not_charge_or_reward_without_approved_rule": true
+  },
+  "notes": [
+    "事件資料與生日禮物分檔管理；此檔尚無現成讀取和派送程式，不能單獨生效。",
+    "所有事件均為劇情文本，不直接修改金幣、屬性、道具、影響指數或玩家資料。",
+    "只有已核准、已成功結算的行動或專用服務才有資格觸發；現有多數官方場所預設待審。",
+    "玩家自營商店和場所由店主自行設計，不套用本檔。",
+    "未成年／夜生活限制、醫療保密、銀行與商城經濟交易及正式通告均由原系統判定。"
+  ],
+  "events": [
+    {
+      "event_id": "official_theater_01",
+      "location_key": "theater",
+      "location_name": "劇院",
+      "zone": "藝文特區",
+      "channel_id": "1548945111457603604",
+      "official_only": true,
+      "enabled": false,
+      "trigger": "approved_location_action_completed",
+      "event_type": "narrative_choice",
+      "title": "臨時加演通知",
+      "description": "劇院臨時公告一場加演，售票櫃檯正在確認座位資訊。",
+      "choices": [
+        {
+          "key": "a",
+          "label": "查看加演公告",
+          "response": "已選擇「查看加演公告」，本次事件完成。"
+        },
+        {
+          "key": "b",
+          "label": "照原訂行程離開",
+          "response": "已選擇「照原訂行程離開」，本次事件完成。"
+        }
+      ],
+      "effects": {
+        "coins": 0,
+        "attribute_points": 0,
+        "items": [],
+        "influence_index": 0
+      },
+      "requires_approved_action_or_service": true,
+      "cooldown_rule": "pending_approval"
+    },
+    {
+      "event_id": "official_theater_02",
+      "location_key": "theater",
+      "location_name": "劇院",
+      "zone": "藝文特區",
+      "channel_id": "1548945111457603604",
+      "official_only": true,
+      "enabled": false,
+      "trigger": "approved_location_action_completed",
+      "event_type": "narrative_choice",
+      "title": "後台道具清點",
+      "description": "工作人員發現道具數量與清單不符，正逐件核對。",
+      "choices": [
+        {
+          "key": "a",
+          "label": "通報值班人員",
+          "response": "已選擇「通報值班人員」，本次事件完成。"
+        },
+        {
+          "key": "b",
+          "label": "留在觀眾區等待",
+          "response": "已選擇「留在觀眾區等待」，本次事件完成。"
+        }
+      ],
+      "effects": {
+        "coins": 0,
+        "attribute_points": 0,
+        "items": [],
+        "influence_index": 0
+      },
+      "requires_approved_action_or_service": true,
+      "cooldown_rule": "pending_approval"
+    },
+    {
+      "event_id": "official_music_center_01",
+      "location_key": "music_center",
+      "location_name": "音樂中心",
+      "zone": "藝文特區",
+      "channel_id": "1548945156999356567",
+      "official_only": true,
+      "enabled": false,
+      "trigger": "approved_location_action_completed",
+      "event_type": "narrative_choice",
+      "title": "彩排開放片刻",
+      "description": "音樂中心宣布開放一小段正式彩排旁聽。",
+      "choices": [
+        {
+          "key": "a",
+          "label": "安靜旁聽",
+          "response": "已選擇「安靜旁聽」，本次事件完成。"
+        },
+        {
+          "key": "b",
+          "label": "依原計畫參觀",
+          "response": "已選擇「依原計畫參觀」，本次事件完成。"
+        }
+      ],
+      "effects": {
+        "coins": 0,
+        "attribute_points": 0,
+        "items": [],
+        "influence_index": 0
+      },
+      "requires_approved_action_or_service": true,
+      "cooldown_rule": "pending_approval"
+    },
+    {
+      "event_id": "official_music_center_02",
+      "location_key": "music_center",
+      "location_name": "音樂中心",
+      "zone": "藝文特區",
+      "channel_id": "1548945156999356567",
+      "official_only": true,
+      "enabled": false,
+      "trigger": "approved_location_action_completed",
+      "event_type": "narrative_choice",
+      "title": "樂器調音延誤",
+      "description": "演奏前的調音時間比預期久，現場行程稍有調整。",
+      "choices": [
+        {
+          "key": "a",
+          "label": "等待新時間",
+          "response": "已選擇「等待新時間」，本次事件完成。"
+        },
+        {
+          "key": "b",
+          "label": "改看其他展區",
+          "response": "已選擇「改看其他展區」，本次事件完成。"
+        }
+      ],
+      "effects": {
+        "coins": 0,
+        "attribute_points": 0,
+        "items": [],
+        "influence_index": 0
+      },
+      "requires_approved_action_or_service": true,
+      "cooldown_rule": "pending_approval"
+    },
+    {
+      "event_id": "official_art_museum_01",
+      "location_key": "art_museum",
+      "location_name": "美術館",
+      "zone": "藝文特區",
+      "channel_id": "1567469876925435964",
+      "official_only": true,
+      "enabled": false,
+      "trigger": "approved_location_action_completed",
+      "event_type": "narrative_choice",
+      "title": "策展人導覽",
+      "description": "館方推出限量的策展理念短講。",
+      "choices": [
+        {
+          "key": "a",
+          "label": "參加導覽",
+          "response": "已選擇「參加導覽」，本次事件完成。"
+        },
+        {
+          "key": "b",
+          "label": "自由觀展",
+          "response": "已選擇「自由觀展」，本次事件完成。"
+        }
+      ],
+      "effects": {
+        "coins": 0,
+        "attribute_points": 0,
+        "items": [],
+        "influence_index": 0
+      },
+      "requires_approved_action_or_service": true,
+      "cooldown_rule": "pending_approval"
+    },
+    {
+      "event_id": "official_art_museum_02",
+      "location_key": "art_museum",
+      "location_name": "美術館",
+      "zone": "藝文特區",
+      "channel_id": "1567469876925435964",
+      "official_only": true,
+      "enabled": false,
+      "trigger": "approved_location_action_completed",
+      "event_type": "narrative_choice",
+      "title": "展間臨時更換",
+      "description": "其中一個展區正在重新布展，館方提供替代路線。",
+      "choices": [
+        {
+          "key": "a",
+          "label": "跟著新動線走",
+          "response": "已選擇「跟著新動線走」，本次事件完成。"
+        },
+        {
+          "key": "b",
+          "label": "稍後再回來",
+          "response": "已選擇「稍後再回來」，本次事件完成。"
+        }
+      ],
+      "effects": {
+        "coins": 0,
+        "attribute_points": 0,
+        "items": [],
+        "influence_index": 0
+      },
+      "requires_approved_action_or_service": true,
+      "cooldown_rule": "pending_approval"
+    },
+    {
+      "event_id": "official_exhibition_center_01",
+      "location_key": "exhibition_center",
+      "location_name": "展覽中心",
+      "zone": "藝文特區",
+      "channel_id": "1567469927299022908",
+      "official_only": true,
+      "enabled": false,
+      "trigger": "approved_location_action_completed",
+      "event_type": "narrative_choice",
+      "title": "限時互動集章",
+      "description": "展覽中心正在進行無獎品保證的互動集章。",
+      "choices": [
+        {
+          "key": "a",
+          "label": "參加互動",
+          "response": "已選擇「參加互動」，本次事件完成。"
+        },
+        {
+          "key": "b",
+          "label": "繼續參觀",
+          "response": "已選擇「繼續參觀」，本次事件完成。"
+        }
+      ],
+      "effects": {
+        "coins": 0,
+        "attribute_points": 0,
+        "items": [],
+        "influence_index": 0
+      },
+      "requires_approved_action_or_service": true,
+      "cooldown_rule": "pending_approval"
+    },
+    {
+      "event_id": "official_exhibition_center_02",
+      "location_key": "exhibition_center",
+      "location_name": "展覽中心",
+      "zone": "藝文特區",
+      "channel_id": "1567469927299022908",
+      "official_only": true,
+      "enabled": false,
+      "trigger": "approved_location_action_completed",
+      "event_type": "narrative_choice",
+      "title": "熱門展區排隊",
+      "description": "人氣主題展區出現排隊人潮。",
+      "choices": [
+        {
+          "key": "a",
+          "label": "排隊等候",
+          "response": "已選擇「排隊等候」，本次事件完成。"
+        },
+        {
+          "key": "b",
+          "label": "改逛另一展區",
+          "response": "已選擇「改逛另一展區」，本次事件完成。"
+        }
+      ],
+      "effects": {
+        "coins": 0,
+        "attribute_points": 0,
+        "items": [],
+        "influence_index": 0
+      },
+      "requires_approved_action_or_service": true,
+      "cooldown_rule": "pending_approval"
+    },
+    {
+      "event_id": "official_fashion_design_company_01",
+      "location_key": "fashion_design_company",
+      "location_name": "時裝設計公司",
+      "zone": "商業經貿區",
+      "channel_id": "1548941921492279306",
+      "official_only": true,
+      "enabled": false,
+      "trigger": "approved_location_action_completed",
+      "event_type": "narrative_choice",
+      "title": "樣衣展示日",
+      "description": "設計部門安排了新系列樣衣展示。",
+      "choices": [
+        {
+          "key": "a",
+          "label": "觀察設計理念",
+          "response": "已選擇「觀察設計理念」，本次事件完成。"
+        },
+        {
+          "key": "b",
+          "label": "保持原定行程",
+          "response": "已選擇「保持原定行程」，本次事件完成。"
+        }
+      ],
+      "effects": {
+        "coins": 0,
+        "attribute_points": 0,
+        "items": [],
+        "influence_index": 0
+      },
+      "requires_approved_action_or_service": true,
+      "cooldown_rule": "pending_approval"
+    },
+    {
+      "event_id": "official_fashion_design_company_02",
+      "location_key": "fashion_design_company",
+      "location_name": "時裝設計公司",
+      "zone": "商業經貿區",
+      "channel_id": "1548941921492279306",
+      "official_only": true,
+      "enabled": false,
+      "trigger": "approved_location_action_completed",
+      "event_type": "narrative_choice",
+      "title": "布料到貨延遲",
+      "description": "某批設計布料尚未送達，實習展示順序需要微調。",
+      "choices": [
+        {
+          "key": "a",
+          "label": "聽取備用方案",
+          "response": "已選擇「聽取備用方案」，本次事件完成。"
+        },
+        {
+          "key": "b",
+          "label": "等待公告",
+          "response": "已選擇「等待公告」，本次事件完成。"
+        }
+      ],
+      "effects": {
+        "coins": 0,
+        "attribute_points": 0,
+        "items": [],
+        "influence_index": 0
+      },
+      "requires_approved_action_or_service": true,
+      "cooldown_rule": "pending_approval"
+    },
+    {
+      "event_id": "official_talent_agency_01",
+      "location_key": "talent_agency",
+      "location_name": "經紀公司",
+      "zone": "商業經貿區",
+      "channel_id": "1548941960604156024",
+      "official_only": true,
+      "enabled": false,
+      "trigger": "approved_location_action_completed",
+      "event_type": "narrative_choice",
+      "title": "企劃模擬徵件",
+      "description": "經紀公司開放一場不具正式聘用效力的企劃模擬。",
+      "choices": [
+        {
+          "key": "a",
+          "label": "提交模擬構想",
+          "response": "已選擇「提交模擬構想」，本次事件完成。"
+        },
+        {
+          "key": "b",
+          "label": "旁聽交流",
+          "response": "已選擇「旁聽交流」，本次事件完成。"
+        }
+      ],
+      "effects": {
+        "coins": 0,
+        "attribute_points": 0,
+        "items": [],
+        "influence_index": 0
+      },
+      "requires_approved_action_or_service": true,
+      "cooldown_rule": "pending_approval"
+    },
+    {
+      "event_id": "official_talent_agency_02",
+      "location_key": "talent_agency",
+      "location_name": "經紀公司",
+      "zone": "商業經貿區",
+      "channel_id": "1548941960604156024",
+      "official_only": true,
+      "enabled": false,
+      "trigger": "approved_location_action_completed",
+      "event_type": "narrative_choice",
+      "title": "公關危機演練",
+      "description": "公司展示一段假想的公關危機處理流程。",
+      "choices": [
+        {
+          "key": "a",
+          "label": "參與情境討論",
+          "response": "已選擇「參與情境討論」，本次事件完成。"
+        },
+        {
+          "key": "b",
+          "label": "觀察處置方式",
+          "response": "已選擇「觀察處置方式」，本次事件完成。"
+        }
+      ],
+      "effects": {
+        "coins": 0,
+        "attribute_points": 0,
+        "items": [],
+        "influence_index": 0
+      },
+      "requires_approved_action_or_service": true,
+      "cooldown_rule": "pending_approval"
+    },
+    {
+      "event_id": "official_celebrity_studio_01",
+      "location_key": "celebrity_studio",
+      "location_name": "明星工作室",
+      "zone": "商業經貿區",
+      "channel_id": "1548942065105244180",
+      "official_only": true,
+      "enabled": false,
+      "trigger": "approved_location_action_completed",
+      "event_type": "narrative_choice",
+      "title": "作品集交流",
+      "description": "工作室開放作品集交流時段，不等於正式通告。",
+      "choices": [
+        {
+          "key": "a",
+          "label": "參與交流",
+          "response": "已選擇「參與交流」，本次事件完成。"
+        },
+        {
+          "key": "b",
+          "label": "了解展示內容",
+          "response": "已選擇「了解展示內容」，本次事件完成。"
+        }
+      ],
+      "effects": {
+        "coins": 0,
+        "attribute_points": 0,
+        "items": [],
+        "influence_index": 0
+      },
+      "requires_approved_action_or_service": true,
+      "cooldown_rule": "pending_approval"
+    },
+    {
+      "event_id": "official_celebrity_studio_02",
+      "location_key": "celebrity_studio",
+      "location_name": "明星工作室",
+      "zone": "商業經貿區",
+      "channel_id": "1548942065105244180",
+      "official_only": true,
+      "enabled": false,
+      "trigger": "approved_location_action_completed",
+      "event_type": "narrative_choice",
+      "title": "臨時改稿",
+      "description": "製作團隊正重新確認宣傳稿文字。",
+      "choices": [
+        {
+          "key": "a",
+          "label": "提出一般建議",
+          "response": "已選擇「提出一般建議」，本次事件完成。"
+        },
+        {
+          "key": "b",
+          "label": "等待確認版本",
+          "response": "已選擇「等待確認版本」，本次事件完成。"
+        }
+      ],
+      "effects": {
+        "coins": 0,
+        "attribute_points": 0,
+        "items": [],
+        "influence_index": 0
+      },
+      "requires_approved_action_or_service": true,
+      "cooldown_rule": "pending_approval"
+    },
+    {
+      "event_id": "official_bank_01",
+      "location_key": "bank",
+      "location_name": "銀行",
+      "zone": "商業經貿區",
+      "channel_id": "1545747674731515976",
+      "official_only": true,
+      "enabled": false,
+      "trigger": "approved_service_completed",
+      "event_type": "narrative_choice",
+      "title": "金融知識問答",
+      "description": "銀行公告一項金融常識小測驗，與帳戶餘額無關。",
+      "choices": [
+        {
+          "key": "a",
+          "label": "觀看問答內容",
+          "response": "已選擇「觀看問答內容」，本次事件完成。"
+        },
+        {
+          "key": "b",
+          "label": "略過",
+          "response": "已選擇「略過」，本次事件完成。"
+        }
+      ],
+      "effects": {
+        "coins": 0,
+        "attribute_points": 0,
+        "items": [],
+        "influence_index": 0
+      },
+      "requires_approved_action_or_service": true,
+      "cooldown_rule": "pending_approval"
+    },
+    {
+      "event_id": "official_bank_02",
+      "location_key": "bank",
+      "location_name": "銀行",
+      "zone": "商業經貿區",
+      "channel_id": "1545747674731515976",
+      "official_only": true,
+      "enabled": false,
+      "trigger": "approved_service_completed",
+      "event_type": "narrative_choice",
+      "title": "系統維護公告",
+      "description": "銀行部分非核心展示功能正在維護。",
+      "choices": [
+        {
+          "key": "a",
+          "label": "閱讀維護說明",
+          "response": "已選擇「閱讀維護說明」，本次事件完成。"
+        },
+        {
+          "key": "b",
+          "label": "稍後再來",
+          "response": "已選擇「稍後再來」，本次事件完成。"
+        }
+      ],
+      "effects": {
+        "coins": 0,
+        "attribute_points": 0,
+        "items": [],
+        "influence_index": 0
+      },
+      "requires_approved_action_or_service": true,
+      "cooldown_rule": "pending_approval"
+    },
+    {
+      "event_id": "official_department_store_01",
+      "location_key": "department_store",
+      "location_name": "百貨公司",
+      "zone": "商業經貿區",
+      "channel_id": "1567792904703840277",
+      "official_only": true,
+      "enabled": false,
+      "trigger": "approved_location_action_completed",
+      "event_type": "narrative_choice",
+      "title": "櫥窗搭配評選",
+      "description": "百貨公司舉行不涉及實際商品贈與的櫥窗人氣票選。",
+      "choices": [
+        {
+          "key": "a",
+          "label": "參加票選",
+          "response": "已選擇「參加票選」，本次事件完成。"
+        },
+        {
+          "key": "b",
+          "label": "欣賞陳列",
+          "response": "已選擇「欣賞陳列」，本次事件完成。"
+        }
+      ],
+      "effects": {
+        "coins": 0,
+        "attribute_points": 0,
+        "items": [],
+        "influence_index": 0
+      },
+      "requires_approved_action_or_service": true,
+      "cooldown_rule": "pending_approval"
+    },
+    {
+      "event_id": "official_department_store_02",
+      "location_key": "department_store",
+      "location_name": "百貨公司",
+      "zone": "商業經貿區",
+      "channel_id": "1567792904703840277",
+      "official_only": true,
+      "enabled": false,
+      "trigger": "approved_location_action_completed",
+      "event_type": "narrative_choice",
+      "title": "熱門專櫃缺貨",
+      "description": "某熱門專櫃公告暫時缺貨。",
+      "choices": [
+        {
+          "key": "a",
+          "label": "登記補貨通知",
+          "response": "已選擇「登記補貨通知」，本次事件完成。"
+        },
+        {
+          "key": "b",
+          "label": "改逛其他專櫃",
+          "response": "已選擇「改逛其他專櫃」，本次事件完成。"
+        }
+      ],
+      "effects": {
+        "coins": 0,
+        "attribute_points": 0,
+        "items": [],
+        "influence_index": 0
+      },
+      "requires_approved_action_or_service": true,
+      "cooldown_rule": "pending_approval"
+    },
+    {
+      "event_id": "official_mall_01",
+      "location_key": "mall",
+      "location_name": "商城",
+      "zone": "商業經貿區",
+      "channel_id": "1567789004026286110",
+      "official_only": true,
+      "enabled": false,
+      "trigger": "approved_service_completed",
+      "event_type": "narrative_choice",
+      "title": "主題展台活動",
+      "description": "商城展示限期主題商品介紹，價格仍依正式商城。",
+      "choices": [
+        {
+          "key": "a",
+          "label": "閱讀展台資訊",
+          "response": "已選擇「閱讀展台資訊」，本次事件完成。"
+        },
+        {
+          "key": "b",
+          "label": "前往一般商城",
+          "response": "已選擇「前往一般商城」，本次事件完成。"
+        }
+      ],
+      "effects": {
+        "coins": 0,
+        "attribute_points": 0,
+        "items": [],
+        "influence_index": 0
+      },
+      "requires_approved_action_or_service": true,
+      "cooldown_rule": "pending_approval"
+    },
+    {
+      "event_id": "official_mall_02",
+      "location_key": "mall",
+      "location_name": "商城",
+      "zone": "商業經貿區",
+      "channel_id": "1567789004026286110",
+      "official_only": true,
+      "enabled": false,
+      "trigger": "approved_service_completed",
+      "event_type": "narrative_choice",
+      "title": "補貨資訊更新",
+      "description": "商城張貼了新一批商品補貨公告。",
+      "choices": [
+        {
+          "key": "a",
+          "label": "查看補貨說明",
+          "response": "已選擇「查看補貨說明」，本次事件完成。"
+        },
+        {
+          "key": "b",
+          "label": "繼續瀏覽",
+          "response": "已選擇「繼續瀏覽」，本次事件完成。"
+        }
+      ],
+      "effects": {
+        "coins": 0,
+        "attribute_points": 0,
+        "items": [],
+        "influence_index": 0
+      },
+      "requires_approved_action_or_service": true,
+      "cooldown_rule": "pending_approval"
+    },
+    {
+      "event_id": "official_television_station_01",
+      "location_key": "television_station",
+      "location_name": "電視台",
+      "zone": "影視娛樂區",
+      "channel_id": "1548942181723545620",
+      "official_only": true,
+      "enabled": false,
+      "trigger": "approved_location_action_completed",
+      "event_type": "narrative_choice",
+      "title": "錄影前觀眾互動",
+      "description": "節目工作人員說明錄影前的觀眾互動規則。",
+      "choices": [
+        {
+          "key": "a",
+          "label": "遵守規則參與",
+          "response": "已選擇「遵守規則參與」，本次事件完成。"
+        },
+        {
+          "key": "b",
+          "label": "安靜旁觀",
+          "response": "已選擇「安靜旁觀」，本次事件完成。"
+        }
+      ],
+      "effects": {
+        "coins": 0,
+        "attribute_points": 0,
+        "items": [],
+        "influence_index": 0
+      },
+      "requires_approved_action_or_service": true,
+      "cooldown_rule": "pending_approval"
+    },
+    {
+      "event_id": "official_television_station_02",
+      "location_key": "television_station",
+      "location_name": "電視台",
+      "zone": "影視娛樂區",
+      "channel_id": "1548942181723545620",
+      "official_only": true,
+      "enabled": false,
+      "trigger": "approved_location_action_completed",
+      "event_type": "narrative_choice",
+      "title": "錄製延誤",
+      "description": "攝影棚燈光調整造成節目錄製稍微延後。",
+      "choices": [
+        {
+          "key": "a",
+          "label": "等待通知",
+          "response": "已選擇「等待通知」，本次事件完成。"
+        },
+        {
+          "key": "b",
+          "label": "觀看流程介紹",
+          "response": "已選擇「觀看流程介紹」，本次事件完成。"
+        }
+      ],
+      "effects": {
+        "coins": 0,
+        "attribute_points": 0,
+        "items": [],
+        "influence_index": 0
+      },
+      "requires_approved_action_or_service": true,
+      "cooldown_rule": "pending_approval"
+    },
+    {
+      "event_id": "official_film_city_01",
+      "location_key": "film_city",
+      "location_name": "影視城",
+      "zone": "影視娛樂區",
+      "channel_id": "1567769960246284338",
+      "official_only": true,
+      "enabled": false,
+      "trigger": "approved_location_action_completed",
+      "event_type": "narrative_choice",
+      "title": "場景開放講解",
+      "description": "影視城開放一處可參觀的拍攝場景解說。",
+      "choices": [
+        {
+          "key": "a",
+          "label": "參加講解",
+          "response": "已選擇「參加講解」，本次事件完成。"
+        },
+        {
+          "key": "b",
+          "label": "自行參觀",
+          "response": "已選擇「自行參觀」，本次事件完成。"
+        }
+      ],
+      "effects": {
+        "coins": 0,
+        "attribute_points": 0,
+        "items": [],
+        "influence_index": 0
+      },
+      "requires_approved_action_or_service": true,
+      "cooldown_rule": "pending_approval"
+    },
+    {
+      "event_id": "official_film_city_02",
+      "location_key": "film_city",
+      "location_name": "影視城",
+      "zone": "影視娛樂區",
+      "channel_id": "1567769960246284338",
+      "official_only": true,
+      "enabled": false,
+      "trigger": "approved_location_action_completed",
+      "event_type": "narrative_choice",
+      "title": "片場轉景",
+      "description": "工作人員正在搬運布景並重新安排動線。",
+      "choices": [
+        {
+          "key": "a",
+          "label": "配合改道",
+          "response": "已選擇「配合改道」，本次事件完成。"
+        },
+        {
+          "key": "b",
+          "label": "等待轉景完成",
+          "response": "已選擇「等待轉景完成」，本次事件完成。"
+        }
+      ],
+      "effects": {
+        "coins": 0,
+        "attribute_points": 0,
+        "items": [],
+        "influence_index": 0
+      },
+      "requires_approved_action_or_service": true,
+      "cooldown_rule": "pending_approval"
+    },
+    {
+      "event_id": "official_photo_studio_01",
+      "location_key": "photo_studio",
+      "location_name": "攝影棚",
+      "zone": "影視娛樂區",
+      "channel_id": "1548944788030623744",
+      "official_only": true,
+      "enabled": false,
+      "trigger": "approved_location_action_completed",
+      "event_type": "narrative_choice",
+      "title": "構圖小挑戰",
+      "description": "攝影棚正在進行無正式評分獎勵的構圖挑戰。",
+      "choices": [
+        {
+          "key": "a",
+          "label": "嘗試構圖",
+          "response": "已選擇「嘗試構圖」，本次事件完成。"
+        },
+        {
+          "key": "b",
+          "label": "觀看示範",
+          "response": "已選擇「觀看示範」，本次事件完成。"
+        }
+      ],
+      "effects": {
+        "coins": 0,
+        "attribute_points": 0,
+        "items": [],
+        "influence_index": 0
+      },
+      "requires_approved_action_or_service": true,
+      "cooldown_rule": "pending_approval"
+    },
+    {
+      "event_id": "official_photo_studio_02",
+      "location_key": "photo_studio",
+      "location_name": "攝影棚",
+      "zone": "影視娛樂區",
+      "channel_id": "1548944788030623744",
+      "official_only": true,
+      "enabled": false,
+      "trigger": "approved_location_action_completed",
+      "event_type": "narrative_choice",
+      "title": "燈光設備檢查",
+      "description": "攝影師暫停拍攝以確認燈光狀況。",
+      "choices": [
+        {
+          "key": "a",
+          "label": "觀察調光",
+          "response": "已選擇「觀察調光」，本次事件完成。"
+        },
+        {
+          "key": "b",
+          "label": "稍後再拍",
+          "response": "已選擇「稍後再拍」，本次事件完成。"
+        }
+      ],
+      "effects": {
+        "coins": 0,
+        "attribute_points": 0,
+        "items": [],
+        "influence_index": 0
+      },
+      "requires_approved_action_or_service": true,
+      "cooldown_rule": "pending_approval"
+    },
+    {
+      "event_id": "official_film_production_studio_01",
+      "location_key": "film_production_studio",
+      "location_name": "電影製片廠",
+      "zone": "影視娛樂區",
+      "channel_id": "1567469558477099058",
+      "official_only": true,
+      "enabled": false,
+      "trigger": "approved_location_action_completed",
+      "event_type": "narrative_choice",
+      "title": "分鏡示範",
+      "description": "製片廠安排不涉及正式聘用的分鏡教學展示。",
+      "choices": [
+        {
+          "key": "a",
+          "label": "旁聽示範",
+          "response": "已選擇「旁聽示範」，本次事件完成。"
+        },
+        {
+          "key": "b",
+          "label": "觀察場務",
+          "response": "已選擇「觀察場務」，本次事件完成。"
+        }
+      ],
+      "effects": {
+        "coins": 0,
+        "attribute_points": 0,
+        "items": [],
+        "influence_index": 0
+      },
+      "requires_approved_action_or_service": true,
+      "cooldown_rule": "pending_approval"
+    },
+    {
+      "event_id": "official_film_production_studio_02",
+      "location_key": "film_production_studio",
+      "location_name": "電影製片廠",
+      "zone": "影視娛樂區",
+      "channel_id": "1567469558477099058",
+      "official_only": true,
+      "enabled": false,
+      "trigger": "approved_location_action_completed",
+      "event_type": "narrative_choice",
+      "title": "拍攝排程更動",
+      "description": "製作人員調整當日場景準備順序。",
+      "choices": [
+        {
+          "key": "a",
+          "label": "了解新流程",
+          "response": "已選擇「了解新流程」，本次事件完成。"
+        },
+        {
+          "key": "b",
+          "label": "等候通知",
+          "response": "已選擇「等候通知」，本次事件完成。"
+        }
+      ],
+      "effects": {
+        "coins": 0,
+        "attribute_points": 0,
+        "items": [],
+        "influence_index": 0
+      },
+      "requires_approved_action_or_service": true,
+      "cooldown_rule": "pending_approval"
+    },
+    {
+      "event_id": "official_radio_station_01",
+      "location_key": "radio_station",
+      "location_name": "廣播電台",
+      "zone": "影視娛樂區",
+      "channel_id": "1567469635060633740",
+      "official_only": true,
+      "enabled": false,
+      "trigger": "approved_location_action_completed",
+      "event_type": "narrative_choice",
+      "title": "廣播試錄交流",
+      "description": "電台開放一段非正式播出的試錄交流。",
+      "choices": [
+        {
+          "key": "a",
+          "label": "參與試錄",
+          "response": "已選擇「參與試錄」，本次事件完成。"
+        },
+        {
+          "key": "b",
+          "label": "聆聽示範",
+          "response": "已選擇「聆聽示範」，本次事件完成。"
+        }
+      ],
+      "effects": {
+        "coins": 0,
+        "attribute_points": 0,
+        "items": [],
+        "influence_index": 0
+      },
+      "requires_approved_action_or_service": true,
+      "cooldown_rule": "pending_approval"
+    },
+    {
+      "event_id": "official_radio_station_02",
+      "location_key": "radio_station",
+      "location_name": "廣播電台",
+      "zone": "影視娛樂區",
+      "channel_id": "1567469635060633740",
+      "official_only": true,
+      "enabled": false,
+      "trigger": "approved_location_action_completed",
+      "event_type": "narrative_choice",
+      "title": "收音雜訊",
+      "description": "控制室發現收音品質不穩定，正在排查。",
+      "choices": [
+        {
+          "key": "a",
+          "label": "等待重試",
+          "response": "已選擇「等待重試」，本次事件完成。"
+        },
+        {
+          "key": "b",
+          "label": "了解器材",
+          "response": "已選擇「了解器材」，本次事件完成。"
+        }
+      ],
+      "effects": {
+        "coins": 0,
+        "attribute_points": 0,
+        "items": [],
+        "influence_index": 0
+      },
+      "requires_approved_action_or_service": true,
+      "cooldown_rule": "pending_approval"
+    },
+    {
+      "event_id": "official_beauty_center_01",
+      "location_key": "beauty_center",
+      "location_name": "美容中心",
+      "zone": "生活休閒區",
+      "channel_id": "1546798240295297094",
+      "official_only": true,
+      "enabled": false,
+      "trigger": "approved_location_action_completed",
+      "event_type": "narrative_choice",
+      "title": "造型師試色建議",
+      "description": "美容中心提供一般妝容色彩搭配意見，不構成醫療建議。",
+      "choices": [
+        {
+          "key": "a",
+          "label": "聽取建議",
+          "response": "已選擇「聽取建議」，本次事件完成。"
+        },
+        {
+          "key": "b",
+          "label": "自行挑選",
+          "response": "已選擇「自行挑選」，本次事件完成。"
+        }
+      ],
+      "effects": {
+        "coins": 0,
+        "attribute_points": 0,
+        "items": [],
+        "influence_index": 0
+      },
+      "requires_approved_action_or_service": true,
+      "cooldown_rule": "pending_approval"
+    },
+    {
+      "event_id": "official_beauty_center_02",
+      "location_key": "beauty_center",
+      "location_name": "美容中心",
+      "zone": "生活休閒區",
+      "channel_id": "1546798240295297094",
+      "official_only": true,
+      "enabled": false,
+      "trigger": "approved_location_action_completed",
+      "event_type": "narrative_choice",
+      "title": "熱門色號缺貨",
+      "description": "店內一款熱門色號暫時售罄。",
+      "choices": [
+        {
+          "key": "a",
+          "label": "查看替代色號",
+          "response": "已選擇「查看替代色號」，本次事件完成。"
+        },
+        {
+          "key": "b",
+          "label": "稍後購買",
+          "response": "已選擇「稍後購買」，本次事件完成。"
+        }
+      ],
+      "effects": {
+        "coins": 0,
+        "attribute_points": 0,
+        "items": [],
+        "influence_index": 0
+      },
+      "requires_approved_action_or_service": true,
+      "cooldown_rule": "pending_approval"
+    },
+    {
+      "event_id": "official_park_01",
+      "location_key": "park",
+      "location_name": "公園",
+      "zone": "生活休閒區",
+      "channel_id": "1546797716699619429",
+      "official_only": true,
+      "enabled": false,
+      "trigger": "approved_location_action_completed",
+      "event_type": "narrative_choice",
+      "title": "社區集章活動",
+      "description": "公園舉行一場社區互動集章活動。",
+      "choices": [
+        {
+          "key": "a",
+          "label": "參加集章",
+          "response": "已選擇「參加集章」，本次事件完成。"
+        },
+        {
+          "key": "b",
+          "label": "散步欣賞",
+          "response": "已選擇「散步欣賞」，本次事件完成。"
+        }
+      ],
+      "effects": {
+        "coins": 0,
+        "attribute_points": 0,
+        "items": [],
+        "influence_index": 0
+      },
+      "requires_approved_action_or_service": true,
+      "cooldown_rule": "pending_approval"
+    },
+    {
+      "event_id": "official_park_02",
+      "location_key": "park",
+      "location_name": "公園",
+      "zone": "生活休閒區",
+      "channel_id": "1546797716699619429",
+      "official_only": true,
+      "enabled": false,
+      "trigger": "approved_location_action_completed",
+      "event_type": "narrative_choice",
+      "title": "突發陣雨",
+      "description": "公園突然下起小雨，戶外活動暫時受到影響。",
+      "choices": [
+        {
+          "key": "a",
+          "label": "前往遮雨處",
+          "response": "已選擇「前往遮雨處」，本次事件完成。"
+        },
+        {
+          "key": "b",
+          "label": "提前離開",
+          "response": "已選擇「提前離開」，本次事件完成。"
+        }
+      ],
+      "effects": {
+        "coins": 0,
+        "attribute_points": 0,
+        "items": [],
+        "influence_index": 0
+      },
+      "requires_approved_action_or_service": true,
+      "cooldown_rule": "pending_approval"
+    },
+    {
+      "event_id": "official_internet_cafe_01",
+      "location_key": "internet_cafe",
+      "location_name": "網紅咖啡廳",
+      "zone": "生活休閒區",
+      "channel_id": "1548940842700505228",
+      "official_only": true,
+      "enabled": false,
+      "trigger": "approved_location_action_completed",
+      "event_type": "narrative_choice",
+      "title": "新品盲測",
+      "description": "咖啡廳邀請顧客試聞新品香氣，不自動贈送飲料。",
+      "choices": [
+        {
+          "key": "a",
+          "label": "參加試聞",
+          "response": "已選擇「參加試聞」，本次事件完成。"
+        },
+        {
+          "key": "b",
+          "label": "照常點餐",
+          "response": "已選擇「照常點餐」，本次事件完成。"
+        }
+      ],
+      "effects": {
+        "coins": 0,
+        "attribute_points": 0,
+        "items": [],
+        "influence_index": 0
+      },
+      "requires_approved_action_or_service": true,
+      "cooldown_rule": "pending_approval"
+    },
+    {
+      "event_id": "official_internet_cafe_02",
+      "location_key": "internet_cafe",
+      "location_name": "網紅咖啡廳",
+      "zone": "生活休閒區",
+      "channel_id": "1548940842700505228",
+      "official_only": true,
+      "enabled": false,
+      "trigger": "approved_location_action_completed",
+      "event_type": "narrative_choice",
+      "title": "人氣飲品售完",
+      "description": "咖啡廳公告一款人氣飲品已售完。",
+      "choices": [
+        {
+          "key": "a",
+          "label": "改選飲品",
+          "response": "已選擇「改選飲品」，本次事件完成。"
+        },
+        {
+          "key": "b",
+          "label": "稍後再來",
+          "response": "已選擇「稍後再來」，本次事件完成。"
+        }
+      ],
+      "effects": {
+        "coins": 0,
+        "attribute_points": 0,
+        "items": [],
+        "influence_index": 0
+      },
+      "requires_approved_action_or_service": true,
+      "cooldown_rule": "pending_approval"
+    },
+    {
+      "event_id": "official_fitness_center_01",
+      "location_key": "fitness_center",
+      "location_name": "連鎖健身房",
+      "zone": "生活休閒區",
+      "channel_id": "1548941378397020211",
+      "official_only": true,
+      "enabled": false,
+      "trigger": "approved_location_action_completed",
+      "event_type": "narrative_choice",
+      "title": "教練公開講座",
+      "description": "健身房安排基礎訓練安全觀念短講。",
+      "choices": [
+        {
+          "key": "a",
+          "label": "旁聽短講",
+          "response": "已選擇「旁聽短講」，本次事件完成。"
+        },
+        {
+          "key": "b",
+          "label": "正常運動",
+          "response": "已選擇「正常運動」，本次事件完成。"
+        }
+      ],
+      "effects": {
+        "coins": 0,
+        "attribute_points": 0,
+        "items": [],
+        "influence_index": 0
+      },
+      "requires_approved_action_or_service": true,
+      "cooldown_rule": "pending_approval"
+    },
+    {
+      "event_id": "official_fitness_center_02",
+      "location_key": "fitness_center",
+      "location_name": "連鎖健身房",
+      "zone": "生活休閒區",
+      "channel_id": "1548941378397020211",
+      "official_only": true,
+      "enabled": false,
+      "trigger": "approved_location_action_completed",
+      "event_type": "narrative_choice",
+      "title": "器材臨時維護",
+      "description": "某台健身器材暫停使用並貼上維修標示。",
+      "choices": [
+        {
+          "key": "a",
+          "label": "改用其他器材",
+          "response": "已選擇「改用其他器材」，本次事件完成。"
+        },
+        {
+          "key": "b",
+          "label": "等待開放",
+          "response": "已選擇「等待開放」，本次事件完成。"
+        }
+      ],
+      "effects": {
+        "coins": 0,
+        "attribute_points": 0,
+        "items": [],
+        "influence_index": 0
+      },
+      "requires_approved_action_or_service": true,
+      "cooldown_rule": "pending_approval"
+    },
+    {
+      "event_id": "official_restaurant_01",
+      "location_key": "restaurant",
+      "location_name": "餐廳",
+      "zone": "生活休閒區",
+      "channel_id": "1567471301470326875",
+      "official_only": true,
+      "enabled": false,
+      "trigger": "approved_location_action_completed",
+      "event_type": "narrative_choice",
+      "title": "主廚介紹新菜",
+      "description": "餐廳主廚正在介紹本日特色料理，並未自動贈送餐點。",
+      "choices": [
+        {
+          "key": "a",
+          "label": "了解菜色",
+          "response": "已選擇「了解菜色」，本次事件完成。"
+        },
+        {
+          "key": "b",
+          "label": "照常點餐",
+          "response": "已選擇「照常點餐」，本次事件完成。"
+        }
+      ],
+      "effects": {
+        "coins": 0,
+        "attribute_points": 0,
+        "items": [],
+        "influence_index": 0
+      },
+      "requires_approved_action_or_service": true,
+      "cooldown_rule": "pending_approval"
+    },
+    {
+      "event_id": "official_restaurant_02",
+      "location_key": "restaurant",
+      "location_name": "餐廳",
+      "zone": "生活休閒區",
+      "channel_id": "1567471301470326875",
+      "official_only": true,
+      "enabled": false,
+      "trigger": "approved_location_action_completed",
+      "event_type": "narrative_choice",
+      "title": "熱門套餐售完",
+      "description": "餐廳一款熱門套餐暫時售罄。",
+      "choices": [
+        {
+          "key": "a",
+          "label": "選擇替代餐點",
+          "response": "已選擇「選擇替代餐點」，本次事件完成。"
+        },
+        {
+          "key": "b",
+          "label": "等待補貨",
+          "response": "已選擇「等待補貨」，本次事件完成。"
+        }
+      ],
+      "effects": {
+        "coins": 0,
+        "attribute_points": 0,
+        "items": [],
+        "influence_index": 0
+      },
+      "requires_approved_action_or_service": true,
+      "cooldown_rule": "pending_approval"
+    },
+    {
+      "event_id": "official_shopping_street_01",
+      "location_key": "shopping_street",
+      "location_name": "購物街",
+      "zone": "生活休閒區",
+      "channel_id": "1567471346466955264",
+      "official_only": true,
+      "enabled": false,
+      "trigger": "approved_location_action_completed",
+      "event_type": "narrative_choice",
+      "title": "櫥窗人氣票選",
+      "description": "購物街舉行店面櫥窗人氣票選。",
+      "choices": [
+        {
+          "key": "a",
+          "label": "參與票選",
+          "response": "已選擇「參與票選」，本次事件完成。"
+        },
+        {
+          "key": "b",
+          "label": "繼續逛街",
+          "response": "已選擇「繼續逛街」，本次事件完成。"
+        }
+      ],
+      "effects": {
+        "coins": 0,
+        "attribute_points": 0,
+        "items": [],
+        "influence_index": 0
+      },
+      "requires_approved_action_or_service": true,
+      "cooldown_rule": "pending_approval"
+    },
+    {
+      "event_id": "official_shopping_street_02",
+      "location_key": "shopping_street",
+      "location_name": "購物街",
+      "zone": "生活休閒區",
+      "channel_id": "1567471346466955264",
+      "official_only": true,
+      "enabled": false,
+      "trigger": "approved_location_action_completed",
+      "event_type": "narrative_choice",
+      "title": "街區人潮湧現",
+      "description": "購物街突然湧入大量人潮，部分動線變得擁擠。",
+      "choices": [
+        {
+          "key": "a",
+          "label": "改走其他路線",
+          "response": "已選擇「改走其他路線」，本次事件完成。"
+        },
+        {
+          "key": "b",
+          "label": "稍作休息",
+          "response": "已選擇「稍作休息」，本次事件完成。"
+        }
+      ],
+      "effects": {
+        "coins": 0,
+        "attribute_points": 0,
+        "items": [],
+        "influence_index": 0
+      },
+      "requires_approved_action_or_service": true,
+      "cooldown_rule": "pending_approval"
+    },
+    {
+      "event_id": "official_charity_center_01",
+      "location_key": "charity_center",
+      "location_name": "公益中心",
+      "zone": "生活休閒區",
+      "channel_id": "1567471583679750174",
+      "official_only": true,
+      "enabled": false,
+      "trigger": "approved_location_action_completed",
+      "event_type": "narrative_choice",
+      "title": "志工招募說明",
+      "description": "公益中心公布志工招募說明，正式任務須另外報名。",
+      "choices": [
+        {
+          "key": "a",
+          "label": "閱讀招募條件",
+          "response": "已選擇「閱讀招募條件」，本次事件完成。"
+        },
+        {
+          "key": "b",
+          "label": "了解其他服務",
+          "response": "已選擇「了解其他服務」，本次事件完成。"
+        }
+      ],
+      "effects": {
+        "coins": 0,
+        "attribute_points": 0,
+        "items": [],
+        "influence_index": 0
+      },
+      "requires_approved_action_or_service": true,
+      "cooldown_rule": "pending_approval"
+    },
+    {
+      "event_id": "official_charity_center_02",
+      "location_key": "charity_center",
+      "location_name": "公益中心",
+      "zone": "生活休閒區",
+      "channel_id": "1567471583679750174",
+      "official_only": true,
+      "enabled": false,
+      "trigger": "approved_location_action_completed",
+      "event_type": "narrative_choice",
+      "title": "物資分類協助",
+      "description": "公益中心正在安排捐贈物品分類，不自動發放酬勞。",
+      "choices": [
+        {
+          "key": "a",
+          "label": "詢問參與規則",
+          "response": "已選擇「詢問參與規則」，本次事件完成。"
+        },
+        {
+          "key": "b",
+          "label": "旁觀了解",
+          "response": "已選擇「旁觀了解」，本次事件完成。"
+        }
+      ],
+      "effects": {
+        "coins": 0,
+        "attribute_points": 0,
+        "items": [],
+        "influence_index": 0
+      },
+      "requires_approved_action_or_service": true,
+      "cooldown_rule": "pending_approval"
+    },
+    {
+      "event_id": "official_hospital_01",
+      "location_key": "hospital",
+      "location_name": "醫院",
+      "zone": "生活休閒區",
+      "channel_id": "1567998859362304100",
+      "official_only": true,
+      "enabled": false,
+      "trigger": "approved_service_completed",
+      "event_type": "narrative_choice",
+      "title": "健康宣導活動",
+      "description": "醫院公布公開健康宣導資訊，不代替實際診斷。",
+      "choices": [
+        {
+          "key": "a",
+          "label": "閱讀衛教資訊",
+          "response": "已選擇「閱讀衛教資訊」，本次事件完成。"
+        },
+        {
+          "key": "b",
+          "label": "略過",
+          "response": "已選擇「略過」，本次事件完成。"
+        }
+      ],
+      "effects": {
+        "coins": 0,
+        "attribute_points": 0,
+        "items": [],
+        "influence_index": 0
+      },
+      "requires_approved_action_or_service": true,
+      "cooldown_rule": "pending_approval"
+    },
+    {
+      "event_id": "official_hospital_02",
+      "location_key": "hospital",
+      "location_name": "醫院",
+      "zone": "生活休閒區",
+      "channel_id": "1567998859362304100",
+      "official_only": true,
+      "enabled": false,
+      "trigger": "approved_service_completed",
+      "event_type": "narrative_choice",
+      "title": "掛號系統繁忙",
+      "description": "醫院掛號系統暫時繁忙，院方正在調整引導。",
+      "choices": [
+        {
+          "key": "a",
+          "label": "查看現場公告",
+          "response": "已選擇「查看現場公告」，本次事件完成。"
+        },
+        {
+          "key": "b",
+          "label": "稍後處理",
+          "response": "已選擇「稍後處理」，本次事件完成。"
+        }
+      ],
+      "effects": {
+        "coins": 0,
+        "attribute_points": 0,
+        "items": [],
+        "influence_index": 0
+      },
+      "requires_approved_action_or_service": true,
+      "cooldown_rule": "pending_approval"
+    },
+    {
+      "event_id": "official_deep_night_bar_01",
+      "location_key": "deep_night_bar",
+      "location_name": "深夜酒吧",
+      "zone": "夜生活娛樂區",
+      "channel_id": "1548941075547295805",
+      "official_only": true,
+      "enabled": false,
+      "trigger": "approved_location_action_completed",
+      "event_type": "narrative_choice",
+      "title": "駐唱點歌時段",
+      "description": "酒吧宣布駐唱點歌時段，入場仍需符合原有年齡與時間規則。",
+      "choices": [
+        {
+          "key": "a",
+          "label": "了解點歌方式",
+          "response": "已選擇「了解點歌方式」，本次事件完成。"
+        },
+        {
+          "key": "b",
+          "label": "安靜欣賞",
+          "response": "已選擇「安靜欣賞」，本次事件完成。"
+        }
+      ],
+      "effects": {
+        "coins": 0,
+        "attribute_points": 0,
+        "items": [],
+        "influence_index": 0
+      },
+      "requires_approved_action_or_service": true,
+      "cooldown_rule": "pending_approval"
+    },
+    {
+      "event_id": "official_deep_night_bar_02",
+      "location_key": "deep_night_bar",
+      "location_name": "深夜酒吧",
+      "zone": "夜生活娛樂區",
+      "channel_id": "1548941075547295805",
+      "official_only": true,
+      "enabled": false,
+      "trigger": "approved_location_action_completed",
+      "event_type": "narrative_choice",
+      "title": "例行身分查驗",
+      "description": "工作人員正進行例行身分與年齡查驗。",
+      "choices": [
+        {
+          "key": "a",
+          "label": "配合查驗",
+          "response": "已選擇「配合查驗」，本次事件完成。"
+        },
+        {
+          "key": "b",
+          "label": "離開場地",
+          "response": "已選擇「離開場地」，本次事件完成。"
+        }
+      ],
+      "effects": {
+        "coins": 0,
+        "attribute_points": 0,
+        "items": [],
+        "influence_index": 0
+      },
+      "requires_approved_action_or_service": true,
+      "cooldown_rule": "pending_approval"
+    },
+    {
+      "event_id": "official_nightclub_01",
+      "location_key": "nightclub",
+      "location_name": "夜總會",
+      "zone": "夜生活娛樂區",
+      "channel_id": "1567471174064144444",
+      "official_only": true,
+      "enabled": false,
+      "trigger": "approved_location_action_completed",
+      "event_type": "narrative_choice",
+      "title": "即興舞蹈互動",
+      "description": "夜總會安排短暫的即興舞蹈互動，須符合入場規則。",
+      "choices": [
+        {
+          "key": "a",
+          "label": "自願參與",
+          "response": "已選擇「自願參與」，本次事件完成。"
+        },
+        {
+          "key": "b",
+          "label": "留在座位",
+          "response": "已選擇「留在座位」，本次事件完成。"
+        }
+      ],
+      "effects": {
+        "coins": 0,
+        "attribute_points": 0,
+        "items": [],
+        "influence_index": 0
+      },
+      "requires_approved_action_or_service": true,
+      "cooldown_rule": "pending_approval"
+    },
+    {
+      "event_id": "official_nightclub_02",
+      "location_key": "nightclub",
+      "location_name": "夜總會",
+      "zone": "夜生活娛樂區",
+      "channel_id": "1567471174064144444",
+      "official_only": true,
+      "enabled": false,
+      "trigger": "approved_location_action_completed",
+      "event_type": "narrative_choice",
+      "title": "夜間安全巡查",
+      "description": "現場進行安全巡查，未成年角色仍適用正式處分判定。",
+      "choices": [
+        {
+          "key": "a",
+          "label": "配合巡查",
+          "response": "已選擇「配合巡查」，本次事件完成。"
+        },
+        {
+          "key": "b",
+          "label": "等待公告",
+          "response": "已選擇「等待公告」，本次事件完成。"
+        }
+      ],
+      "effects": {
+        "coins": 0,
+        "attribute_points": 0,
+        "items": [],
+        "influence_index": 0
+      },
+      "requires_approved_action_or_service": true,
+      "cooldown_rule": "pending_approval"
+    },
+    {
+      "event_id": "official_ktv_01",
+      "location_key": "ktv",
+      "location_name": "KTV",
+      "zone": "夜生活娛樂區",
+      "channel_id": "1567471225033461873",
+      "official_only": true,
+      "enabled": false,
+      "trigger": "approved_location_action_completed",
+      "event_type": "narrative_choice",
+      "title": "隨機合唱互動",
+      "description": "KTV推出自願參加的合唱互動。",
+      "choices": [
+        {
+          "key": "a",
+          "label": "參與合唱",
+          "response": "已選擇「參與合唱」，本次事件完成。"
+        },
+        {
+          "key": "b",
+          "label": "繼續原本歌單",
+          "response": "已選擇「繼續原本歌單」，本次事件完成。"
+        }
+      ],
+      "effects": {
+        "coins": 0,
+        "attribute_points": 0,
+        "items": [],
+        "influence_index": 0
+      },
+      "requires_approved_action_or_service": true,
+      "cooldown_rule": "pending_approval"
+    },
+    {
+      "event_id": "official_ktv_02",
+      "location_key": "ktv",
+      "location_name": "KTV",
+      "zone": "夜生活娛樂區",
+      "channel_id": "1567471225033461873",
+      "official_only": true,
+      "enabled": false,
+      "trigger": "approved_location_action_completed",
+      "event_type": "narrative_choice",
+      "title": "點歌機異常",
+      "description": "包廂點歌設備暫時無法正常操作。",
+      "choices": [
+        {
+          "key": "a",
+          "label": "請店員協助",
+          "response": "已選擇「請店員協助」，本次事件完成。"
+        },
+        {
+          "key": "b",
+          "label": "等待恢復",
+          "response": "已選擇「等待恢復」，本次事件完成。"
+        }
+      ],
+      "effects": {
+        "coins": 0,
+        "attribute_points": 0,
+        "items": [],
+        "influence_index": 0
+      },
+      "requires_approved_action_or_service": true,
+      "cooldown_rule": "pending_approval"
+    },
+    {
+      "event_id": "official_dance_practice_room_01",
+      "location_key": "dance_practice_room",
+      "location_name": "歌舞練習室",
+      "zone": "培訓學習區",
+      "channel_id": "1545747802133499955",
+      "official_only": true,
+      "enabled": false,
+      "trigger": "approved_location_action_completed",
+      "event_type": "narrative_choice",
+      "title": "練習成果交流",
+      "description": "練習室安排一般成果交流，不自動增加技能點數。",
+      "choices": [
+        {
+          "key": "a",
+          "label": "旁聽交流",
+          "response": "已選擇「旁聽交流」，本次事件完成。"
+        },
+        {
+          "key": "b",
+          "label": "繼續練習",
+          "response": "已選擇「繼續練習」，本次事件完成。"
+        }
+      ],
+      "effects": {
+        "coins": 0,
+        "attribute_points": 0,
+        "items": [],
+        "influence_index": 0
+      },
+      "requires_approved_action_or_service": true,
+      "cooldown_rule": "pending_approval"
+    },
+    {
+      "event_id": "official_dance_practice_room_02",
+      "location_key": "dance_practice_room",
+      "location_name": "歌舞練習室",
+      "zone": "培訓學習區",
+      "channel_id": "1545747802133499955",
+      "official_only": true,
+      "enabled": false,
+      "trigger": "approved_location_action_completed",
+      "event_type": "narrative_choice",
+      "title": "練習室排程衝突",
+      "description": "練習室收到重複預約通知，管理員正在確認。",
+      "choices": [
+        {
+          "key": "a",
+          "label": "等待安排",
+          "response": "已選擇「等待安排」，本次事件完成。"
+        },
+        {
+          "key": "b",
+          "label": "改期練習",
+          "response": "已選擇「改期練習」，本次事件完成。"
+        }
+      ],
+      "effects": {
+        "coins": 0,
+        "attribute_points": 0,
+        "items": [],
+        "influence_index": 0
+      },
+      "requires_approved_action_or_service": true,
+      "cooldown_rule": "pending_approval"
+    },
+    {
+      "event_id": "official_city_library_01",
+      "location_key": "city_library",
+      "location_name": "市立圖書館",
+      "zone": "培訓學習區",
+      "channel_id": "1546801896541519872",
+      "official_only": true,
+      "enabled": false,
+      "trigger": "approved_location_action_completed",
+      "event_type": "narrative_choice",
+      "title": "隱藏主題書單",
+      "description": "圖書館展示一份特別主題推薦書單。",
+      "choices": [
+        {
+          "key": "a",
+          "label": "查看書單",
+          "response": "已選擇「查看書單」，本次事件完成。"
+        },
+        {
+          "key": "b",
+          "label": "自行找書",
+          "response": "已選擇「自行找書」，本次事件完成。"
+        }
+      ],
+      "effects": {
+        "coins": 0,
+        "attribute_points": 0,
+        "items": [],
+        "influence_index": 0
+      },
+      "requires_approved_action_or_service": true,
+      "cooldown_rule": "pending_approval"
+    },
+    {
+      "event_id": "official_city_library_02",
+      "location_key": "city_library",
+      "location_name": "市立圖書館",
+      "zone": "培訓學習區",
+      "channel_id": "1546801896541519872",
+      "official_only": true,
+      "enabled": false,
+      "trigger": "approved_location_action_completed",
+      "event_type": "narrative_choice",
+      "title": "熱門書籍候補",
+      "description": "一本文學作品被多人預約，館方開放候補登記。",
+      "choices": [
+        {
+          "key": "a",
+          "label": "了解候補流程",
+          "response": "已選擇「了解候補流程」，本次事件完成。"
+        },
+        {
+          "key": "b",
+          "label": "改借其他書",
+          "response": "已選擇「改借其他書」，本次事件完成。"
+        }
+      ],
+      "effects": {
+        "coins": 0,
+        "attribute_points": 0,
+        "items": [],
+        "influence_index": 0
+      },
+      "requires_approved_action_or_service": true,
+      "cooldown_rule": "pending_approval"
+    },
+    {
+      "event_id": "official_recording_studio_01",
+      "location_key": "recording_studio",
+      "location_name": "錄音工作室",
+      "zone": "培訓學習區",
+      "channel_id": "1548942125352357888",
+      "official_only": true,
+      "enabled": false,
+      "trigger": "approved_location_action_completed",
+      "event_type": "narrative_choice",
+      "title": "錄音師回饋交流",
+      "description": "錄音工作室安排一場非正式收音回饋交流。",
+      "choices": [
+        {
+          "key": "a",
+          "label": "聽取建議",
+          "response": "已選擇「聽取建議」，本次事件完成。"
+        },
+        {
+          "key": "b",
+          "label": "觀察設備",
+          "response": "已選擇「觀察設備」，本次事件完成。"
+        }
+      ],
+      "effects": {
+        "coins": 0,
+        "attribute_points": 0,
+        "items": [],
+        "influence_index": 0
+      },
+      "requires_approved_action_or_service": true,
+      "cooldown_rule": "pending_approval"
+    },
+    {
+      "event_id": "official_recording_studio_02",
+      "location_key": "recording_studio",
+      "location_name": "錄音工作室",
+      "zone": "培訓學習區",
+      "channel_id": "1548942125352357888",
+      "official_only": true,
+      "enabled": false,
+      "trigger": "approved_location_action_completed",
+      "event_type": "narrative_choice",
+      "title": "收音設備延誤",
+      "description": "錄音設備正在重新設定，課程時間略有調整。",
+      "choices": [
+        {
+          "key": "a",
+          "label": "等待重新設定",
+          "response": "已選擇「等待重新設定」，本次事件完成。"
+        },
+        {
+          "key": "b",
+          "label": "改看示範",
+          "response": "已選擇「改看示範」，本次事件完成。"
+        }
+      ],
+      "effects": {
+        "coins": 0,
+        "attribute_points": 0,
+        "items": [],
+        "influence_index": 0
+      },
+      "requires_approved_action_or_service": true,
+      "cooldown_rule": "pending_approval"
+    },
+    {
+      "event_id": "official_acting_classroom_01",
+      "location_key": "acting_classroom",
+      "location_name": "演技教室",
+      "zone": "培訓學習區",
+      "channel_id": "1567471457909350400",
+      "official_only": true,
+      "enabled": false,
+      "trigger": "approved_location_action_completed",
+      "event_type": "narrative_choice",
+      "title": "即興角色交換",
+      "description": "演技教室安排即興角色交換活動，獎勵仍依正式課程結算。",
+      "choices": [
+        {
+          "key": "a",
+          "label": "嘗試角色交換",
+          "response": "已選擇「嘗試角色交換」，本次事件完成。"
+        },
+        {
+          "key": "b",
+          "label": "旁聽觀察",
+          "response": "已選擇「旁聽觀察」，本次事件完成。"
+        }
+      ],
+      "effects": {
+        "coins": 0,
+        "attribute_points": 0,
+        "items": [],
+        "influence_index": 0
+      },
+      "requires_approved_action_or_service": true,
+      "cooldown_rule": "pending_approval"
+    },
+    {
+      "event_id": "official_acting_classroom_02",
+      "location_key": "acting_classroom",
+      "location_name": "演技教室",
+      "zone": "培訓學習區",
+      "channel_id": "1567471457909350400",
+      "official_only": true,
+      "enabled": false,
+      "trigger": "approved_location_action_completed",
+      "event_type": "narrative_choice",
+      "title": "對手演員臨時缺席",
+      "description": "課程中的一位練習搭檔臨時缺席。",
+      "choices": [
+        {
+          "key": "a",
+          "label": "調整練習組別",
+          "response": "已選擇「調整練習組別」，本次事件完成。"
+        },
+        {
+          "key": "b",
+          "label": "改做個人練習",
+          "response": "已選擇「改做個人練習」，本次事件完成。"
+        }
+      ],
+      "effects": {
+        "coins": 0,
+        "attribute_points": 0,
+        "items": [],
+        "influence_index": 0
+      },
+      "requires_approved_action_or_service": true,
+      "cooldown_rule": "pending_approval"
+    },
+    {
+      "event_id": "official_professional_training_center_01",
+      "location_key": "professional_training_center",
+      "location_name": "專業培訓中心",
+      "zone": "培訓學習區",
+      "channel_id": "1567471503140986923",
+      "official_only": true,
+      "enabled": false,
+      "trigger": "approved_location_action_completed",
+      "event_type": "narrative_choice",
+      "title": "跨領域闖關體驗",
+      "description": "培訓中心安排跨領域闖關介紹，不等於正式考核。",
+      "choices": [
+        {
+          "key": "a",
+          "label": "了解闖關內容",
+          "response": "已選擇「了解闖關內容」，本次事件完成。"
+        },
+        {
+          "key": "b",
+          "label": "繼續課程",
+          "response": "已選擇「繼續課程」，本次事件完成。"
+        }
+      ],
+      "effects": {
+        "coins": 0,
+        "attribute_points": 0,
+        "items": [],
+        "influence_index": 0
+      },
+      "requires_approved_action_or_service": true,
+      "cooldown_rule": "pending_approval"
+    },
+    {
+      "event_id": "official_professional_training_center_02",
+      "location_key": "professional_training_center",
+      "location_name": "專業培訓中心",
+      "zone": "培訓學習區",
+      "channel_id": "1567471503140986923",
+      "official_only": true,
+      "enabled": false,
+      "trigger": "approved_location_action_completed",
+      "event_type": "narrative_choice",
+      "title": "教室臨時調度",
+      "description": "一間教室因設備檢查需要更換。",
+      "choices": [
+        {
+          "key": "a",
+          "label": "依指示換教室",
+          "response": "已選擇「依指示換教室」，本次事件完成。"
+        },
+        {
+          "key": "b",
+          "label": "稍後入場",
+          "response": "已選擇「稍後入場」，本次事件完成。"
+        }
+      ],
+      "effects": {
+        "coins": 0,
+        "attribute_points": 0,
+        "items": [],
+        "influence_index": 0
+      },
+      "requires_approved_action_or_service": true,
+      "cooldown_rule": "pending_approval"
+    }
+  ]
+}
