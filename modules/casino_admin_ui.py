@@ -17,7 +17,7 @@ async def _owner(
 ) -> bool:
     allowed = (
         interaction.guild is not None
-        and interaction.user.id == interaction.guild.owner_id
+        and (interaction.user.id == interaction.guild.owner_id or getattr(interaction.user.guild_permissions,"administrator",False))
     )
     if not allowed and respond:
         await interaction.response.send_message(
