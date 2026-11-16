@@ -369,7 +369,7 @@ class ActionExecuteView(discord.ui.View):
         # never a manually selectable action. Idempotent by the action request ID.
         encounter_note=''
         encounter_view=None
-        if not result.get('duplicated'):
+        if not result.get('duplicated') and not result.get('test_only'):
             try:
                 from core.pet_market_v2 import action_encounter, encounter_detail
                 from modules.pet_center import EncounterResultView
@@ -386,13 +386,13 @@ class ActionExecuteView(discord.ui.View):
         for item in self.children:
             item.disabled=True
         await interaction.followup.send(
-            f"✅ {result['action_name']} 完成。\n金幣收入：{result['reward_coins']:,}\n"
+            f"{'🧪 測試模擬（不進正式世界）' if result.get('test_only') else '✅'} {result['action_name']} 完成。\n金幣收入：{result['reward_coins']:,}\n"
             f"金幣花費：{result['cost_coins']:,}\n本次數值：{result.get('rolled_stats', [])}\n消耗行動值：{result['action_points_spent']}"
             f"（免費 {result['free_action_points_spent']}／付費 {result['paid_action_points_spent']}）"
             +( '\n🎂 這次已扣除生日地點預付次數，金幣免重複付款。' if result.get('birthday_credit_used') else '' )
             +encounter_note,
             view=encounter_view,ephemeral=True)
-        if not result.get('duplicated'):
+        if not result.get('duplicated') and not result.get('test_only'):
             try:
                 from core.official_location_events_v1 import roll_after_action
                 from modules.official_location_events_ui import OfficialEventChoiceView, describe
@@ -405,6 +405,9 @@ class ActionExecuteView(discord.ui.View):
                         describe(event),
                         view=OfficialEventChoiceView(self.guild_id,self.user_id,self.character_id,event),
                         ephemeral=True)
+                    from core.official_location_events_v1 import mark_displayed
+                    await asyncio.to_thread(mark_displayed,self.guild_id,
+                        event['request_key'],self.character_id)
             except Exception:
                 LOG.exception('行動完成後，官方地點隨機事件處理失敗；原行動不回滾')
 
