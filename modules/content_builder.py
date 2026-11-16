@@ -1094,7 +1094,7 @@ WORLD_CATEGORIES = [
     ("🔗 頻道連結", "channels"), ("✏️ 用詞自訂", "terms"),
     ("📊 數值設定", "stats"), ("🎖️ 地位設定", "status_levels"),
     ("🏢 公司與組織", "company_rules"), ("⚙️ 細項規則", "detail_rules"),
-    ("🐾 寵物設定", "pets"), ("😀 網路表符", "reactions"),
+    ("🐾 寵物設定", "pets"), ("🎂 生日設定", "birthday"), ("😀 網路表符", "reactions"),
     ("🗂️ 分類管理", "categories"), ("🔐 權限設定", "permissions"),
 ]
 WORLD_LABELS = dict((value, label) for label, value in WORLD_CATEGORIES)
@@ -1417,10 +1417,10 @@ class WorldSettingsView(discord.ui.View):
                 if not has_world_permission(interaction, "stats_edit"):
                     await interaction.response.send_message("⛔ 你沒有數值管理權限。", ephemeral=True)
                     return
-            elif category not in ("stats", "pets", "reactions") and not owner(interaction):
+            elif category not in ("stats", "pets", "reactions", "birthday") and not owner(interaction):
                 await interaction.response.send_message("⛔ 這項世界觀設定僅限群主。", ephemeral=True)
                 return
-            if category in ("pets", "reactions"):
+            if category in ("pets", "reactions", "birthday"):
                 from modules.world_pets_reactions_ui import is_manager
                 if not is_manager(interaction):
                     await interaction.response.send_message("⛔ 需要伺服器管理員權限。",ephemeral=True)
@@ -1445,6 +1445,10 @@ class WorldSettingsView(discord.ui.View):
                 from modules.world_pets_reactions_ui import PetWorldView, pet_summary
                 view = PetWorldView(interaction)
                 content = pet_summary(interaction.guild_id)
+            elif category == "birthday":
+                from modules.world_birthday_ui import BirthdayWorldView, summary
+                view = BirthdayWorldView(interaction)
+                content = summary(interaction.guild_id)
             elif category == "reactions":
                 from modules.world_pets_reactions_ui import ReactionWorldView, reaction_summary
                 view = ReactionWorldView(interaction)
