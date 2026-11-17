@@ -612,6 +612,10 @@ class RPBot(commands.Bot):
         await asyncio.to_thread(
             init_db
         )
+        # 統一訊息可見性設定：僅公開安全白名單之首次一般回覆。
+        from core.message_visibility_policy import init_tables as init_visibility_tables, install as install_visibility_policy
+        await asyncio.to_thread(init_visibility_tables)
+        install_visibility_policy()
 
         extensions = discover_extensions()
 
