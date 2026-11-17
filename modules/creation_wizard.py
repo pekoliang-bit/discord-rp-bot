@@ -2117,9 +2117,16 @@ class HomeView(OwnedView):
         from modules.npc_history_v23 import NPCCreateButton
         from modules.beta_test_buttons import ClaimBetaButton, ConvertBetaButton, EditBetaButton
         self.add_item(NPCCreateButton())
-        self.add_item(ClaimBetaButton())
-        self.add_item(ConvertBetaButton())
-        self.add_item(EditBetaButton())
+        # 測試功能按角色是否已領取顯示，普通玩家也可領取剩餘姓名。
+        from core import beta_test_core as beta
+        beta.setup()
+        has_role = beta.has_beta(actor.guild_id, actor.user_id)
+        if has_role:
+            self.add_item(EditBetaButton())
+            if beta.beta_ended(actor.guild_id):
+                self.add_item(ConvertBetaButton())
+        elif beta.can_claim(actor.guild_id):
+            self.add_item(ClaimBetaButton())
 
     @discord.ui.button(
         label="➕ 建立新角色",
