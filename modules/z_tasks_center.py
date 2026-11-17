@@ -190,13 +190,15 @@ class NewbieGuideView(discord.ui.View):
         self.next_page.disabled = self.page >= 3
 
     def content(self):
-        from modules.task_newbie_rewards import REWARDS, EXPLANATIONS, status
+        from modules.task_newbie_rewards import REWARDS, EXPLANATIONS, status, test_reward_status
+        from modules.task_newbie import is_test_character
         completed = progress(self.gid, self.cid)
-        receipts = status(self.gid, self.cid)
+        test_character = is_test_character(self.gid, self.cid)
+        receipts = test_reward_status(self.gid, self.cid) if test_character else status(self.gid, self.cid)
         lines = [
             f'🎓 **新手任務指南｜第 {self.page+1}/4 頁**',
             f'完成進度：{completed["done"]}/{completed["total"]}',
-            '操作對應指令，完成正式紀錄後會自動入帳。獎勵只能領取一次。',
+            '在本人「機器人使用」帖子開啟指定指令即算完成，並發放該項獎勵；每項只能領一次。',
             ''
         ]
         for command in TUTORIAL_COMMANDS[self.page*4:(self.page+1)*4]:
@@ -204,14 +206,33 @@ class NewbieGuideView(discord.ui.View):
             info = REWARDS.get(command)
             reward = info[2] if info else '無額外獎勵'
             receipt = receipts.get(command)
-            state = ('✅ 已完成／已發獎' if receipt and receipt['status']=='done' else
-                     '⏳ 已完成／待補發' if complete else '⬜ 尚未完成')
+            state = (
+                '⬜ 尚未完成' if not complete else
+                '🧪 已完成／測試獎勵已入帳' if test_character and receipt else
+                '⏳ 已完成／測試獎勵待補發' if test_character else
+                '✅ 已完成／無額外獎勵' if info is None else
+                '✅ 已完成／已發獎' if receipt and receipt['status']=='done' else
+                '⏳ 已完成／待補發'
+            )
             lines.extend((f'**/{command}**｜{state}',
                           f'• 操作：{EXPLANATIONS[command]}。',
                           f'• 獎勵：{reward}。', ''))
         thread = bot_thread_id(self.gid, self.cid)
-        lines.append('完成紀錄請以本人「機器人使用」帖子為準。'
-                     + (f' <#{thread}>' if thread else ' 尚未綁定帖子，請通知管理員。'))
+        lines.append('說明：尚未完成＝尚未在本人「機器人使用」帖成功開啟該指令。')
+        if test_character:
+            lines.append('🧪 測試角色會實際收到獨立測試帳本獎勵；不變更正式金幣、銀行、屬性或獎券。')
+            from collections import defaultdict
+            total = defaultdict(int)
+            for row in receipts.values():
+                total[row['reward_kind']] += int(row['amount'])
+            names = {'free':'自由點數','skill':'技能點數','coins':'金幣','ticket':'普通抽獎券',
+                     'bank':'銀行存款','faction':'陣營經費','fans':'粉絲','credit':'商城禮金',
+                     'heat':'流量熱度','actions':'行動值'}
+            lines.append('🧾 測試獎勵帳本累計：' + ('、'.join(f'{names.get(k,k)} +{v}' for k,v in total.items()) if total else '尚無獎勵'))
+        else:
+            lines.append('待補發＝完成已記錄，但獎勵尚未入帳；按「更新獎勵進度」重試。')
+        lines.append('📍 完成紀錄以本人「機器人使用」帖子為準：'
+                     + (f' <#{thread}>' if thread else '尚未綁定，請通知管理員。'))
         return '\n'.join(lines)[:1900]
 
     async def interaction_check(self, interaction):
@@ -259,7 +280,10 @@ async def show_character(i,cid):
         await i.response.send_message(guide.content(),view=guide,ephemeral=False)
         thread=bot_thread_id(i.guild_id,cid)
         if thread and str(i.channel_id)==thread:
-            try: record_success(i.guild_id,cid,i.user.id,i.channel_id,'任務')
+            try:
+                record_success(i.guild_id,cid,i.user.id,i.channel_id,'任務')
+                # Update the first-time tutorial status without sending an extra message.
+                await i.edit_original_response(content=guide.content(), view=guide)
             except Exception:
                 import logging
                 logging.getLogger(__name__).exception('新手「任務」完成紀錄失敗')
@@ -445,7 +469,14 @@ class TasksCenter(commands.Cog):
     @app_commands.command(name='任務', description='在本人角色論壇查看及回報任務')
     @app_commands.guild_only()
     async def tasks(self, i: discord.Interaction):
-        # 只有本人角色論壇的固定帖子或本人新建立的帖子可使用。
+        # Existing work-report channels remain available; tutorial gate applies
+        # only inside the user's own robot-use thread.
+        from modules.task_event_bridge import require_tutorial_channel
+        own_thread = _thread_owned_characters(i)
+        if own_thread and any(str(bot_thread_id(i.guild_id, c['id'])) == str(i.channel_id) for c in own_thread):
+            allowed, _ = await require_tutorial_channel(i, '任務')
+            if not allowed:
+                return
         characters = _reportable_characters_here(i)
         if not characters:
             await i.response.send_message('請到自己角色的「機器人使用」帖子，或在自己角色論壇新建帖子後使用 /任務。', ephemeral=False)
