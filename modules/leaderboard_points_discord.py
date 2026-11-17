@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import secrets
 
 import discord
 
@@ -26,22 +27,36 @@ class AmountModal(discord.ui.Modal, title="排行榜點數分配確認"):
         self.target = target
 
     async def on_error(self, interaction: discord.Interaction, error: Exception):
-        LOG.error("點數輸入視窗失敗: guild=%s character=%s", self.guild_id, self.character_id,
-                  exc_info=(type(error), error, error.__traceback__))
-        if not interaction.response.is_done():
-            await interaction.response.send_message("⚠️ 無法完成點數分配，請管理員查看 Railway Logs。", ephemeral=True)
-        else:
-            await interaction.followup.send("⚠️ 點數分配發生錯誤，請管理員查看 Railway Logs。", ephemeral=True)
+        issue = secrets.token_hex(4).upper()
+        LOG.error(
+            "點數表單未處理例外 [POINT-%s] guild=%s character=%s pool=%s target=%s",
+            issue, self.guild_id, self.character_id, self.pool, self.target,
+            exc_info=(type(error), error, error.__traceback__),
+        )
+        text = f"⚠️ 點數表單發生錯誤（POINT-{issue}），尚未確認扣點。請將編號交給管理員查看 Railway Logs。"
+        try:
+            if interaction.response.is_done():
+                await interaction.followup.send(text, ephemeral=True)
+            else:
+                await interaction.response.send_message(text, ephemeral=True)
+        except discord.HTTPException:
+            LOG.exception("點數表單錯誤訊息也無法傳送 [POINT-%s]", issue)
 
     async def on_submit(self, interaction: discord.Interaction):
+        # 禁止其他人重播此表單；同時不要執行任何資料庫查詢才回應 Discord。
         if interaction.user.id != self.owner_id:
             await interaction.response.send_message("無權操作這個角色。", ephemeral=True)
             return
 
-        # Modal submission has the same three-second interaction deadline.
-        # A synchronous SQLite read can otherwise make Discord reject the
-        # entire modal with the generic red "Something went wrong" banner.
-        await interaction.response.defer(ephemeral=True, thinking=True)
+        issue = secrets.token_hex(4).upper()
+        try:
+            # 必須優先 ACK，否則 Discord 在資料庫操作期間可能直接顯示紅色錯誤。
+            await interaction.response.defer(ephemeral=True, thinking=True)
+        except discord.HTTPException:
+            LOG.exception("點數表單 ACK 失敗 [POINT-%s] guild=%s character=%s", issue,
+                          self.guild_id, self.character_id)
+            return
+
         try:
             amount = int(str(self.amount.value).strip())
             if amount <= 0:
@@ -52,23 +67,41 @@ class AmountModal(discord.ui.Modal, title="排行榜點數分配確認"):
                 self.pool, self.category, self.target, amount,
             )
             info = request["preview"]
-            view = ConfirmView(self.owner_id, request["token"])
-            await interaction.followup.send(
-                f"請確認：將 **{amount}** 點分配至 **{self.target}**。\n"
-                f"預覽：{info}\n180 秒內確認，否則失效。",
-                view=view, ephemeral=True,
+            confirmation = ConfirmView(self.owner_id, request["token"])
+            content = (
+                f"🎯 **點數分配預覽**\n"
+                f"預計增加：**{self.target} +{amount}**\n"
+                f"分配前可用：{info.get('balance_before', info.get('balance', '—'))}\n"
+                f"確認後才會扣除點數。請在180秒內點擊確認。"
             )
-        except (ValueError, PermissionError, TypeError) as exc:
-            await interaction.followup.send(f"⚠️ {exc}；尚未扣除點數。", ephemeral=True)
+            # 使用 modal defer 所建立的原始回應，避免又送一個獨立訊息。
+            await interaction.edit_original_response(content=content, view=confirmation)
+        except (ValueError, PermissionError, TypeError, KeyError) as exc:
+            LOG.warning("點數分配被拒絕 [POINT-%s] guild=%s char=%s: %s",
+                        issue, self.guild_id, self.character_id, exc)
+            await self._report(interaction, f"⚠️ {exc}；尚未扣除點數。", issue)
         except Exception:
             LOG.exception(
-                "點數分配建立確認請求失敗: guild=%s character=%s pool=%s category=%s target=%s",
-                self.guild_id, self.character_id, self.pool, self.category, self.target,
+                "點數分配建立確認請求失敗 [POINT-%s] guild=%s character=%s pool=%s category=%s target=%s",
+                issue, self.guild_id, self.character_id, self.pool, self.category, self.target,
             )
-            await interaction.followup.send(
-                "⚠️ 點數預覽失敗，尚未扣除點數。請管理員查看 Railway Logs 中的「點數分配建立確認請求失敗」。",
-                ephemeral=True,
+            await self._report(
+                interaction,
+                "⚠️ 點數預覽失敗，尚未確認扣點。請交給管理員查看 Railway Logs。",
+                issue,
             )
+
+    @staticmethod
+    async def _report(interaction, message, issue):
+        message = f"{message}\n錯誤查詢編號：`POINT-{issue}`"
+        try:
+            await interaction.edit_original_response(content=message, view=None)
+        except discord.HTTPException:
+            LOG.exception("點數錯誤原回覆失敗 [POINT-%s]", issue)
+            try:
+                await interaction.followup.send(message, ephemeral=True)
+            except discord.HTTPException:
+                LOG.exception("點數錯誤備援回覆失敗 [POINT-%s]", issue)
 
 
 class ConfirmView(discord.ui.View):
