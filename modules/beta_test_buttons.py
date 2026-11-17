@@ -14,7 +14,12 @@ class ClaimBetaButton(discord.ui.Button):
         try:
             await asyncio.to_thread(beta.setup)
             cid,created=await asyncio.to_thread(beta.claim,i.guild_id,i.user.id)
-            await i.followup.send(('✅ 已隨機生成' if created else '你已領過')+f'測試角色 #{cid}。\n'
+            from modules.character_forums import ensure_activated_forum
+            forum_result=await ensure_activated_forum(i.client,i.guild_id,cid)
+            forum_text=('\n✅ 私人角色論壇已建立或確認：<#'+forum_result['forum_id']+'>'
+                if forum_result.get('status')=='ready' else
+                '\n⏳ 私人角色論壇尚未建好，背景掃描將繼續補建（請確認男女分類及機器人管理頻道權限）。')
+            await i.followup.send(('✅ 已隨機生成' if created else '你已領過')+f'測試角色 #{cid}。'+forum_text+'\n'
                 '⚠️ 測試角色資源與正式經濟隔離。不是所有遊玩介面都已完成沙盒接入，請勿對正式玩家交易。',ephemeral=True)
         except Exception as exc:
             LOG.exception('領取測試角色失敗')
