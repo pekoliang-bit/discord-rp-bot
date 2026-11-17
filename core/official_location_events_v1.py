@@ -49,7 +49,11 @@ def setup(db):
         guild_id TEXT NOT NULL, request_key TEXT NOT NULL,
         character_id INTEGER NOT NULL, location_key TEXT NOT NULL,
         event_id TEXT, created_at TEXT NOT NULL,
+        displayed_at TEXT,
         PRIMARY KEY(guild_id,request_key))""")
+    cols = {r[1] for r in db.execute('PRAGMA table_info(rp_official_location_event_rolls_v1)')}
+    if 'displayed_at' not in cols:
+        db.execute('ALTER TABLE rp_official_location_event_rolls_v1 ADD COLUMN displayed_at TEXT')
     db.execute("""CREATE TABLE IF NOT EXISTS rp_official_location_event_choices_v1 (
         guild_id TEXT NOT NULL, request_key TEXT NOT NULL,
         character_id INTEGER NOT NULL, event_id TEXT NOT NULL,
@@ -91,19 +95,44 @@ def roll_after_action(guild_id, character_id, location_key, request_key, *, chan
         candidates = [e for e in grouped.get(key, [])
                       if e.get('enabled') is True and e.get('trigger') == 'approved_location_action_completed']
         selected = None
-        if candidates and rate and secrets.randbelow(100) < rate:
-            if cooldown:
-                last = db.execute("""SELECT created_at FROM rp_official_location_event_rolls_v1
-                    WHERE guild_id=? AND character_id=? AND location_key=? AND event_id IS NOT NULL
-                    ORDER BY created_at DESC LIMIT 1""", (gid,cid,key)).fetchone()
-                if last and datetime.now(timezone.utc) - datetime.fromisoformat(last['created_at']) < timedelta(hours=cooldown):
-                    candidates=[]
-            if candidates:
+        if candidates and rate:
+            # 冷卻只根據已成功顯示的事件，整個伺服器內同角色跨地點共用。
+            last = db.execute("""SELECT displayed_at FROM rp_official_location_event_rolls_v1
+                WHERE guild_id=? AND character_id=? AND event_id IS NOT NULL
+                  AND displayed_at IS NOT NULL
+                ORDER BY displayed_at DESC LIMIT 1""", (gid,cid)).fetchone()
+            in_cooldown = bool(last and cooldown and
+                datetime.now(timezone.utc) - datetime.fromisoformat(last['displayed_at']) < timedelta(hours=cooldown))
+            # 未完成顯示的事件預留一小段時間避免同時請求多抽；
+            # 發送失敗不消耗冷卻，之後仍可重新抽取。
+            pending = db.execute("""SELECT 1 FROM rp_official_location_event_rolls_v1
+                WHERE guild_id=? AND character_id=? AND event_id IS NOT NULL
+                  AND displayed_at IS NULL AND created_at>?
+                LIMIT 1""",(gid,cid,(datetime.now(timezone.utc)-timedelta(minutes=5)).isoformat())).fetchone()
+            if not in_cooldown and not pending and secrets.randbelow(100) < rate:
                 selected=candidates[secrets.randbelow(len(candidates))]
         db.execute("""INSERT INTO rp_official_location_event_rolls_v1
             (guild_id,request_key,character_id,location_key,event_id,created_at)
             VALUES (?,?,?,?,?,?)""", (gid,request,cid,key,selected['event_id'] if selected else None,_stamp()))
         return event_detail(gid, request, db=db) if selected else None
+
+
+def mark_displayed(guild_id, request_key, character_id):
+    """Discord 已成功送出事件畫面後才記錄冷卻；重複通知不可刷新時間。"""
+    gid, request, cid = str(guild_id), str(request_key), int(character_id)
+    with transaction() as db:
+        setup(db)
+        row = db.execute("""SELECT event_id,displayed_at FROM rp_official_location_event_rolls_v1
+            WHERE guild_id=? AND request_key=? AND character_id=?""",(gid,request,cid)).fetchone()
+        if row is None or row['event_id'] is None:
+            raise ValueError('沒有可標記的官方地點事件')
+        if row['displayed_at'] is not None:
+            return False
+        # 同角色的其他地點已成功發出事件時，不允許重複累積冷卻。
+        db.execute("""UPDATE rp_official_location_event_rolls_v1 SET displayed_at=?
+            WHERE guild_id=? AND request_key=? AND character_id=? AND displayed_at IS NULL""",
+            (_stamp(),gid,request,cid))
+        return True
 
 
 def event_detail(guild_id, request_key, *, db=None):
