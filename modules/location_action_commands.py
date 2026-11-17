@@ -580,20 +580,10 @@ class ActionPreview(discord.ui.View):
         self.add_item(next_button)
 
     def build_message(self) -> str:
-        mode = (
-            "群主待審核預覽"
-            if self.owner_preview
-            else "已核准行動"
-        )
-
         return (
-            f"**{self.location['name']}｜"
-            "可用行動**\n"
+            f"**{self.location['name']}｜可用行動**\n"
             f"共 {len(self.actions)} 項\n"
-            f"第 {self.current_page + 1}"
-            f"／{self.total_pages} 頁\n"
-            f"{mode}\n\n"
-            "已核准行動可由本人角色確認執行；待審核內容僅能預覽。"
+            f"第 {self.current_page + 1}／{self.total_pages} 頁"
         )
 
     async def previous_page(
