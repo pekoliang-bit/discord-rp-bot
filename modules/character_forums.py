@@ -32,6 +32,8 @@ LOG = logging.getLogger(__name__)
 DEFAULT_GUILD_ID = "1544051203493601380"
 DEFAULT_FEMALE_CATEGORY_ID = "1567786100460625972"
 DEFAULT_MALE_CATEGORY_ID = "1567786323773759588"
+# 用戶指定的測試角色論壇入口。可以是分類、論壇頻道或論壇帖子。
+DEFAULT_BETA_FORUM_ANCHOR_ID = 1572178575904219157
 
 
 def normalize_gender(value):
@@ -172,6 +174,48 @@ def get_beta_category(guild_id):
             (str(guild_id),)
         ).fetchone()
     return int(row["beta_category_id"]) if row and row["beta_category_id"] else None
+
+
+async def resolve_beta_category(guild):
+    """辨識已設定分類，或從指定論壇／帖子找到其父分類。
+
+    Discord 不允許在論壇帖子下建立另一個論壇頻道，也不提供單個
+    ForumChannel 帖子彼此獨立的私人權限。因此以來源頻道所屬分類
+    建立同層級、具有獨立權限的角色私人 ForumChannel。
+    """
+    # 此伺服器以使用者最新提供的論壇入口為準；其他伺服器沿用管理設定。
+    source_id = (DEFAULT_BETA_FORUM_ANCHOR_ID
+                 if str(guild.id) == DEFAULT_GUILD_ID
+                 else get_beta_category(guild.id))
+    if not source_id:
+        raise ValueError("尚未設定測試論壇位置。請使用 /測試角色論壇設定 選擇分類。")
+    source = guild.get_channel(int(source_id)) or guild.get_thread(int(source_id))
+    if source is None:
+        try:
+            source = await guild.fetch_channel(int(source_id))
+        except discord.Forbidden as exc:
+            raise PermissionError(f"機器人無權讀取測試論壇來源 {source_id}，請檢查檢視頻道權限。") from exc
+        except discord.NotFound as exc:
+            raise ValueError(f"找不到指定測試論壇入口 {source_id}，請確認頻道或帖子 ID。") from exc
+    if isinstance(source, discord.CategoryChannel):
+        return source
+    if isinstance(source, discord.Thread):
+        parent = source.parent
+        if parent is None:
+            try:
+                parent = await guild.fetch_channel(source.parent_id)
+            except (discord.HTTPException, ValueError) as exc:
+                raise ValueError("指定的是帖子，但機器人無法取得其母論壇。") from exc
+        category = getattr(parent, "category", None)
+    else:
+        category = getattr(source, "category", None)
+    if isinstance(category, discord.CategoryChannel):
+        return category
+    raise ValueError(
+        f"指定入口 {source_id} 不是分類且沒有父分類。"
+        "Discord 無法在既有帖子中建立私人角色論壇；"
+        "請將該論壇頻道移到一個 Discord 分類，或執行 /測試角色論壇設定 指定分類。"
+    )
 
 
 def is_beta_forum_character(guild_id, character_id):
@@ -323,17 +367,16 @@ class CharacterForums(commands.Cog):
 
         beta_character = is_beta_forum_character(guild.id, character_id)
         if beta_character:
-            category_id = get_beta_category(guild.id)
-            if not category_id:
-                raise ValueError("測試角色未指定專用分類；管理員請執行 /測試角色論壇設定。")
+            # 測試角不分男女；指定入口是論壇／帖子時從父分類建立私人論壇。
+            category = await resolve_beta_category(guild)
         else:
             gender = character_gender(character)
             if gender is None:
                 raise ValueError("正式角色性別尚未明確設定為男或女，無法建立論壇。")
             category_id = get_category(guild.id, gender)
-        category = guild.get_channel(category_id) if category_id else None
-        if not isinstance(category, discord.CategoryChannel):
-            raise ValueError("指定的論壇分類不存在或已刪除，請管理員重新設定。")
+            category = guild.get_channel(category_id) if category_id else None
+            if not isinstance(category, discord.CategoryChannel):
+                raise ValueError("指定的正式角色論壇分類不存在，請管理員重新設定。")
 
         key = (guild.id, character_id)
 
@@ -685,7 +728,8 @@ class CharacterForums(commands.Cog):
     async def scan(self):
         async with self._cycle_lock:
             for guild in self.bot.guilds:
-                if any(get_categories(guild.id).values()) or get_beta_category(guild.id):
+                if (any(get_categories(guild.id).values()) or get_beta_category(guild.id)
+                        or str(guild.id) == DEFAULT_GUILD_ID):
                     await self.run_scan(guild)
 
     @scan.before_loop
@@ -793,17 +837,15 @@ class CharacterForums(commands.Cog):
         self,
         interaction: discord.Interaction,
     ):
-        if (
-            interaction.guild.owner_id
-            != interaction.user.id
-        ):
+        if (interaction.guild.owner_id != interaction.user.id and
+                not interaction.user.guild_permissions.administrator):
             await interaction.response.send_message(
-                "⛔ 只有群主可以執行。",
-                ephemeral=True,
-            )
+                "⛔ 僅群主或 Administrator 管理員可執行。", ephemeral=True)
             return
 
-        if not any(get_categories(interaction.guild_id).values()) and not get_beta_category(interaction.guild_id):
+        if (not any(get_categories(interaction.guild_id).values())
+                and not get_beta_category(interaction.guild_id)
+                and str(interaction.guild_id) != DEFAULT_GUILD_ID):
             await interaction.response.send_message(
                 "⚠️ 請先使用 /角色論壇設定 或 /測試角色論壇設定。",
                 ephemeral=True,
