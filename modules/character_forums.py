@@ -1,8 +1,6 @@
 """Discord RP｜正式及測試角色私人論壇自動建立。
 
-指令：
-/角色論壇設定
-/角色論壇補建
+操作入口：/官方 → 功能管理 → 🧪 測試系統（不註冊額外 Slash 指令）
 
 功能：
 - 群主分別指定女性與男性角色論壇分類
@@ -21,7 +19,6 @@ import logging
 import sqlite3
 
 import discord
-from discord import app_commands
 from discord.ext import commands, tasks
 
 from core.database import get_connection, transaction
@@ -74,33 +71,85 @@ POSTS = (
 
 
 def _forum_access_overwrites(guild, owner, bot_member):
-    """Explicit per-forum overwrites; forum posts inherit forum visibility."""
+    """Private forum: only character owner and bot get explicit access.
+
+    Discord Administrator can bypass channel overwrites. We do not grant other
+    normal roles access to a player's private forum.
+    """
     return {
         guild.default_role: discord.PermissionOverwrite(view_channel=False),
-        owner: discord.PermissionOverwrite(view_channel=True, send_messages=True,
-                                           send_messages_in_threads=True, read_message_history=True),
-        bot_member: discord.PermissionOverwrite(view_channel=True, manage_channels=True,
-                                                manage_threads=True, send_messages=True,
-                                                send_messages_in_threads=True, read_message_history=True),
+        owner: discord.PermissionOverwrite(
+            view_channel=True, send_messages=True,
+            send_messages_in_threads=True, create_public_threads=True,
+            read_message_history=True,
+        ),
+        bot_member: discord.PermissionOverwrite(
+            view_channel=True, manage_channels=True, manage_threads=True,
+            create_public_threads=True, send_messages=True,
+            send_messages_in_threads=True, read_message_history=True,
+            embed_links=True, attach_files=True,
+        ),
     }
 
 
-def _private_forum_is_secure(forum, owner_id):
-    """Conservatively reject public or third-party explicit permission overwrites."""
+def _private_forum_is_secure(forum, owner_id, *, owner=None, bot_member=None):
+    """Verify explicit private channel overwrites without requiring member cache.
+
+    ``guild.get_member`` can return None for an otherwise valid member. Passing
+    the already-fetched owner is essential to prevent false failures. Reject
+    access for everyone and third-party roles/users (except guild owner or
+    Administrator, whose override Discord cannot suppress).
+    """
     if not isinstance(forum, discord.ForumChannel):
         return False
-    default = forum.overwrites_for(forum.guild.default_role)
-    if default.view_channel is not False:
+    guild = forum.guild
+    if forum.overwrites_for(guild.default_role).view_channel is not False:
         return False
-    owner = forum.guild.get_member(int(owner_id))
-    if owner is None or forum.overwrites_for(owner).view_channel is not True:
+    owner_id = int(owner_id)
+    owner = owner if owner is not None else guild.get_member(owner_id)
+    if owner is not None:
+        if int(owner.id) != owner_id:
+            return False
+        if forum.overwrites_for(owner).view_channel is not True:
+            return False
+    else:
+        # Cache miss: inspect explicit member overwrites by ID instead.
+        if not any(int(target.id) == owner_id and isinstance(target, discord.Member)
+                   and perm.view_channel is True
+                   for target, perm in forum.overwrites.items()):
+            return False
+    bot_member = bot_member if bot_member is not None else guild.me
+    bot_id = int(bot_member.id) if bot_member is not None else None
+    if bot_id is None or forum.overwrites_for(bot_member).view_channel is not True:
         return False
-    for target, permissions in forum.overwrites.items():
-        if target.id in (forum.guild.default_role.id, owner.id, forum.guild.me.id):
-            continue
-        if permissions.view_channel is True:
+    allowed = {int(guild.default_role.id), owner_id, bot_id}
+    for target, perms in forum.overwrites.items():
+        if int(target.id) not in allowed and perms.view_channel is True:
             return False
     return True
+
+
+async def _refresh_forum(guild, forum):
+    """Fetch after an overwrite edit; avoid checking stale discord.py cache."""
+    current = await guild.fetch_channel(int(forum.id))
+    if not isinstance(current, discord.ForumChannel):
+        raise ValueError("角色論壇 ID 指向的頻道不是 ForumChannel")
+    return current
+
+
+def _missing_forum_permissions(forum, bot_member, owner):
+    """Return actionable permissions missing for creating the fixed four posts."""
+    bp = forum.permissions_for(bot_member)
+    op = forum.permissions_for(owner)
+    needed = (
+        (bp.view_channel, "機器人檢視頻道"),
+        (bp.create_public_threads, "機器人建立公開討論串"),
+        (bp.send_messages_in_threads, "機器人在討論串發送訊息"),
+        (bp.manage_threads, "機器人管理討論串"),
+        (op.view_channel, "持有人檢視頻道"),
+        (op.send_messages_in_threads, "持有人在討論串發言"),
+    )
+    return [label for ok, label in needed if not ok]
 
 
 # ==========================================
@@ -460,15 +509,23 @@ class CharacterForums(commands.Cog):
                     overwrites=overwrites,
                     reason=f"角色 #{character_id} 專屬論壇分類更新",
                 )
-            # Repair legacy forums before creating or delivering private posts.
-            # Restrict both @everyone and any previously granted third-party roles.
-            if not _private_forum_is_secure(forum, owner_id):
+            # Repair legacy forums and verify freshly fetched permissions.
+            # A member may not be in Discord's guild member cache; use the
+            # explicitly fetched owner instead of guild.get_member(owner_id).
+            if not _private_forum_is_secure(forum, owner_id, owner=owner, bot_member=bot_member):
                 await forum.edit(
                     overwrites=overwrites,
                     reason=f"角色 #{character_id} 私人論壇權限修復",
                 )
-            if not _private_forum_is_secure(forum, owner_id):
-                raise PermissionError("私人論壇權限未能確認，禁止發布私人內容")
+            forum = await _refresh_forum(guild, forum)
+            if not _private_forum_is_secure(forum, owner_id, owner=owner, bot_member=bot_member):
+                raise PermissionError(
+                    "私人論壇覆寫權限驗證失敗；請檢查機器人是否具有管理頻道權限、"
+                    "@everyone 是否被禁止檢視，以及是否存在額外開放的身分組。"
+                )
+            missing = _missing_forum_permissions(forum, bot_member, owner)
+            if missing:
+                raise PermissionError("角色論壇缺少權限：" + "、".join(missing))
 
             data = get_link(
                 guild.id,
@@ -476,7 +533,7 @@ class CharacterForums(commands.Cog):
             )
 
             # --------------------------------
-            # 建立三個固定貼文
+            # 建立四個固定貼文
             # --------------------------------
 
             fields = {
@@ -497,12 +554,8 @@ class CharacterForums(commands.Cog):
 
                     if thread is None:
                         try:
-                            thread = (
-                                await guild.fetch_channel(
-                                    int(data[field])
-                                )
-                            )
-                        except discord.NotFound:
+                            thread = await guild.fetch_channel(int(data[field]))
+                        except (discord.NotFound, discord.Forbidden):
                             thread = None
 
                 if (
@@ -540,22 +593,24 @@ class CharacterForums(commands.Cog):
                                 f"{body}"
                             )
 
-                        result = await forum.create_thread(
-                            name=title,
-                            content=content,
-                            allowed_mentions=(
-                                discord.AllowedMentions(
-                                    users=True,
-                                    roles=False,
-                                    everyone=False,
-                                )
-                            ),
-                            reason=(
-                                f"角色 #{character_id} "
-                                "固定貼文"
-                            ),
-                        )
-
+                        try:
+                            result = await forum.create_thread(
+                                name=title,
+                                content=content,
+                                allowed_mentions=discord.AllowedMentions(
+                                    users=True, roles=False, everyone=False,
+                                ),
+                                reason=f"角色 #{character_id} 固定帖子：{title}",
+                            )
+                        except discord.Forbidden as exc:
+                            raise PermissionError(
+                                f"無法建立「{title}」帖子：機器人缺少建立討論串、"
+                                "在討論串發訊息或檢視頻道權限。"
+                            ) from exc
+                        except discord.HTTPException as exc:
+                            raise RuntimeError(
+                                f"建立「{title}」帖子失敗，Discord API：{exc}"
+                            ) from exc
                         thread = result.thread
 
                     update_link(
@@ -677,9 +732,21 @@ class CharacterForums(commands.Cog):
                             ).fetchone()
                             if bound else None
                         )
+                    # IDs in the database alone do not prove the posts exist.
+                    # Require all four actual in-memory threads to skip; when a
+                    # thread is archived/missing, ensure_forum fetches it or
+                    # reconstructs that one post idempotently.
+                    thread_ids = [int(data[field]) for field in
+                                  ("notice_id", "question_id", "story_id", "bot_id")]
+                    cached_threads = [guild.get_thread(thread_id) for thread_id in thread_ids]
+                    threads_present = all(
+                        isinstance(thread, discord.Thread) and thread.parent_id == forum.id
+                        for thread in cached_threads
+                    )
                     if (record is not None
                             and str(record["forum_id"]) == str(forum.id)
                             and str(record["thread_id"]) == str(data["bot_id"])
+                            and threads_present
                             and _private_forum_is_secure(forum, character["owner_id"])):
                         continue
 
@@ -696,6 +763,7 @@ class CharacterForums(commands.Cog):
                 ValueError,
                 PermissionError,
                 sqlite3.Error,
+                RuntimeError,
             ) as exc:
                 failed.append(
                     f"#{character['id']} "
@@ -732,11 +800,6 @@ class CharacterForums(commands.Cog):
     # 群主設定分類
     # --------------------------------------
 
-    @app_commands.command(
-        name="測試角色論壇設定",
-        description="設定測試角色專用分類，不分性別；自動補建既有測試角色私人論壇",
-    )
-    @app_commands.guild_only()
     async def set_beta_category(
         self,
         interaction: discord.Interaction,
@@ -763,7 +826,7 @@ class CharacterForums(commands.Cog):
             try:
                 await self.ensure_forum(interaction.guild, char)
                 processed += 1
-            except (discord.HTTPException, ValueError, PermissionError, sqlite3.Error) as exc:
+            except (discord.HTTPException, ValueError, PermissionError, sqlite3.Error, RuntimeError) as exc:
                 LOG.exception("測試角色 #%s 論壇補建失敗", char["id"])
                 errors.append(f"#{char['id']}：{type(exc).__name__}：{exc}")
         await interaction.followup.send(
@@ -772,11 +835,6 @@ class CharacterForums(commands.Cog):
             ("\n".join(errors[:8]) if errors else "新抽角將立即在這個分類建立私人論壇。"),
             ephemeral=True)
 
-    @app_commands.command(
-        name="角色論壇檢查",
-        description="檢查測試角、正式女性與男性角色論壇分類是否存在及機器人權限",
-    )
-    @app_commands.guild_only()
     async def check_categories(self, interaction: discord.Interaction):
         if (interaction.guild.owner_id != interaction.user.id and
                 not interaction.user.guild_permissions.administrator):
@@ -816,11 +874,6 @@ class CharacterForums(commands.Cog):
         lines.append("以上為即時分類／權限檢查；建立論壇成功仍須實際執行補建驗證。")
         await interaction.response.send_message("\n".join(lines)[:1900], ephemeral=True)
 
-    @app_commands.command(
-        name="角色論壇設定",
-        description="分別指定女性與男性角色專屬論壇分類",
-    )
-    @app_commands.guild_only()
     async def set_category(
         self,
         interaction: discord.Interaction,
@@ -865,11 +918,6 @@ class CharacterForums(commands.Cog):
     # 群主手動補建
     # --------------------------------------
 
-    @app_commands.command(
-        name="角色論壇補建",
-        description="立即檢查並補建角色論壇",
-    )
-    @app_commands.guild_only()
     async def rebuild(
         self,
         interaction: discord.Interaction,
@@ -884,7 +932,7 @@ class CharacterForums(commands.Cog):
                 and not get_beta_category(interaction.guild_id)
                 and str(interaction.guild_id) != DEFAULT_GUILD_ID):
             await interaction.response.send_message(
-                "⚠️ 請先使用 /角色論壇設定 或 /測試角色論壇設定。",
+                "⚠️ 請至 /官方 → 功能管理 → 🧪 測試系統 設定論壇分類。",
                 ephemeral=True,
             )
             return
@@ -936,14 +984,14 @@ async def ensure_activated_forum(bot, guild_id, character_id):
         return {"status": "deferred", "reason": "character_not_approved_or_active"}
     try:
         forum = await cog.ensure_forum(guild, dict(row))
-    except (discord.HTTPException, ValueError, PermissionError, sqlite3.Error) as exc:
+    except (discord.HTTPException, ValueError, PermissionError, sqlite3.Error, RuntimeError) as exc:
         LOG.exception("角色 #%s 即時論壇補建失敗，交由排程重試", character_id)
         return {"status": "deferred", "reason": f"{type(exc).__name__}: {exc}"[:300]}
     link = get_link(guild_id, character_id)
     if not all(link.get(name) for name in ("forum_id", "notice_id", "question_id", "story_id", "bot_id")):
         return {"status": "deferred", "reason": "incomplete_thread_links"}
-    if not _private_forum_is_secure(forum, row["owner_id"]):
-        return {"status": "deferred", "reason": "private_permissions_unverified"}
+    # ensure_forum completed verified checks using a fetched Member;
+    # do not re-check guild member cache here and introduce a false failure.
     return {"status": "ready", "forum_id": str(forum.id), "notice_id": str(link["notice_id"])}
 
 
