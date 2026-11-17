@@ -1,4 +1,4 @@
-"""統一 T4–T10 任命邀請；跨玩家任命必須由藝人持有人確認。
+"""統一 T1–T10 任命邀請；跨玩家任命必須由藝人持有人確認。
 所有生效頭銜只寫 rp_company_endorsements；不直接處理金幣。
 """
 from __future__ import annotations
@@ -8,12 +8,40 @@ from core.company_endorsement_store import initialize_endorsements, active_endor
 from core.company_endorsement_rules import validate_endorsement, competitor_risk, displayed_endorsement
 
 
+def _upgrade_invitation_constraint(db):
+    row = db.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='rp_endorsement_appointment_invites'").fetchone()
+    if not row:
+        return
+    import re
+    if not re.search(r'BETWEEN\s+4\s+AND\s+10', str(row[0] or ''), re.IGNORECASE):
+        return
+    db.execute("ALTER TABLE rp_endorsement_appointment_invites RENAME TO rp_endorsement_appointment_invites_tier_old")
+    db.execute("""CREATE TABLE rp_endorsement_appointment_invites (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        guild_id TEXT NOT NULL, brand_id TEXT NOT NULL,
+        character_id INTEGER NOT NULL,
+        tier INTEGER NOT NULL CHECK(tier BETWEEN 1 AND 10),
+        scope TEXT NOT NULL, offered_by TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','accepted','declined','cancelled')),
+        endorsement_id INTEGER, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        decided_at TEXT, decided_by TEXT
+    )""")
+    db.execute("""INSERT INTO rp_endorsement_appointment_invites
+        (id,guild_id,brand_id,character_id,tier,scope,offered_by,status,
+         endorsement_id,created_at,decided_at,decided_by)
+        SELECT id,guild_id,brand_id,character_id,tier,scope,offered_by,status,
+               endorsement_id,created_at,decided_at,decided_by
+        FROM rp_endorsement_appointment_invites_tier_old""")
+    db.execute("DROP TABLE rp_endorsement_appointment_invites_tier_old")
+
+
 def initialize(db):
     initialize_endorsements(db)
+    _upgrade_invitation_constraint(db)
     db.execute("""CREATE TABLE IF NOT EXISTS rp_endorsement_appointment_invites (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         guild_id TEXT NOT NULL, brand_id TEXT NOT NULL,
-        character_id INTEGER NOT NULL, tier INTEGER NOT NULL CHECK(tier BETWEEN 4 AND 10),
+        character_id INTEGER NOT NULL, tier INTEGER NOT NULL CHECK(tier BETWEEN 1 AND 10),
         scope TEXT NOT NULL, offered_by TEXT NOT NULL,
         status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','accepted','declined','cancelled')),
         endorsement_id INTEGER, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
