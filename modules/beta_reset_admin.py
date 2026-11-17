@@ -18,7 +18,7 @@ class ConfirmPoolReset(discord.ui.View):
         self.actor_id = int(actor_id)
         self.completed = False
 
-    @discord.ui.button(label='確認：重置全部測試角及34個名字', style=discord.ButtonStyle.danger)
+    @discord.ui.button(label='確認清除舊抽角資料並重置34名', style=discord.ButtonStyle.danger)
     async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not _is_admin(interaction) or interaction.user.id != self.actor_id:
             return await interaction.response.send_message('⛔ 無操作權限。', ephemeral=True)
@@ -39,7 +39,7 @@ class ConfirmPoolReset(discord.ui.View):
             f'✅ 已重置整個測試抽角池！停用 {n} 個本輪測試角，'
             f'目前恢復 {count} 個可抽姓名（男性17、女性17）。\n'
             '請玩家重新使用 /創角 → 領取測試角。每抽一名，就從本輪剩餘名單移除。\n'
-            '舊角色論壇及歷史資料不會自動刪除。', ephemeral=True
+            '舊抽角歷史已清除，測試抽角序號重新從1開始；Discord舊論壇頻道需另行清理。', ephemeral=True
         )
 
     @discord.ui.button(label='取消，不重置', style=discord.ButtonStyle.secondary)
@@ -66,9 +66,9 @@ class BetaResetButton(discord.ui.Button):
             '⚠️ **測試姓名池整池重置**\n'
             f'目前本輪有 {len(rows)} 位仍持有測試角色，姓名池剩餘 {len(remaining)}/34。\n'
             '確認後將：\n'
-            '① 停用本輪所有測試角色（保留紀錄及原論壇）。\n'
+            '① 停用並清除本服所有歷史測試抽角資料（舊角色僅保留不可用的資料庫占位）。\n'
             '② 清空本輪姓名占用，恢復最初全部34個名字。\n'
-            '③ 所有玩家可重新抽角；新一輪抽中名字後，該名字立刻移出可抽池。\n'
+            '③ 測試抽角序號重新從1開始；新一輪抽到名字後立刻移出可抽池。\n'
             '**這會影響所有已領測試角的成員，不只是選定的兩位。**',
             view=ConfirmPoolReset(interaction.user.id), ephemeral=True
         )
