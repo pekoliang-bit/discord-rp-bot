@@ -1,6 +1,7 @@
 """排行榜點數分配 Discord 互動面板；由 /查看 的角色詳情開啟。"""
 from __future__ import annotations
 
+import asyncio
 import logging
 
 import discord
@@ -36,24 +37,38 @@ class AmountModal(discord.ui.Modal, title="排行榜點數分配確認"):
         if interaction.user.id != self.owner_id:
             await interaction.response.send_message("無權操作這個角色。", ephemeral=True)
             return
+
+        # Modal submission has the same three-second interaction deadline.
+        # A synchronous SQLite read can otherwise make Discord reject the
+        # entire modal with the generic red "Something went wrong" banner.
+        await interaction.response.defer(ephemeral=True, thinking=True)
         try:
             amount = int(str(self.amount.value).strip())
             if amount <= 0:
                 raise ValueError("點數必須大於零")
-            request = create_request(self.guild_id, self.character_id, self.owner_id,
-                                     self.pool, self.category, self.target, amount)
+            request = await asyncio.to_thread(
+                create_request,
+                self.guild_id, self.character_id, self.owner_id,
+                self.pool, self.category, self.target, amount,
+            )
             info = request["preview"]
             view = ConfirmView(self.owner_id, request["token"])
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 f"請確認：將 **{amount}** 點分配至 **{self.target}**。\n"
                 f"預覽：{info}\n180 秒內確認，否則失效。",
-                view=view, ephemeral=True)
+                view=view, ephemeral=True,
+            )
         except (ValueError, PermissionError, TypeError) as exc:
-            await interaction.response.send_message(f"⚠️ {exc}", ephemeral=True)
+            await interaction.followup.send(f"⚠️ {exc}；尚未扣除點數。", ephemeral=True)
         except Exception:
-            LOG.exception("點數分配建立確認請求失敗: guild=%s character=%s", self.guild_id, self.character_id)
-            if not interaction.response.is_done():
-                await interaction.response.send_message("⚠️ 點數分配發生系統錯誤；未扣除點數，請管理員查看 Railway Logs。", ephemeral=True)
+            LOG.exception(
+                "點數分配建立確認請求失敗: guild=%s character=%s pool=%s category=%s target=%s",
+                self.guild_id, self.character_id, self.pool, self.category, self.target,
+            )
+            await interaction.followup.send(
+                "⚠️ 點數預覽失敗，尚未扣除點數。請管理員查看 Railway Logs 中的「點數分配建立確認請求失敗」。",
+                ephemeral=True,
+            )
 
 
 class ConfirmView(discord.ui.View):
@@ -70,18 +85,35 @@ class ConfirmView(discord.ui.View):
 
     @discord.ui.button(label="確認分配", style=discord.ButtonStyle.success)
     async def confirm(self, interaction, button):
+        await interaction.response.defer()
         try:
-            result = confirm_request(self.token, interaction.user.id)
-        except Exception as exc:
-            await interaction.response.edit_message(content=f"⚠️ 分配未完成：{exc}", view=None)
+            result = await asyncio.to_thread(confirm_request, self.token, interaction.user.id)
+        except (ValueError, PermissionError) as exc:
+            await interaction.edit_original_response(content=f"⚠️ 分配未完成：{exc}", view=None)
             return
-        await interaction.response.edit_message(content=f"✅ 點數分配完成：{result}\n請返回角色點數面板按『重新整理』查看新餘額。", view=None)
+        except Exception:
+            LOG.exception("點數確認扣點失敗: owner=%s", self.owner_id)
+            await interaction.edit_original_response(
+                content="⚠️ 分配時遇到資料庫或系統錯誤，請管理員查看 Railway Logs；請先重新整理餘額確認是否入帳。",
+                view=None,
+            )
+            return
+        await interaction.edit_original_response(
+            content=f"✅ 點數分配完成：{result}\n請返回角色點數面板按『重新整理』查看新餘額。",
+            view=None,
+        )
 
     @discord.ui.button(label="取消", style=discord.ButtonStyle.secondary)
     async def cancel(self, interaction, button):
         from modules.leaderboard_points_confirmation import cancel_request
-        cancel_request(self.token, interaction.user.id)
-        await interaction.response.edit_message(content="已取消，未扣除點數。", view=None)
+        await interaction.response.defer()
+        try:
+            await asyncio.to_thread(cancel_request, self.token, interaction.user.id)
+        except Exception:
+            LOG.exception("取消點數分配失敗")
+            await interaction.edit_original_response(content="⚠️ 取消時發生錯誤，請稍後確認點數餘額。", view=None)
+            return
+        await interaction.edit_original_response(content="已取消，未扣除點數。", view=None)
 
 
 class TargetSelect(discord.ui.Select):
