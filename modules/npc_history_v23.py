@@ -477,9 +477,28 @@ class ReviewNPCModal(discord.ui.Modal,title='NPC 申請雙階段審核'):
             return await i.response.send_message('沒有正式審核權限。',ephemeral=True)
         try:
             status,cid=decide(i.guild_id,int(self.case.value),i.user.id,i.guild.owner_id,self.approve)
-            await i.response.send_message(f'✅ NPC 申請 #{self.case.value}：{status}'+(f'。角色 #{cid} 已通過二審，請由玩家完成啟用。' if cid else ''),ephemeral=True)
+            await i.response.defer(ephemeral=True,thinking=True)
+            msg=f'✅ NPC 申請 #{self.case.value}：{status}'+(f'。角色 #{cid} 已通過二審，請由玩家完成啟用。' if cid else '')
+            if cid and self.approve:
+                try:
+                    from modules.character_forums import notify_approved_character
+                    result=await notify_approved_character(i.client,i.guild_id,cid)
+                    if result.get('status')=='ready':
+                        msg+='\n🔒 角色私人論壇：'+result['url']
+                        if result.get('dm')!='sent':
+                            msg+='\n⚠️ 持有人私訊未送達，請管理員協助轉告。'
+                    else:
+                        msg+='\n⏳ 角色私人論壇待補建：'+str(result.get('reason','未知'))[:150]
+                except Exception:
+                    import logging
+                    logging.getLogger(__name__).exception('NPC #%s 二審後論壇通知失敗',cid)
+                    msg+='\n⏳ 論壇建立尚未完成，請執行 /角色論壇補建。'
+            await i.followup.send(msg,ephemeral=True)
         except (ValueError,PermissionError,sqlite3.Error) as exc:
-            await i.response.send_message(f'⚠️ {exc}',ephemeral=True)
+            if i.response.is_done():
+                await i.followup.send(f'⚠️ {exc}',ephemeral=True)
+            else:
+                await i.response.send_message(f'⚠️ {exc}',ephemeral=True)
 
 class NPCReviewView(discord.ui.View):
     def __init__(self,i):
@@ -500,7 +519,9 @@ class ActivateNPCModal(discord.ui.Modal,title='啟用已通過二審的 NPC'):
             cid,status=activate_claim(i.guild_id,i.user.id,int(self.claimid.value))
             from modules.character_forums import ensure_activated_forum
             forum=await ensure_activated_forum(i.client,i.guild_id,cid)
-            forum_text=('角色私人論壇及四個帖子已建立。' if forum['status']=='ready'
+            forum_text=(('角色私人論壇及四個帖子已建立。\n🔒 私人論壇連結：'
+                         f'https://discord.com/channels/{i.guild_id}/{forum["forum_id"]}\n')
+                        if forum['status']=='ready'
                         else '角色論壇正在補建，私人通知會暫存等待送達。')
             await i.response.send_message(f'✅ 玩家 NPC #{cid} 已啟用。歷史履歷：{status}。{forum_text}新人禮包請依原有領取入口辦理（不自動開獎）。',ephemeral=True)
         except (ValueError,sqlite3.Error) as exc:await i.response.send_message(f'⚠️ {exc}',ephemeral=True)
