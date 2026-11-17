@@ -69,29 +69,23 @@ class TaskEventBridge(commands.Cog):
 
     @commands.Cog.listener('on_app_command_completion')
     async def record_newbie_on_success(self, interaction: discord.Interaction, command):
-        """僅當 Discord app command callback 正常完成才執行。
+        """開啟16個教學指令便完成該項；以角色專屬機器人使用帖子為準。
 
-        注意：callback 正常 return 仍可能是業務失敗（例如拒絕訊息）。
-        因此本監聽器只作保守的「首頁導覽」紀錄：其餘完整成功
-        判定應由各指令實際成功顯示介面後呼叫 completed_tutorial_view。
+        Discord 已完成此 slash callback 且產生互動回覆時才登記；
+        系統本身的權限／私人論壇檢查不變。重複開啟不重複領獎。
         """
         try:
             name = getattr(command, 'name', None)
-            if name not in REQUIRED_COMMANDS:
+            if name not in REQUIRED_COMMANDS or not interaction.guild_id or not interaction.channel_id:
                 return
-            if not interaction.guild_id or not interaction.channel_id:
+            if not interaction.response.is_done():
                 return
-            character_id = character_for_training_thread(
-                interaction.guild_id, interaction.user.id, interaction.channel_id
-            )
-            if character_id is None:
+            cid = character_for_training_thread(interaction.guild_id, interaction.user.id, interaction.channel_id)
+            if cid is None:
                 return
-            # 不可把拒絕存取或失敗回覆直接視為「成功使用」。
-            # 真正的成功事件由各指令自行呼叫 completed_tutorial_view。
-            LOG.debug('新手指令待成功確認 guild=%s character=%s command=%s',
-                      interaction.guild_id, character_id, name)
+            completed_tutorial_view(interaction.guild_id, cid, interaction.user.id, interaction.channel_id, name)
         except Exception:
-            LOG.exception('新手指令事件觀察發生異常，不影響原指令')
+            LOG.exception('新手指令開啟完成／發獎異常')
 
 
 async def setup(bot: commands.Bot):
