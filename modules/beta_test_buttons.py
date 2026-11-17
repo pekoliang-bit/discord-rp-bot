@@ -19,10 +19,33 @@ class ClaimBetaButton(discord.ui.Button):
             forum_text=('\n✅ 私人角色論壇已建立或確認：<#'+forum_result['forum_id']+'>'
                 if forum_result.get('status')=='ready' else
                 '\n⏳ 私人角色論壇建立尚未完成：'+str(forum_result.get('reason','未知原因'))+
-                '\n請管理員設定 /測試角色論壇設定（不分男女），並確認機器人管理頻道權限。')
+                '\n已使用指定測試論壇入口；請管理員確認它所屬的 Discord 分類與機器人建立頻道權限。')
             seq=await asyncio.to_thread(beta.draw_number,i.guild_id,cid)
-            await i.followup.send(('✅ 已隨機生成' if created else '你已領過')+f'測試抽角序號 #{seq}（資料庫角色ID #{cid}）。'+forum_text+'\n'
-                '⚠️ 測試角色資源與正式經濟隔離。不是所有遊玩介面都已完成沙盒接入，請勿對正式玩家交易。',ephemeral=True)
+            def load_beta_details():
+                from core.database import get_connection
+                import json
+                with get_connection() as db:
+                    row=db.execute("SELECT name,age,settings_json FROM characters WHERE guild_id=? AND id=?",
+                                   (str(i.guild_id),int(cid))).fetchone()
+                if row is None:
+                    return ('（資料讀取失敗）','未知','未知')
+                try:
+                    data=json.loads(row['settings_json'] or '{}')
+                except (ValueError,TypeError):
+                    data={}
+                return (str(row['name']),str(data.get('gender','未知')),str(row['age'] or '未填'))
+            name,gender,age=await asyncio.to_thread(load_beta_details)
+            intro=('✅ 已成功領取測試角色！' if created else '你已領取過測試角色。')
+            await i.followup.send(
+                f'{intro}\n🎲 本輪抽角序號：#{seq}\n'
+                f'👤 角色姓名：**{discord.utils.escape_markdown(name)}**\n'
+                f'⚧ 性別：{gender}｜年齡：{age}\n'
+                f'🪪 角色資料庫識別 ID：{cid}（非抽角序號）'
+                +forum_text+'\n'
+                '📝 修改人設：/創角 → 編輯測試角\n'
+                '⚠️ 測試資源與正式經濟隔離；部分介面尚未完成沙盒接入，請勿與正式角色交易。',
+                ephemeral=True,
+                allowed_mentions=discord.AllowedMentions.none())
         except Exception as exc:
             LOG.exception('領取測試角色失敗')
             await i.followup.send(f'⚠️ {exc}',ephemeral=True)
