@@ -6,19 +6,10 @@ import discord
 from core import beta_test_core as beta
 
 LOG=logging.getLogger(__name__)
-ROLE_NAME='內測玩家'
-
-def eligible(interaction):
-    if interaction.guild is None:return False
-    if interaction.user.id==interaction.guild.owner_id:return True
-    perms=interaction.user.guild_permissions
-    if perms.administrator:return True
-    return any(role.name==ROLE_NAME for role in getattr(interaction.user,'roles',()))
-
 class ClaimBetaButton(discord.ui.Button):
     def __init__(self):super().__init__(label='🧪 領取測試角',style=discord.ButtonStyle.primary,row=1)
     async def callback(self,i):
-        if not eligible(i):return await i.response.send_message('需要管理員權限或「內測玩家」身分組。',ephemeral=True)
+        if i.guild is None:return await i.response.send_message('請在伺服器使用。',ephemeral=True)
         await i.response.defer(ephemeral=True)
         try:
             await asyncio.to_thread(beta.setup)
@@ -47,13 +38,15 @@ class EditBetaModal(discord.ui.Modal,title='編輯我的內測角色'):
 class EditBetaButton(discord.ui.Button):
     def __init__(self):super().__init__(label='📝 編輯測試角',style=discord.ButtonStyle.secondary,row=2)
     async def callback(self,i):
-        if not eligible(i):
-            return await i.response.send_message('需要管理員權限或內測玩家身分組。',ephemeral=True)
+        if not await asyncio.to_thread(beta.has_beta,i.guild_id,i.user.id):
+            return await i.response.send_message('尚未領取測試角色。',ephemeral=True)
         await i.response.send_modal(EditBetaModal())
 
 class ConvertBetaButton(discord.ui.Button):
     def __init__(self):super().__init__(label='🧪 測試角色轉正草稿',style=discord.ButtonStyle.secondary,row=1)
     async def callback(self,i):
+        if not await asyncio.to_thread(beta.has_beta,i.guild_id,i.user.id):
+            return await i.response.send_message('尚未領取測試角色。',ephemeral=True)
         await i.response.defer(ephemeral=True)
         try:
             await asyncio.to_thread(beta.setup)
