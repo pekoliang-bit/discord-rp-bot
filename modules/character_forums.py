@@ -1,4 +1,4 @@
-"""Discord RP｜角色二審完成自動建立角色論壇。
+"""Discord RP｜正式及測試角色私人論壇自動建立。
 
 指令：
 /角色論壇設定
@@ -111,7 +111,8 @@ def initialize():
                 guild_id TEXT PRIMARY KEY,
                 category_id TEXT NOT NULL DEFAULT '',
                 female_category_id TEXT,
-                male_category_id TEXT
+                male_category_id TEXT,
+                beta_category_id TEXT
             )
         """)
 
@@ -120,7 +121,7 @@ def initialize():
                 "PRAGMA table_info(character_forum_settings)"
             )
         }
-        for column in ("female_category_id", "male_category_id"):
+        for column in ("female_category_id", "male_category_id", "beta_category_id"):
             if column not in setting_cols:
                 db.execute(
                     f"ALTER TABLE character_forum_settings ADD COLUMN {column} TEXT"
@@ -161,6 +162,30 @@ def get_categories(guild_id):
         "female": int(female) if female else None,
         "male": int(male) if male else None,
     }
+
+
+def get_beta_category(guild_id):
+    """測試角色一律使用此獨立分類，不分性別。"""
+    with get_connection() as db:
+        row = db.execute(
+            "SELECT beta_category_id FROM character_forum_settings WHERE guild_id=?",
+            (str(guild_id),)
+        ).fetchone()
+    return int(row["beta_category_id"]) if row and row["beta_category_id"] else None
+
+
+def is_beta_forum_character(guild_id, character_id):
+    """從正式測試角色綁定表辨識，絕不猜測姓名、性別或職業。"""
+    with get_connection() as db:
+        exists = db.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='rp_beta_characters'"
+        ).fetchone()
+        if not exists:
+            return False
+        return db.execute(
+            "SELECT 1 FROM rp_beta_characters WHERE guild_id=? AND character_id=?",
+            (str(guild_id), int(character_id))
+        ).fetchone() is not None
 
 
 def get_category(guild_id, gender=None):
@@ -296,13 +321,19 @@ class CharacterForums(commands.Cog):
     async def ensure_forum(self, guild, character):
         character_id = character["id"]
 
-        gender = character_gender(character)
-        if gender is None:
-            raise ValueError("角色性別尚未明確設定為男或女，無法建立論壇。")
-        category_id = get_category(guild.id, gender)
+        beta_character = is_beta_forum_character(guild.id, character_id)
+        if beta_character:
+            category_id = get_beta_category(guild.id)
+            if not category_id:
+                raise ValueError("測試角色未指定專用分類；管理員請執行 /測試角色論壇設定。")
+        else:
+            gender = character_gender(character)
+            if gender is None:
+                raise ValueError("正式角色性別尚未明確設定為男或女，無法建立論壇。")
+            category_id = get_category(guild.id, gender)
         category = guild.get_channel(category_id) if category_id else None
         if not isinstance(category, discord.CategoryChannel):
-            raise ValueError("尚未設定有效的對應性別角色論壇分類。")
+            raise ValueError("指定的論壇分類不存在或已刪除，請管理員重新設定。")
 
         key = (guild.id, character_id)
 
@@ -654,7 +685,7 @@ class CharacterForums(commands.Cog):
     async def scan(self):
         async with self._cycle_lock:
             for guild in self.bot.guilds:
-                if any(get_categories(guild.id).values()):
+                if any(get_categories(guild.id).values()) or get_beta_category(guild.id):
                     await self.run_scan(guild)
 
     @scan.before_loop
@@ -664,6 +695,46 @@ class CharacterForums(commands.Cog):
     # --------------------------------------
     # 群主設定分類
     # --------------------------------------
+
+    @app_commands.command(
+        name="測試角色論壇設定",
+        description="設定測試角色專用分類，不分性別；自動補建既有測試角色私人論壇",
+    )
+    @app_commands.guild_only()
+    async def set_beta_category(
+        self,
+        interaction: discord.Interaction,
+        測試角色分類: discord.CategoryChannel,
+    ):
+        if (interaction.user.id != interaction.guild.owner_id and
+                not interaction.user.guild_permissions.administrator):
+            return await interaction.response.send_message(
+                "⛔ 僅群主或 Administrator 管理員可設定。", ephemeral=True)
+        if not interaction.guild.me or not interaction.guild.me.guild_permissions.manage_channels:
+            return await interaction.response.send_message(
+                "⚠️ 機器人缺少管理頻道權限。", ephemeral=True)
+        with transaction() as db:
+            db.execute("""INSERT INTO character_forum_settings(guild_id, beta_category_id)
+                VALUES (?, ?) ON CONFLICT(guild_id) DO UPDATE SET
+                beta_category_id=excluded.beta_category_id""",
+                (str(interaction.guild_id), str(測試角色分類.id)))
+        await interaction.response.defer(ephemeral=True)
+        processed = 0
+        errors = []
+        for char in get_characters(interaction.guild_id):
+            if not is_beta_forum_character(interaction.guild_id, char["id"]):
+                continue
+            try:
+                await self.ensure_forum(interaction.guild, char)
+                processed += 1
+            except (discord.HTTPException, ValueError, PermissionError, sqlite3.Error) as exc:
+                LOG.exception("測試角色 #%s 論壇補建失敗", char["id"])
+                errors.append(f"#{char['id']}：{type(exc).__name__}：{exc}")
+        await interaction.followup.send(
+            f"✅ 測試角色專用分類：{測試角色分類.mention}\n"
+            f"補建成功 {processed} 個；失敗 {len(errors)} 個。\n" +
+            ("\n".join(errors[:8]) if errors else "新抽角將立即在這個分類建立私人論壇。"),
+            ephemeral=True)
 
     @app_commands.command(
         name="角色論壇設定",
@@ -732,9 +803,9 @@ class CharacterForums(commands.Cog):
             )
             return
 
-        if not all(get_categories(interaction.guild_id).values()):
+        if not any(get_categories(interaction.guild_id).values()) and not get_beta_category(interaction.guild_id):
             await interaction.response.send_message(
-                "⚠️ 請先使用 /角色論壇設定。",
+                "⚠️ 請先使用 /角色論壇設定 或 /測試角色論壇設定。",
                 ephemeral=True,
             )
             return
@@ -788,7 +859,7 @@ async def ensure_activated_forum(bot, guild_id, character_id):
         forum = await cog.ensure_forum(guild, dict(row))
     except (discord.HTTPException, ValueError, PermissionError, sqlite3.Error) as exc:
         LOG.exception("角色 #%s 即時論壇補建失敗，交由排程重試", character_id)
-        return {"status": "deferred", "reason": type(exc).__name__}
+        return {"status": "deferred", "reason": f"{type(exc).__name__}: {exc}"[:300]}
     link = get_link(guild_id, character_id)
     if not all(link.get(name) for name in ("forum_id", "notice_id", "question_id", "story_id", "bot_id")):
         return {"status": "deferred", "reason": "incomplete_thread_links"}
