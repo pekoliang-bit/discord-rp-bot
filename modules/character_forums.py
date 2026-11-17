@@ -628,28 +628,35 @@ class CharacterForums(commands.Cog):
                         setter_id=int(guild.owner_id), owner_authorized=True,
                     )
 
-                # 通知貼文首篇釘選
+                # 「通知」必須置頂於論壇列表；釘選首篇訊息不等於置頂帖子。
+                # 既有帖子亦在補建時修正，若 Discord 拒絕則保留待修狀態。
                 if code == "notice":
+                    flags = getattr(thread, "flags", None)
+                    if not bool(getattr(flags, "pinned", False)):
+                        try:
+                            await thread.edit(
+                                pinned=True,
+                                reason=f"角色 #{character_id} 通知帖子置頂",
+                            )
+                        except discord.Forbidden as exc:
+                            raise PermissionError(
+                                "無法置頂『通知』帖子：請檢查機器人是否具有"
+                                "管理討論串（Manage Threads）權限。"
+                            ) from exc
+                        except discord.HTTPException as exc:
+                            raise RuntimeError(
+                                f"置頂『通知』帖子失敗：Discord API {exc}"
+                            ) from exc
+
+                    # 首篇訊息也保留原先釘選用途；訊息釘選失敗不影響
+                    # 已完成的論壇帖子置頂。
                     try:
-                        starter = (
-                            await thread.fetch_message(
-                                thread.id
-                            )
-                        )
-
+                        starter = await thread.fetch_message(thread.id)
                         if not starter.pinned:
-                            await starter.pin(
-                                reason=(
-                                    "角色通知固定貼文"
-                                )
-                            )
-
-                    except (
-                        discord.Forbidden,
-                        discord.NotFound,
-                    ):
+                            await starter.pin(reason="角色通知首篇訊息釘選")
+                    except (discord.Forbidden, discord.NotFound, discord.HTTPException):
                         LOG.warning(
-                            "無法釘選角色 #%s 的通知首篇",
+                            "角色 #%s 通知帖子已置頂，但首篇訊息釘選失敗",
                             character_id,
                         )
 
@@ -747,6 +754,12 @@ class CharacterForums(commands.Cog):
                             and str(record["forum_id"]) == str(forum.id)
                             and str(record["thread_id"]) == str(data["bot_id"])
                             and threads_present
+                            # 論壇置頂與訊息釘選是兩回事。舊角色如果只有
+                            # 首篇訊息 pinned，必須重新進入 ensure_forum 補釘。
+                            and bool(getattr(
+                                getattr(cached_threads[0], "flags", None),
+                                "pinned", False,
+                            ))
                             and _private_forum_is_secure(forum, character["owner_id"])):
                         continue
 
