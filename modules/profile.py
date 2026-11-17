@@ -897,10 +897,29 @@ class Profile(commands.Cog):
                 guild_owner_id=interaction.guild.owner_id if interaction.guild else None,
             )
 
+            if approve and "待啟用" in str(status) and not interaction.response.is_done():
+                await interaction.response.defer(ephemeral=True, thinking=True)
+            forum_note = ""
+            if approve and "待啟用" in str(status):
+                try:
+                    from modules.character_forums import notify_approved_character
+                    result = await notify_approved_character(
+                        self.bot, actor.guild_id, character_id)
+                    if result.get("status") == "ready":
+                        forum_note = f"\n🔒 角色私人論壇：{result['url']}"
+                        if result.get("dm") != "sent":
+                            forum_note += "\n⚠️ 無法私訊持有人，請由管理員轉交論壇連結。"
+                    else:
+                        forum_note = ("\n⏳ 私人論壇建立待補建：" +
+                                      str(result.get("reason", "未知"))[:150])
+                except Exception:
+                    import logging
+                    logging.getLogger(__name__).exception("角色 #%s 二審後論壇通知失敗", character_id)
+                    forum_note = "\n⏳ 私人論壇建立或通知失敗，請執行 /角色論壇補建。"
             await reply(
                 interaction,
                 f"✅ 角色 #{character_id} "
-                f"審核完成。\n目前狀態：{status}",
+                f"審核完成。\n目前狀態：{status}" + forum_note,
             )
 
         except (
@@ -955,9 +974,11 @@ class Profile(commands.Cog):
                     "雙重審核：通過\n"
                     "🎭 角色專屬代理發言身分已建立，編號沿用角色 ID；"
                     "機器人使用方式將於角色通知帖子說明。\n"
-                    + ("📢 角色論壇及四個固定帖子已建立。"
+                    + (("📢 角色論壇及四個固定帖子已建立。\n"
+                        f"🔒 私人論壇連結：https://discord.com/channels/{actor.guild_id}/{forum_result['forum_id']}")
                        if forum_result["status"] == "ready"
-                       else "📢 角色論壇正在自動補建，通知會等待私人帖子準備妥當。")
+                       else ("📢 角色論壇正在自動補建，通知會等待私人帖子準備妥當。\n"
+                             + str(forum_result.get("reason", ""))[:160]))
                 ),
             )
 
