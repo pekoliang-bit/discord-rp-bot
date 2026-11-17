@@ -22,101 +22,180 @@ def random_beta_identity():
     gender, pool = random.choice((('男', MALE_NAMES), ('女', FEMALE_NAMES)))
     return gender, random.choice(pool)
 
+def _setup_tables(db):
+    db.execute("""CREATE TABLE IF NOT EXISTS rp_beta_state (
+        guild_id TEXT PRIMARY KEY, ended INTEGER NOT NULL DEFAULT 0,
+        ended_by TEXT, ended_at TEXT
+    )""")
+    db.execute("""CREATE TABLE IF NOT EXISTS rp_beta_characters (
+        guild_id TEXT NOT NULL, owner_id TEXT NOT NULL,
+        character_id INTEGER NOT NULL, status TEXT NOT NULL DEFAULT 'active',
+        draft_id INTEGER, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT, PRIMARY KEY(guild_id, owner_id),
+        UNIQUE(guild_id, character_id),
+        CHECK(status IN ('active','ended','drafted'))
+    )""")
+    cols = {r[1] for r in db.execute('PRAGMA table_info(rp_beta_characters)')}
+    if 'assigned_name' not in cols:
+        db.execute('ALTER TABLE rp_beta_characters ADD COLUMN assigned_name TEXT')
+    # 姓名永久使用紀錄不因重抽、改名、角色停用或重新部署而釋出。
+    db.execute("""CREATE TABLE IF NOT EXISTS rp_beta_used_names (
+        guild_id TEXT NOT NULL, name TEXT NOT NULL,
+        first_owner_id TEXT NOT NULL, first_character_id INTEGER NOT NULL,
+        assigned_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY(guild_id, name)
+    )""")
+    db.execute("""CREATE TABLE IF NOT EXISTS rp_beta_reset_history (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        guild_id TEXT NOT NULL, owner_id TEXT NOT NULL,
+        character_id INTEGER NOT NULL, assigned_name TEXT,
+        previous_status TEXT NOT NULL, reset_by TEXT NOT NULL,
+        reset_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )""")
+    # 舊版已抽出的名字先回填，避免升級後被重新抽中。
+    names = set(MALE_NAMES + FEMALE_NAMES)
+    reserved = {(str(r['guild_id']), str(r['name'])) for r in db.execute(
+        'SELECT guild_id,name FROM rp_beta_used_names')}
+    for row in db.execute("""SELECT b.guild_id,b.owner_id,b.character_id,
+            b.assigned_name,c.name AS current_name
+        FROM rp_beta_characters b JOIN characters c
+          ON c.guild_id=b.guild_id AND c.id=b.character_id""").fetchall():
+        name = row['assigned_name'] or (row['current_name'] if row['current_name'] in names else None)
+        if name is None: continue
+        if row['assigned_name'] is None and (str(row['guild_id']),name) not in reserved:
+            db.execute('UPDATE rp_beta_characters SET assigned_name=? WHERE guild_id=? AND owner_id=?',
+                       (name,row['guild_id'],row['owner_id']))
+        db.execute("""INSERT OR IGNORE INTO rp_beta_used_names
+            (guild_id,name,first_owner_id,first_character_id) VALUES (?,?,?,?)""",
+            (row['guild_id'],name,row['owner_id'],row['character_id']))
+        reserved.add((str(row['guild_id']),name))
+    db.execute("""CREATE UNIQUE INDEX IF NOT EXISTS idx_beta_assigned_name
+        ON rp_beta_characters(guild_id, assigned_name)
+        WHERE assigned_name IS NOT NULL""")
+
+
 def setup():
     with transaction() as db:
-        db.execute("""CREATE TABLE IF NOT EXISTS rp_beta_state (
-            guild_id TEXT PRIMARY KEY,
-            ended INTEGER NOT NULL DEFAULT 0,
-            ended_by TEXT,
-            ended_at TEXT
-        )""")
-        db.execute("""CREATE TABLE IF NOT EXISTS rp_beta_characters (
-            guild_id TEXT NOT NULL,
-            owner_id TEXT NOT NULL,
-            character_id INTEGER NOT NULL,
-            status TEXT NOT NULL DEFAULT 'active',
-            draft_id INTEGER,
-            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            updated_at TEXT,
-            PRIMARY KEY(guild_id, owner_id),
-            UNIQUE(guild_id, character_id),
-            CHECK(status IN ('active','ended','drafted'))
-        )""")
-        cols = {row[1] for row in db.execute('PRAGMA table_info(rp_beta_characters)')}
-        if 'assigned_name' not in cols:
-            db.execute('ALTER TABLE rp_beta_characters ADD COLUMN assigned_name TEXT')
-        # 已領取且仍保留原始抽中姓名的舊測試角色，補記名稱占用。
-        names = set(MALE_NAMES + FEMALE_NAMES)
-        assigned = {(str(r['guild_id']), str(r['assigned_name'])) for r in db.execute(
-            'SELECT guild_id, assigned_name FROM rp_beta_characters WHERE assigned_name IS NOT NULL')}
-        for row in db.execute("""SELECT b.guild_id,b.owner_id,c.name
-            FROM rp_beta_characters b JOIN characters c
-              ON c.guild_id=b.guild_id AND c.id=b.character_id
-            WHERE b.assigned_name IS NULL""").fetchall():
-            if row['name'] in names and (str(row['guild_id']),str(row['name'])) not in assigned:
-                assigned.add((str(row['guild_id']),str(row['name'])))
-                db.execute("""UPDATE rp_beta_characters SET assigned_name=?
-                    WHERE guild_id=? AND owner_id=?""",
-                    (row['name'],row['guild_id'],row['owner_id']))
-        db.execute("""CREATE UNIQUE INDEX IF NOT EXISTS idx_beta_assigned_name
-            ON rp_beta_characters(guild_id, assigned_name)
-            WHERE assigned_name IS NOT NULL""")
+        _setup_tables(db)
+
 
 def remaining_names(guild_id):
-    """每服每個抽中姓名只能領取一次，已使用的不重複釋出。"""
+    """每個名字抽中後從可抽池永久移除。"""
     with transaction() as db:
-        used = {r[0] for r in db.execute(
-            'SELECT assigned_name FROM rp_beta_characters WHERE guild_id=? AND assigned_name IS NOT NULL',
-            (str(guild_id),))}
-    return tuple(x for x in MALE_NAMES+FEMALE_NAMES if x not in used)
+        _setup_tables(db)
+        used={r[0] for r in db.execute(
+            'SELECT name FROM rp_beta_used_names WHERE guild_id=?',(str(guild_id),))}
+    return tuple(x for x in MALE_NAMES + FEMALE_NAMES if x not in used)
+
 
 def can_claim(guild_id):
     with transaction() as db:
-        ended=db.execute('SELECT ended FROM rp_beta_state WHERE guild_id=?',(str(guild_id),)).fetchone()
-        if ended and ended['ended']: return False
-        used={r[0] for r in db.execute(
-            'SELECT assigned_name FROM rp_beta_characters WHERE guild_id=? AND assigned_name IS NOT NULL',
-            (str(guild_id),))}
-        return any(name not in used for name in MALE_NAMES+FEMALE_NAMES)
+        _setup_tables(db)
+        state=db.execute('SELECT ended FROM rp_beta_state WHERE guild_id=?',(str(guild_id),)).fetchone()
+        if state and state['ended']: return False
+        used={r[0] for r in db.execute('SELECT name FROM rp_beta_used_names WHERE guild_id=?',
+                                      (str(guild_id),))}
+        return any(name not in used for name in MALE_NAMES + FEMALE_NAMES)
+
 
 def has_beta(guild_id, owner_id):
     with transaction() as db:
+        _setup_tables(db)
         return bool(db.execute('SELECT 1 FROM rp_beta_characters WHERE guild_id=? AND owner_id=?',
             (str(guild_id),str(owner_id))).fetchone())
 
+
 def beta_ended(guild_id):
     with transaction() as db:
-        row=db.execute('SELECT ended FROM rp_beta_state WHERE guild_id=?',(str(guild_id),)).fetchone()
+        _setup_tables(db)
+        row=db.execute('SELECT ended FROM rp_beta_state WHERE guild_id=?',
+                       (str(guild_id),)).fetchone()
         return bool(row and row['ended'])
 
+
 def claim(guild_id, owner_id):
-    """每位玩家每服一隻。真正的經濟／行動無限豁免需各模組連動。"""
+    """每位玩家每服一隻測試角；姓名以一次交易永久占用。"""
     gid,uid=str(guild_id),str(owner_id)
     with transaction() as db:
+        _setup_tables(db)
         state=db.execute('SELECT ended FROM rp_beta_state WHERE guild_id=?',(gid,)).fetchone()
         if state and state['ended']:
             raise ValueError('內測已結束，不再發放測試角色。')
-        row=db.execute('SELECT character_id FROM rp_beta_characters WHERE guild_id=? AND owner_id=?',(gid,uid)).fetchone()
-        if row:return int(row['character_id']),False
+        row=db.execute('SELECT character_id FROM rp_beta_characters WHERE guild_id=? AND owner_id=?',
+                       (gid,uid)).fetchone()
+        if row: return int(row['character_id']),False
         db.execute('INSERT OR IGNORE INTO guilds(guild_id) VALUES (?)',(gid,))
-        used={r[0] for r in db.execute(
-            'SELECT assigned_name FROM rp_beta_characters WHERE guild_id=? AND assigned_name IS NOT NULL',(gid,))}
+        used={r[0] for r in db.execute('SELECT name FROM rp_beta_used_names WHERE guild_id=?',(gid,))}
         options=[(gender,name) for gender,pool in (('男',MALE_NAMES),('女',FEMALE_NAMES))
                  for name in pool if name not in used]
         if not options:
-            raise ValueError('所有測試角色姓名已領取完畢，請管理員補充名字池。')
-        # 在剩餘姓名中公平抽選，姓名不重覆分配。
-        gender,label = random.choice(options)
-        # 性別寫入原本的角色設定欄位；姓名完整保留、不加隨機編號。
-        settings_json = json.dumps({'gender': gender}, ensure_ascii=False)
+            raise ValueError('所有測試角色姓名已抽完，請管理員先補充名字池。')
+        gender,label=random.choice(options)
+        settings_json=json.dumps({'gender':gender},ensure_ascii=False)
         c=db.execute("""INSERT INTO characters(guild_id,owner_id,name,age,occupation,status,
-                      stamina,max_stamina,character_type,settings_json)
-                      VALUES (?,?,?,?,?,'active',?,?, 'player',?)""",
-                     (gid,uid,label,random.randint(18,35),'內測角色',1000000,1000000,
-                      settings_json))
+            stamina,max_stamina,character_type,settings_json)
+            VALUES (?,?,?,?,?,'active',?,?,'player',?)""",
+            (gid,uid,label,random.randint(18,35),'內測角色',1000000,1000000,settings_json))
         db.execute('INSERT INTO rp_beta_characters(guild_id,owner_id,character_id,assigned_name) VALUES (?,?,?,?)',
                    (gid,uid,c.lastrowid,label))
+        db.execute("""INSERT INTO rp_beta_used_names
+            (guild_id,name,first_owner_id,first_character_id) VALUES (?,?,?,?)""",
+            (gid,label,uid,c.lastrowid))
         return int(c.lastrowid),True
+
+
+def resettable_players(guild_id):
+    """回傳目前仍綁定測試角色、可由管理員重抽的玩家。"""
+    with transaction() as db:
+        _setup_tables(db)
+        rows=db.execute("""SELECT b.owner_id,b.character_id,b.assigned_name,
+                b.status,c.name,c.status AS character_status,b.draft_id
+            FROM rp_beta_characters b JOIN characters c
+              ON b.guild_id=c.guild_id AND b.character_id=c.id
+            WHERE b.guild_id=? ORDER BY b.created_at,b.owner_id""",
+            (str(guild_id),)).fetchall()
+        return [dict(r) for r in rows if r['character_status'] != 'deleted']
+
+
+def reset_claims(guild_id, operator_id, owner_ids):
+    """管理員手動核准的重抽：舊角標記刪除、舊姓名永久占用、留下稽核紀錄。"""
+    gid,admin=str(guild_id),str(operator_id)
+    users=[str(x) for x in owner_ids]
+    if not users or len(users)>20 or len(set(users))!=len(users):
+        raise ValueError('請一次勾選1～20位不重複成員。')
+    with transaction() as db:
+        _setup_tables(db)
+        state=db.execute('SELECT ended FROM rp_beta_state WHERE guild_id=?',(gid,)).fetchone()
+        if state and state['ended']:
+            raise ValueError('內測已結束，不允許重抽。')
+        placeholders=','.join('?' for _ in users)
+        rows=db.execute(f"""SELECT b.owner_id,b.character_id,b.assigned_name,
+            b.status,b.draft_id,c.name AS character_name,c.status AS character_status
+            FROM rp_beta_characters b JOIN characters c
+              ON b.guild_id=c.guild_id AND b.character_id=c.id
+            WHERE b.guild_id=? AND b.owner_id IN ({placeholders})""",
+            (gid,*users)).fetchall()
+        if len(rows)!=len(users):
+            raise ValueError('部分成員已沒有可重抽的測試角色，請重新整理。')
+        if any(r['draft_id'] is not None or r['status']=='drafted' for r in rows):
+            raise ValueError('已有轉正草稿的測試角不可重抽。')
+        if any(r['character_status']=='deleted' for r in rows):
+            raise ValueError('選取包含已刪除角色，請重新整理。')
+        for r in rows:
+            db.execute("""INSERT INTO rp_beta_reset_history
+                (guild_id,owner_id,character_id,assigned_name,previous_status,reset_by)
+                VALUES (?,?,?,?,?,?)""",
+                (gid,r['owner_id'],r['character_id'],r['assigned_name'],r['status'],admin))
+            if r['assigned_name']:
+                db.execute("""INSERT OR IGNORE INTO rp_beta_used_names
+                    (guild_id,name,first_owner_id,first_character_id) VALUES (?,?,?,?)""",
+                    (gid,r['assigned_name'],r['owner_id'],r['character_id']))
+            db.execute("""UPDATE characters SET status='deleted',version=version+1
+                WHERE guild_id=? AND id=?""",(gid,r['character_id']))
+            db.execute('DELETE FROM rp_beta_characters WHERE guild_id=? AND owner_id=?',
+                       (gid,r['owner_id']))
+        return len(rows)
+
 
 def edit(guild_id,owner_id,name,age,occupation,biography):
     gid,uid=str(guild_id),str(owner_id)
