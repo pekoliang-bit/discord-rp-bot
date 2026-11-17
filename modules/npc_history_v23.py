@@ -214,6 +214,167 @@ def activate_claim(gid,uid,claim_id):
     state=history_notification(gid,cid)
     return cid,state
 
+
+def official_missing_fields(text):
+    _,fields,custom=parse_text(text)
+    missing=list(custom)
+    from modules.character_numbering import normalize_birthday
+    birthday_value=str(fields.get('生日（月／日）') or fields.get('生日') or '')
+    if not normalize_birthday(birthday_value):
+        # 已寫但格式錯誤，同樣提供補填，不直接建立 NPC。
+        field='生日（月／日）' if '生日（月／日）' in fields else '生日'
+        if field not in missing:missing.insert(0,field)
+    color=str(fields.get('代表色碼') or fields.get('色碼') or '').strip()
+    if not re.fullmatch(r'#[0-9a-fA-F]{6}',color):
+        if '代表色碼' not in missing:missing.insert(0,'代表色碼')
+    return missing
+
+async def finish_official_npc_import(i,channel,message,owner_id,overrides=None):
+    """官方 NPC 不走玩家 NPC 的雙審；補完欄位後立即正式登記。"""
+    from modules.character_sheet_registration import initialize as links_init, register_sheet
+    kind='official_npc'
+    overrides=overrides or {}
+    member=i.guild.get_member(owner_id)
+    if member is None:member=await i.guild.fetch_member(owner_id)
+    ensure_npc_owner(i.guild,member,kind)
+    # 先驗證模板，避免無效名稱被登記；原始角色單的登記者與持有人分開。
+    # 補填內容優先於原本的佔位文字；依欄位建立完整的新角色單。
+    original_name, original_fields, original_custom = parse_text(message.content)
+    resolved_fields = dict(original_fields)
+    resolved_fields.update(overrides)
+    sheet_text = '\n'.join(f'{key}：{value}' for key,value in resolved_fields.items())
+    name,fields,custom=parse_text(sheet_text)
+    if custom:
+        raise ValueError('尚有未完成欄位：' + '、'.join(custom)[:400])
+    from modules.character_numbering import normalize_birthday
+    birthday_raw=fields.get('生日（月／日）') or fields.get('生日') or ''
+    normalized=normalize_birthday(str(birthday_raw))
+    if not normalized:
+        raise ValueError('生日需填寫有效的月／日，例如 04/18。')
+    color=str(fields.get('代表色碼') or fields.get('色碼') or '').strip()
+    if not re.fullmatch(r'#[0-9a-fA-F]{6}', color):
+        raise ValueError('代表色碼須填 #RRGGBB，例如 #AABBCC。')
+    with get_connection() as db:
+        init(db)
+        if db.execute('SELECT 1 FROM rp_npc_templates_v23 WHERE guild_id=? AND source_message=?',(str(i.guild_id),str(message.id))).fetchone():
+            raise ValueError('這張 NPC 角色單已經匯入，請不要重複登記。')
+    links_init()
+    new_id=register_sheet(i.guild_id,i.user.id,i.guild.owner_id,'official_npc',name,channel.id,message.id,str(message.jump_url),character_owner_id=owner_id,birthday=f'{normalized[:2]}/{normalized[2:]}',authorized_admin=True)
+    try:
+        import_template(i.guild_id,message.id,channel.id,sheet_text,kind,preferred_owner=owner_id,registered_by=i.user.id)
+    except ValueError:
+        # 已經登記成正式角色時，交由管理員核對，不可重新建立第二隻。
+        import logging
+        logging.getLogger(__name__).exception('官方 NPC 模板附加失敗：角色 %s',new_id)
+    with transaction() as db:
+        db.execute("UPDATE rp_npc_templates_v23 SET state='claimed',claimed_by=? WHERE guild_id=? AND source_message=?",(str(owner_id),str(i.guild_id),str(message.id)))
+        r=db.execute('SELECT settings_json FROM characters WHERE guild_id=? AND id=?',(str(i.guild_id),new_id)).fetchone()
+        settings=json.loads((r['settings_json'] if r else '{}') or '{}')
+        settings.update(profile_settings_from_sheet(fields))
+        settings['birthday']=f'{normalized[:2]}/{normalized[2:]}'
+        settings['theme_color']=color.upper()
+        db.execute('UPDATE characters SET settings_json=? WHERE guild_id=? AND id=?',
+            (json.dumps(settings,ensure_ascii=False),str(i.guild_id),new_id))
+    from core.prelaunch_gate import is_open
+    try:
+        if is_open(i.guild_id):attempt_lock(i.guild_id,new_id)
+    except Exception:
+        import logging
+        logging.getLogger(__name__).exception('官方 NPC 歷史補建待處理')
+    # Publish the official NPC sheet into its own faction's sheet area.
+    # Player NPC sheets intentionally stay in the gender-based role forums.
+    from core.channel_bindings_v1 import get_official_npc_post_channel
+    group_text=str(fields.get('歸屬') or fields.get('所屬陣營') or fields.get('陣營') or '')
+    faction=next((key for key in ('單打獨鬥','經紀公司','MCN','另闢蹊徑','熟人抱團','抱團取暖')
+                  if key.casefold() in group_text.casefold()),None)
+    notice=''
+    target_id=get_official_npc_post_channel(i.guild_id,faction) if faction else None
+    if target_id:
+        target=i.guild.get_channel(int(target_id))
+        if isinstance(target,(discord.TextChannel,discord.ForumChannel)):
+            try:
+                content=(f'🎭 **官方 NPC 角色單｜{discord.utils.escape_mentions(name)}**\n'
+                         f'角色編號：#{new_id}\n原始角色單：{message.jump_url}\n'
+                         f'登記陣營：{faction}\n\n'
+                         +discord.utils.escape_mentions(sheet_text)[:1550])
+                if isinstance(target,discord.ForumChannel):
+                    await target.create_thread(name=f'{name}｜官方 NPC',content=content,
+                        allowed_mentions=discord.AllowedMentions.none())
+                elif channel.id!=target.id:
+                    await target.send(content,allowed_mentions=discord.AllowedMentions.none())
+                notice='；角色單已同步到官方 NPC 陣營區'
+            except discord.HTTPException:
+                import logging
+                logging.getLogger(__name__).exception('官方 NPC 已登記，但發布角色單失敗 character=%s',new_id)
+                notice='；⚠️ 角色單發布失敗，請管理員補發'
+        else:
+            notice='；⚠️ 角色單發布區不存在或類型錯誤'
+    else:
+        notice='；⚠️ 尚未辨識所屬陣營，請到頻道綁定中心核對發布區'
+    try:
+        from modules.notifications import queue_notification
+        queue_notification(i.guild_id,'private','role',
+            f'🎭 官方 NPC「{name}」資料補齊並登記完成。生日 {normalized[:2]}/{normalized[2:]}、代表色碼 {color.upper()}。',
+            character_id=new_id,priority='normal',dedupe_key=f'official-npc-import:{i.guild_id}:{new_id}')
+    except Exception:
+        import logging
+        logging.getLogger(__name__).exception('官方 NPC 私人通知排程失敗：%s',new_id)
+    result_message = f'✅ 官方 NPC「{name}」登記完成！角色 #{new_id}。\n主要持有人：<@{owner_id}>；其他管理員可依官方授權共同操作。'+notice
+    if i.response.is_done():
+        return await i.followup.send(result_message, ephemeral=True)
+    return await i.response.send_message(result_message, ephemeral=True)
+
+
+class OfficialMissingModal(discord.ui.Modal,title='官方 NPC｜補齊缺漏資料'):
+    def __init__(self,view):
+        super().__init__(timeout=600)
+        self.state=view
+        keys=view.missing[:5]
+        self.keys=keys
+        self.fields=[]
+        for key in keys:
+            field=discord.ui.TextInput(label=key[:45],required=True,max_length=1000,
+                style=discord.TextStyle.paragraph if key in ('外貌氣質','性格','生平簡述','人物設定','特殊設定') else discord.TextStyle.short)
+            self.add_item(field);self.fields.append(field)
+    async def on_submit(self,i):
+        if not is_server_admin(i) or i.user.id!=self.state.actor_id:
+            return await i.response.send_message('這不是你的補填表單。',ephemeral=True)
+        for key,field in zip(self.keys,self.fields):
+            value=str(field.value).strip()
+            if not value:
+                return await i.response.send_message(f'「{key}」不能空白。',ephemeral=True)
+            if key=='代表色碼' and not re.fullmatch(r'#[0-9a-fA-F]{6}',value):
+                return await i.response.send_message('代表色碼格式應為 #RRGGBB。',ephemeral=True)
+            if key in ('生日（月／日）','生日'):
+                from modules.character_numbering import normalize_birthday
+                if not normalize_birthday(value):
+                    return await i.response.send_message('生日格式請填月／日，例如 04/18。',ephemeral=True)
+            self.state.overrides[key]=value
+        self.state.missing=self.state.missing[len(self.keys):]
+        if self.state.missing:
+            return await i.response.send_message(
+                '📝 還缺：'+'、'.join(self.state.missing[:25])+'\n點擊下方繼續補填。',
+                view=self.state,ephemeral=True)
+        try:
+            await finish_official_npc_import(i,self.state.channel,self.state.message,
+                self.state.owner_id,self.state.overrides)
+        except (ValueError,PermissionError,sqlite3.Error,discord.HTTPException) as exc:
+            if not i.response.is_done():
+                await i.response.send_message(f'⚠️ {exc}',ephemeral=True)
+
+class OfficialMissingView(discord.ui.View):
+    def __init__(self,interaction,channel,message,owner_id,missing):
+        super().__init__(timeout=900)
+        self.actor_id=interaction.user.id
+        self.channel=channel;self.message=message;self.owner_id=owner_id
+        self.missing=list(missing)
+        self.overrides={}
+    @discord.ui.button(label='📝 補填缺漏資料',style=discord.ButtonStyle.primary)
+    async def fill(self,i,button):
+        if i.user.id!=self.actor_id or not is_server_admin(i):
+            return await i.response.send_message('這不是你的 NPC 匯入通知。',ephemeral=True)
+        await i.response.send_modal(OfficialMissingModal(self))
+
 class ImportNPCModal(discord.ui.Modal, title='匯入 NPC 人設訊息'):
     link=discord.ui.TextInput(label='Discord 角色單訊息連結',max_length=300)
 
@@ -238,62 +399,16 @@ class ImportNPCModal(discord.ui.Modal, title='匯入 NPC 人設訊息'):
             kind=self.npc_kind
             # 只有官方 NPC 需要檢查實際持有人；玩家 NPC 在認領時才建立持有人關聯。
             if kind=='official_npc':
-                member=i.guild.get_member(self.character_owner_id)
-                if member is None:member=await i.guild.fetch_member(self.character_owner_id)
-                ensure_npc_owner(i.guild,member,kind)
-                # 先驗證模板，避免無效名稱被登記；原始角色單的登記者與持有人分開。
-                name,fields,custom=parse_text(message.content)
-                with get_connection() as db:
-                    init(db)
-                    if db.execute('SELECT 1 FROM rp_npc_templates_v23 WHERE guild_id=? AND source_message=?',(str(i.guild_id),str(message.id))).fetchone():
-                        raise ValueError('這張 NPC 角色單已經匯入，請不要重複登記。')
-                links_init()
-                new_id=register_sheet(i.guild_id,i.user.id,i.guild.owner_id,'official_npc',name,channel.id,message.id,str(self.link.value),character_owner_id=self.character_owner_id,birthday=explicit_sheet_birthday(message.content),authorized_admin=True)
-                try:
-                    import_template(i.guild_id,message.id,channel.id,message.content,kind,preferred_owner=self.character_owner_id,registered_by=i.user.id)
-                except ValueError:
-                    # 已經登記成正式角色時，交由管理員核對，不可重新建立第二隻。
-                    import logging
-                    logging.getLogger(__name__).exception('官方 NPC 模板附加失敗：角色 %s',new_id)
-                with transaction() as db:
-                    db.execute("UPDATE rp_npc_templates_v23 SET state='claimed',claimed_by=? WHERE guild_id=? AND source_message=?",(str(self.character_owner_id),str(i.guild_id),str(message.id)))
-                from core.prelaunch_gate import is_open
-                try:
-                    if is_open(i.guild_id):attempt_lock(i.guild_id,new_id)
-                except Exception:
-                    import logging
-                    logging.getLogger(__name__).exception('官方 NPC 歷史補建待處理')
-                # Publish the official NPC sheet into its own faction's sheet area.
-                # Player NPC sheets intentionally stay in the gender-based role forums.
-                from core.channel_bindings_v1 import get_official_npc_post_channel
-                group_text=str(fields.get('歸屬') or fields.get('所屬陣營') or fields.get('陣營') or '')
-                faction=next((key for key in ('單打獨鬥','經紀公司','MCN','另闢蹊徑','熟人抱團','抱團取暖')
-                              if key.casefold() in group_text.casefold()),None)
-                notice=''
-                target_id=get_official_npc_post_channel(i.guild_id,faction) if faction else None
-                if target_id:
-                    target=i.guild.get_channel(int(target_id))
-                    if isinstance(target,(discord.TextChannel,discord.ForumChannel)):
-                        try:
-                            content=(f'🎭 **官方 NPC 角色單｜{discord.utils.escape_mentions(name)}**\n'
-                                     f'角色編號：#{new_id}\n原始角色單：{message.jump_url}\n'
-                                     f'登記陣營：{faction}\n\n'
-                                     +discord.utils.escape_mentions(message.content)[:1550])
-                            if isinstance(target,discord.ForumChannel):
-                                await target.create_thread(name=f'{name}｜官方 NPC',content=content,
-                                    allowed_mentions=discord.AllowedMentions.none())
-                            elif channel.id!=target.id:
-                                await target.send(content,allowed_mentions=discord.AllowedMentions.none())
-                            notice='；角色單已同步到官方 NPC 陣營區'
-                        except discord.HTTPException:
-                            import logging
-                            logging.getLogger(__name__).exception('官方 NPC 已登記，但發布角色單失敗 character=%s',new_id)
-                            notice='；⚠️ 角色單發布失敗，請管理員補發'
-                    else:
-                        notice='；⚠️ 角色單發布區不存在或類型錯誤'
-                else:
-                    notice='；⚠️ 尚未辨識所屬陣營，請到頻道綁定中心核對發布區'
-                return await i.response.send_message(f'✅ 官方 NPC「{name}」登記完成！角色 #{new_id}。\n主要持有人：<@{self.character_owner_id}>；其他管理員可依官方授權共同操作。'+notice,ephemeral=True)
+                # 不完整的官方 NPC 先補填，避免直接建立空白啟用角色。
+                missing=official_missing_fields(message.content)
+                if missing:
+                    return await i.response.send_message(
+                        '📋 官方 NPC 匯入檢查：以下欄位尚未填妥：\n'
+                        + '、'.join(missing[:40])
+                        + '\n請點擊「補填缺漏資料」。全部填妥後直接完成登記，不需再送雙審。',
+                        view=OfficialMissingView(i,channel,message,self.character_owner_id,missing),
+                        ephemeral=True)
+                return await finish_official_npc_import(i,channel,message,self.character_owner_id)
             template_id,name,count=import_template(
                 i.guild_id,message.id,channel.id,message.content,kind,
                 preferred_owner=None,registered_by=i.user.id,
