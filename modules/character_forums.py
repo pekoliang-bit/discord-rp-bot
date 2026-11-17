@@ -33,6 +33,8 @@ DEFAULT_GUILD_ID = "1544051203493601380"
 DEFAULT_FEMALE_CATEGORY_ID = "1567786100460625972"
 DEFAULT_MALE_CATEGORY_ID = "1567786323773759588"
 # 用戶指定的測試角色論壇入口。可以是分類、論壇頻道或論壇帖子。
+DEFAULT_BETA_CATEGORY_ID = 1572210490707288114
+# 舊素材帖子不再作為私人論壇建置入口。
 DEFAULT_BETA_FORUM_ANCHOR_ID = 1572178575904219157
 
 
@@ -173,49 +175,30 @@ def get_beta_category(guild_id):
             "SELECT beta_category_id FROM character_forum_settings WHERE guild_id=?",
             (str(guild_id),)
         ).fetchone()
+    if str(guild_id) == DEFAULT_GUILD_ID:
+        return DEFAULT_BETA_CATEGORY_ID
     return int(row["beta_category_id"]) if row and row["beta_category_id"] else None
 
 
 async def resolve_beta_category(guild):
-    """辨識已設定分類，或從指定論壇／帖子找到其父分類。
+    """測試角固定使用獨立 Discord 分類；不使用素材帖子或男女分類。
 
-    Discord 不允許在論壇帖子下建立另一個論壇頻道，也不提供單個
-    ForumChannel 帖子彼此獨立的私人權限。因此以來源頻道所屬分類
-    建立同層級、具有獨立權限的角色私人 ForumChannel。
+    在指定伺服器，新核准分類優先於先前可能儲存的論壇帖子 ID。
     """
-    # 此伺服器以使用者最新提供的論壇入口為準；其他伺服器沿用管理設定。
-    source_id = (DEFAULT_BETA_FORUM_ANCHOR_ID
-                 if str(guild.id) == DEFAULT_GUILD_ID
-                 else get_beta_category(guild.id))
-    if not source_id:
-        raise ValueError("尚未設定測試論壇位置。請使用 /測試角色論壇設定 選擇分類。")
-    source = guild.get_channel(int(source_id)) or guild.get_thread(int(source_id))
-    if source is None:
+    category_id = get_beta_category(guild.id)
+    if not category_id:
+        raise ValueError("尚未設定測試角色專用分類，請執行 /測試角色論壇設定。")
+    category = guild.get_channel(int(category_id))
+    if category is None:
         try:
-            source = await guild.fetch_channel(int(source_id))
+            category = await guild.fetch_channel(int(category_id))
         except discord.Forbidden as exc:
-            raise PermissionError(f"機器人無權讀取測試論壇來源 {source_id}，請檢查檢視頻道權限。") from exc
+            raise PermissionError(f"機器人沒有讀取測試角色分類 {category_id} 的權限") from exc
         except discord.NotFound as exc:
-            raise ValueError(f"找不到指定測試論壇入口 {source_id}，請確認頻道或帖子 ID。") from exc
-    if isinstance(source, discord.CategoryChannel):
-        return source
-    if isinstance(source, discord.Thread):
-        parent = source.parent
-        if parent is None:
-            try:
-                parent = await guild.fetch_channel(source.parent_id)
-            except (discord.HTTPException, ValueError) as exc:
-                raise ValueError("指定的是帖子，但機器人無法取得其母論壇。") from exc
-        category = getattr(parent, "category", None)
-    else:
-        category = getattr(source, "category", None)
-    if isinstance(category, discord.CategoryChannel):
-        return category
-    raise ValueError(
-        f"指定入口 {source_id} 不是分類且沒有父分類。"
-        "Discord 無法在既有帖子中建立私人角色論壇；"
-        "請將該論壇頻道移到一個 Discord 分類，或執行 /測試角色論壇設定 指定分類。"
-    )
+            raise ValueError(f"找不到測試角色分類 {category_id}，請核對分類 ID") from exc
+    if not isinstance(category, discord.CategoryChannel):
+        raise ValueError(f"{category_id} 不是 Discord 分類（Category），無法在其中建立私人論壇")
+    return category
 
 
 def is_beta_forum_character(guild_id, character_id):
@@ -256,10 +239,11 @@ def get_characters(guild_id):
                 name,
                 owner_id,
                 character_type,
-                settings_json
+                settings_json,
+                status
             FROM characters
             WHERE guild_id=?
-              AND status = 'active'
+              AND status IN ('active','approved')
               AND character_type != 'official_npc'
             ORDER BY id ASC
             """,
@@ -468,6 +452,14 @@ class CharacterForums(commands.Cog):
                     forum.id,
                 )
 
+            # 已建立的角色論壇若位於舊分類，移到目前核准的正式／測試分類。
+            # 只移動相同角色 ID 專屬論壇，不根據名稱猜測所有權。
+            if forum.category_id != category.id:
+                await forum.edit(
+                    category=category,
+                    overwrites=overwrites,
+                    reason=f"角色 #{character_id} 專屬論壇分類更新",
+                )
             # Repair legacy forums before creating or delivering private posts.
             # Restrict both @everyone and any previously granted third-party roles.
             if not _private_forum_is_secure(forum, owner_id):
@@ -609,7 +601,7 @@ class CharacterForums(commands.Cog):
             # 通知角色持有人：只在身分啟用、論壇權限通過後發送一次。
             info=get_link(guild.id,character_id)
             notice_id=info.get('notice_id')
-            if notice_id:
+            if notice_id and character.get("status") == "active":
                 from core.character_proxy_identity import claim_notice,unclaim_notice
                 with transaction() as db:
                     new_notice=claim_notice(db,guild.id,character_id)
@@ -781,6 +773,50 @@ class CharacterForums(commands.Cog):
             ephemeral=True)
 
     @app_commands.command(
+        name="角色論壇檢查",
+        description="檢查測試角、正式女性與男性角色論壇分類是否存在及機器人權限",
+    )
+    @app_commands.guild_only()
+    async def check_categories(self, interaction: discord.Interaction):
+        if (interaction.guild.owner_id != interaction.user.id and
+                not interaction.user.guild_permissions.administrator):
+            return await interaction.response.send_message(
+                "⛔ 僅群主或 Administrator 管理員可檢查。", ephemeral=True)
+        guild = interaction.guild
+        cats = get_categories(guild.id)
+        targets = (
+            ("測試角色（不分男女）", get_beta_category(guild.id)),
+            ("正式女性", cats["female"]),
+            ("正式男性", cats["male"]),
+        )
+        me = guild.me
+        lines = ["📂 **角色私人論壇分類檢查**"]
+        for label, category_id in targets:
+            category = guild.get_channel(category_id) if category_id else None
+            if not isinstance(category, discord.CategoryChannel):
+                lines.append(f"❌ {label}：{category_id or '未指定'}，目前未能在伺服器快取中確認是分類")
+                continue
+            if me is None:
+                lines.append(f"⚠️ {label}：{category.mention}，無法確認機器人身分")
+                continue
+            perms = category.permissions_for(me)
+            missing = [name for key, name in (
+                (perms.view_channel, "檢視頻道"),
+                (perms.manage_channels, "管理頻道"),
+                (perms.send_messages, "發送訊息"),
+                (perms.create_public_threads, "建立公開討論串"),
+                (perms.manage_threads, "管理討論串"),
+            ) if not key]
+            capacity = len(category.channels)
+            lines.append(
+                f"{'✅' if not missing and capacity < 50 else '⚠️'} {label}：{category.mention} "
+                f"（{category.id}；已用 {capacity}/50）" +
+                (f"；缺少：{'、'.join(missing)}" if missing else "；權限檢查通過")
+            )
+        lines.append("以上為即時分類／權限檢查；建立論壇成功仍須實際執行補建驗證。")
+        await interaction.response.send_message("\n".join(lines)[:1900], ephemeral=True)
+
+    @app_commands.command(
         name="角色論壇設定",
         description="分別指定女性與男性角色專屬論壇分類",
     )
@@ -791,9 +827,10 @@ class CharacterForums(commands.Cog):
         女性分類: discord.CategoryChannel,
         男性分類: discord.CategoryChannel,
     ):
-        if interaction.guild.owner_id != interaction.user.id:
+        if (interaction.guild.owner_id != interaction.user.id and
+                not interaction.user.guild_permissions.administrator):
             await interaction.response.send_message(
-                "⛔ 只有群主可以設定。", ephemeral=True,
+                "⛔ 需要群主或 Administrator 權限。", ephemeral=True,
             )
             return
         me = interaction.guild.me
@@ -895,8 +932,8 @@ async def ensure_activated_forum(bot, guild_id, character_id):
                  FROM characters WHERE guild_id=? AND id=?""",
             (str(guild_id), int(character_id)),
         ).fetchone()
-    if not row or row["status"] != "active":
-        return {"status": "deferred", "reason": "character_not_active"}
+    if not row or row["status"] not in ("active", "approved"):
+        return {"status": "deferred", "reason": "character_not_approved_or_active"}
     try:
         forum = await cog.ensure_forum(guild, dict(row))
     except (discord.HTTPException, ValueError, PermissionError, sqlite3.Error) as exc:
@@ -908,6 +945,48 @@ async def ensure_activated_forum(bot, guild_id, character_id):
     if not _private_forum_is_secure(forum, row["owner_id"]):
         return {"status": "deferred", "reason": "private_permissions_unverified"}
     return {"status": "ready", "forum_id": str(forum.id), "notice_id": str(link["notice_id"])}
+
+
+def forum_url(guild_id, forum_id):
+    """已驗證建立／已綁定的私人論壇網址，不從角色名猜測。"""
+    return f"https://discord.com/channels/{int(guild_id)}/{int(forum_id)}"
+
+
+async def notify_approved_character(bot, guild_id, character_id):
+    """二審完成後建立私人論壇並將網址交給持有人；Discord DM 失敗不撤銷審核。"""
+    result = await ensure_activated_forum(bot, guild_id, character_id)
+    if result.get("status") != "ready":
+        return {"status": "deferred", "reason": result.get("reason", "forum_pending")}
+    with get_connection() as db:
+        row = db.execute(
+            "SELECT owner_id,name,status FROM characters WHERE guild_id=? AND id=?",
+            (str(guild_id), int(character_id))
+        ).fetchone()
+    if not row or row["status"] not in ("active", "approved"):
+        return {"status": "deferred", "reason": "character_no_longer_approved"}
+    link = forum_url(guild_id, result["forum_id"])
+    guild = bot.get_guild(int(guild_id))
+    member = guild.get_member(int(row["owner_id"])) if guild else None
+    if member is None and guild:
+        try:
+            member = await guild.fetch_member(int(row["owner_id"]))
+        except discord.HTTPException:
+            member = None
+    if member is None:
+        return {"status": "ready", "forum_id": result["forum_id"], "url": link, "dm": "member_missing"}
+    try:
+        await member.send(
+            f"✅ 你的角色 **{discord.utils.escape_markdown(str(row['name']))}** 已通過兩階段審核。\n"
+            f"🔒 角色私人論壇：{link}\n"
+            "論壇內已有通知、詢問、劇情討論、機器人使用四個帖子。\n"
+            "請依原本流程確認正式啟用；通過審核並不代表已領取新人禮包。",
+            allowed_mentions=discord.AllowedMentions.none(),
+        )
+        dm = "sent"
+    except discord.HTTPException as exc:
+        LOG.warning("角色 #%s 審核通知無法送入 DM: %s", character_id, exc)
+        dm = "blocked"
+    return {"status": "ready", "forum_id": result["forum_id"], "url": link, "dm": dm}
 
 
 async def setup(bot: commands.Bot):
