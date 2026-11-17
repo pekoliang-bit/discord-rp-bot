@@ -2,6 +2,7 @@
 from __future__ import annotations
 import json
 import random
+import sqlite3
 from core.database import transaction
 
 # 自訂內測角色姓名池；使用完整姓名，不拆字、不加前後綴。
@@ -38,6 +39,8 @@ def _setup_tables(db):
     cols = {r[1] for r in db.execute('PRAGMA table_info(rp_beta_characters)')}
     if 'assigned_name' not in cols:
         db.execute('ALTER TABLE rp_beta_characters ADD COLUMN assigned_name TEXT')
+    if 'draw_no' not in cols:
+        db.execute('ALTER TABLE rp_beta_characters ADD COLUMN draw_no INTEGER')
     # 本輪已抽中的名字；整池重置後可重新使用，平常不因改名而釋出。
     db.execute("""CREATE TABLE IF NOT EXISTS rp_beta_used_names (
         guild_id TEXT NOT NULL, name TEXT NOT NULL,
@@ -136,8 +139,10 @@ def claim(guild_id, owner_id):
             stamina,max_stamina,character_type,settings_json)
             VALUES (?,?,?,?,?,'active',?,?,'player',?)""",
             (gid,uid,label,random.randint(18,35),'內測角色',1000000,1000000,settings_json))
-        db.execute('INSERT INTO rp_beta_characters(guild_id,owner_id,character_id,assigned_name) VALUES (?,?,?,?)',
-                   (gid,uid,c.lastrowid,label))
+        draw_no = db.execute('SELECT COALESCE(MAX(draw_no),0)+1 FROM rp_beta_characters WHERE guild_id=?',
+                             (gid,)).fetchone()[0]
+        db.execute('INSERT INTO rp_beta_characters(guild_id,owner_id,character_id,assigned_name,draw_no) VALUES (?,?,?,?,?)',
+                   (gid,uid,c.lastrowid,label,draw_no))
         db.execute("""INSERT INTO rp_beta_used_names
             (guild_id,name,first_owner_id,first_character_id) VALUES (?,?,?,?)""",
             (gid,label,uid,c.lastrowid))
@@ -198,38 +203,56 @@ def reset_claims(guild_id, operator_id, owner_ids):
 
 
 
-def reset_entire_pool(guild_id, operator_id):
-    """重啟一整輪抽角：停用現有測試角並將全部原始姓名放回可抽池。
+def draw_number(guild_id, character_id):
+    """當輪測試抽角序號；不是 characters.id（後者為全服共用主鍵）。"""
+    with transaction() as db:
+        _setup_tables(db)
+        row = db.execute("SELECT draw_no FROM rp_beta_characters WHERE guild_id=? AND character_id=?",
+                         (str(guild_id), int(character_id))).fetchone()
+        return row[0] if row else None
 
-    僅供官方管理 UI 在二次確認後呼叫；以單一資料庫交易執行，
-    保留原角色與操作紀錄，但不允許舊角色再次占用本輪名額。
+
+def reset_entire_pool(guild_id, operator_id):
+    """重置伺服器整個抽角池，清除歷史抽取記錄，下一輪從序號1開始。
+
+    只處理此伺服器的測試角。外部系統可能引用 characters.id，
+    故舊角色採刪除狀態與清除人設，不重置全服共用的資料庫主鍵。
     """
-    gid, admin = str(guild_id), str(operator_id)
+    gid = str(guild_id)
     with transaction() as db:
         _setup_tables(db)
         state = db.execute('SELECT ended FROM rp_beta_state WHERE guild_id=?', (gid,)).fetchone()
         if state and state['ended']:
             raise ValueError('內測已結束，不能重置姓名池。')
-        rows = db.execute("""SELECT b.owner_id,b.character_id,b.assigned_name,
-                b.status,b.draft_id,c.status AS character_status
-            FROM rp_beta_characters b
-            JOIN characters c ON c.guild_id=b.guild_id AND c.id=b.character_id
-            WHERE b.guild_id=?""", (gid,)).fetchall()
-        if any(r['draft_id'] is not None or r['status'] == 'drafted' for r in rows):
-            raise ValueError('有角色已建立轉正草稿；為保護關聯資料，整池重置已取消。')
-        for r in rows:
-            db.execute("""INSERT INTO rp_beta_reset_history
-                (guild_id,owner_id,character_id,assigned_name,previous_status,reset_by)
-                VALUES (?,?,?,?,?,?)""",
-                (gid,r['owner_id'],r['character_id'],r['assigned_name'],r['status'],admin))
-            if r['character_status'] != 'deleted':
-                db.execute("""UPDATE characters SET status='deleted',version=version+1
-                    WHERE guild_id=? AND id=?""", (gid,r['character_id']))
-        # 先解除本輪角色綁定，再清空本輪使用紀錄。
-        # _setup_tables 的舊角色回填僅掃描綁定表，不會重新占用姓名。
+        # 涵蓋舊輪次已刪除的測試角，避免遺留角色論壇映射。
+        historical = db.execute('SELECT character_id FROM rp_beta_reset_history WHERE guild_id=?', (gid,)).fetchall()
+        current = db.execute('SELECT character_id,draft_id,status FROM rp_beta_characters WHERE guild_id=?',
+                             (gid,)).fetchall()
+        if any(r['draft_id'] is not None or r['status'] == 'drafted' for r in current):
+            raise ValueError('有測試角色已建立轉正草稿，為保護正式角色資料，不能重置。')
+        ids = sorted(set(int(r[0]) for r in historical) | set(int(r[0]) for r in current))
+        for cid in ids:
+            # 只刪此角色的論壇資料庫綁定，不碰 Discord 上其他人的論壇。
+            if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='character_forum_links'").fetchone():
+                db.execute('DELETE FROM character_forum_links WHERE guild_id=? AND character_id=?', (gid,cid))
+            # 無其他系統依賴時真正刪除舊測試角色；如有 FK 關聯則使用
+            # 安全占位，避免破壞公司、任務、正式玩家等既有資料。
+            db.execute('SAVEPOINT erase_old_beta')
+            try:
+                db.execute('DELETE FROM characters WHERE guild_id=? AND id=?', (gid, cid))
+                db.execute('RELEASE erase_old_beta')
+            except sqlite3.IntegrityError:
+                db.execute('ROLLBACK TO erase_old_beta')
+                db.execute('RELEASE erase_old_beta')
+                db.execute("""UPDATE characters SET status='deleted',name=?,age=NULL,
+                    occupation='',settings_json='{}',version=version+1
+                    WHERE guild_id=? AND id=?""", (f'已重置測試角-{cid}', gid, cid))
         db.execute('DELETE FROM rp_beta_characters WHERE guild_id=?', (gid,))
         db.execute('DELETE FROM rp_beta_used_names WHERE guild_id=?', (gid,))
-        return len(rows), len(MALE_NAMES) + len(FEMALE_NAMES)
+        db.execute('DELETE FROM rp_beta_reset_history WHERE guild_id=?', (gid,))
+        # 注意：characters 自增主鍵與 Discord 已建立論壇不能重置或直接清空；
+        # 下次抽角 draw_no 由新一輪 rp_beta_characters 的 MAX(draw_no)+1 產生，必定為1。
+        return len(ids), len(MALE_NAMES) + len(FEMALE_NAMES)
 
 def edit(guild_id,owner_id,name,age,occupation,biography):
     gid,uid=str(guild_id),str(owner_id)
