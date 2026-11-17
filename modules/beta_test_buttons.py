@@ -16,7 +16,8 @@ class ClaimBetaButton(discord.ui.Button):
             cid,created=await asyncio.to_thread(beta.claim,i.guild_id,i.user.id)
             from modules.character_forums import ensure_activated_forum
             forum_result=await ensure_activated_forum(i.client,i.guild_id,cid)
-            forum_text=('\n✅ 私人角色論壇已建立或確認：<#'+forum_result['forum_id']+'>'
+            forum_text=('\n✅ 私人角色論壇已建立或確認：<#'+forum_result['forum_id']+'>' +
+                '\n🔗 私人論壇連結：https://discord.com/channels/'+str(i.guild_id)+'/'+forum_result['forum_id']
                 if forum_result.get('status')=='ready' else
                 '\n⏳ 私人角色論壇建立尚未完成：'+str(forum_result.get('reason','未知原因'))+
                 '\n已使用指定測試論壇入口；請管理員確認它所屬的 Discord 分類與機器人建立頻道權限。')
@@ -35,6 +36,19 @@ class ClaimBetaButton(discord.ui.Button):
                     data={}
                 return (str(row['name']),str(data.get('gender','未知')),str(row['age'] or '未填'))
             name,gender,age=await asyncio.to_thread(load_beta_details)
+            if created and forum_result.get('status') == 'ready':
+                private_link=(f'https://discord.com/channels/{i.guild_id}/'
+                              f'{forum_result["forum_id"]}')
+                try:
+                    await i.user.send(
+                        f'🎲 你抽中了測試角色 **{discord.utils.escape_markdown(name)}**！\n'
+                        f'本輪序號：#{await asyncio.to_thread(beta.draw_number,i.guild_id,cid)}\n'
+                        f'🔒 你的私人角色論壇：{private_link}\n'
+                        '論壇已建立「通知、詢問、劇情討論、機器人使用」四個固定帖子。',
+                        allowed_mentions=discord.AllowedMentions.none(),
+                    )
+                except discord.HTTPException:
+                    LOG.info('測試角色 #%s DM 未送達，領取者仍可從私人互動回覆開啟論壇',cid)
             intro=('✅ 已成功領取測試角色！' if created else '你已領取過測試角色。')
             await i.followup.send(
                 f'{intro}\n🎲 本輪抽角序號：#{seq}\n'
