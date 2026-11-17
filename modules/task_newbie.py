@@ -73,3 +73,24 @@ def training_status_for_user(guild_id, user_id):
             (str(guild_id), str(user_id)),
         ).fetchall()
     return {int(r['id']): progress(guild_id, int(r['id'])) for r in rows}
+
+
+def is_test_character(guild_id, character_id):
+    """判斷指定角色是否由內測抽角建立；缺少內測資料表時安全回傳 False。
+
+    以 (伺服器, 角色 ID) 查內測綁定，不能只依角色名稱或職業判斷；
+    即使內測已結束，原測試角色也不得被當成正式角色發獎。
+    """
+    if guild_id is None or character_id is None:
+        return False
+    with get_connection() as db:
+        exists = db.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='rp_beta_characters'"
+        ).fetchone()
+        if not exists:
+            return False
+        row = db.execute(
+            "SELECT status FROM rp_beta_characters WHERE guild_id=? AND character_id=?",
+            (str(guild_id), int(character_id)),
+        ).fetchone()
+        return bool(row and row['status'] in ('active', 'ended', 'drafted'))
