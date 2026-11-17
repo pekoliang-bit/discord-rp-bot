@@ -58,7 +58,39 @@ def initialize(db):
         status TEXT NOT NULL CHECK(status IN ('done','pending')),
         message TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY(guild_id,character_id,command))''')
+    db.execute('''CREATE TABLE IF NOT EXISTS rp_beta_newbie_reward_ledger (
+        guild_id TEXT NOT NULL, character_id INTEGER NOT NULL,
+        command TEXT NOT NULL, reward_kind TEXT NOT NULL,
+        amount INTEGER NOT NULL CHECK(amount >= 0),
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY(guild_id,character_id,command))''')
 
+
+def test_reward_status(guild_id,character_id):
+    # 測試角色已實際寫入的模擬獎勵收據（與正式錢包完全隔離）
+    with get_connection() as db:
+        initialize(db)
+        rows=db.execute('''SELECT command,reward_kind,amount,created_at
+            FROM rp_beta_newbie_reward_ledger WHERE guild_id=? AND character_id=?
+            ORDER BY created_at,command''',(str(guild_id),int(character_id))).fetchall()
+    return {r['command']:dict(r) for r in rows}
+
+
+def _deliver_test_reward(gid,cid,uid,command,kind,amount):
+    # 真正入測試獎勵帳本且防重複；永不寫入正式屬性、銀行或獎券
+    from modules.task_repository import get_events
+    if not any(r['event_key']=='newbie:'+command for r in get_events(gid,cid)):
+        raise PermissionError('尚未完成這項新手操作')
+    with transaction() as db:
+        initialize(db)
+        ch=db.execute('''SELECT owner_id,status FROM characters
+            WHERE guild_id=? AND id=?''',(gid,cid)).fetchone()
+        if not ch or str(ch['owner_id'])!=uid or ch['status']!='active':
+            raise PermissionError('不能替其他玩家或已停用角色發放測試獎勵')
+        cur=db.execute('''INSERT OR IGNORE INTO rp_beta_newbie_reward_ledger
+            (guild_id,character_id,command,reward_kind,amount)
+            VALUES (?,?,?,?,?)''',(gid,cid,command,kind,amount))
+        return 'test_done' if cur.rowcount else 'already'
 
 def _receipt(gid,cid,command,kind,amount):
     with transaction() as db:
@@ -84,6 +116,10 @@ def deliver(guild_id, character_id, user_id, command):
         return 'none'
     gid,cid,uid = str(guild_id), int(character_id), str(user_id)
     kind,amount,label=REWARDS[command]
+    # 測試角同樣實際發獎，但僅進入可查詢、可累加的獨立測試帳本。
+    from modules.task_newbie import is_test_character
+    if is_test_character(gid, cid):
+        return _deliver_test_reward(gid,cid,uid,command,kind,amount)
     from modules.task_repository import get_events
     if not any(r['event_key']=='newbie:'+command for r in get_events(gid,cid)):
         raise PermissionError('未取得這項新手任務的正式成功紀錄')
@@ -154,6 +190,7 @@ def deliver(guild_id, character_id, user_id, command):
 
 def retry_completed(guild_id,character_id,user_id):
     from modules.task_newbie import completed_commands
+    from modules.task_newbie import is_test_character
     results={}
     for command in completed_commands(guild_id,character_id):
         if command in REWARDS:
