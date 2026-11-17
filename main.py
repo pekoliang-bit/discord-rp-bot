@@ -70,12 +70,17 @@ def install_component_prelaunch_gate():
             return
         return await original_view(self,item,interaction)
 
-    async def guarded_modal(self, interaction):
-        if not allow_component(interaction,modal=self):
+    async def guarded_modal(self, interaction, *args, **kwargs):
+        """Forward Modal._scheduled_task arguments across discord.py versions.
+
+        Modern discord.py passes (interaction, components, namespace).
+        The old two-argument wrapper raised TypeError before on_submit ran.
+        """
+        if not allow_component(interaction, modal=self):
             if not interaction.response.is_done():
-                await interaction.response.send_message(LOCKED_TEXT,ephemeral=True)
+                await interaction.response.send_message(LOCKED_TEXT, ephemeral=True)
             return
-        return await original_modal(self,interaction)
+        return await original_modal(self, interaction, *args, **kwargs)
 
     discord.ui.View._scheduled_task = guarded_view
     discord.ui.Modal._scheduled_task = guarded_modal
