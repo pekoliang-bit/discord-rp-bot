@@ -1,7 +1,11 @@
 """排行榜點數分配 Discord 互動面板；由 /查看 的角色詳情開啟。"""
 from __future__ import annotations
 
+import logging
+
 import discord
+
+LOG = logging.getLogger(__name__)
 from modules.leaderboard_points_catalog import available_targets
 from modules.leaderboard_points_storage import get_balance
 from modules.leaderboard_points_confirmation import create_request, confirm_request
@@ -19,6 +23,14 @@ class AmountModal(discord.ui.Modal, title="排行榜點數分配確認"):
         self.pool = pool
         self.category = category
         self.target = target
+
+    async def on_error(self, interaction: discord.Interaction, error: Exception):
+        LOG.error("點數輸入視窗失敗: guild=%s character=%s", self.guild_id, self.character_id,
+                  exc_info=(type(error), error, error.__traceback__))
+        if not interaction.response.is_done():
+            await interaction.response.send_message("⚠️ 無法完成點數分配，請管理員查看 Railway Logs。", ephemeral=True)
+        else:
+            await interaction.followup.send("⚠️ 點數分配發生錯誤，請管理員查看 Railway Logs。", ephemeral=True)
 
     async def on_submit(self, interaction: discord.Interaction):
         if interaction.user.id != self.owner_id:
@@ -38,6 +50,10 @@ class AmountModal(discord.ui.Modal, title="排行榜點數分配確認"):
                 view=view, ephemeral=True)
         except (ValueError, PermissionError, TypeError) as exc:
             await interaction.response.send_message(f"⚠️ {exc}", ephemeral=True)
+        except Exception:
+            LOG.exception("點數分配建立確認請求失敗: guild=%s character=%s", self.guild_id, self.character_id)
+            if not interaction.response.is_done():
+                await interaction.response.send_message("⚠️ 點數分配發生系統錯誤；未扣除點數，請管理員查看 Railway Logs。", ephemeral=True)
 
 
 class ConfirmView(discord.ui.View):
@@ -59,7 +75,7 @@ class ConfirmView(discord.ui.View):
         except Exception as exc:
             await interaction.response.edit_message(content=f"⚠️ 分配未完成：{exc}", view=None)
             return
-        await interaction.response.edit_message(content=f"✅ 點數分配完成：{result}", view=None)
+        await interaction.response.edit_message(content=f"✅ 點數分配完成：{result}\n請返回角色點數面板按『重新整理』查看新餘額。", view=None)
 
     @discord.ui.button(label="取消", style=discord.ButtonStyle.secondary)
     async def cancel(self, interaction, button):
@@ -83,9 +99,25 @@ class TargetSelect(discord.ui.Select):
         if interaction.user.id != self.owner_id:
             await interaction.response.send_message("無權操作。", ephemeral=True)
             return
-        await interaction.response.send_modal(AmountModal(
-            self.owner_id, self.guild_id, self.character_id,
-            self.pool, self.category, self.values[0]))
+        try:
+            # 必須在 Discord 的互動時限內立即回覆 modal；不能先 defer。
+            modal = AmountModal(
+                self.owner_id, self.guild_id, self.character_id,
+                self.pool, self.category, self.values[0],
+            )
+            await interaction.response.send_modal(modal)
+        except discord.HTTPException as exc:
+            LOG.exception("無法開啟點數輸入視窗: %s", exc)
+            if not interaction.response.is_done():
+                await interaction.response.send_message(
+                    "⚠️ 無法開啟輸入視窗，請重新使用『🎯 點數分配』開啟新面板。", ephemeral=True
+                )
+        except Exception:
+            LOG.exception("點數選項回呼失敗: guild=%s character=%s", self.guild_id, self.character_id)
+            if not interaction.response.is_done():
+                await interaction.response.send_message(
+                    "⚠️ 點數選項處理失敗，請管理員查看 Railway Logs；未扣除點數。", ephemeral=True
+                )
 
 
 class PointPanel(discord.ui.View):
@@ -147,6 +179,24 @@ class PointPanel(discord.ui.View):
     async def skills(self, interaction, button):
         self.category = "skill"; self._build()
         await interaction.response.edit_message(content=self._description(), view=self)
+
+    @discord.ui.button(label="🔄 重新整理", style=discord.ButtonStyle.secondary, row=3)
+    async def refresh(self, interaction, button):
+        self._build()
+        await interaction.response.edit_message(content=self._description(), view=self)
+
+    async def on_error(self, interaction, error, item):
+        LOG.error("點數面板互動失敗: guild=%s character=%s item=%s", self.guild_id,
+                  self.character_id, getattr(item, "custom_id", "unknown"),
+                  exc_info=(type(error), error, error.__traceback__))
+        if not interaction.response.is_done():
+            await interaction.response.send_message(
+                "⚠️ 點數面板操作未成功，請重新開啟面板，並請管理員查看 Railway Logs。", ephemeral=True
+            )
+        else:
+            await interaction.followup.send(
+                "⚠️ 點數面板操作未成功，請管理員查看 Railway Logs。", ephemeral=True
+            )
 
 
 async def open_points_panel(interaction, character_id):
