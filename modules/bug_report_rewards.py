@@ -20,7 +20,7 @@ ACK_EMOJI, DONE_EMOJI = '‼️', '🆗'
 BETA_ROLE_NAME = '內測玩家'
 
 
-from core.bug_report_core_v2 import (setup,record_snapshot,reward_once,settle_pending_for_owner,settle_all_pending)
+from core.bug_report_core_v2 import (setup as setup_bug_report_tables,record_snapshot,reward_once,settle_pending_for_owner,settle_all_pending)
 
 def _is_report(message):
     return bool(message.content.strip() and any(
@@ -46,7 +46,8 @@ class BugReportRewards(commands.Cog):
 
     @staticmethod
     def _init():
-        with transaction() as db:setup(db)
+        with transaction() as db:
+            setup_bug_report_tables(db)
 
     @commands.Cog.listener()
     async def on_message(self,message:discord.Message):
