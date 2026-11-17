@@ -1538,6 +1538,70 @@ def load_management_button(module_name, class_name):
     return button
 
 
+class MessageVisibilityView(discord.ui.View):
+    """只允許 Discord 群主及 Administrator 操作本伺服器設定。"""
+    def __init__(self, guild_id: int, user_id: int):
+        super().__init__(timeout=600)
+        self.guild_id = int(guild_id)
+        self.user_id = int(user_id)
+        from core.message_visibility_policy import get_mode
+        current = get_mode(guild_id)
+        options = [
+            discord.SelectOption(label="公開優先（安全白名單）", value="public", default=current == "public"),
+            discord.SelectOption(label="私人優先（沿用敏感防護）", value="private", default=current == "private"),
+            discord.SelectOption(label="沿用系統原設定", value="original", default=current == "original"),
+        ]
+        select = discord.ui.Select(placeholder="選擇訊息可見性模式", options=options, row=0)
+        select.callback = self.save
+        self.select = select
+        self.add_item(select)
+
+    async def interaction_check(self, interaction):
+        perms = getattr(interaction.user, 'guild_permissions', None)
+        allowed = (interaction.guild_id == self.guild_id and
+                   interaction.user.id == self.user_id and
+                   (is_owner(interaction) or bool(getattr(perms, 'administrator', False))))
+        if not allowed:
+            await interaction.response.send_message("僅限開啟面板的群主或 Administrator 管理員操作。", ephemeral=True)
+        return allowed
+
+    async def save(self, interaction):
+        from core.message_visibility_policy import set_mode, MODES
+        choice = self.select.values[0]
+        try:
+            set_mode(self.guild_id, interaction.user.id, choice)
+            await interaction.response.edit_message(content=visibility_text(self.guild_id),
+                                                    view=MessageVisibilityView(self.guild_id, self.user_id))
+        except Exception:
+            LOG.exception('儲存訊息可見性模式失敗')
+            await interaction.response.send_message('儲存失敗，請查看 Railway 日誌。', ephemeral=True)
+
+
+def visibility_text(guild_id):
+    from core.message_visibility_policy import get_mode, MODES, PUBLIC_INITIAL_COMMANDS, get_count
+    mode = get_mode(guild_id)
+    count = get_count(guild_id)
+    return ("📢 **訊息公開與隱私設定**\n"
+            f"目前模式：**{MODES[mode]}**\n"
+            "🔒 個人／銀行／舉報／審核／管理等資訊一律維持原保護；本面板無法關閉。\n"
+            "✅ 公開優先僅轉換安全白名單斜線指令的*首次純文字回覆*；"
+            "含按鈕、附件、Embed、Modal 與後續互動仍沿用原設定。\n"
+            f"白名單：{'、'.join(sorted(PUBLIC_INITIAL_COMMANDS))}\n"
+            f"已記錄的公開回覆元資料：{count} 筆。\n"
+            "⚠️ 此設定不能保證所有指令長期留證；重要交易須另接私人論壇或稽核頻道。")
+
+
+class MessageVisibilityButton(discord.ui.Button):
+    def __init__(self):
+        super().__init__(label="📢 訊息公開與隱私", style=discord.ButtonStyle.secondary, row=3)
+
+    async def callback(self, interaction):
+        if not (is_owner(interaction) or bool(getattr(getattr(interaction.user, 'guild_permissions', None), 'administrator', False))):
+            return await interaction.response.send_message('僅群主或 Administrator 可操作。', ephemeral=True)
+        await interaction.response.send_message(visibility_text(interaction.guild_id),
+            view=MessageVisibilityView(interaction.guild_id, interaction.user.id), ephemeral=True)
+
+
 class AdminToolsView(ManagementView):
     """獨立管理功能頁面。"""
 
@@ -1595,6 +1659,10 @@ class AdminToolsView(ManagementView):
         if self.owner or self.admin:
             from modules.official_test_hub import OfficialTestHubButton
             self.add_item(OfficialTestHubButton())
+
+        # 由 /官方 統一管理一般指令的可見性，敏感訊息不受公開設定覆寫。
+        if self.owner or self.admin:
+            self.add_item(MessageVisibilityButton())
 
         # A task-only delegate must not see unrelated commerce/admin panels.
         from modules.task_permissions import authorized as task_authorized
@@ -1662,6 +1730,7 @@ def management_text(view):
             "📰 定時傳聞：100則模板、每8小時發布、頻道綁定",
             "🧹 開群前角色清理：勾選多名角色並二次確認標記刪除",
             "🧪 測試系統：整池重置、測試論壇分類、正式男女論壇分類、論壇檢查與缺帖補建",
+            "📢 訊息公開與隱私：一般回覆公開優先／私人優先／沿用原設定",
         ])
 
     if view.unavailable:
