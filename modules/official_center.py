@@ -1,4 +1,4 @@
-"""Discord RP｜官方人員與管理中心。
+""""Discord RP｜官方人員與管理中心。
 
 正式指令：
 /官方
@@ -1591,6 +1591,11 @@ class AdminToolsView(ManagementView):
             from modules.prelaunch_character_cleanup import PrelaunchCleanupButton
             self.add_item(PrelaunchCleanupButton())
 
+        # 測試角重抽管理：可多選成員，重置後舊名字保留占用。
+        if self.owner or self.admin:
+            from modules.beta_reset_admin import BetaResetButton
+            self.add_item(BetaResetButton())
+
         # A task-only delegate must not see unrelated commerce/admin panels.
         from modules.task_permissions import authorized as task_authorized
         task_only = False  # 非 Administrator 的任務委任不構成官方管理員
@@ -1656,6 +1661,7 @@ def management_text(view):
             "📣 公關策略：設定分數、啟停與修改版本",
             "📰 定時傳聞：100則模板、每8小時發布、頻道綁定",
             "🧹 開群前角色清理：勾選多名角色並二次確認標記刪除",
+            "🎲 測試角重抽重置：選擇已領取成員，重置後重新抽取；舊姓名不回池",
         ])
 
     if view.unavailable:
