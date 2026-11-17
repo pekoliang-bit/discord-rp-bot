@@ -281,36 +281,14 @@ async def finish_official_npc_import(i,channel,message,owner_id,overrides=None):
     except Exception:
         import logging
         logging.getLogger(__name__).exception('官方 NPC 歷史補建待處理')
-    # Publish the official NPC sheet into its own faction's sheet area.
-    # Player NPC sheets intentionally stay in the gender-based role forums.
-    from core.channel_bindings_v1 import get_official_npc_post_channel
-    group_text=str(fields.get('歸屬') or fields.get('所屬陣營') or fields.get('陣營') or '')
-    faction=next((key for key in ('單打獨鬥','經紀公司','MCN','另闢蹊徑','熟人抱團','抱團取暖')
-                  if key.casefold() in group_text.casefold()),None)
-    notice=''
-    target_id=get_official_npc_post_channel(i.guild_id,faction) if faction else None
-    if target_id:
-        target=i.guild.get_channel(int(target_id))
-        if isinstance(target,(discord.TextChannel,discord.ForumChannel)):
-            try:
-                content=(f'🎭 **官方 NPC 角色單｜{discord.utils.escape_mentions(name)}**\n'
-                         f'角色編號：#{new_id}\n原始角色單：{message.jump_url}\n'
-                         f'登記陣營：{faction}\n\n'
-                         +discord.utils.escape_mentions(sheet_text)[:1550])
-                if isinstance(target,discord.ForumChannel):
-                    await target.create_thread(name=f'{name}｜官方 NPC',content=content,
-                        allowed_mentions=discord.AllowedMentions.none())
-                elif channel.id!=target.id:
-                    await target.send(content,allowed_mentions=discord.AllowedMentions.none())
-                notice='；角色單已同步到官方 NPC 陣營區'
-            except discord.HTTPException:
-                import logging
-                logging.getLogger(__name__).exception('官方 NPC 已登記，但發布角色單失敗 character=%s',new_id)
-                notice='；⚠️ 角色單發布失敗，請管理員補發'
-        else:
-            notice='；⚠️ 角色單發布區不存在或類型錯誤'
-    else:
-        notice='；⚠️ 尚未辨識所屬陣營，請到頻道綁定中心核對發布區'
+    # 官方 NPC 每角色建立獨立文字頻道，統一收在官方角色分類。
+    # 玩家 NPC 的角色論壇流程不變。
+    from modules.official_npc_channels import ensure_official_npc_channel
+    created_channel, channel_note = await ensure_official_npc_channel(
+        i.guild, new_id, name, sheet_text, str(message.jump_url)
+    )
+    notice = (f'；{channel_note}：{created_channel.mention}' if created_channel
+              else f'；⚠️ {channel_note}')
     try:
         from modules.notifications import queue_notification
         queue_notification(i.guild_id,'private','role',
