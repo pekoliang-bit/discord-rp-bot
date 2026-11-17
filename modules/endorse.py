@@ -64,8 +64,8 @@ def offer(guild_id, business_id, actor_id, character_id, tier, fee, contract_typ
         raise ValueError("合約類型只能填「單次／短期／中期／長期」。")
     if not market or len(market) > 60 or len(series) > 60 or len(note) > 250:
         raise ValueError("市場必填，市場及系列最多60字、備註最多250字。")
-    if tier < 4 or tier > 10 or fee < 0:
-        raise ValueError("品牌代言級別為 T4～T10，費用不得為負數。")
+    if tier < 1 or tier > 10 or fee < 0:
+        raise ValueError("品牌代言級別為 T1～T10，費用不得為負數。")
     if fee < minimum_endorsement_fee(tier):
         # T10 品牌起源可作免費榮譽頭銜，但需明確以市場欄標示「榮譽」。
         if not (tier == 10 and fee == 0 and market == "榮譽"):
@@ -121,7 +121,6 @@ def decide(guild_id, actor_id, contract_id, accept):
         if str(character["owner_id"]) != uid:
             raise PermissionError("只有該角色的持有人可以回覆代言邀請。")
         if accept:
-            if int(row["tier"]) < 4: raise ValueError("舊版 T1～T3 邀約不符合正式 T4～T10 規則，不能生效")
             _entity(db, gid, row["business_id"])
             if row["fee"]:
                 # 收款當下再次核對公司財務授權與餘額；確保不能越權付款。
@@ -153,7 +152,7 @@ def decide(guild_id, actor_id, contract_id, accept):
 class OfferModal(discord.ui.Modal, title="發出代言邀約"):
     business = discord.ui.TextInput(label="公司／品牌編號")
     character = discord.ui.TextInput(label="藝人角色編號")
-    tier = discord.ui.TextInput(label="代言級別 T4～T10", placeholder="例如 4")
+    tier = discord.ui.TextInput(label="代言級別 T1～T10", placeholder="例如 4")
     fee = discord.ui.TextInput(label="代言費（金幣）", placeholder="例如 120000")
     details = discord.ui.TextInput(label="類型｜市場｜系列（系列可空）", placeholder="短期｜台灣｜春季系列")
 
