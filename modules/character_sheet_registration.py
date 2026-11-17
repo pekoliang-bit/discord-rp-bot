@@ -763,6 +763,13 @@ async def do_register(
                 attempt_lock(interaction.guild_id,new_id)
         except Exception:
             LOG.exception("官方 NPC 歷史履歷等待補建：%s",new_id)
+    if kind == "official_npc":
+        from modules.official_npc_channels import ensure_official_npc_channel
+        _, channel_notice = await ensure_official_npc_channel(
+            interaction.guild, new_id, name, message.content or "", message.jump_url
+        )
+        if channel_notice != '已建立官方角色專屬頻道' and channel_notice != '既有官方角色頻道':
+            LOG.warning('官方角色 %s 頻道建立提醒：%s', new_id, channel_notice)
     return (
         new_id,
         true_owner,
