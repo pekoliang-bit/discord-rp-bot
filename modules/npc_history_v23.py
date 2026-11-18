@@ -281,7 +281,7 @@ async def finish_official_npc_import(i,channel,message,owner_id,overrides=None):
     except Exception:
         import logging
         logging.getLogger(__name__).exception('官方 NPC 歷史補建待處理')
-    # 官方 NPC 每角色建立獨立文字頻道，統一收在官方角色分類。
+    # 官方 NPC 每角色建立獨立論壇與四個固定帖子，統一收在官方角色分類。
     # 玩家 NPC 的角色論壇流程不變。
     from modules.official_npc_channels import ensure_official_npc_channel
     created_channel, channel_note = await ensure_official_npc_channel(
