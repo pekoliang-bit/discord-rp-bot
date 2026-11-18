@@ -42,9 +42,8 @@ def init_db():
             quantity INTEGER NOT NULL DEFAULT 1,
             PRIMARY KEY(guild_id,story_id,episode_no,player_id,gift_name)
         )''')
-        cols = {row['name'] for row in db.execute('PRAGMA table_info(rp_story_progress)')}
-        if 'reward_character_id' not in cols:
-            db.execute('ALTER TABLE rp_story_progress ADD COLUMN reward_character_id INTEGER')
+        # rp_story_progress 由 story_play.init_db() 建立與遷移。
+        # 本模組不得在該資料表尚未建立時執行 ALTER TABLE。
 
 
 def rewards_parse(raw):
