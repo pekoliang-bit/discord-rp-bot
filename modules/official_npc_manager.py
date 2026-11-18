@@ -5,10 +5,11 @@ import sqlite3
 import discord
 from discord.ext import commands
 from core.database import get_connection, transaction
+from core.npc_owner_access_v24 import is_server_admin
 
 
 def is_owner(i: discord.Interaction) -> bool:
-    return i.guild is not None and i.guild.owner_id == i.user.id
+    return is_server_admin(i)
 
 
 async def send(i: discord.Interaction, text: str):
@@ -26,7 +27,8 @@ def get_npc(gid, npc_id):
     with get_connection() as db:
         row = db.execute(
             """SELECT id,name,owner_id,status,character_type,created_at
-               FROM characters WHERE guild_id=? AND id=? AND character_type='official_npc'""",
+               FROM characters WHERE guild_id=? AND id=? AND character_type='official_npc'
+                 AND COALESCE(json_extract(settings_json, '$.character_category'), '') != 'extra'""",
             (str(gid), int(npc_id)),
         ).fetchone()
     if row is None:
@@ -39,6 +41,7 @@ def list_npcs(gid):
         rows = db.execute(
             """SELECT id,name,owner_id,status FROM characters
                WHERE guild_id=? AND character_type='official_npc' AND status!='deleted'
+                 AND COALESCE(json_extract(settings_json, '$.character_category'), '') != 'extra'
                ORDER BY id DESC LIMIT 35""",
             (str(gid),),
         ).fetchall()
@@ -58,7 +61,8 @@ def update_npc(gid, npc_id, *, name=None, status=None):
     with transaction() as db:
         row = db.execute(
             """SELECT id,status FROM characters WHERE guild_id=? AND id=?
-               AND character_type='official_npc'""",
+               AND character_type='official_npc'
+               AND COALESCE(json_extract(settings_json, '$.character_category'), '') != 'extra'""",
             (str(gid), int(npc_id)),
         ).fetchone()
         if row is None:
@@ -83,7 +87,7 @@ class NpcDetail(discord.ui.Modal, title='👑 查看官方 NPC'):
 
     async def on_submit(self, i):
         if not is_owner(i):
-            return await send(i, '⛔ 僅限群主操作。')
+            return await send(i, '⛔ 僅限伺服器群主或具 Administrator 權限的管理員操作。')
         try:
             row = get_npc(i.guild_id, int(self.npc_id.value))
             with get_connection() as db:
@@ -116,7 +120,7 @@ class NpcRename(discord.ui.Modal, title='✏️ 修改官方 NPC 名稱'):
 
     async def on_submit(self, i):
         if not is_owner(i):
-            return await send(i, '⛔ 僅限群主操作。')
+            return await send(i, '⛔ 僅限伺服器群主或具 Administrator 權限的管理員操作。')
         try:
             update_npc(i.guild_id, int(self.npc_id.value), name=str(self.new_name.value))
             await send(i, f'✅ 官方 NPC #{self.npc_id.value} 名稱已更新。角色擁有者不變。')
@@ -130,7 +134,7 @@ class NpcState(discord.ui.Modal, title='⚙️ 啟用／停用官方 NPC'):
 
     async def on_submit(self, i):
         if not is_owner(i):
-            return await send(i, '⛔ 僅限群主操作。')
+            return await send(i, '⛔ 僅限伺服器群主或具 Administrator 權限的管理員操作。')
         try:
             action = str(self.action.value).strip()
             if action not in ('啟用','停用'):
