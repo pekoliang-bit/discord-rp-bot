@@ -1,4 +1,4 @@
-"""正式開群前的批次角色標記刪除管理面板。
+""""正式開群前的批次角色標記刪除管理面板。
 
 安全策略：只更新角色為 deleted，保留關聯資料與操作稽核；不執行危險的連鎖硬刪除。
 僅群主或 Administrator 可用；已正式開群後完全禁止。
@@ -220,7 +220,8 @@ class CleanupView(discord.ui.View):
         await interaction.response.send_message(
             f'⚠️ **二次確認：將標記刪除 {len(chosen)} 個角色**\n'
             f'編號：{", ".join(map(str, chosen))[:1200]}\n'
-            '角色將退出有效清單，關聯資料保留供稽核。此操作不能從面板還原。',
+            '角色將退出有效清單，關聯資料保留供稽核。此操作不能從面板還原。\n'
+            'Discord 舊頻道不會自動刪除；重新登記請發送一則新的角色單訊息。',
             view=ConfirmCleanup(self.uid, self.gid, chosen), ephemeral=True,
         )
 
@@ -251,7 +252,8 @@ class ConfirmCleanup(discord.ui.View):
             count = await asyncio.to_thread(delete_selected, self.gid, self.uid, list(self.ids))
             for item in self.children:
                 item.disabled = True
-            await interaction.edit_original_response(content=f'✅ 已標記刪除 {count} 個角色；稽核資料已保留。', view=self)
+            await interaction.edit_original_response(content=(f'✅ 已標記刪除 {count} 個角色；稽核資料已保留。\n'
+                     '請手動核對並刪除錯誤的 Discord 舊頻道，再用新角色單訊息重新登記。'), view=self)
         except (ValueError, sqlite3.Error) as exc:
             self.done = False
             await interaction.edit_original_response(content=f'⚠️ 未刪除任何角色：{exc}', view=None)
