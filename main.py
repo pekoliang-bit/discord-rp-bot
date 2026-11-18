@@ -41,6 +41,7 @@ from core.config import (
     get_test_guild_id,
 )
 from core.database import init_db
+from core.render_health import start_health_server, stop_health_server, set_discord_ready
 from core.prelaunch_gate import is_open, may_use_system, allow_component, LOCKED_TEXT
 
 
@@ -744,6 +745,10 @@ class RPBot(commands.Bot):
             "目前連接 %d 個伺服器",
             len(self.guilds),
         )
+        set_discord_ready(True)
+
+    async def on_disconnect(self):
+        set_discord_ready(False)
 
 
 bot = RPBot()
@@ -924,26 +929,32 @@ async def on_app_command_error(
 
 def main():
     """Discord 暫時限制登入時低頻重試，避免部署平台快速重啟形成請求風暴。"""
+    start_health_server()  # Bind PORT before Discord login and module initialization.
     cooldown = 15 * 60
-    while True:
-        try:
-            bot.run(get_token(), log_handler=None)
-            return
-        except discord.HTTPException as exc:
-            if exc.status != 429:
-                raise
-            LOG.error(
-                "Discord 回傳 HTTP 429（可能伴隨 Cloudflare 1015）。"
-                " 暫停登入 %d 分鐘；請確認只有一個部署實例、不要重複部署。",
-                cooldown // 60,
-            )
-            time.sleep(cooldown)
-            cooldown = min(cooldown * 2, 60 * 60)
-            # 保留原本的 bot 實例及已註冊在 tree 上的指令。
-            # 此處只針對登入階段遭 HTTP 429 拒絕的情況重試。
-        except KeyboardInterrupt:
-            LOG.info("收到停止訊號，結束機器人。")
-            return
+    try:
+        while True:
+            try:
+                bot.run(get_token(), log_handler=None)
+                return
+            except discord.HTTPException as exc:
+                if exc.status != 429:
+                    raise
+                LOG.error(
+                    "Discord 回傳 HTTP 429（可能伴隨 Cloudflare 1015）。"
+                    " 暫停登入 %d 分鐘；請確認只有一個部署實例、不要重複部署。",
+                    cooldown // 60,
+                )
+                time.sleep(cooldown)
+                cooldown = min(cooldown * 2, 60 * 60)
+                # 保留原本的 bot 實例及已註冊在 tree 上的指令。
+                # 此處只針對登入階段遭 HTTP 429 拒絕的情況重試。
+            except KeyboardInterrupt:
+                LOG.info("收到停止訊號，結束機器人。")
+                return
+
+    finally:
+        set_discord_ready(False)
+        stop_health_server()
 
 
 if __name__ == "__main__":
