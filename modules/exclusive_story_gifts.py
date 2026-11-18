@@ -105,8 +105,12 @@ class ExclusiveStoryGifts(commands.Cog):
         self.bot = bot
 
     async def cog_load(self) -> None:
-        from modules.story_episodes import init_db
-        init_db()
+        # 確保先建立劇情主表與進度表，然後再建立回目／禮物表。
+        # story_play.init_db() 已包含 story_episodes.init_db()。
+        from modules.story_builder import init_db as init_story_db
+        from modules.story_play import init_db as init_story_play_db
+        init_story_db()
+        init_story_play_db()
         initialize()
 
     @app_commands.command(name="專屬物品", description="查看自己指定角色取得的劇情專屬禮物")
