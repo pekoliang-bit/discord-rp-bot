@@ -115,6 +115,48 @@ def profile_settings_from_sheet(fields):
     result['npc_sheet_fields']={k:v for k,v in fields.items() if k!='持有金錢'}
     return result
 
+def release_deleted_official_sheet(db, guild_id, message_id):
+    """Release a deleted official NPC's source message for safe re-registration.
+
+    Must run inside the caller's write transaction. Only a linked, already-deleted
+    official NPC can be released. Preserve the removed records as audit snapshots.
+    """
+    gid, mid = str(guild_id), str(message_id)
+    link = db.execute('''SELECT l.*, c.status, c.character_type FROM character_sheet_links l
+        JOIN characters c ON c.guild_id=l.guild_id AND c.id=l.character_id
+        WHERE l.guild_id=? AND l.message_id=?''', (gid, mid)).fetchone()
+    if not link or link['status'] != 'deleted' or link['character_type'] != 'official_npc':
+        return False
+    template = db.execute('''SELECT * FROM rp_npc_templates_v23
+        WHERE guild_id=? AND source_message=?''', (gid, mid)).fetchone()
+    if template:
+        if template['kind'] != 'official_npc':
+            return False
+        # An NPC template referenced by claims must stay immutable.
+        if db.execute('SELECT 1 FROM rp_npc_claims_v23 WHERE guild_id=? AND template_id=? LIMIT 1',
+                      (gid, template['id'])).fetchone():
+            return False
+    db.execute('''CREATE TABLE IF NOT EXISTS rp_deleted_official_sheet_audit (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        guild_id TEXT NOT NULL, old_character_id INTEGER NOT NULL,
+        source_message TEXT NOT NULL, link_json TEXT NOT NULL,
+        template_json TEXT, released_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(guild_id, old_character_id, source_message)
+    )''')
+    db.execute('''INSERT OR IGNORE INTO rp_deleted_official_sheet_audit
+        (guild_id, old_character_id, source_message, link_json, template_json)
+        VALUES (?, ?, ?, ?, ?)''', (
+            gid, int(link['character_id']), mid,
+            json.dumps(dict(link), ensure_ascii=False),
+            json.dumps(dict(template), ensure_ascii=False) if template else None,
+        ))
+    if template:
+        db.execute('DELETE FROM rp_npc_templates_v23 WHERE id=? AND guild_id=?', (template['id'], gid))
+    db.execute('DELETE FROM character_sheet_links WHERE guild_id=? AND character_id=? AND message_id=?',
+               (gid, link['character_id'], mid))
+    return True
+
+
 def import_template(gid,message,channel,body,kind,preferred_owner=None,registered_by=None):
     name,fields,custom=parse_text(body)
     if kind not in ('player_npc','official_npc'):raise ValueError('NPC 類型不正確。')
@@ -254,11 +296,14 @@ async def finish_official_npc_import(i,channel,message,owner_id,overrides=None):
     color=str(fields.get('代表色碼') or fields.get('色碼') or '').strip()
     if not re.fullmatch(r'#[0-9a-fA-F]{6}', color):
         raise ValueError('代表色碼須填 #RRGGBB，例如 #AABBCC。')
-    with get_connection() as db:
+    links_init()
+    with transaction() as db:
         init(db)
+        # Previous admin cleanup may have only marked the role deleted.
+        # Release its source-message lock after verifying that exact role.
+        release_deleted_official_sheet(db, i.guild_id, message.id)
         if db.execute('SELECT 1 FROM rp_npc_templates_v23 WHERE guild_id=? AND source_message=?',(str(i.guild_id),str(message.id))).fetchone():
             raise ValueError('這張 NPC 角色單已經匯入，請不要重複登記。')
-    links_init()
     new_id=register_sheet(i.guild_id,i.user.id,i.guild.owner_id,'official_npc',name,channel.id,message.id,str(message.jump_url),character_owner_id=owner_id,birthday=f'{normalized[:2]}/{normalized[2:]}',authorized_admin=True)
     try:
         import_template(i.guild_id,message.id,channel.id,sheet_text,kind,preferred_owner=owner_id,registered_by=i.user.id)
