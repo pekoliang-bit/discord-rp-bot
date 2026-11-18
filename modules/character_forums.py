@@ -804,6 +804,12 @@ class CharacterForums(commands.Cog):
                 if (any(get_categories(guild.id).values()) or get_beta_category(guild.id)
                         or str(guild.id) == DEFAULT_GUILD_ID):
                     await self.run_scan(guild)
+                    # 官方角色使用獨立分類，沿用四帖綁定與授權；缺漏時補建。
+                    from modules.official_npc_channels import repair_official_npc_forums
+                    try:
+                        await repair_official_npc_forums(guild)
+                    except Exception:
+                        LOG.exception("官方 NPC 論壇背景補建失敗：%s", guild.id)
 
     @scan.before_loop
     async def before_scan(self):
@@ -960,8 +966,14 @@ class CharacterForums(commands.Cog):
             limit=100,
         )
 
+        from modules.official_npc_channels import repair_official_npc_forums
+        official_count, official_errors = await repair_official_npc_forums(
+            interaction.guild, limit=100, force=True,
+        )
+        count += official_count
+        failed.extend(official_errors)
         report = (
-            f"✅ 已檢查／補建 {count} 個角色論壇。"
+            f"✅ 已檢查／補建 {count} 個角色論壇（含官方 NPC）。"
         )
 
         if failed:
