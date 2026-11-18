@@ -110,6 +110,16 @@ def delete_selected(guild_id: int | str, actor_id: int | str, selected: list[int
                    WHERE guild_id=? AND id=? AND status<>'deleted'""",
                 (gid, row['id']),
             )
+            # Deleted official NPCs must be able to register from the same sheet again.
+            # Preserve old links/templates in an audit table before freeing unique keys.
+            sheet = db.execute(
+                'SELECT message_id FROM character_sheet_links WHERE guild_id=? AND character_id=?',
+                (gid, row['id']),
+            ).fetchone()
+            if sheet:
+                from modules.npc_history_v23 import release_deleted_official_sheet, init as npc_init
+                npc_init(db)
+                release_deleted_official_sheet(db, gid, sheet['message_id'])
             # 測試角色不再可編輯／領取。移除其 ACTIVE 映射，不清除沙盒歷史。
             try:
                 db.execute(
