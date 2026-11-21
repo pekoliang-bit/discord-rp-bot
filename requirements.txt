@@ -3,3 +3,5 @@ python-dotenv>=1.0,<2
 pytest>=8,<10
 
 regex>=2024.0.0,<2028  # Unicode emoji grapheme segmentation for bulk reaction rules
+
+libsql==0.1.11
