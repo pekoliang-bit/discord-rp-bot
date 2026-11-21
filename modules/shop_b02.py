@@ -497,3 +497,27 @@ class B02Shop(commands.Cog):
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(B02Shop(bot))
+
+
+# ====== 可覆寫的娛樂商品預設（只補缺漏，不修改已上架商品） ======
+def import_catalog(guild_id):
+    from pathlib import Path
+    template = (Path(__file__).resolve().parent.parent / 'assets' /
+                'shop_defaults' / 'b02_default.txt')
+    if not template.exists():
+        raise FileNotFoundError(f'缺少商品預設：{template}')
+    raw = template.read_text(encoding='utf-8')
+    lines = [line.strip() for line in raw.splitlines()
+             if line.strip() and not line.lstrip().startswith('#')]
+    parsed = parse_data('\n'.join(lines))
+    init_db()
+    gid = str(guild_id)
+    with transaction() as conn:
+        existing = {row['sku'] for row in conn.execute(
+            'SELECT sku FROM b02_catalog WHERE guild_id=?', (gid,))}
+    missing = [line for line, item in zip(lines, parsed)
+               if item['sku'] not in existing]
+    if not missing:
+        return '✅ B02 預設已齊全，沒有覆蓋既有商品及管理員修改。'
+    result = import_items(gid, '\n'.join(missing))
+    return f'🎁 B02 娛樂預設補貨：本次新增 {len(missing)} 件；已存在 {len(existing)} 件。\n{result}'
