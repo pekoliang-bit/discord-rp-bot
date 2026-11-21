@@ -7,6 +7,10 @@ from core.config import DATABASE_PATH
 
 
 def get_connection():
+    from core.turso_backend import configured, connect, require_staging_gate
+    if configured():
+        require_staging_gate()
+        return connect()
     path = Path(DATABASE_PATH)
     path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(str(path), timeout=30)
