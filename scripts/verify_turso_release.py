@@ -57,6 +57,8 @@ def constraint_probe():
                     pass
                 except Exception as exc:
                     failures.append(type(exc).__module__+'.'+type(exc).__name__)
+                    # Only synthetic probe SQL is used here; avoid dumping driver messages or credentials.
+                    print('TURSO_UNMAPPED_PROBE_ERROR:', type(exc).__name__, 'constraint probe', flush=True)
                 else:
                     failures.append('constraint unexpectedly accepted')
                 finally:
