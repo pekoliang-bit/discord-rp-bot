@@ -2161,90 +2161,88 @@ class CharacterView(commands.Cog):
         interaction: discord.Interaction,
         角色: str | None = None,
     ):
-        from modules.task_event_bridge import require_tutorial_channel, mark_tutorial_after_reply
-        allowed_tutorial, training_character_id = await require_tutorial_channel(interaction, '查看')
-        if not allowed_tutorial:
-            return
+        # Discord requires the initial acknowledgement within ~3 seconds.
+        # Never make a remote Turso query on the event loop before deferring.
+        await interaction.response.defer(ephemeral=True, thinking=True)
         try:
-            actor = Actor.from_interaction(
-                interaction
+            from modules.task_event_bridge import tutorial_context, mark_tutorial_after_reply
+
+            mode, training_character_id = await asyncio.to_thread(
+                tutorial_context, interaction, "查看"
             )
-
-            # 直接指定編號或完整名稱；不修改目前角色狀態。
-            if 角色 is not None and str(角色).strip():
-                keyword = str(角色).strip()
-                with get_connection() as conn:
-                    if keyword.isdecimal():
-                        rows = conn.execute(
-                            "SELECT * FROM characters WHERE guild_id=? AND id=?",
-                            (actor.guild_id, int(keyword)),
-                        ).fetchall()
-                    else:
-                        rows = conn.execute(
-                            "SELECT * FROM characters WHERE guild_id=? AND name=? COLLATE NOCASE ORDER BY id LIMIT 26",
-                            (actor.guild_id, keyword),
-                        ).fetchall()
-
-                allowed = [
-                    dict(row) for row in rows
-                    if can_see_character(actor, dict(row))
-                ]
-                if not allowed:
-                    raise InvalidState("找不到可查看的角色，請確認編號或完整名稱。")
-                if len(allowed) != 1:
-                    raise InvalidState("有多位角色使用相同名稱，請改用角色編號。")
-
-                character = allowed[0]
-                cid = int(character["id"])
-                await interaction.response.send_message(
-                    embed=make_character_embed(actor, cid),
-                    view=CharacterDetailView(
-                        actor, cid, get_category(character), keyword, 0,
-                    ),
-                    ephemeral=True,
+            if mode == "blocked":
+                await interaction.edit_original_response(
+                    content="🎓 尚未完成新手任務，請在自己角色論壇的「機器人使用」帖子開啟 `/查看` 教學。"
                 )
                 return
 
-            await interaction.response.send_message(
-                (
-                    "🎭 **角色資料中心**\n\n"
-                    "請先選擇角色分類，"
-                    "再選擇要查看的角色。\n\n"
-                    "📋 角色基本資料\n"
-                    "📈 十三項角色屬性\n"
-                    "📊 系統動態追蹤\n"
-                    "💰 公開貨幣資產\n"
-                    "🔒 私人資料與帳戶明細\n"
-                    "🎒 個人背包\n"
-                    "🎁 贈送物品\n"
-                    "✨ 使用與停用效果\n"
-                    "📦 批量使用物品\n\n"
-                    "背包操作僅限角色擁有者。"
-                ),
-                view=CategoryView(actor),
-                ephemeral=True,
-            )
-            mark_tutorial_after_reply(interaction, '查看', training_character_id)
+            actor = Actor.from_interaction(interaction)
+            keyword = str(角色 or "").strip()
+            if keyword:
+                def load_character():
+                    with get_connection() as conn:
+                        if keyword.isdecimal():
+                            rows = conn.execute(
+                                "SELECT * FROM characters WHERE guild_id=? AND id=? AND status != 'deleted'",
+                                (actor.guild_id, int(keyword)),
+                            ).fetchall()
+                        else:
+                            rows = conn.execute(
+                                "SELECT * FROM characters WHERE guild_id=? AND name=? COLLATE NOCASE AND status != 'deleted' ORDER BY id LIMIT 26",
+                                (actor.guild_id, keyword),
+                            ).fetchall()
+                    allowed = [dict(r) for r in rows if can_see_character(actor, dict(r))]
+                    if not allowed:
+                        raise InvalidState("找不到可查看的角色，請確認編號或完整名稱。")
+                    if len(allowed) != 1:
+                        raise InvalidState("有多位角色使用相同名稱，請改用角色編號。")
+                    character = allowed[0]
+                    cid = int(character["id"])
+                    return character, cid, make_character_embed(actor, cid)
 
-        except (
-            ValueError,
-            PermissionDenied,
-            InvalidState,
-        ) as exc:
-            await interaction.response.send_message(
-                f"⚠️ {exc}",
-                ephemeral=True,
-            )
+                character, cid, embed = await asyncio.to_thread(load_character)
+                await interaction.edit_original_response(
+                    content=None,
+                    embed=embed,
+                    view=CharacterDetailView(
+                        actor, cid, get_category(character), keyword, 0,
+                    ),
+                )
+            else:
+                await interaction.edit_original_response(
+                    content=(
+                        "🎭 **角色資料中心**\n\n"
+                        "請先選擇角色分類，再選擇要查看的角色。\n\n"
+                        "📋 角色基本資料\n"
+                        "📈 十三項角色屬性\n"
+                        "📊 系統動態追蹤\n"
+                        "💰 公開貨幣資產\n"
+                        "🔒 私人資料與帳戶明細\n"
+                        "🎒 個人背包\n"
+                        "🎁 贈送物品\n"
+                        "✨ 使用與停用效果\n"
+                        "📦 批量使用物品\n\n"
+                        "背包操作僅限角色擁有者。"
+                    ),
+                    view=CategoryView(actor),
+                )
 
-        except sqlite3.Error:
-            LOG.exception(
-                "角色查看系統發生資料庫錯誤"
-            )
-
-            await interaction.response.send_message(
-                "⚠️ 角色資料讀取失敗，請聯絡管理員。",
-                ephemeral=True,
-            )
+            if training_character_id is not None:
+                await asyncio.to_thread(
+                    mark_tutorial_after_reply, interaction, "查看", training_character_id
+                )
+        except (ValueError, PermissionDenied, InvalidState) as exc:
+            await interaction.edit_original_response(content=f"⚠️ {exc}", embed=None, view=None)
+        except Exception:
+            LOG.exception("/查看 互動處理失敗；請在 Render Logs 查看錯誤堆疊")
+            try:
+                await interaction.edit_original_response(
+                    content="⚠️ 角色資料讀取失敗，請管理員檢查 Render Logs。",
+                    embed=None,
+                    view=None,
+                )
+            except discord.HTTPException:
+                LOG.exception("/查看 發送錯誤提示失敗")
 
 
 async def setup(bot: commands.Bot):
