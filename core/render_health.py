@@ -49,6 +49,14 @@ class _Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
+    def do_HEAD(self) -> None:
+        path = self.path.split('?', 1)[0]
+        code = 200 if path == '/' else (200 if _ready.is_set() else 503) if path in ('/healthz', '/ready') else 404
+        self.send_response(code)
+        self.send_header('Content-Length', '0')
+        self.send_header('Cache-Control', 'no-store')
+        self.end_headers()
+
     def log_message(self, fmt: str, *args: object) -> None:
         # Render checks the endpoint repeatedly; don't flood logs.
         if self.path.split('?', 1)[0] not in ('/', '/healthz', '/ready'):
