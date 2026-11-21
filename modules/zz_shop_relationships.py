@@ -31,6 +31,11 @@ def init_tables():
             kind TEXT NOT NULL, points INTEGER NOT NULL DEFAULT 0,
             PRIMARY KEY(guild_id,a,b,kind), CHECK(a < b), CHECK(points >= 0)
         );
+        CREATE TABLE IF NOT EXISTS rp_gift_preferences (
+            guild_id TEXT NOT NULL, character_id INTEGER NOT NULL,
+            liked TEXT NOT NULL DEFAULT '', disliked TEXT NOT NULL DEFAULT '',
+            PRIMARY KEY (guild_id, character_id)
+        );
         CREATE TABLE IF NOT EXISTS rp_relationship_events (
             guild_id TEXT NOT NULL, event_key TEXT NOT NULL,
             a INTEGER NOT NULL, b INTEGER NOT NULL, kind TEXT NOT NULL,
@@ -106,22 +111,92 @@ def award_cp_for_purchase(actor, buyer_id, product_id):
         return messages
 
 
-def award_gift(actor, sender_id, recipient_id, product_id, quantity, request_key):
-    """贈送成功後增加贈送者→收禮者的關係分數；500 元 1 點，不足 500 最少 1 點。"""
+GIFT_STORES = {
+    "B01": "服飾精品", "B02": "美妝保養", "B03": "珠寶鐘錶",
+    "B04": "數位科技", "B05": "演藝用品", "B06": "書籍文具",
+    "B07": "家居生活", "B08": "娛樂收藏", "B09": "特殊道具",
+}
+
+
+def parse_preference_codes(value):
+    '''接受 B02、B03 或空白；不可把未登記的分類當成喜好。'''
+    value = str(value or '').strip().upper().replace('，', ',').replace('、', ',')
+    codes = [part.strip() for part in value.split(',') if part.strip()]
+    if len(codes) > 3 or len(codes) != len(set(codes)):
+        raise ValueError('每項最多設定三個不同的商店代碼。')
+    if any(code not in GIFT_STORES for code in codes):
+        raise ValueError('請使用 B01～B09 商店代碼，以逗號分隔。')
+    return codes
+
+
+def set_gift_preferences(actor, character_id, liked, disliked):
+    likes = parse_preference_codes(liked)
+    dislikes = parse_preference_codes(disliked)
+    if set(likes) & set(dislikes):
+        raise ValueError('同一分類不能同時設定喜歡與不喜歡。')
     with transaction() as db:
-        ev = db.execute("""SELECT 1 FROM shop_events WHERE guild_id=? AND event_key=?
-             AND kind='gift'""", (actor.guild_id, f"gift:{request_key}")).fetchone()
-        if ev is None:
+        shop.require_character(db, actor, int(character_id))
+        db.execute('''INSERT INTO rp_gift_preferences(guild_id,character_id,liked,disliked)
+          VALUES(?,?,?,?) ON CONFLICT(guild_id,character_id) DO UPDATE SET
+          liked=excluded.liked,disliked=excluded.disliked''',
+          (str(actor.guild_id), int(character_id), ','.join(likes), ','.join(dislikes)))
+    return f"🎁 收禮喜好已更新！喜歡：{', '.join(likes) or '未設定'}；不喜歡：{', '.join(dislikes) or '未設定'}。"
+
+
+def gift_base_points(price):
+    '''每件禮物的基礎好感；價格上限同檔次，避免天價商品無限加成。'''
+    price = max(0, int(price))
+    if price < 1000: return 1
+    if price < 5000: return 2 + (price - 1000) * 3 // 4000
+    if price < 10000: return 5 + (price - 5000) * 5 // 5000
+    if price < 30000: return 10 + (price - 10000) * 10 // 20000
+    if price < 60000: return 20 + (price - 30000) * 15 // 30000
+    return 35 + min(15, (price - 60000) * 15 // 60000)
+
+
+def calculate_gift_points(price, quantity, store_code, liked='', disliked=''):
+    quantity = int(quantity)
+    if quantity <= 0:
+        raise ValueError('贈禮數量必須大於零。')
+    base = gift_base_points(price) * quantity
+    likes = set(parse_preference_codes(liked))
+    dislikes = set(parse_preference_codes(disliked))
+    if store_code in likes:
+        return (base * 3 + 1) // 2, '喜歡 ×1.5'
+    if store_code in dislikes:
+        return max(1, base // 2), '不喜歡 ×0.5'
+    return base, '一般喜好 ×1'
+
+
+def award_gift_in_transaction(db, actor, sender_id, recipient_id, product_id, quantity, request_key):
+    '''與商品轉讓使用相同資料庫交易，確保不會只有物品轉移而漏算好感。'''
+    event_key = f'gift:{request_key}'
+    product = db.execute('''SELECT price,category,scope FROM shop_products
+        WHERE guild_id=? AND id=?''', (str(actor.guild_id), product_id)).fetchone()
+    if product is None:
+        raise InvalidState('商品不存在。')
+    preference = db.execute('''SELECT liked,disliked FROM rp_gift_preferences
+        WHERE guild_id=? AND character_id=?''',
+        (str(actor.guild_id), recipient_id)).fetchone()
+    code = shop.get_product_store_code(product)
+    points, reason = calculate_gift_points(
+        product['price'], quantity, code,
+        preference['liked'] if preference else '',
+        preference['disliked'] if preference else '')
+    added = add_score(db, str(actor.guild_id), sender_id, recipient_id,
+                      'gift', points, event_key, product_id)
+    return f'💝 贈禮好感度 +{added}（{reason}）' if added else None
+
+
+def award_gift(actor, sender_id, recipient_id, product_id, quantity, request_key):
+    '''相容舊呼叫者；如交易內已發獎，不再重複計分。'''
+    with transaction() as db:
+        event = db.execute('''SELECT 1 FROM shop_events WHERE guild_id=? AND event_key=?
+          AND kind='gift' ''', (str(actor.guild_id), f'gift:{request_key}')).fetchone()
+        if event is None:
             return None
-        product = db.execute("SELECT price FROM shop_products WHERE guild_id=? AND id=?",
-                             (actor.guild_id, product_id)).fetchone()
-        if not product:
-            return None
-        value = int(product["price"]) * int(quantity)
-        points = max(1, value // 500)
-        added = add_score(db, actor.guild_id, sender_id, recipient_id,
-                          "gift", points, f"gift:{request_key}", product_id)
-        return f"💝 贈禮關係好感度 +{added}（價值 {value:,} 金幣）。" if added else None
+        return award_gift_in_transaction(db, actor, sender_id, recipient_id,
+                                         product_id, quantity, request_key)
 
 
 def relationship_text(actor, character_id):
@@ -170,6 +245,27 @@ class CPAdminButton(discord.ui.Button):
         await interaction.response.send_modal(CPModal())
 
 
+class GiftPreferenceModal(discord.ui.Modal, title="🎁 設定角色收禮喜好"):
+    liked = discord.ui.TextInput(label="喜歡的商店代碼（最多 3 個）", required=False,
+          placeholder="例如 B02,B03", max_length=40)
+    disliked = discord.ui.TextInput(label="不喜歡的商店代碼（最多 3 個）", required=False,
+          placeholder="例如 B04", max_length=40)
+
+    def __init__(self, character_id):
+        super().__init__()
+        self.character_id = int(character_id)
+
+    async def on_submit(self, interaction):
+        await interaction.response.defer(ephemeral=True)
+        actor = Actor.from_interaction(interaction)
+        try:
+            result = await asyncio.to_thread(set_gift_preferences, actor, self.character_id,
+                str(self.liked.value), str(self.disliked.value))
+        except (InvalidState, PermissionDenied, ValueError) as exc:
+            result = f"⚠️ {exc}"
+        await interaction.followup.send(result, ephemeral=True)
+
+
 class BagMenu(discord.ui.View):
     def __init__(self, actor, character_id):
         super().__init__(timeout=600)
@@ -203,6 +299,10 @@ class BagMenu(discord.ui.View):
     async def use(self, interaction, button):
         context = SimpleNamespace(owner_id=interaction.user.id, character_id=self.character_id)
         await interaction.response.send_modal(shop.ShopActionModal(context, "use"))
+
+    @discord.ui.button(label="🎀 收禮喜好", style=discord.ButtonStyle.secondary)
+    async def gift_preferences(self, interaction, button):
+        await interaction.response.send_modal(GiftPreferenceModal(self.character_id))
 
     @discord.ui.button(label="🧥 停用效果", style=discord.ButtonStyle.secondary)
     async def stop(self, interaction, button):
