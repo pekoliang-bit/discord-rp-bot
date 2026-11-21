@@ -14,6 +14,7 @@
 from __future__ import annotations
 
 import hashlib
+import os
 import json
 import sqlite3
 import sys
@@ -35,6 +36,8 @@ BACKUP_DIR = ROOT / "backups"
 
 
 def resolve_database() -> Path:
+    if os.getenv("TURSO_DATABASE_URL") or os.getenv("TURSO_AUTH_TOKEN") or os.getenv("RENDER"):
+        raise RuntimeError("雲端資料庫不能使用本機備份腳本；請從 Turso 後台匯出 SQLite File。")
     path = Path(DATABASE_PATH).expanduser()
 
     if not path.is_absolute():
