@@ -56,6 +56,8 @@ STORES = {
 }
 
 AUTO_STORES = {
+    "B02",
+    "B04",
     "B03",
     "B05",
     "B06",
@@ -172,8 +174,8 @@ def panel_text(store="", guild_id=None):
         "請選擇商品管理功能，"
         "或從下方選擇 B01～B10 商店。",
         "",
-        "📦 固定商品：可直接批量上架",
-        "📋 B02、B04：使用文字匯入",
+        "📦 B02～B08：可按店補齊缺少的娛樂預設",
+        "📋 B02、B04：仍可另外文字匯入",
         "⚙️ 可設定商品使用次數",
         "📍 可設定商店販售位置與連結",
         "🔎 可查詢商品登記進度",
@@ -206,7 +208,7 @@ def panel_text(store="", guild_id=None):
         elif store in TEXT_STORES:
             lines.extend([
                 "",
-                "📋 本商店使用文字批量匯入。",
+                "📋 可補齊內建預設，或自行文字匯入。",
             ])
 
         elif store == "B09":
@@ -600,6 +602,69 @@ class StoreSelect(discord.ui.Select):
         )
 
 
+
+class TemplateProductEditModal(discord.ui.Modal, title="編輯娛樂商城商品"):
+    """修改已上架商品；只改明確輸入的欄位，不覆蓋效果與玩家背包。"""
+    product_id = discord.ui.TextInput(label="商城商品編號", required=True, max_length=12)
+    name = discord.ui.TextInput(label="新名稱（留空保留）", required=False, max_length=100)
+    price = discord.ui.TextInput(label="新價格（留空保留）", required=False, max_length=15)
+    description = discord.ui.TextInput(label="新介紹（留空保留）", required=False, max_length=500,
+                                       style=discord.TextStyle.paragraph)
+
+    async def on_submit(self, interaction):
+        if not permitted(interaction):
+            await interaction.response.send_message("⛔ 沒有商城管理權限。", ephemeral=True)
+            return
+        try:
+            pid = int(self.product_id.value)
+            if pid <= 0:
+                raise ValueError("商品編號必須大於 0")
+            new_name = str(self.name.value or '').strip()
+            new_price = str(self.price.value or '').strip()
+            new_desc = str(self.description.value or '').strip()
+            if not (new_name or new_price or new_desc):
+                raise ValueError("至少填寫一項要修改的內容")
+            if new_price:
+                n = int(new_price)
+                if n < 0 or n > 10**15:
+                    raise ValueError("價格不合法")
+        except ValueError as exc:
+            await interaction.response.send_message(f"⚠️ {exc}", ephemeral=True)
+            return
+        await interaction.response.defer(ephemeral=True)
+        try:
+            from core.database import transaction
+            from modules import shop
+            def update():
+                shop.init_shop_db()
+                with transaction() as conn:
+                    row = conn.execute(
+                        "SELECT id,category FROM shop_products WHERE guild_id=? AND id=?",
+                        (str(interaction.guild_id), pid)).fetchone()
+                    if row is None:
+                        raise ValueError("這個伺服器找不到商品編號")
+                    if not str(row['category']).startswith(tuple(f'B{i:02}-' for i in range(2,9))):
+                        raise ValueError("此功能只修改 B02～B08 娛樂商品")
+                    parts = []
+                    values = []
+                    if new_name:
+                        parts.append('name=?'); values.append(new_name)
+                    if new_price:
+                        parts.append('price=?'); values.append(n)
+                    if new_desc:
+                        parts.append('description=?'); values.append(new_desc)
+                    parts.append('updated_at=?'); values.append(shop.utc_now())
+                    values.extend((str(interaction.guild_id), pid))
+                    conn.execute('UPDATE shop_products SET '+', '.join(parts)+
+                                 ' WHERE guild_id=? AND id=?', tuple(values))
+                return f'✅ 商品 #{pid} 修改成功。已購商品、使用次數及效果未變。'
+            result = await asyncio.to_thread(update)
+        except Exception as exc:
+            LOG.exception('商品預設編輯失敗')
+            result = f'⚠️ 修改失敗：{exc}'
+        await interaction.followup.send(result[:1800], ephemeral=True)
+
+
 # ==========================================
 # 商城管理主面板
 # ==========================================
@@ -694,7 +759,7 @@ class ShopManageView(discord.ui.View):
     # ======================================
 
     @discord.ui.button(
-        label="📦 批量上架",
+        label="📦 補齊預設",
         style=discord.ButtonStyle.success,
         row=2,
     )
@@ -885,6 +950,39 @@ class ShopManageView(discord.ui.View):
                 self.store,
             ),
         )
+
+    @discord.ui.button(
+        label="🛍️ 七店補齊預設", style=discord.ButtonStyle.success, row=3,
+    )
+    async def restore_all_defaults(self, interaction, button):
+        try:
+            require_owner(interaction)
+        except PermissionError as exc:
+            await interaction.response.send_message(f"⛔ {exc}", ephemeral=True)
+            return
+        await interaction.response.defer(ephemeral=True)
+        results = []
+        for code in ("B02", "B03", "B04", "B05", "B06", "B07", "B08"):
+            try:
+                result = await asyncio.to_thread(auto_publish, interaction.guild_id, code)
+                results.append(f"✅ {code}：{str(result).splitlines()[0][:95]}")
+            except Exception as exc:
+                LOG.exception("娛樂預設補貨失敗：%s", code)
+                results.append(f"⚠️ {code}：{type(exc).__name__}；請查看 Render Logs")
+        await interaction.followup.send(
+            "**七間娛樂預設商品補貨結果**\n" + "\n".join(results)
+            + "\n原有商品、玩家庫存、金幣均未要求重置。",
+            ephemeral=True,
+        )
+
+    @discord.ui.button(
+        label="✏️ 編輯預設商品", style=discord.ButtonStyle.secondary, row=3,
+    )
+    async def edit_template_details(self, interaction, button):
+        if not permitted(interaction):
+            await interaction.response.send_message("⛔ 沒有商品管理權限。", ephemeral=True)
+            return
+        await interaction.response.send_modal(TemplateProductEditModal())
 
     # ======================================
     # 返回官方管理功能中心
