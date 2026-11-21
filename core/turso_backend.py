@@ -1,5 +1,6 @@
 """Remote libSQL compatibility candidate. Never opens a local database."""
 import os
+import re
 import sqlite3
 from urllib.parse import urlsplit
 
@@ -15,6 +16,25 @@ def credentials():
     if p.scheme != 'libsql' or not p.hostname or p.username or p.password or p.query or p.fragment or not token:
         raise RuntimeError('Turso URL／Token 缺失或格式錯誤；禁止回退本機 SQLite。')
     return url, token
+
+
+# The native libsql driver can wrap SQLite errors in ValueError. Only
+# classify recognizable database errors; never retry a failed write/commit.
+_CONSTRAINT = re.compile(r"\b(?:SQLITE_CONSTRAINT(?:_[A-Z]+)*|(?:UNIQUE|CHECK|NOT NULL|FOREIGN KEY|PRIMARY KEY) constraint failed|constraint violation|constraint failed)\b", re.I)
+_OPERATIONAL = re.compile(r"\b(?:SQLITE_(?:BUSY|LOCKED|READONLY|CANTOPEN|IOERR|FULL|INTERRUPT|ERROR)(?:_[A-Z]+)*|database (?:is locked|is busy|is read.only)|no such (?:table|column|index|function)|syntax error|SQL logic error|cannot start a transaction within a transaction)\b", re.I)
+
+
+def driver_call(fn, *args, **kwargs):
+    try:
+        return fn(*args, **kwargs)
+    except ValueError as exc:
+        msg = str(exc)
+        code = getattr(exc, 'sqlite_errorcode', None)
+        if (isinstance(code, int) and code & 255 == sqlite3.SQLITE_CONSTRAINT) or _CONSTRAINT.search(msg):
+            raise sqlite3.IntegrityError(msg) from exc
+        if _OPERATIONAL.search(msg):
+            raise sqlite3.OperationalError(msg) from exc
+        raise
 
 
 class Row:
@@ -71,11 +91,11 @@ class Cursor:
         return self.raw.lastrowid
 
     def execute(self, sql, parameters=()):
-        self.raw.execute(sql, parameters)
+        driver_call(self.raw.execute, sql, parameters)
         return self
 
     def executemany(self, sql, parameters):
-        self.raw.executemany(sql, list(parameters))
+        driver_call(self.raw.executemany, sql, list(parameters))
         return self
 
     def _row(self, row):
@@ -86,13 +106,13 @@ class Cursor:
         return self.connection.row_factory(self, row)
 
     def fetchone(self):
-        return self._row(self.raw.fetchone())
+        return self._row(driver_call(self.raw.fetchone))
 
     def fetchall(self):
-        return [self._row(r) for r in self.raw.fetchall()]
+        return [self._row(r) for r in driver_call(self.raw.fetchall)]
 
     def fetchmany(self, size=None):
-        return [self._row(r) for r in (self.raw.fetchmany() if size is None else self.raw.fetchmany(size))]
+        return [self._row(r) for r in (driver_call(self.raw.fetchmany) if size is None else driver_call(self.raw.fetchmany, size))]
 
     def __iter__(self):
         while True:
@@ -112,7 +132,7 @@ class Connection:
         return self.raw.in_transaction
 
     def cursor(self):
-        return Cursor(self, self.raw.cursor())
+        return Cursor(self, driver_call(self.raw.cursor))
 
     def execute(self, sql, parameters=()):
         return self.cursor().execute(sql, parameters)
@@ -127,10 +147,10 @@ class Connection:
         return self.cursor()
 
     def commit(self):
-        self.raw.commit()
+        driver_call(self.raw.commit)
 
     def rollback(self):
-        self.raw.rollback()
+        driver_call(self.raw.rollback)
 
     def close(self):
         self.raw.close()
