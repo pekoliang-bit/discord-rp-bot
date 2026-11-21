@@ -929,6 +929,8 @@ async def on_app_command_error(
 
 def main():
     """Discord 暫時限制登入時低頻重試，避免部署平台快速重啟形成請求風暴。"""
+    from core.turso_backend import require_staging_gate
+    require_staging_gate()
     start_health_server()  # Bind PORT before Discord login and module initialization.
     cooldown = 15 * 60
     try:
