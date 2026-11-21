@@ -185,7 +185,29 @@ def connect():
 
 
 def require_staging_gate():
-    if configured():
-        credentials()
-        if os.getenv('RP_TURSO_MODE') != 'staging':
-            raise RuntimeError('Turso 尚未完成實機驗證；僅允許 RP_TURSO_MODE=staging 的隔離測試，禁止正式啟動。')
+    """Common database access gate: both explicitly selected modes use Turso.
+
+    Existing staging-only probes separately require RP_TURSO_MODE=staging.
+    Production requires a deliberate acknowledgement, not merely a mode typo.
+    """
+    if not configured():
+        return
+    credentials()
+    mode = os.getenv('RP_TURSO_MODE', '').strip()
+    if mode == 'staging':
+        return
+    if mode == 'production':
+        require_production_gate()
+        return
+    raise RuntimeError('RP_TURSO_MODE 必須明確設定為 staging 或 production；禁止回退本機 SQLite。')
+
+
+def require_production_gate():
+    """Fail closed unless production was explicitly enabled."""
+    if not configured():
+        raise RuntimeError('正式啟動必須設定 TURSO_DATABASE_URL 與 TURSO_AUTH_TOKEN。')
+    credentials()
+    if os.getenv('RP_TURSO_MODE', '').strip() != 'production':
+        raise RuntimeError('正式啟動需要 RP_TURSO_MODE=production；測試模式禁止 Discord 登入。')
+    if os.getenv('RP_TURSO_PRODUCTION_ACK', '').strip() != 'I_ACCEPT_FRESH_DATABASE':
+        raise RuntimeError('請先驗證新資料庫並設定 RP_TURSO_PRODUCTION_ACK=I_ACCEPT_FRESH_DATABASE。')
