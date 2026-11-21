@@ -456,8 +456,12 @@ def gift(
             product_id,
             quantity,
         )
+        from modules.zz_shop_relationships import award_gift_in_transaction
+        gift_message = award_gift_in_transaction(conn, actor, sender_id,
+            recipient_id, product_id, quantity, request_key)
 
         return (
+            (gift_message + "\n" if gift_message else "") +
             f"🎁 已贈送 {quantity} 件商品"
             f"給角色 #{recipient_id}。\n"
             "每件剩餘使用次數完整保留。"
