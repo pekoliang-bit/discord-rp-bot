@@ -120,7 +120,23 @@ def read_rumor_event(
         else DATABASE_PATH
     ).expanduser()
 
-    with _open_readonly(path) as db:
+    from core.turso_backend import configured, require_staging_gate, connect
+    from contextlib import closing
+    if configured():
+        require_staging_gate()
+        if db_path is not None:
+            raise RuntimeError('雲端模式禁止指定本機傳聞資料庫')
+        connection = connect()
+        try:
+            connection.execute('PRAGMA query_only = ON')
+            if connection.execute('PRAGMA query_only').fetchone()[0] != 1:
+                raise RuntimeError('無法確認唯讀模式')
+        except Exception:
+            connection.close()
+            raise
+    else:
+        connection = _open_readonly(path)
+    with closing(connection) as db:
         if not _has_table(
             db,
             "rp_company_rumors",
