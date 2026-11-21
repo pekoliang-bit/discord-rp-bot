@@ -1,4 +1,3 @@
-
 """Discord RP｜B04 數位科技店。
 
 檔案：modules/shop_b04.py
@@ -656,3 +655,27 @@ async def setup(bot: commands.Bot):
     LOG.info(
         "B04 數位科技商品管理模組已載入。"
     )
+
+
+# ====== 可覆寫的娛樂商品預設（只補缺漏，不修改已上架商品） ======
+def import_catalog(guild_id):
+    from pathlib import Path
+    template = (Path(__file__).resolve().parent.parent / 'assets' /
+                'shop_defaults' / 'b04_default.txt')
+    if not template.exists():
+        raise FileNotFoundError(f'缺少商品預設：{template}')
+    raw = template.read_text(encoding='utf-8')
+    lines = [line.strip() for line in raw.splitlines()
+             if line.strip() and not line.lstrip().startswith('#')]
+    parsed = parse_items('\n'.join(lines))
+    initialize()
+    gid = str(guild_id)
+    with transaction() as conn:
+        existing = {row['sku'] for row in conn.execute(
+            'SELECT sku FROM b04_catalog WHERE guild_id=?', (gid,))}
+    missing = [line for line, item in zip(lines, parsed)
+               if item['sku'] not in existing]
+    if not missing:
+        return '✅ B04 預設已齊全，沒有覆蓋既有商品及管理員修改。'
+    result = import_products(gid, '\n'.join(missing))
+    return f'🎁 B04 娛樂預設補貨：本次新增 {len(missing)} 件；已存在 {len(existing)} 件。\n{result}'
